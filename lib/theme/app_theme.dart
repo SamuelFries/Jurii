@@ -1,17 +1,23 @@
 import 'package:flutter/material.dart';
 
 class AppTheme {
-  // Cores da Jurii
-  static const Color primary = Color(0xFF0D234B); // Azul marinho
-  static const Color accent = Color(0xFFC9A227); // Dourado
+  // Cores oficiais da Jurii (Figma)
 
-  static const Color background = Color(0xFFF5F5F7);
+  static const Color primary = Color(0xFF0A1C3B);
+  static const Color accent = Color(0xFFB8972A);
+
+  static const Color background = Color(0xFFF7F8FC);
 
   static const Color card = Colors.white;
 
-  static const Color textPrimary = Color(0xFF0D234B);
+  static const Color textPrimary = Color(0xFF0A1C3B);
+  static const Color textSecondary = Color(0xFF6B7A99);
 
-  static const Color textSecondary = Color(0xFF6E7A96);
+  static const Color lightBlue = Color(0xFFEEF1F8);
+  static const Color lightBlueBorder = Color(0xFFC5CFE8);
+
+  static const Color lightGold = Color(0xFFFDF6E3);
+  static const Color lightGoldBorder = Color(0xFFE8D5A0);
 
   static ThemeData get lightTheme {
     return ThemeData(
@@ -23,7 +29,6 @@ class AppTheme {
         seedColor: primary,
         primary: primary,
         secondary: accent,
-        background: background,
       ),
 
       appBarTheme: const AppBarTheme(
@@ -35,28 +40,29 @@ class AppTheme {
 
       cardTheme: CardThemeData(
         color: card,
-        elevation: 2,
+        elevation: 1.5,
+        shadowColor: Color(0x140A1C3B),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(20),
         ),
       ),
 
       textTheme: const TextTheme(
         headlineLarge: TextStyle(
           fontSize: 32,
-          fontWeight: FontWeight.bold,
+          fontWeight: FontWeight.w700,
           color: textPrimary,
         ),
 
         headlineMedium: TextStyle(
           fontSize: 24,
-          fontWeight: FontWeight.bold,
+          fontWeight: FontWeight.w700,
           color: textPrimary,
         ),
 
         titleLarge: TextStyle(
           fontSize: 20,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w700,
           color: textPrimary,
         ),
 
@@ -74,7 +80,7 @@ class AppTheme {
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: Colors.white,
 
-        indicatorColor: accent.withOpacity(0.15),
+        indicatorColor: accent.withOpacity(0.12),
 
         labelTextStyle: WidgetStateProperty.all(
           const TextStyle(
@@ -88,26 +94,38 @@ class AppTheme {
           backgroundColor: primary,
           foregroundColor: Colors.white,
 
-          minimumSize: const Size(120, 56),
+          minimumSize: const Size(110, 48),
+
+          elevation: 0,
 
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(12),
           ),
         ),
       ),
 
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: Colors.white,
+
+        fillColor: background,
+
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 20,
+          vertical: 16,
+        ),
 
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide.none,
+          borderSide: const BorderSide(
+            color: Color(0x220A1C3B),
+          ),
         ),
 
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide.none,
+          borderSide: const BorderSide(
+            color: Color(0x220A1C3B),
+          ),
         ),
 
         focusedBorder: OutlineInputBorder(
