@@ -38,7 +38,7 @@ class HomeScreen extends StatelessWidget {
                 ],
               ),
 
-              const SizedBox(height: 32),
+              const SizedBox(height: 24),
 
               const Text(
                 'Como podemos ajudar hoje?',
@@ -50,7 +50,6 @@ class HomeScreen extends StatelessWidget {
 
               const SizedBox(height: 24),
 
-              // Busca
               TextField(
                 decoration: InputDecoration(
                   hintText: 'Descreva seu problema jurídico',
@@ -73,7 +72,6 @@ class HomeScreen extends StatelessWidget {
 
               const SizedBox(height: 40),
 
-              // Categorias
               const Text(
                 'Categorias Populares',
                 style: TextStyle(
@@ -123,43 +121,35 @@ class HomeScreen extends StatelessWidget {
 
               const SizedBox(height: 20),
 
-              Card(
-                child: Padding(
-                  padding: EdgeInsets.all(20),
-                  child: Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 30,
-                        child: Text('FA'),
-                      ),
-
-                      SizedBox(width: 16),
-
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Fries Advogados',
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            SizedBox(height: 6),
-                            Text('⭐ 4.9 • 1,8 km'),
-                          ],
-                        ),
-                      ),
-
-                      ElevatedButton(
-                        onPressed: null,
-                        child: Text('Perfil'),
-                      ),
-                    ],
-                  ),
-                ),
+              const _OfficeCard(
+                initials: 'FA',
+                officeName: 'Fries Advogados',
+                rating: '4.9',
+                distance: '1,8 km',
+                specialty: 'Direito Trabalhista',
               ),
+
+              const SizedBox(height: 16),
+
+              const _OfficeCard(
+                initials: 'SA',
+                officeName: 'Silva & Associados',
+                rating: '4.8',
+                distance: '2,4 km',
+                specialty: 'Direito de Família',
+              ),
+
+              const SizedBox(height: 16),
+
+              const _OfficeCard(
+                initials: 'MA',
+                officeName: 'Moura Advogados',
+                rating: '4.7',
+                distance: '3,1 km',
+                specialty: 'Direito do Consumidor',
+              ),
+
+              const SizedBox(height: 40),
             ],
           ),
         ),
@@ -191,8 +181,97 @@ class _CategoryCard extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               title,
+              textAlign: TextAlign.center,
               style: const TextStyle(
                 fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _OfficeCard extends StatelessWidget {
+  final String initials;
+  final String officeName;
+  final String rating;
+  final String distance;
+  final String specialty;
+
+  const _OfficeCard({
+    required this.initials,
+    required this.officeName,
+    required this.rating,
+    required this.distance,
+    required this.specialty,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 30,
+              child: Text(
+                initials,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+
+            const SizedBox(width: 16),
+
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    officeName,
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+
+                  const SizedBox(height: 6),
+
+                  Text(
+                    '⭐ $rating • $distance',
+                  ),
+
+                  const SizedBox(height: 6),
+
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEFF2F8),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      specialty,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            SizedBox(
+              width: 110,
+              child: ElevatedButton(
+                onPressed: () {},
+                child: const Text('Perfil'),
               ),
             ),
           ],
