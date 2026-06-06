@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
 
 class CategoryCard extends StatelessWidget {
   final String emoji;
@@ -21,13 +22,9 @@ class CategoryCard extends StatelessWidget {
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: isGold
-              ? const Color(0xFFFDF6E3)
-              : const Color(0xFFEEF1F8),
+          color: isGold ? AppTheme.lightGold : AppTheme.lightBlue,
           border: Border.all(
-            color: isGold
-                ? const Color(0xFFE8D5A0)
-                : const Color(0xFFC5CFE8),
+            color: isGold ? AppTheme.lightGoldBorder : AppTheme.lightBlueBorder,
             width: 1.5,
           ),
           borderRadius: BorderRadius.circular(16),
@@ -35,10 +32,7 @@ class CategoryCard extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(
-              emoji,
-              style: const TextStyle(fontSize: 28),
-            ),
+            Text(emoji, style: const TextStyle(fontSize: 28)),
             const SizedBox(height: 8),
             Text(
               title,
@@ -46,7 +40,7 @@ class CategoryCard extends StatelessWidget {
               style: const TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF0A1C3B),
+                color: AppTheme.textPrimary,
               ),
             ),
           ],
