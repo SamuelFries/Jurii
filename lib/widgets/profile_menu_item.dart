@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
 
 class ProfileMenuItem {
   final IconData icon;
@@ -45,7 +46,7 @@ class ProfileMenuItemTile extends StatelessWidget {
             style: const TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w500,
-              color: Color(0xFF0A1C3B),
+              color: AppTheme.textPrimary,
             ),
           ),
           subtitle: item.subtitle != null
@@ -53,11 +54,11 @@ class ProfileMenuItemTile extends StatelessWidget {
                   item.subtitle!,
                   style: const TextStyle(
                     fontSize: 12,
-                    color: Colors.grey,
+                    color: AppTheme.textSecondary,
                   ),
                 )
               : null,
-          trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+          trailing: const Icon(Icons.chevron_right, color: AppTheme.textSecondary),
           onTap: item.onTap,
         ),
         if (showDivider)

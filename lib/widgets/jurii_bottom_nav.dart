@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
 
 class JuriiBottomNav extends StatelessWidget {
   final int currentIndex;
@@ -12,9 +13,6 @@ class JuriiBottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const primary = Color(0xFF0D234B);
-    const accent = Color(0xFFC9A227);
-
     final items = [
       (Icons.home_outlined, Icons.home, 'Início'),
       (Icons.chat_bubble_outline, Icons.chat_bubble, 'Mensagens'),
@@ -25,11 +23,9 @@ class JuriiBottomNav extends StatelessWidget {
     return Container(
       height: 90,
       decoration: const BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.card,
         border: Border(
-          top: BorderSide(
-            color: Color(0xFFEAEAEA),
-          ),
+          top: BorderSide(color: AppTheme.lightBlueBorder),
         ),
       ),
       child: Row(
@@ -51,7 +47,7 @@ class JuriiBottomNav extends StatelessWidget {
                             width: 40,
                             height: 4,
                             decoration: BoxDecoration(
-                              color: accent,
+                              color: AppTheme.accent,
                               borderRadius: BorderRadius.circular(99),
                             ),
                           )
@@ -65,17 +61,16 @@ class JuriiBottomNav extends StatelessWidget {
                     children: [
                       Icon(
                         selected ? items[index].$2 : items[index].$1,
-                        color: selected ? primary : Colors.grey,
+                        color: selected ? AppTheme.primary : Colors.grey,
                         size: 28,
                       ),
-
                       if (selected)
-                        const Positioned(
+                        Positioned(
                           top: -2,
                           right: -2,
                           child: CircleAvatar(
                             radius: 4,
-                            backgroundColor: accent,
+                            backgroundColor: AppTheme.accent,
                           ),
                         ),
                     ],
@@ -86,7 +81,7 @@ class JuriiBottomNav extends StatelessWidget {
                   Text(
                     items[index].$3,
                     style: TextStyle(
-                      color: selected ? primary : Colors.grey,
+                      color: selected ? AppTheme.primary : Colors.grey,
                       fontWeight:
                           selected ? FontWeight.w700 : FontWeight.w500,
                       fontSize: 12,

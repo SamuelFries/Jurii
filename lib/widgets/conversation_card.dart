@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/conversation.dart';
+import '../theme/app_theme.dart';
 
 class ConversationCard extends StatelessWidget {
   final Conversation conversation;
@@ -25,14 +26,14 @@ class ConversationCard extends StatelessWidget {
                 width: 52,
                 height: 52,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF0A1C3B),
+                  color: AppTheme.primary,
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Center(
                   child: Text(
                     conversation.initials,
                     style: const TextStyle(
-                      color: Colors.white,
+                      color: AppTheme.card,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -50,6 +51,7 @@ class ConversationCard extends StatelessWidget {
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 15,
+                        color: AppTheme.textPrimary,
                       ),
                     ),
 
@@ -61,14 +63,14 @@ class ConversationCard extends StatelessWidget {
                         vertical: 3,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFEEF1F8),
+                        color: AppTheme.lightBlue,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
                         conversation.specialty,
                         style: const TextStyle(
                           fontSize: 11,
-                          color: Color(0xFF1A3A6B),
+                          color: AppTheme.primary,
                         ),
                       ),
                     ),
@@ -80,7 +82,7 @@ class ConversationCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        color: Color(0xFF6B7A99),
+                        color: AppTheme.textSecondary,
                       ),
                     ),
                   ],
@@ -93,7 +95,7 @@ class ConversationCard extends StatelessWidget {
                   Text(
                     conversation.time,
                     style: const TextStyle(
-                      color: Color(0xFF6B7A99),
+                      color: AppTheme.textSecondary,
                       fontSize: 12,
                     ),
                   ),
@@ -105,14 +107,14 @@ class ConversationCard extends StatelessWidget {
                       width: 22,
                       height: 22,
                       decoration: const BoxDecoration(
-                        color: Color(0xFFB8972A),
+                        color: AppTheme.accent,
                         shape: BoxShape.circle,
                       ),
                       child: Center(
                         child: Text(
                           conversation.unreadCount.toString(),
                           style: const TextStyle(
-                            color: Colors.white,
+                            color: AppTheme.card,
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
                           ),

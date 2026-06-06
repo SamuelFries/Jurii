@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
 
 class ProfileHeaderCard extends StatelessWidget {
   final String name;
@@ -22,7 +23,7 @@ class ProfileHeaderCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFF0A1C3B),
+        color: AppTheme.primary,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
@@ -31,14 +32,14 @@ class ProfileHeaderCard extends StatelessWidget {
             width: 56,
             height: 56,
             decoration: BoxDecoration(
-              color: const Color(0xFFB8960C),
+              color: AppTheme.accent,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Center(
               child: Text(
                 initials,
                 style: const TextStyle(
-                  color: Colors.white,
+                  color: AppTheme.card,
                   fontWeight: FontWeight.bold,
                   fontSize: 18,
                 ),
@@ -53,15 +54,15 @@ class ProfileHeaderCard extends StatelessWidget {
                 Text(
                   name,
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: AppTheme.card,
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 Text(
                   email,
-                  style: const TextStyle(
-                    color: Colors.white70,
+                  style: TextStyle(
+                    color: AppTheme.card.withOpacity(0.7),
                     fontSize: 13,
                   ),
                 ),
@@ -72,22 +73,22 @@ class ProfileHeaderCard extends StatelessWidget {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.15),
+                    color: AppTheme.card.withOpacity(0.15),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.shield_outlined,
-                        color: Colors.white70,
+                        color: AppTheme.card.withOpacity(0.7),
                         size: 14,
                       ),
                       const SizedBox(width: 4),
                       Text(
                         memberSince,
-                        style: const TextStyle(
-                          color: Colors.white70,
+                        style: TextStyle(
+                          color: AppTheme.card.withOpacity(0.7),
                           fontSize: 11,
                         ),
                       ),
@@ -103,12 +104,12 @@ class ProfileHeaderCard extends StatelessWidget {
               width: 36,
               height: 36,
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.15),
+                color: AppTheme.card.withOpacity(0.15),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
                 Icons.edit_outlined,
-                color: Colors.white,
+                color: AppTheme.card,
                 size: 18,
               ),
             ),
