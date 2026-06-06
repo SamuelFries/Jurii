@@ -80,7 +80,7 @@ class AppTheme {
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: Colors.white,
 
-        indicatorColor: accent.withOpacity(0.12),
+        indicatorColor: accent.withValues(alpha:0.12),
 
         labelTextStyle: WidgetStateProperty.all(
           const TextStyle(
