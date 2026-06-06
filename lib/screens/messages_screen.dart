@@ -38,7 +38,7 @@ class _EmptyMessagesState extends StatelessWidget {
           const SizedBox(height: 8),
 
           const Text(
-            'Acompanhe seus atendimentos jurídicos.',
+            '', //subtitulo aqui
             style: TextStyle(
               color: Color(0xFF6B7A99),
               fontSize: 16,
