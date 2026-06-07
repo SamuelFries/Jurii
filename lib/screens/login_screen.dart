@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'register_screen.dart';
 import '../theme/app_theme.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -245,7 +246,13 @@ class _LoginScreenState extends State<LoginScreen> {
                 width: double.infinity,
                 height: 56,
                 child: OutlinedButton(
-                  onPressed: () {},
+                  onPressed: () {
+                    Navigator.of(context).pushReplacement(
+                      MaterialPageRoute(
+                        builder: (_) => const RegisterScreen(),
+                      ),
+                    );
+                  },
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: AppTheme.accent),
                     shape: RoundedRectangleBorder(

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:jurii/screens/login_screen.dart';
+import 'package:jurii/screens/register_screen.dart';
 
 import 'screens/home_screen.dart';
 import 'screens/messages_screen.dart';
@@ -22,8 +22,9 @@ class JuriiApp extends StatelessWidget {
       title: 'Jurii',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
+      home: const RegisterScreen(),
       //home: const MainNavigation(),
-      home: const LoginScreen(),
+      //home: const LoginScreen(),
     );
   }
 }

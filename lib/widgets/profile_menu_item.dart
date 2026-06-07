@@ -35,7 +35,7 @@ class ProfileMenuItemTile extends StatelessWidget {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: item.iconColor.withOpacity(0.1),
+              color: item.iconColor.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(item.icon, color: item.iconColor, size: 20),
