@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
 
 class OfficeCard extends StatelessWidget {
   final String initials;
@@ -22,46 +23,44 @@ class OfficeCard extends StatelessWidget {
     this.onTap,
   });
 
-  Color get avatarColor {
-    switch (avatarType) {
-      case 'gold':
-        return const Color(0xFFB8972A);
-
-      case 'blue':
-        return const Color(0xFF1A3A6B);
-
-      default:
-        return const Color(0xFF0A1C3B);
-    }
-  }
+  Color get _avatarColor => switch (avatarType) {
+    'navy' => AppTheme.primary,
+    'gold' => AppTheme.accent,
+    _ => AppTheme.lightBlue,
+  };
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
         padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppTheme.card,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppTheme.lightBlueBorder),
+        ),
         child: Row(
           children: [
             Container(
-              width: 56,
-              height: 56,
+              width: 48,
+              height: 48,
               decoration: BoxDecoration(
-                color: avatarColor,
-                borderRadius: BorderRadius.circular(16),
+                color: _avatarColor,
+                borderRadius: BorderRadius.circular(12),
               ),
               child: Center(
                 child: Text(
                   initials,
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: AppTheme.card,
                     fontWeight: FontWeight.bold,
+                    fontSize: 16,
                   ),
                 ),
               ),
             ),
-
             const SizedBox(width: 12),
-
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -69,49 +68,57 @@ class OfficeCard extends StatelessWidget {
                   Text(
                     officeName,
                     style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      color: Color(0xFF0A1C3B),
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textPrimary,
                     ),
                   ),
-
-                  const SizedBox(height: 4),
-
+                  const SizedBox(height: 2),
                   Text(
-                    '⭐ $rating ($reviews) • $distance',
+                    specialty,
                     style: const TextStyle(
-                      color: Color(0xFF6B7A99),
+                      fontSize: 12,
+                      color: AppTheme.textSecondary,
                     ),
                   ),
-
                   const SizedBox(height: 6),
-
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFEEF1F8),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      specialty,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: Color(0xFF1A3A6B),
-                        fontWeight: FontWeight.w600,
+                  Row(
+                    children: [
+                      const Icon(Icons.star, size: 14, color: AppTheme.accent),
+                      const SizedBox(width: 4),
+                      Text(
+                        '$rating',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textPrimary,
+                        ),
                       ),
-                    ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '($reviews avaliações)',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+                      const Spacer(),
+                      const Icon(Icons.location_on_outlined,
+                          size: 14, color: AppTheme.textSecondary),
+                      const SizedBox(width: 2),
+                      Text(
+                        distance,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
-
-            ElevatedButton(
-              onPressed: onTap,
-              child: const Text('Perfil'),
-            ),
+            const Icon(Icons.chevron_right, color: AppTheme.textSecondary),
           ],
         ),
       ),
