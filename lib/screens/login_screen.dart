@@ -18,12 +18,10 @@ class _LoginScreenState extends State<LoginScreen> {
       backgroundColor: AppTheme.background,
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 28,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 28),
           child: Column(
             children: [
-              const SizedBox(height: 60),
+              const SizedBox(height: 24),
 
               // Logo
               Row(
@@ -40,10 +38,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   Container(
-                    margin: const EdgeInsets.only(
-                      left: 4,
-                      bottom: 8,
-                    ),
+                    margin: const EdgeInsets.only(left: 4, bottom: 8),
                     width: 10,
                     height: 10,
                     decoration: const BoxDecoration(
@@ -66,7 +61,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
 
-              const SizedBox(height: 48),
+              const SizedBox(height: 32),
 
               // Email
               Container(
@@ -83,9 +78,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: TextField(
                   decoration: InputDecoration(
                     hintText: 'Seu e-mail',
-                    prefixIcon: const Icon(
-                      Icons.mail_outline,
-                    ),
+                    prefixIcon: const Icon(Icons.mail_outline),
                     filled: true,
                     fillColor: Colors.white,
                   ),
@@ -110,9 +103,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   obscureText: !showPassword,
                   decoration: InputDecoration(
                     hintText: 'Sua senha',
-                    prefixIcon: const Icon(
-                      Icons.lock_outline,
-                    ),
+                    prefixIcon: const Icon(Icons.lock_outline),
                     suffixIcon: IconButton(
                       onPressed: () {
                         setState(() {
@@ -157,7 +148,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: AppTheme.primary.withOpacity(0.20),
+                      color: AppTheme.primary.withValues(alpha: 0.20),
                       blurRadius: 20,
                       offset: const Offset(0, 8),
                     ),
@@ -167,28 +158,18 @@ class _LoginScreenState extends State<LoginScreen> {
                   onPressed: () {},
                   child: const Text(
                     'Entrar',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                    ),
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                   ),
                 ),
               ),
 
-              const SizedBox(height: 28),
+              const SizedBox(height: 22),
 
               Row(
                 children: [
-                  Expanded(
-                    child: Container(
-                      height: 1,
-                      color: Colors.black12,
-                    ),
-                  ),
+                  Expanded(child: Container(height: 1, color: Colors.black12)),
                   const Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: 12,
-                    ),
+                    padding: EdgeInsets.symmetric(horizontal: 12),
                     child: Text(
                       'ou continue com',
                       style: TextStyle(
@@ -197,16 +178,11 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                   ),
-                  Expanded(
-                    child: Container(
-                      height: 1,
-                      color: Colors.black12,
-                    ),
-                  ),
+                  Expanded(child: Container(height: 1, color: Colors.black12)),
                 ],
               ),
 
-              const SizedBox(height: 24),
+              const SizedBox(height: 18),
 
               // Google
               Container(
@@ -225,9 +201,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: OutlinedButton(
                   onPressed: () {},
                   style: OutlinedButton.styleFrom(
-                    side: const BorderSide(
-                      color: Color(0x110A1C3B),
-                    ),
+                    side: const BorderSide(color: Color(0x110A1C3B)),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                     ),
@@ -256,18 +230,13 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 12),
 
               // Apple
-              _socialButton(
-                icon: Icons.apple,
-                text: 'Continuar com Apple',
-              ),
+              _socialButton(icon: Icons.apple, text: 'Continuar com Apple'),
 
-              const SizedBox(height: 32),
+              const SizedBox(height: 24),
 
               const Text(
                 'Ainda não possui conta?',
-                style: TextStyle(
-                  color: AppTheme.textSecondary,
-                ),
+                style: TextStyle(color: AppTheme.textSecondary),
               ),
 
               const SizedBox(height: 12),
@@ -278,12 +247,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: OutlinedButton(
                   onPressed: () {},
                   style: OutlinedButton.styleFrom(
-                    side: const BorderSide(
-                      color: AppTheme.accent,
-                    ),
+                    side: const BorderSide(color: AppTheme.accent),
                     shape: RoundedRectangleBorder(
-                      borderRadius:
-                          BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(16),
                     ),
                   ),
                   child: const Text(
@@ -296,7 +262,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
 
-              const SizedBox(height: 28),
+              const SizedBox(height: 20),
 
               const Text(
                 'Ao continuar você concorda com nossos\nTermos de Uso e Política de Privacidade.',
@@ -308,7 +274,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
 
-              const SizedBox(height: 32),
+              const SizedBox(height: 24),
             ],
           ),
         ),
@@ -316,10 +282,7 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _socialButton({
-    required IconData icon,
-    required String text,
-  }) {
+  Widget _socialButton({required IconData icon, required String text}) {
     return Container(
       height: 52,
       decoration: BoxDecoration(
@@ -335,10 +298,7 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
       child: OutlinedButton.icon(
         onPressed: () {},
-        icon: Icon(
-          icon,
-          color: AppTheme.textPrimary,
-        ),
+        icon: Icon(icon, color: AppTheme.textPrimary),
         label: Text(
           text,
           style: const TextStyle(
@@ -347,9 +307,7 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
         style: OutlinedButton.styleFrom(
-          side: const BorderSide(
-            color: Color(0x110A1C3B),
-          ),
+          side: const BorderSide(color: Color(0x110A1C3B)),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
