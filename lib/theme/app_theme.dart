@@ -41,7 +41,7 @@ class AppTheme {
       cardTheme: CardThemeData(
         color: card,
         elevation: 1.5,
-        shadowColor: Color(0x140A1C3B),
+        shadowColor: const Color(0x140A1C3B),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
         ),
@@ -94,12 +94,46 @@ class AppTheme {
           backgroundColor: primary,
           foregroundColor: Colors.white,
 
-          minimumSize: const Size(110, 48),
+          minimumSize: const Size(110, 56),
 
           elevation: 0,
+          shadowColor: Colors.transparent,
 
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
+          ),
+
+          textStyle: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.2,
+          ),
+        ),
+      ),
+
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          backgroundColor: Colors.white,
+
+          foregroundColor: textPrimary,
+
+          minimumSize: const Size(
+            double.infinity,
+            56,
+          ),
+
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+
+          side: const BorderSide(
+            color: Color(0x220A1C3B),
+            width: 1.5,
+          ),
+
+          textStyle: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
           ),
         ),
       ),
@@ -107,7 +141,7 @@ class AppTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
 
-        fillColor: background,
+        fillColor: Colors.white,
 
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 20,
