@@ -3,7 +3,12 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 
 class LoginLogo extends StatelessWidget {
-  const LoginLogo({super.key});
+  const LoginLogo({
+    super.key,
+    this.subtitle = 'Conectando você aos melhores\nespecialistas jurídicos.',
+  });
+
+  final String subtitle;
 
   @override
   Widget build(BuildContext context) {
@@ -34,10 +39,10 @@ class LoginLogo extends StatelessWidget {
 
         const SizedBox(height: 12),
 
-        const Text(
-          'Conectando você aos melhores\nespecialistas jurídicos.',
+        Text(
+          subtitle,
           textAlign: TextAlign.center,
-          style: TextStyle(
+          style: const TextStyle(
             color: AppTheme.textSecondary,
             fontSize: 16,
             height: 1.5,
