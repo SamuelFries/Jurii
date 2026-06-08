@@ -26,13 +26,13 @@ class JuriiApp extends StatelessWidget {
       //home: const RegisterScreen(),
       home: const MainNavigation(),
       //home: const LoginScreen(),
-      home: Scaffold(
-  body: const LawyerHomeScreen(),
-  bottomNavigationBar: JuriiBottomNav(
-    currentIndex: 0,
-    onTap: (_) {},
-  ),
-),
+      //home: Scaffold(
+  //body: const LawyerHomeScreen(),
+  //bottomNavigationBar: JuriiBottomNav(
+    //currentIndex: 0,
+    //onTap: (_) {},
+  //),
+//),
     );
   }
 }
