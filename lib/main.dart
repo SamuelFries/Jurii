@@ -8,6 +8,8 @@ import 'screens/profile_screen.dart';
 import 'theme/app_theme.dart';
 import 'widgets/jurii_bottom_nav.dart';
 
+import 'screens/lawyer_home_screen.dart';
+
 void main() {
   runApp(const JuriiApp());
 }
@@ -24,6 +26,13 @@ class JuriiApp extends StatelessWidget {
       //home: const RegisterScreen(),
       home: const MainNavigation(),
       //home: const LoginScreen(),
+      home: Scaffold(
+  body: const LawyerHomeScreen(),
+  bottomNavigationBar: JuriiBottomNav(
+    currentIndex: 0,
+    onTap: (_) {},
+  ),
+),
     );
   }
 }
