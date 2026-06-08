@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'lawyer_verification_screen.dart';
 import '../widgets/profile_header_card.dart';
 import '../widgets/profile_menu_section.dart';
 import '../widgets/profile_menu_item.dart';
+import '../widgets/professional_mode_card.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -13,6 +15,7 @@ class ProfileScreen extends StatelessWidget {
     const userEmail = 'joao.silva@email.com';
     const userInitials = 'JS';
     const userMemberSince = 'Cliente desde Junho de 2026';
+    const isRegisteredLawyer = false;
 
     return SafeArea(
       child: SingleChildScrollView(
@@ -45,6 +48,23 @@ class ProfileScreen extends StatelessWidget {
               ),
 
               const SizedBox(height: 32),
+
+              ProfessionalModeCard(
+                onTap: () {
+                  if (!isRegisteredLawyer) {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const LawyerVerificationScreen(),
+                      ),
+                    );
+                    return;
+                  }
+
+                  // TODO: direcionar para a área profissional quando existir.
+                },
+              ),
+
+              const SizedBox(height: 24),
 
               ProfileMenuSection(
                 title: 'MINHA CONTA',
