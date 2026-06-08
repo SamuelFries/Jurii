@@ -30,38 +30,63 @@ class LawyerVerificationSuccessScreen extends StatelessWidget {
                 ),
               ),
 
-              const SizedBox(height: 24),
+              const SizedBox(height: 28),
 
               const Text(
-                'Documentação enviada',
+                'Solicitação enviada',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: 28,
+                  fontSize: 30,
                   fontWeight: FontWeight.w700,
                   color: AppTheme.textPrimary,
-                ),
-              ),
-
-              const SizedBox(height: 12),
-
-              const Text(
-                'Recebemos sua documentação.\nNossa equipe irá analisar seus dados e validar seu cadastro profissional.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: AppTheme.textSecondary,
-                  fontSize: 15,
-                  height: 1.5,
                 ),
               ),
 
               const SizedBox(height: 16),
 
               const Text(
-                'Você receberá uma notificação quando a análise for concluída.',
+                'Sua documentação foi recebida e já está em análise.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: AppTheme.textSecondary,
-                  fontSize: 14,
+                  fontSize: 16,
+                  height: 1.5,
+                ),
+              ),
+
+              const SizedBox(height: 24),
+
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 16,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEF9EB),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: const Color(0xFFF0E5C0),
+                  ),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(
+                      Icons.schedule_outlined,
+                      color: AppTheme.accent,
+                    ),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Prazo estimado: até 2 dias úteis',
+                        style: TextStyle(
+                          color: AppTheme.textPrimary,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
 
@@ -78,7 +103,7 @@ class LawyerVerificationSuccessScreen extends StatelessWidget {
                     );
                   },
                   child: const Text(
-                    'Voltar ao perfil',
+                    'Entendi',
                   ),
                 ),
               ),
