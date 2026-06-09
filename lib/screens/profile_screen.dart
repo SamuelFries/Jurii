@@ -4,6 +4,8 @@ import '../widgets/profile_header_card.dart';
 import '../widgets/profile_menu_section.dart';
 import '../widgets/profile_menu_item.dart';
 import '../widgets/professional_mode_card.dart';
+import '../models/lawyer_status.dart';
+import 'lawyer_home_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -15,7 +17,10 @@ class ProfileScreen extends StatelessWidget {
     const userEmail = 'joao.silva@email.com';
     const userInitials = 'JS';
     const userMemberSince = 'Cliente desde Junho de 2026';
-    const isRegisteredLawyer = false;
+
+     //final lawyerStatus = LawyerStatus.client;
+     //final lawyerStatus = LawyerStatus.pending;
+     final lawyerStatus = LawyerStatus.approved;
 
     return SafeArea(
       child: SingleChildScrollView(
@@ -50,17 +55,31 @@ class ProfileScreen extends StatelessWidget {
               const SizedBox(height: 32),
 
               ProfessionalModeCard(
+                lawyerStatus: lawyerStatus,
                 onTap: () {
-                  if (!isRegisteredLawyer) {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => const LawyerVerificationScreen(),
-                      ),
-                    );
-                    return;
-                  }
+                  switch (lawyerStatus) {
+                    case LawyerStatus.client:
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const LawyerVerificationScreen(),
+                        ),
+                      );
+                      break;
 
-                  // TODO: direcionar para a área profissional quando existir.
+                    case LawyerStatus.pending:
+                      // Em análise
+                      break;
+
+                    case LawyerStatus.approved:
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const LawyerHomeScreen(),
+                        ),
+                      );
+                      break;
+                  }
                 },
               ),
 
