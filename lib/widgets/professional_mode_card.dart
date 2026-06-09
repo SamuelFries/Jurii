@@ -1,17 +1,44 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
+import '../models/lawyer_status.dart';
 
 class ProfessionalModeCard extends StatelessWidget {
   const ProfessionalModeCard({
     super.key,
     required this.onTap,
+    required this.lawyerStatus,
   });
 
   final VoidCallback onTap;
+  final LawyerStatus lawyerStatus;
 
   @override
   Widget build(BuildContext context) {
+    String title;
+    String subtitle;
+    Color cardColor;
+
+    switch (lawyerStatus) {
+      case LawyerStatus.client:
+        title = 'Ativar Modo Profissional';
+        subtitle = 'Atenda clientes pela plataforma';
+        cardColor = AppTheme.accent;
+        break;
+
+      case LawyerStatus.pending:
+        title = 'Verificação em andamento';
+        subtitle = 'Sua documentação está sendo analisada';
+        cardColor = Colors.orange;
+        break;
+
+      case LawyerStatus.approved:
+        title = 'Entrar no Modo Profissional';
+        subtitle = 'Acesse sua área profissional';
+        cardColor = AppTheme.accent;
+        break;
+    }
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -21,11 +48,11 @@ class ProfessionalModeCard extends StatelessWidget {
           width: double.infinity,
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: AppTheme.accent,
+            color: cardColor,
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: AppTheme.accent.withValues(alpha: 0.24),
+                color: cardColor.withValues(alpha: 0.24),
                 blurRadius: 20,
                 offset: const Offset(0, 8),
               ),
@@ -52,22 +79,22 @@ class ProfessionalModeCard extends StatelessWidget {
 
               const SizedBox(width: 14),
 
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Ativar Modo Profissional',
-                      style: TextStyle(
+                      title,
+                      style: const TextStyle(
                         color: AppTheme.card,
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
-                    SizedBox(height: 4),
+                    const SizedBox(height: 4),
                     Text(
-                      'Atenda clientes pela plataforma',
-                      style: TextStyle(
+                      subtitle,
+                      style: const TextStyle(
                         color: AppTheme.card,
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
