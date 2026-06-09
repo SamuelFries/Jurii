@@ -8,6 +8,9 @@ class LawyerCasesSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // TODO: substituir por dados reais da API
+    final cases = lawyerCases;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -18,41 +21,68 @@ class LawyerCasesSection extends StatelessWidget {
               'Casos Ativos',
               style: Theme.of(context).textTheme.titleLarge,
             ),
-            GestureDetector(
-              onTap: () {
-                // TODO: navegar para lista completa de casos
-              },
-              child: const Row(
-                children: [
-                  Text(
-                    'Ver todos',
-                    style: TextStyle(
-                      color: AppTheme.accent,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14,
+            if (cases.isNotEmpty)
+              GestureDetector(
+                onTap: () {
+                  // TODO: navegar para lista completa de casos
+                },
+                child: const Row(
+                  children: [
+                    Text(
+                      'Ver todos',
+                      style: TextStyle(
+                        color: AppTheme.accent,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
                     ),
-                  ),
-                  Icon(Icons.chevron_right, color: AppTheme.accent, size: 18),
-                ],
+                    Icon(
+                      Icons.chevron_right,
+                      color: AppTheme.accent,
+                      size: 18,
+                    ),
+                  ],
+                ),
               ),
-            ),
           ],
         ),
         const SizedBox(height: 16),
-        ListView.separated(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: lawyerCases.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 12),
-          itemBuilder: (context, index) {
-            return LawyerCaseCard(
-              lawyerCase: lawyerCases[index],
-              onTap: () {
-                // TODO: navegar para detalhe do caso
-              },
-            );
-          },
-        ),
+        if (cases.isEmpty)
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.all(24),
+              child: Column(
+                children: [
+                  Text( '📂', style: TextStyle(fontSize: 32, decoration: TextDecoration.none,),),
+                  SizedBox(height: 8),
+                  Text(
+                    'Nenhum caso ativo no momento',
+                    style: TextStyle(
+                      color: AppTheme.textSecondary,
+                      fontSize: 14,
+                      decoration: TextDecoration.none,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+          )
+        else
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: cases.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 12),
+            itemBuilder: (context, index) {
+              return LawyerCaseCard(
+                lawyerCase: cases[index],
+                onTap: () {
+                  // TODO: navegar para detalhe do caso
+                },
+              );
+            },
+          ),
       ],
     );
   }
