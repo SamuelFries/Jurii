@@ -1,7 +1,7 @@
 import '../models/lawyer_case.dart';
 
 const lawyerCases = [
-  LawyerCase(
+ /* LawyerCase(
     id: 'caso_01',
     title: 'Caso Trabalhista',
     clientName: 'João Silva',
@@ -28,4 +28,4 @@ const lawyerCases = [
     lastUpdate: 'Prazo em 3 dias',
     status: LawyerCaseStatus.deadline,
   ),
-];
+*/];

@@ -1,7 +1,7 @@
 import '../models/lawyer_contact.dart';
 
 const lawyerContacts = [
-  LawyerContact(
+  /*LawyerContact(
     id: 'contato_01',
     name: 'Ana Pereira',
     initials: 'AP',
@@ -19,4 +19,4 @@ const lawyerContacts = [
     initials: 'FC',
     description: 'Aguardando resposta',
   ),
-];
+*/];

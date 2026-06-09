@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
-import '../widgets/lawyer_mode_header.dart';
 import '../widgets/attention_today_section.dart';
 import '../widgets/lawyer_cases_section.dart';
 import '../widgets/lawyer_contacts_section.dart';
@@ -17,10 +16,6 @@ class LawyerHomeScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const LawyerModeHeader(),
-
-              const SizedBox(height: 24),
-
               Text(
                 'Olá, Dr. João 👋',
                 style: Theme.of(context).textTheme.headlineMedium,
@@ -31,6 +26,7 @@ class LawyerHomeScreen extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 14,
                   color: AppTheme.textSecondary,
+                  decoration: TextDecoration.none,
                 ),
               ),
 

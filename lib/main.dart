@@ -24,15 +24,9 @@ class JuriiApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       //home: const RegisterScreen(),
-      home: const MainNavigation(),
+      //home: const MainNavigation(),
       //home: const LoginScreen(),
-      //home: Scaffold(
-  //body: const LawyerHomeScreen(),
-  //bottomNavigationBar: JuriiBottomNav(
-    //currentIndex: 0,
-    //onTap: (_) {},
-  //),
-//),
+      home: const LawyerNavigation(),
     );
   }
 }
@@ -49,6 +43,39 @@ class _MainNavigationState extends State<MainNavigation> {
 
   final List<Widget> pages = const [
     HomeScreen(),
+    MessagesScreen(),
+    CasesScreen(),
+    ProfileScreen(),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: pages[currentIndex],
+      bottomNavigationBar: JuriiBottomNav(
+        currentIndex: currentIndex,
+        onTap: (index) {
+          setState(() {
+            currentIndex = index;
+          });
+        },
+      ),
+    );
+  }
+}
+
+class LawyerNavigation extends StatefulWidget {
+  const LawyerNavigation({super.key});
+
+  @override
+  State<LawyerNavigation> createState() => _LawyerNavigationState();
+}
+
+class _LawyerNavigationState extends State<LawyerNavigation> {
+  int currentIndex = 0;
+
+  final List<Widget> pages = const [
+    LawyerHomeScreen(),
     MessagesScreen(),
     CasesScreen(),
     ProfileScreen(),
