@@ -27,12 +27,9 @@ class ProfileMenuSection extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
-        Container(
-          decoration: BoxDecoration(
-            color: AppTheme.card,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppTheme.lightBlueBorder),
-          ),
+        Material(
+          color: AppTheme.card,
+          borderRadius: BorderRadius.circular(12),
           child: Column(
             children: items.asMap().entries.map((entry) {
               return ProfileMenuItemTile(

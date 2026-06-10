@@ -2,9 +2,15 @@ import 'package:flutter/material.dart';
 
 import 'register_screen.dart';
 import '../theme/app_theme.dart';
+import '../widgets/login_logo.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  final VoidCallback onLogin;
+
+  const LoginScreen({
+    super.key,
+    required this.onLogin,
+  });
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -24,43 +30,7 @@ class _LoginScreenState extends State<LoginScreen> {
             children: [
               const SizedBox(height: 24),
 
-              // Logo
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  const Text(
-                    'Jurii',
-                    style: TextStyle(
-                      fontSize: 42,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.textPrimary,
-                      fontFamily: 'Serif',
-                    ),
-                  ),
-                  Container(
-                    margin: const EdgeInsets.only(left: 4, bottom: 8),
-                    width: 10,
-                    height: 10,
-                    decoration: const BoxDecoration(
-                      color: AppTheme.accent,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 12),
-
-              const Text(
-                'Conectando você aos melhores\nespecialistas jurídicos.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: AppTheme.textSecondary,
-                  fontSize: 16,
-                  height: 1.5,
-                ),
-              ),
+              const LoginLogo(),
 
               const SizedBox(height: 32),
 
@@ -77,9 +47,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   ],
                 ),
                 child: TextField(
-                  decoration: InputDecoration(
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: const InputDecoration(
                     hintText: 'Seu e-mail',
-                    prefixIcon: const Icon(Icons.mail_outline),
+                    prefixIcon: Icon(Icons.mail_outline),
                     filled: true,
                     fillColor: Colors.white,
                   ),
@@ -105,20 +76,17 @@ class _LoginScreenState extends State<LoginScreen> {
                   decoration: InputDecoration(
                     hintText: 'Sua senha',
                     prefixIcon: const Icon(Icons.lock_outline),
+                    filled: true,
+                    fillColor: Colors.white,
                     suffixIcon: IconButton(
-                      onPressed: () {
-                        setState(() {
-                          showPassword = !showPassword;
-                        });
-                      },
+                      onPressed: () =>
+                          setState(() => showPassword = !showPassword),
                       icon: Icon(
                         showPassword
                             ? Icons.visibility_off_outlined
                             : Icons.visibility_outlined,
                       ),
                     ),
-                    filled: true,
-                    fillColor: Colors.white,
                   ),
                 ),
               ),
@@ -141,7 +109,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
               const SizedBox(height: 10),
 
-              // Entrar
+              // Botão entrar
               Container(
                 width: double.infinity,
                 height: 56,
@@ -156,10 +124,13 @@ class _LoginScreenState extends State<LoginScreen> {
                   ],
                 ),
                 child: ElevatedButton(
-                  onPressed: () {},
+                  onPressed: widget.onLogin,
                   child: const Text(
                     'Entrar',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
               ),
@@ -168,7 +139,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
               Row(
                 children: [
-                  Expanded(child: Container(height: 1, color: Colors.black12)),
+                  Expanded(
+                      child: Container(height: 1, color: Colors.black12)),
                   const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 12),
                     child: Text(
@@ -179,7 +151,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                   ),
-                  Expanded(child: Container(height: 1, color: Colors.black12)),
+                  Expanded(
+                      child: Container(height: 1, color: Colors.black12)),
                 ],
               ),
 
@@ -200,7 +173,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ],
                 ),
                 child: OutlinedButton(
-                  onPressed: () {},
+                  onPressed: widget.onLogin,
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: Color(0x110A1C3B)),
                     shape: RoundedRectangleBorder(
@@ -231,7 +204,37 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 12),
 
               // Apple
-              _socialButton(icon: Icons.apple, text: 'Continuar com Apple'),
+              Container(
+                height: 52,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x140A1C3B),
+                      blurRadius: 8,
+                      offset: Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: OutlinedButton.icon(
+                  onPressed: widget.onLogin,
+                  icon: const Icon(Icons.apple, color: AppTheme.textPrimary),
+                  label: const Text(
+                    'Continuar com Apple',
+                    style: TextStyle(
+                      color: AppTheme.textPrimary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Color(0x110A1C3B)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                ),
+              ),
 
               const SizedBox(height: 24),
 
@@ -247,9 +250,11 @@ class _LoginScreenState extends State<LoginScreen> {
                 height: 56,
                 child: OutlinedButton(
                   onPressed: () {
-                    Navigator.of(context).pushReplacement(
+                    Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (_) => const RegisterScreen(),
+                        builder: (_) => RegisterScreen(
+                          onLogin: widget.onLogin,
+                        ),
                       ),
                     );
                   },
@@ -283,40 +288,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
               const SizedBox(height: 24),
             ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _socialButton({required IconData icon, required String text}) {
-    return Container(
-      height: 52,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x140A1C3B),
-            blurRadius: 8,
-            offset: Offset(0, 2),
-          ),
-        ],
-      ),
-      child: OutlinedButton.icon(
-        onPressed: () {},
-        icon: Icon(icon, color: AppTheme.textPrimary),
-        label: Text(
-          text,
-          style: const TextStyle(
-            color: AppTheme.textPrimary,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        style: OutlinedButton.styleFrom(
-          side: const BorderSide(color: Color(0x110A1C3B)),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
           ),
         ),
       ),

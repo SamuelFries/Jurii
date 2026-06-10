@@ -5,11 +5,13 @@ import '../theme/app_theme.dart';
 class LawyerCaseCard extends StatelessWidget {
   final LawyerCase lawyerCase;
   final VoidCallback? onTap;
+  final VoidCallback? onEdit;
 
   const LawyerCaseCard({
     super.key,
     required this.lawyerCase,
     this.onTap,
+    this.onEdit,
   });
 
   Color get _statusColor => switch (lawyerCase.status) {
@@ -116,6 +118,22 @@ class LawyerCaseCard extends StatelessWidget {
                 ],
               ),
             ),
+            GestureDetector(
+              onTap: onEdit,
+              child: Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: AppTheme.lightBlue,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.edit_outlined,
+                  size: 16,
+                  color: AppTheme.primary,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
             const Icon(Icons.chevron_right, color: AppTheme.textSecondary),
           ],
         ),

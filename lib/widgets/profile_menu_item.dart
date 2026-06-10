@@ -32,6 +32,9 @@ class ProfileMenuItemTile extends StatelessWidget {
     return Column(
       children: [
         ListTile(
+        shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        ),
           leading: Container(
             width: 40,
             height: 40,

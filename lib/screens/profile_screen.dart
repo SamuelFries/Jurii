@@ -1,14 +1,23 @@
 import 'package:flutter/material.dart';
 import 'lawyer_verification_screen.dart';
+import '../theme/app_theme.dart';
 import '../widgets/profile_header_card.dart';
 import '../widgets/profile_menu_section.dart';
 import '../widgets/profile_menu_item.dart';
 import '../widgets/professional_mode_card.dart';
 import '../models/lawyer_status.dart';
-import 'lawyer_home_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
-  const ProfileScreen({super.key});
+  final VoidCallback? onSwitchToLawyer;
+  final VoidCallback? onSwitchToClient;
+  final VoidCallback? onLogout;
+
+  const ProfileScreen({
+    super.key,
+    this.onSwitchToLawyer,
+    this.onSwitchToClient,
+    this.onLogout,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -16,11 +25,11 @@ class ProfileScreen extends StatelessWidget {
     const userName = 'João Silva';
     const userEmail = 'joao.silva@email.com';
     const userInitials = 'JS';
-    const userMemberSince = 'Cliente desde Junho de 2026';
+    const userOAB = 'OAB/RS 123.456';
 
-     //final lawyerStatus = LawyerStatus.client;
-     //final lawyerStatus = LawyerStatus.pending;
-     final lawyerStatus = LawyerStatus.approved;
+    // TODO: vir da API
+    final lawyerStatus = LawyerStatus.approved;
+    final isLawyerMode = onSwitchToClient != null;
 
     return SafeArea(
       child: SingleChildScrollView(
@@ -34,77 +43,111 @@ class ProfileScreen extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF0A1C3B),
+                  color: AppTheme.textPrimary,
+                  decoration: TextDecoration.none,
                 ),
               ),
               const Text(
                 'Gerencie sua conta e acompanhe suas informações.',
-                style: TextStyle(fontSize: 14, color: Colors.grey),
+                style: TextStyle(
+                  fontSize: 14,
+                  color: AppTheme.textSecondary,
+                  decoration: TextDecoration.none,
+                ),
               ),
 
               const SizedBox(height: 24),
 
               ProfileHeaderCard(
-                name: userName,
+                name: isLawyerMode ? 'Dr. $userName' : userName,
                 email: userEmail,
                 initials: userInitials,
-                memberSince: userMemberSince,
+                memberSince: isLawyerMode
+                    ? userOAB
+                    : 'Cliente desde Junho de 2026',
                 onEditTap: () {},
               ),
 
-              const SizedBox(height: 32),
+              const SizedBox(height: 16),
 
-              ProfessionalModeCard(
-                lawyerStatus: lawyerStatus,
-                onTap: () {
-                  switch (lawyerStatus) {
-                    case LawyerStatus.client:
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const LawyerVerificationScreen(),
-                        ),
-                      );
-                      break;
-
-                    case LawyerStatus.pending:
-                      // Em análise
-                      break;
-
-                    case LawyerStatus.approved:
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const LawyerHomeScreen(),
-                        ),
-                      );
-                      break;
-                  }
-                },
-              ),
+              if (isLawyerMode)
+                _SwitchModeCard(
+                  title: 'Voltar ao Modo Cliente',
+                  subtitle: 'Acesse a área do cliente',
+                  icon: Icons.person_outline,
+                  color: AppTheme.primary,
+                  onTap: onSwitchToClient ?? () {},
+                )
+              else
+                ProfessionalModeCard(
+                  lawyerStatus: lawyerStatus,
+                  onTap: () {
+                    switch (lawyerStatus) {
+                      case LawyerStatus.client:
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const LawyerVerificationScreen(),
+                          ),
+                        );
+                        break;
+                      case LawyerStatus.pending:
+                        break;
+                      case LawyerStatus.approved:
+                        onSwitchToLawyer?.call();
+                        break;
+                    }
+                  },
+                ),
 
               const SizedBox(height: 24),
+
+              if (isLawyerMode) ...[
+                ProfileMenuSection(
+                  title: 'ÁREA PROFISSIONAL',
+                  items: [
+                    ProfileMenuItem(
+                      icon: Icons.badge_outlined,
+                      iconColor: AppTheme.accent,
+                      label: 'Perfil Profissional',
+                      subtitle: 'Edite sua bio e áreas de atuação',
+                      onTap: () {},
+                    ),
+                    ProfileMenuItem(
+                      icon: Icons.schedule_outlined,
+                      iconColor: AppTheme.accent,
+                      label: 'Disponibilidade',
+                      subtitle: 'Gerencie seus horários de atendimento',
+                      onTap: () {},
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+              ],
 
               ProfileMenuSection(
                 title: 'MINHA CONTA',
                 items: [
                   ProfileMenuItem(
                     icon: Icons.person_outline,
-                    iconColor: const Color(0xFF6B7EAA),
+                    iconColor: AppTheme.textSecondary,
                     label: 'Dados Pessoais',
                     subtitle: 'Atualize suas informações',
+                    onTap: () {},
                   ),
                   ProfileMenuItem(
                     icon: Icons.lock_outline,
                     iconColor: const Color(0xFFE07B3A),
                     label: 'Segurança',
                     subtitle: 'Senha e configurações de acesso',
+                    onTap: () {},
                   ),
                   ProfileMenuItem(
                     icon: Icons.description_outlined,
-                    iconColor: const Color(0xFF6B7EAA),
+                    iconColor: AppTheme.textSecondary,
                     label: 'Meus Documentos',
                     subtitle: 'Visualize documentos enviados',
+                    onTap: () {},
                   ),
                 ],
               ),
@@ -116,21 +159,28 @@ class ProfileScreen extends StatelessWidget {
                 items: [
                   ProfileMenuItem(
                     icon: Icons.chat_bubble_outline,
-                    iconColor: const Color(0xFF6B7EAA),
+                    iconColor: AppTheme.textSecondary,
                     label: 'Conversas',
-                    subtitle: 'Acesse suas conversas com escritórios',
+                    subtitle: isLawyerMode
+                        ? 'Conversas com seus clientes'
+                        : 'Acesse suas conversas com escritórios',
+                    onTap: () {},
                   ),
                   ProfileMenuItem(
                     icon: Icons.folder_outlined,
-                    iconColor: const Color(0xFFE0A800),
-                    label: 'Meus Casos',
-                    subtitle: 'Acompanhe seus atendimentos',
+                    iconColor: AppTheme.accent,
+                    label: isLawyerMode ? 'Casos dos Clientes' : 'Meus Casos',
+                    subtitle: isLawyerMode
+                        ? 'Gerencie os casos dos seus clientes'
+                        : 'Acompanhe seus atendimentos',
+                    onTap: () {},
                   ),
                   ProfileMenuItem(
                     icon: Icons.calendar_month_outlined,
-                    iconColor: const Color(0xFF6B7EAA),
+                    iconColor: AppTheme.textSecondary,
                     label: 'Reuniões',
                     subtitle: 'Visualize reuniões agendadas',
+                    onTap: () {},
                   ),
                 ],
               ),
@@ -142,23 +192,27 @@ class ProfileScreen extends StatelessWidget {
                 items: [
                   ProfileMenuItem(
                     icon: Icons.help_outline,
-                    iconColor: const Color(0xFFE05C5C),
+                    iconColor: AppTheme.primary,
                     label: 'Central de Ajuda',
+                    onTap: () {},
                   ),
                   ProfileMenuItem(
                     icon: Icons.phone_outlined,
-                    iconColor: const Color(0xFFE05C5C),
+                    iconColor: AppTheme.primary,
                     label: 'Suporte',
+                    onTap: () {},
                   ),
                   ProfileMenuItem(
                     icon: Icons.article_outlined,
-                    iconColor: const Color(0xFFE0A800),
+                    iconColor: AppTheme.accent,
                     label: 'Termos de Uso',
+                    onTap: () {},
                   ),
                   ProfileMenuItem(
                     icon: Icons.lock_outline,
-                    iconColor: const Color(0xFFE0A800),
+                    iconColor: AppTheme.accent,
                     label: 'Política de Privacidade',
+                    onTap: () {},
                   ),
                 ],
               ),
@@ -168,16 +222,16 @@ class ProfileScreen extends StatelessWidget {
               Container(
                 width: double.infinity,
                 decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey.shade200),
+                  border: Border.all(color: AppTheme.lightBlueBorder),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: TextButton.icon(
-                  onPressed: () {},
-                  icon: const Icon(Icons.logout, color: Color(0xFFE05C5C)),
+                  onPressed: onLogout,
+                  icon: const Icon(Icons.logout, color: Colors.redAccent),
                   label: const Text(
                     'Sair da Conta',
                     style: TextStyle(
-                      color: Color(0xFFE05C5C),
+                      color: Colors.redAccent,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -186,14 +240,117 @@ class ProfileScreen extends StatelessWidget {
 
               const SizedBox(height: 16),
 
-              const Center(
+              Center(
                 child: Text(
                   'Jurii · Versão 1.0.0',
-                  style: TextStyle(color: Colors.grey, fontSize: 12),
+                  style: Theme.of(context).textTheme.bodyMedium,
                 ),
               ),
 
               const SizedBox(height: 24),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SwitchModeCard extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _SwitchModeCard({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: color.withValues(alpha: 0.24),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: AppTheme.card.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: AppTheme.card.withValues(alpha: 0.45),
+                  ),
+                ),
+                child: Icon(icon, color: AppTheme.card, size: 24),
+              ),
+
+              const SizedBox(width: 14),
+
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        color: AppTheme.card,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        decoration: TextDecoration.none,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        color: AppTheme.card,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        decoration: TextDecoration.none,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(width: 12),
+
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: AppTheme.card.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.chevron_right,
+                  color: AppTheme.card,
+                  size: 26,
+                ),
+              ),
             ],
           ),
         ),
