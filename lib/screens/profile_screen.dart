@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+
+import '../models/lawyer_verification.dart';
+import '../models/user_profile.dart';
 import 'lawyer_verification_screen.dart';
 import '../theme/app_theme.dart';
 import '../widgets/profile_header_card.dart';
@@ -8,27 +11,31 @@ import '../widgets/professional_mode_card.dart';
 import '../models/lawyer_status.dart';
 
 class ProfileScreen extends StatelessWidget {
+  final UserProfile user;
+  final LawyerVerification? lawyerVerification;
   final VoidCallback? onSwitchToLawyer;
   final VoidCallback? onSwitchToClient;
+  final ValueChanged<LawyerVerification>? onVerificationSubmitted;
+  final VoidCallback? onOpenMessages;
+  final VoidCallback? onOpenCases;
+  final VoidCallback? onOpenAgenda;
   final VoidCallback? onLogout;
 
   const ProfileScreen({
     super.key,
+    required this.user,
+    this.lawyerVerification,
     this.onSwitchToLawyer,
     this.onSwitchToClient,
+    this.onVerificationSubmitted,
+    this.onOpenMessages,
+    this.onOpenCases,
+    this.onOpenAgenda,
     this.onLogout,
   });
 
   @override
   Widget build(BuildContext context) {
-    // TODO: substituir por dados vindos da API/banco
-    const userName = 'João Silva';
-    const userEmail = 'joao.silva@email.com';
-    const userInitials = 'JS';
-    const userOAB = 'OAB/RS 123.456';
-
-    // TODO: vir da API
-    final lawyerStatus = LawyerStatus.approved;
     final isLawyerMode = onSwitchToClient != null;
 
     return SafeArea(
@@ -59,12 +66,12 @@ class ProfileScreen extends StatelessWidget {
               const SizedBox(height: 24),
 
               ProfileHeaderCard(
-                name: isLawyerMode ? 'Dr. $userName' : userName,
-                email: userEmail,
-                initials: userInitials,
+                name: isLawyerMode ? 'Dr. ${user.name}' : user.name,
+                email: user.email,
+                initials: user.initials,
                 memberSince: isLawyerMode
-                    ? userOAB
-                    : 'Cliente desde Junho de 2026',
+                    ? user.oabNumber ?? 'Perfil profissional'
+                    : user.memberSince,
                 onEditTap: () {},
               ),
 
@@ -80,18 +87,28 @@ class ProfileScreen extends StatelessWidget {
                 )
               else
                 ProfessionalModeCard(
-                  lawyerStatus: lawyerStatus,
+                  lawyerStatus: user.lawyerStatus,
                   onTap: () {
-                    switch (lawyerStatus) {
+                    switch (user.lawyerStatus) {
                       case LawyerStatus.client:
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => const LawyerVerificationScreen(),
+                            builder: (_) => LawyerVerificationScreen(
+                              user: user,
+                              onVerificationSubmitted: onVerificationSubmitted,
+                            ),
                           ),
                         );
                         break;
                       case LawyerStatus.pending:
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Sua verificação profissional está em análise.',
+                            ),
+                          ),
+                        );
                         break;
                       case LawyerStatus.approved:
                         onSwitchToLawyer?.call();
@@ -99,6 +116,41 @@ class ProfileScreen extends StatelessWidget {
                     }
                   },
                 ),
+
+              if (!isLawyerMode &&
+                  user.lawyerStatus == LawyerStatus.pending &&
+                  lawyerVerification != null) ...[
+                const SizedBox(height: 12),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppTheme.warningSurface,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppTheme.warningBorder),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(
+                        Icons.schedule_outlined,
+                        color: AppTheme.warning,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Solicitação enviada para ${lawyerVerification!.practiceArea}. OAB/${lawyerVerification!.oabState} ${lawyerVerification!.oabNumber} em análise.',
+                          style: const TextStyle(
+                            color: AppTheme.warningText,
+                            height: 1.45,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
 
               const SizedBox(height: 24),
 
@@ -110,7 +162,7 @@ class ProfileScreen extends StatelessWidget {
                       icon: Icons.badge_outlined,
                       iconColor: AppTheme.accent,
                       label: 'Perfil Profissional',
-                      subtitle: 'Edite sua bio e áreas de atuação',
+                      subtitle: 'Revise sua bio e áreas de atuação',
                       onTap: () {},
                     ),
                     ProfileMenuItem(
@@ -118,7 +170,7 @@ class ProfileScreen extends StatelessWidget {
                       iconColor: AppTheme.accent,
                       label: 'Disponibilidade',
                       subtitle: 'Gerencie seus horários de atendimento',
-                      onTap: () {},
+                      onTap: onOpenAgenda,
                     ),
                   ],
                 ),
@@ -137,7 +189,7 @@ class ProfileScreen extends StatelessWidget {
                   ),
                   ProfileMenuItem(
                     icon: Icons.lock_outline,
-                    iconColor: const Color(0xFFE07B3A),
+                    iconColor: AppTheme.warning,
                     label: 'Segurança',
                     subtitle: 'Senha e configurações de acesso',
                     onTap: () {},
@@ -164,7 +216,7 @@ class ProfileScreen extends StatelessWidget {
                     subtitle: isLawyerMode
                         ? 'Conversas com seus clientes'
                         : 'Acesse suas conversas com escritórios',
-                    onTap: () {},
+                    onTap: onOpenMessages,
                   ),
                   ProfileMenuItem(
                     icon: Icons.folder_outlined,
@@ -173,14 +225,14 @@ class ProfileScreen extends StatelessWidget {
                     subtitle: isLawyerMode
                         ? 'Gerencie os casos dos seus clientes'
                         : 'Acompanhe seus atendimentos',
-                    onTap: () {},
+                    onTap: onOpenCases,
                   ),
                   ProfileMenuItem(
                     icon: Icons.calendar_month_outlined,
                     iconColor: AppTheme.textSecondary,
                     label: 'Reuniões',
                     subtitle: 'Visualize reuniões agendadas',
-                    onTap: () {},
+                    onTap: onOpenAgenda,
                   ),
                 ],
               ),
@@ -227,11 +279,11 @@ class ProfileScreen extends StatelessWidget {
                 ),
                 child: TextButton.icon(
                   onPressed: onLogout,
-                  icon: const Icon(Icons.logout, color: Colors.redAccent),
+                  icon: const Icon(Icons.logout, color: AppTheme.danger),
                   label: const Text(
                     'Sair da Conta',
                     style: TextStyle(
-                      color: Colors.redAccent,
+                      color: AppTheme.danger,
                       fontWeight: FontWeight.w600,
                     ),
                   ),

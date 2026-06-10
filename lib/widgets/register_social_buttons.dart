@@ -6,10 +6,7 @@ import '../theme/app_theme.dart';
 class RegisterSocialButtons extends StatelessWidget {
   final VoidCallback onLogin;
 
-  const RegisterSocialButtons({
-    super.key,
-    required this.onLogin,
-  });
+  const RegisterSocialButtons({super.key, required this.onLogin});
 
   @override
   Widget build(BuildContext context) {
@@ -17,18 +14,15 @@ class RegisterSocialButtons extends StatelessWidget {
       children: [
         Row(
           children: [
-            Expanded(child: Container(height: 1, color: Colors.black12)),
+            Expanded(child: Container(height: 1, color: AppTheme.divider)),
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 12),
               child: Text(
                 'ou cadastre-se com',
-                style: TextStyle(
-                  color: AppTheme.textSecondary,
-                  fontSize: 13,
-                ),
+                style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
               ),
             ),
-            Expanded(child: Container(height: 1, color: Colors.black12)),
+            Expanded(child: Container(height: 1, color: AppTheme.divider)),
           ],
         ),
 
@@ -85,11 +79,7 @@ class RegisterSocialButtons extends StatelessWidget {
         const Text(
           'Ao criar sua conta você concorda com nossos\nTermos de Uso e Política de Privacidade.',
           textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 12,
-            color: Color(0xFFB8C0D4),
-            height: 1.6,
-          ),
+          style: TextStyle(fontSize: 12, color: AppTheme.muted, height: 1.6),
         ),
       ],
     );
@@ -99,11 +89,11 @@ class RegisterSocialButtons extends StatelessWidget {
     return Container(
       height: 52,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.card,
         borderRadius: BorderRadius.circular(16),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x140A1C3B),
+            color: AppTheme.softShadow,
             blurRadius: 8,
             offset: Offset(0, 2),
           ),
@@ -112,7 +102,7 @@ class RegisterSocialButtons extends StatelessWidget {
       child: OutlinedButton(
         onPressed: onPressed,
         style: OutlinedButton.styleFrom(
-          side: const BorderSide(color: Color(0x110A1C3B)),
+          side: const BorderSide(color: AppTheme.softBorder),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
@@ -120,11 +110,7 @@ class RegisterSocialButtons extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Image.asset(
-              'assets/images/google_logo.png',
-              width: 20,
-              height: 20,
-            ),
+            Image.asset('assets/images/google_logo.png', width: 20, height: 20),
             const SizedBox(width: 12),
             const Text(
               'Continuar com Google',
@@ -147,11 +133,11 @@ class RegisterSocialButtons extends StatelessWidget {
     return Container(
       height: 52,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.card,
         borderRadius: BorderRadius.circular(16),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x140A1C3B),
+            color: AppTheme.softShadow,
             blurRadius: 8,
             offset: Offset(0, 2),
           ),
@@ -168,7 +154,7 @@ class RegisterSocialButtons extends StatelessWidget {
           ),
         ),
         style: OutlinedButton.styleFrom(
-          side: const BorderSide(color: Color(0x110A1C3B)),
+          side: const BorderSide(color: AppTheme.softBorder),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),

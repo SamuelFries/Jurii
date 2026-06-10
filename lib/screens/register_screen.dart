@@ -8,10 +8,7 @@ import '../widgets/register_social_buttons.dart';
 class RegisterScreen extends StatelessWidget {
   final VoidCallback onLogin;
 
-  const RegisterScreen({
-    super.key,
-    required this.onLogin,
-  });
+  const RegisterScreen({super.key, required this.onLogin});
 
   @override
   Widget build(BuildContext context) {
@@ -24,7 +21,8 @@ class RegisterScreen extends StatelessWidget {
             children: [
               const SizedBox(height: 24),
               const LoginLogo(
-                subtitle: 'Crie sua conta e encontre o suporte\njurídico que você precisa.',
+                subtitle:
+                    'Crie sua conta e encontre o suporte\njurídico que você precisa.',
               ),
               const SizedBox(height: 40),
               RegisterForm(onLogin: onLogin),

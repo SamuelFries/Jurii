@@ -24,9 +24,7 @@ class JuriiBottomNav extends StatelessWidget {
       height: 90,
       decoration: const BoxDecoration(
         color: AppTheme.card,
-        border: Border(
-          top: BorderSide(color: AppTheme.lightBlueBorder),
-        ),
+        border: Border(top: BorderSide(color: AppTheme.lightBlueBorder)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -61,7 +59,9 @@ class JuriiBottomNav extends StatelessWidget {
                     children: [
                       Icon(
                         selected ? items[index].$2 : items[index].$1,
-                        color: selected ? AppTheme.primary : Colors.grey,
+                        color: selected
+                            ? AppTheme.primary
+                            : AppTheme.textSecondary,
                         size: 28,
                       ),
                       if (selected)
@@ -81,9 +81,10 @@ class JuriiBottomNav extends StatelessWidget {
                   Text(
                     items[index].$3,
                     style: TextStyle(
-                      color: selected ? AppTheme.primary : Colors.grey,
-                      fontWeight:
-                          selected ? FontWeight.w700 : FontWeight.w500,
+                      color: selected
+                          ? AppTheme.primary
+                          : AppTheme.textSecondary,
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                       fontSize: 12,
                     ),
                   ),

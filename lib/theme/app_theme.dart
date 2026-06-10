@@ -18,6 +18,17 @@ class AppTheme {
 
   static const Color lightGold = Color(0xFFFDF6E3);
   static const Color lightGoldBorder = Color(0xFFE8D5A0);
+  static const Color warning = Color(0xFFE07B3A);
+  static const Color warningSurface = Color(0xFFFEF9EB);
+  static const Color warningBorder = Color(0xFFF0E5C0);
+  static const Color warningText = Color(0xFF5A4F1E);
+  static const Color success = Color(0xFF2D7A4F);
+  static const Color successSurface = Color(0xFFE8F4EC);
+  static const Color danger = Color(0xFFD32F2F);
+  static const Color divider = Color(0xFFE8ECF5);
+  static const Color muted = Color(0xFFB8C0D4);
+  static const Color softShadow = Color(0x140A1C3B);
+  static const Color softBorder = Color(0x220A1C3B);
 
   static ThemeData get lightTheme {
     return ThemeData(
@@ -41,10 +52,8 @@ class AppTheme {
       cardTheme: CardThemeData(
         color: card,
         elevation: 1.5,
-        shadowColor: const Color(0x140A1C3B),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
+        shadowColor: softShadow,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       ),
 
       textTheme: const TextTheme(
@@ -66,33 +75,25 @@ class AppTheme {
           color: textPrimary,
         ),
 
-        bodyLarge: TextStyle(
-          fontSize: 16,
-          color: textPrimary,
-        ),
+        bodyLarge: TextStyle(fontSize: 16, color: textPrimary),
 
-        bodyMedium: TextStyle(
-          fontSize: 14,
-          color: textSecondary,
-        ),
+        bodyMedium: TextStyle(fontSize: 14, color: textSecondary),
       ),
 
       navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: Colors.white,
+        backgroundColor: card,
 
-        indicatorColor: accent.withValues(alpha:0.12),
+        indicatorColor: accent.withValues(alpha: 0.12),
 
         labelTextStyle: WidgetStateProperty.all(
-          const TextStyle(
-            fontWeight: FontWeight.w600,
-          ),
+          const TextStyle(fontWeight: FontWeight.w600),
         ),
       ),
 
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: primary,
-          foregroundColor: Colors.white,
+          foregroundColor: card,
 
           minimumSize: const Size(110, 56),
 
@@ -113,35 +114,26 @@ class AppTheme {
 
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          backgroundColor: Colors.white,
+          backgroundColor: card,
 
           foregroundColor: textPrimary,
 
-          minimumSize: const Size(
-            double.infinity,
-            56,
-          ),
+          minimumSize: const Size(double.infinity, 56),
 
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
 
-          side: const BorderSide(
-            color: Color(0x220A1C3B),
-            width: 1.5,
-          ),
+          side: const BorderSide(color: softBorder, width: 1.5),
 
-          textStyle: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-          ),
+          textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
         ),
       ),
 
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
 
-        fillColor: Colors.white,
+        fillColor: card,
 
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 20,
@@ -150,24 +142,17 @@ class AppTheme {
 
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(
-            color: Color(0x220A1C3B),
-          ),
+          borderSide: const BorderSide(color: softBorder),
         ),
 
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(
-            color: Color(0x220A1C3B),
-          ),
+          borderSide: const BorderSide(color: softBorder),
         ),
 
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(
-            color: primary,
-            width: 2,
-          ),
+          borderSide: const BorderSide(color: primary, width: 2),
         ),
       ),
     );

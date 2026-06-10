@@ -103,8 +103,11 @@ class OfficeCard extends StatelessWidget {
                         ),
                       ),
                       const Spacer(),
-                      const Icon(Icons.location_on_outlined,
-                          size: 14, color: AppTheme.textSecondary),
+                      const Icon(
+                        Icons.location_on_outlined,
+                        size: 14,
+                        color: AppTheme.textSecondary,
+                      ),
                       const SizedBox(width: 2),
                       Text(
                         distance,

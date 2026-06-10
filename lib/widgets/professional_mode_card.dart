@@ -18,24 +18,28 @@ class ProfessionalModeCard extends StatelessWidget {
     String title;
     String subtitle;
     Color cardColor;
+    IconData icon;
 
     switch (lawyerStatus) {
       case LawyerStatus.client:
         title = 'Ativar Modo Profissional';
         subtitle = 'Atenda clientes pela plataforma';
         cardColor = AppTheme.accent;
+        icon = Icons.business_center_outlined;
         break;
 
       case LawyerStatus.pending:
         title = 'Verificação em andamento';
         subtitle = 'Sua documentação está sendo analisada';
-        cardColor = Colors.orange;
+        cardColor = AppTheme.warning;
+        icon = Icons.schedule_outlined;
         break;
 
       case LawyerStatus.approved:
         title = 'Entrar no Modo Profissional';
         subtitle = 'Acesse sua área profissional';
         cardColor = AppTheme.accent;
+        icon = Icons.business_center_outlined;
         break;
     }
 
@@ -70,11 +74,7 @@ class ProfessionalModeCard extends StatelessWidget {
                     color: AppTheme.card.withValues(alpha: 0.45),
                   ),
                 ),
-                child: const Icon(
-                  Icons.business_center_outlined,
-                  color: AppTheme.card,
-                  size: 24,
-                ),
+                child: Icon(icon, color: AppTheme.card, size: 24),
               ),
 
               const SizedBox(width: 14),

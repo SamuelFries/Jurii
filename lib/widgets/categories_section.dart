@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../data/categories_data.dart';
+import '../data/mock/mock_categories.dart';
 import 'category_card.dart';
 
 class CategoriesSection extends StatelessWidget {
@@ -18,7 +18,7 @@ class CategoriesSection extends StatelessWidget {
         GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          itemCount: categories.length,
+          itemCount: mockCategories.length,
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 3,
             crossAxisSpacing: 10,
@@ -26,7 +26,7 @@ class CategoriesSection extends StatelessWidget {
             childAspectRatio: 0.9,
           ),
           itemBuilder: (context, index) {
-            final category = categories[index];
+            final category = mockCategories[index];
             return CategoryCard(
               emoji: category.emoji,
               title: category.title,

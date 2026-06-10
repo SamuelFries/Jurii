@@ -6,11 +6,7 @@ class LawyerContactCard extends StatelessWidget {
   final LawyerContact contact;
   final VoidCallback? onTap;
 
-  const LawyerContactCard({
-    super.key,
-    required this.contact,
-    this.onTap,
-  });
+  const LawyerContactCard({super.key, required this.contact, this.onTap});
 
   @override
   Widget build(BuildContext context) {

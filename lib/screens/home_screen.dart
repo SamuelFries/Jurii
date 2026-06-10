@@ -17,10 +17,7 @@ class HomeScreen extends StatelessWidget {
             children: [
               const Text(
                 'Como podemos ajudar hoje?',
-                style: TextStyle(
-                  fontSize: 36,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 36, fontWeight: FontWeight.bold),
               ),
 
               const SizedBox(height: 24),
@@ -34,9 +31,7 @@ class HomeScreen extends StatelessWidget {
 
               const SizedBox(height: 12),
 
-              const Text(
-                'Ex.: "Quero me divorciar"',
-              ),
+              const Text('Ex.: "Quero me divorciar"'),
 
               SizedBox(height: 40),
 

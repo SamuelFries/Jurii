@@ -18,8 +18,4 @@ class LawyerCase {
   });
 }
 
-enum LawyerCaseStatus {
-  updated,
-  newMessage,
-  deadline,
-}
+enum LawyerCaseStatus { updated, newMessage, deadline }

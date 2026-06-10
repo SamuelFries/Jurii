@@ -39,10 +39,7 @@ class AttentionTodayCard extends StatelessWidget {
           Text(
             label,
             textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 11,
-              color: AppTheme.textSecondary,
-            ),
+            style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
           ),
         ],
       ),

@@ -1,11 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../data/mock/mock_documents.dart';
+import '../data/mock/mock_professional_profile.dart';
+import '../models/lawyer_status.dart';
+import '../models/lawyer_verification.dart';
+import '../models/user_profile.dart';
+import '../models/verification_document.dart';
 import '../theme/app_theme.dart';
 import 'lawyer_verification_success_screen.dart';
 
 class LawyerVerificationFormScreen extends StatefulWidget {
-  const LawyerVerificationFormScreen({super.key});
+  final UserProfile user;
+  final ValueChanged<LawyerVerification>? onVerificationSubmitted;
+
+  const LawyerVerificationFormScreen({
+    super.key,
+    required this.user,
+    this.onVerificationSubmitted,
+  });
 
   @override
   State<LawyerVerificationFormScreen> createState() =>
@@ -16,79 +29,23 @@ class _LawyerVerificationFormScreenState
     extends State<LawyerVerificationFormScreen> {
   final oabController = TextEditingController();
   bool mostrarErros = false;
-
-  bool documentoIdentidadeEnviado = false;
-  bool carteiraOabEnviada = false;
-  bool fotoProfissionalEnviada = false;
-
   String? selectedState;
   String? selectedArea;
-
-  final states = const [
-    'AC',
-    'AL',
-    'AP',
-    'AM',
-    'BA',
-    'CE',
-    'DF',
-    'ES',
-    'GO',
-    'MA',
-    'MT',
-    'MS',
-    'MG',
-    'PA',
-    'PB',
-    'PR',
-    'PE',
-    'PI',
-    'RJ',
-    'RN',
-    'RS',
-    'RO',
-    'RR',
-    'SC',
-    'SP',
-    'SE',
-    'TO'
-  ];
-
-  final areas = const [
-    'Direito Civil',
-    'Direito Trabalhista',
-    'Direito Previdenciário',
-    'Direito Empresarial',
-    'Direito Criminal',
-    'Direito Tributário',
-    'Direito Ambiental',
-    'Direito de Família',
-    'Direito Imobiliário',
-    'Direito Digital',
-    'Direito Internacional',
-    'Direito do Consumidor',
-    'Direito Administrativo',
-    'Direito Eleitoral',
-    'Direito Constitucional',
-    'Direito Marítimo',
-    'Direito Agrário',
-    'Direito Desportivo',
-    'Direito Médico',
-    'Direito da Propriedade Intelectual',
-  ];
+  late List<VerificationDocument> documents;
 
   bool get formularioValido {
     return oabController.text.trim().isNotEmpty &&
         selectedState != null &&
         selectedArea != null &&
-        documentoIdentidadeEnviado &&
-        carteiraOabEnviada &&
-        fotoProfissionalEnviada;
+        documents.every((document) => document.uploaded);
   }
 
   @override
   void initState() {
     super.initState();
+    documents = mockRequiredVerificationDocuments
+        .map((document) => document.copyWith())
+        .toList();
 
     oabController.addListener(() {
       setState(() {});
@@ -105,18 +62,10 @@ class _LawyerVerificationFormScreenState
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.background,
-      appBar: AppBar(
-        backgroundColor: AppTheme.background,
-        elevation: 0,
-      ),
+      appBar: AppBar(backgroundColor: AppTheme.background, elevation: 0),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(
-            24,
-            8,
-            24,
-            32,
-          ),
+          padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -146,10 +95,7 @@ class _LawyerVerificationFormScreenState
 
               const Text(
                 'Dados Profissionais',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                ),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
               ),
 
               const SizedBox(height: 16),
@@ -157,13 +103,11 @@ class _LawyerVerificationFormScreenState
               TextField(
                 controller: oabController,
                 keyboardType: TextInputType.number,
-                inputFormatters: [
-                  FilteringTextInputFormatter.digitsOnly,
-                ],
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 decoration: InputDecoration(
                   hintText: 'Número da OAB',
                   errorText: mostrarErros && oabController.text.trim().isEmpty
-                      ? ''
+                      ? 'Informe seu número da OAB'
                       : null,
                 ),
               ),
@@ -171,26 +115,19 @@ class _LawyerVerificationFormScreenState
               const SizedBox(height: 14),
 
               DropdownButtonFormField<String>(
-                value: selectedState,
+                initialValue: selectedState,
                 isExpanded: true,
                 menuMaxHeight: 280,
                 decoration: InputDecoration(
                   hintText: 'Estado da OAB',
-                  filled: true,
-                  fillColor: Colors.white,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
                   errorText: mostrarErros && selectedState == null
-                      ? ''
+                      ? 'Selecione o estado'
                       : null,
                 ),
-                items: states
+                items: mockBrazilianStates
                     .map(
-                      (state) => DropdownMenuItem(
-                        value: state,
-                        child: Text(state),
-                      ),
+                      (state) =>
+                          DropdownMenuItem(value: state, child: Text(state)),
                     )
                     .toList(),
                 onChanged: (value) {
@@ -203,28 +140,20 @@ class _LawyerVerificationFormScreenState
               const SizedBox(height: 14),
 
               DropdownButtonFormField<String>(
-                value: selectedArea,
+                initialValue: selectedArea,
                 isExpanded: true,
                 menuMaxHeight: 280,
                 decoration: InputDecoration(
                   hintText: 'Área de atuação',
-                  filled: true,
-                  fillColor: Colors.white,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
                   errorText: mostrarErros && selectedArea == null
-                      ? ''
+                      ? 'Selecione sua área principal'
                       : null,
                 ),
-                items: areas
+                items: mockPracticeAreas
                     .map(
                       (area) => DropdownMenuItem(
                         value: area,
-                        child: Text(
-                          area,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                        child: Text(area, overflow: TextOverflow.ellipsis),
                       ),
                     )
                     .toList(),
@@ -239,82 +168,37 @@ class _LawyerVerificationFormScreenState
 
               const Text(
                 'Documentos',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                ),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
               ),
 
               const SizedBox(height: 16),
 
-              _uploadCard(
-                icon: Icons.badge_outlined,
-                title: 'Documento de identificação',
-                subtitle: 'RG ou CNH',
-                uploaded: documentoIdentidadeEnviado,
-                hasError: mostrarErros && !documentoIdentidadeEnviado,
-                onTap: () {
-                  setState(() {
-                    documentoIdentidadeEnviado = true;
-                  });
-                },
-              ),
-
-              const SizedBox(height: 14),
-
-              _uploadCard(
-                icon: Icons.workspace_premium_outlined,
-                title: 'Carteira da OAB',
-                subtitle: 'Documento oficial',
-                uploaded: carteiraOabEnviada,
-                hasError: mostrarErros && !carteiraOabEnviada,
-                onTap: () {
-                  setState(() {
-                    carteiraOabEnviada = true;
-                  });
-                },
-              ),
-
-              const SizedBox(height: 14),
-
-              _uploadCard(
-                icon: Icons.photo_camera_outlined,
-                title: 'Foto profissional',
-                subtitle: 'Imagem exibida no perfil',
-                uploaded: fotoProfissionalEnviada,
-                hasError: mostrarErros && !fotoProfissionalEnviada,
-                onTap: () {
-                  setState(() {
-                    fotoProfissionalEnviada = true;
-                  });
-                },
-              ),
+              for (var index = 0; index < documents.length; index++) ...[
+                _uploadCard(
+                  document: documents[index],
+                  hasError: mostrarErros && !documents[index].uploaded,
+                  onTap: () => _markDocumentUploaded(index),
+                ),
+                if (index < documents.length - 1) const SizedBox(height: 14),
+              ],
 
               const SizedBox(height: 24),
 
               Container(
                 padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFEF9EB),
+                  color: AppTheme.warningSurface,
                   borderRadius: BorderRadius.circular(18),
-                  border: Border.all(
-                    color: const Color(0xFFF0E5C0),
-                  ),
+                  border: Border.all(color: AppTheme.warningBorder),
                 ),
                 child: const Row(
                   children: [
-                    Icon(
-                      Icons.shield_outlined,
-                      color: AppTheme.accent,
-                    ),
+                    Icon(Icons.shield_outlined, color: AppTheme.accent),
                     SizedBox(width: 12),
                     Expanded(
                       child: Text(
                         'Todos os documentos enviados são protegidos e utilizados exclusivamente para validação profissional.',
-                        style: TextStyle(
-                          fontSize: 13,
-                          height: 1.5,
-                        ),
+                        style: TextStyle(fontSize: 13, height: 1.5),
                       ),
                     ),
                   ],
@@ -335,17 +219,24 @@ class _LawyerVerificationFormScreenState
                       return;
                     }
 
+                    widget.onVerificationSubmitted?.call(
+                      LawyerVerification(
+                        userId: widget.user.id,
+                        oabNumber: oabController.text.trim(),
+                        oabState: selectedState!,
+                        practiceArea: selectedArea!,
+                        documents: documents,
+                        status: LawyerStatus.pending,
+                      ),
+                    );
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) =>
-                            const LawyerVerificationSuccessScreen(),
+                        builder: (_) => const LawyerVerificationSuccessScreen(),
                       ),
                     );
                   },
-                  child: const Text(
-                    'Enviar para análise',
-                  ),
+                  child: const Text('Enviar para análise'),
                 ),
               ),
             ],
@@ -356,25 +247,22 @@ class _LawyerVerificationFormScreenState
   }
 
   Widget _uploadCard({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required bool uploaded,
+    required VerificationDocument document,
     required bool hasError,
     required VoidCallback onTap,
   }) {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.card,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: hasError ? Colors.red : Colors.transparent,
+          color: hasError ? AppTheme.danger : AppTheme.lightBlueBorder,
           width: 1.5,
         ),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x120A1C3B),
+            color: AppTheme.softShadow,
             blurRadius: 10,
             offset: Offset(0, 4),
           ),
@@ -382,10 +270,7 @@ class _LawyerVerificationFormScreenState
       ),
       child: Row(
         children: [
-          Icon(
-            icon,
-            color: AppTheme.primary,
-          ),
+          Icon(_iconForDocument(document.type), color: AppTheme.primary),
 
           const SizedBox(width: 14),
 
@@ -394,13 +279,11 @@ class _LawyerVerificationFormScreenState
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  title,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                  ),
+                  document.title,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
                 Text(
-                  subtitle,
+                  document.subtitle,
                   style: const TextStyle(
                     color: AppTheme.textSecondary,
                     fontSize: 13,
@@ -422,15 +305,20 @@ class _LawyerVerificationFormScreenState
                   borderRadius: BorderRadius.circular(24),
                 ),
                 side: BorderSide(
-                  color: Colors.grey.shade300,
+                  color: document.uploaded
+                      ? AppTheme.success
+                      : AppTheme.lightBlueBorder,
                 ),
               ),
               onPressed: onTap,
               child: Text(
-                uploaded ? 'Anexado ✓' : 'Selecionar',
-                style: const TextStyle(
+                document.uploaded ? 'Anexado' : 'Selecionar',
+                style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
+                  color: document.uploaded
+                      ? AppTheme.success
+                      : AppTheme.textPrimary,
                 ),
               ),
             ),
@@ -438,5 +326,19 @@ class _LawyerVerificationFormScreenState
         ],
       ),
     );
+  }
+
+  void _markDocumentUploaded(int index) {
+    setState(() {
+      documents[index] = documents[index].copyWith(uploaded: true);
+    });
+  }
+
+  IconData _iconForDocument(VerificationDocumentType type) {
+    return switch (type) {
+      VerificationDocumentType.identity => Icons.badge_outlined,
+      VerificationDocumentType.oabCard => Icons.workspace_premium_outlined,
+      VerificationDocumentType.professionalPhoto => Icons.photo_camera_outlined,
+    };
   }
 }

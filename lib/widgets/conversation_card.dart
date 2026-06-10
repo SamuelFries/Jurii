@@ -81,9 +81,7 @@ class ConversationCard extends StatelessWidget {
                       conversation.lastMessage,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppTheme.textSecondary,
-                      ),
+                      style: const TextStyle(color: AppTheme.textSecondary),
                     ),
                   ],
                 ),

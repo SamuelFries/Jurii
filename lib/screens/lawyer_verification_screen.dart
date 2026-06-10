@@ -1,11 +1,19 @@
 import 'package:flutter/material.dart';
 
+import '../models/lawyer_verification.dart';
+import '../models/user_profile.dart';
 import 'lawyer_verification_form_screen.dart';
-import 'lawyer_verification_success_screen.dart';
 import '../theme/app_theme.dart';
 
 class LawyerVerificationScreen extends StatelessWidget {
-  const LawyerVerificationScreen({super.key});
+  final UserProfile user;
+  final ValueChanged<LawyerVerification>? onVerificationSubmitted;
+
+  const LawyerVerificationScreen({
+    super.key,
+    required this.user,
+    this.onVerificationSubmitted,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -22,7 +30,7 @@ class LawyerVerificationScreen extends StatelessWidget {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AppTheme.card,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: IconButton(
@@ -70,7 +78,7 @@ class LawyerVerificationScreen extends StatelessWidget {
                   borderRadius: BorderRadius.circular(20),
                   boxShadow: const [
                     BoxShadow(
-                      color: Color(0x120A1C3B),
+                      color: AppTheme.softShadow,
                       blurRadius: 12,
                       offset: Offset(0, 4),
                     ),
@@ -91,15 +99,9 @@ class LawyerVerificationScreen extends StatelessWidget {
                     const SizedBox(height: 18),
 
                     _benefit('Receba novos clientes'),
-                    _benefit(
-                      'Gerencie seus casos em um painel profissional',
-                    ),
-                    _benefit(
-                      'Converse com clientes pela plataforma',
-                    ),
-                    _benefit(
-                      'Faça parte de escritórios parceiros',
-                    ),
+                    _benefit('Gerencie seus casos em um painel profissional'),
+                    _benefit('Converse com clientes pela plataforma'),
+                    _benefit('Faça parte de escritórios parceiros'),
                   ],
                 ),
               ),
@@ -115,7 +117,7 @@ class LawyerVerificationScreen extends StatelessWidget {
                   borderRadius: BorderRadius.circular(20),
                   boxShadow: const [
                     BoxShadow(
-                      color: Color(0x120A1C3B),
+                      color: AppTheme.softShadow,
                       blurRadius: 12,
                       offset: Offset(0, 4),
                     ),
@@ -165,11 +167,9 @@ class LawyerVerificationScreen extends StatelessWidget {
                 width: double.infinity,
                 padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFEF9EB),
+                  color: AppTheme.warningSurface,
                   borderRadius: BorderRadius.circular(18),
-                  border: Border.all(
-                    color: const Color(0xFFF0E5C0),
-                  ),
+                  border: Border.all(color: AppTheme.warningBorder),
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -183,7 +183,7 @@ class LawyerVerificationScreen extends StatelessWidget {
                       ),
                       child: const Icon(
                         Icons.shield_outlined,
-                        color: Colors.white,
+                        color: AppTheme.card,
                       ),
                     ),
 
@@ -195,7 +195,7 @@ class LawyerVerificationScreen extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 13,
                           height: 1.6,
-                          color: Color(0xFF5A4F1E),
+                          color: AppTheme.warningText,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -215,17 +215,16 @@ class LawyerVerificationScreen extends StatelessWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) =>
-                            const LawyerVerificationFormScreen(),
+                        builder: (_) => LawyerVerificationFormScreen(
+                          user: user,
+                          onVerificationSubmitted: onVerificationSubmitted,
+                        ),
                       ),
                     );
                   },
                   child: const Text(
                     'Começar Verificação',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                    ),
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
                   ),
                 ),
               ),
@@ -242,9 +241,7 @@ class LawyerVerificationScreen extends StatelessWidget {
                   },
                   child: const Text(
                     'Voltar ao modo cliente',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: TextStyle(fontWeight: FontWeight.w600),
                   ),
                 ),
               ),
@@ -265,14 +262,10 @@ class LawyerVerificationScreen extends StatelessWidget {
             width: 22,
             height: 22,
             decoration: const BoxDecoration(
-              color: Color(0xFFE8F4EC),
+              color: AppTheme.successSurface,
               shape: BoxShape.circle,
             ),
-            child: const Icon(
-              Icons.check,
-              size: 14,
-              color: Color(0xFF2D7A4F),
-            ),
+            child: const Icon(Icons.check, size: 14, color: AppTheme.success),
           ),
 
           const SizedBox(width: 12),
@@ -293,10 +286,7 @@ class LawyerVerificationScreen extends StatelessWidget {
     );
   }
 
-  static Widget _requirement(
-    IconData icon,
-    String text,
-  ) {
+  static Widget _requirement(IconData icon, String text) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: Row(
@@ -305,14 +295,10 @@ class LawyerVerificationScreen extends StatelessWidget {
             width: 38,
             height: 38,
             decoration: BoxDecoration(
-              color: const Color(0xFFEEF1F8),
+              color: AppTheme.lightBlue,
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(
-              icon,
-              color: AppTheme.textPrimary,
-              size: 18,
-            ),
+            child: Icon(icon, color: AppTheme.textPrimary, size: 18),
           ),
 
           const SizedBox(width: 12),
