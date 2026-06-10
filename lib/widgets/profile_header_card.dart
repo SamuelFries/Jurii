@@ -62,7 +62,7 @@ class ProfileHeaderCard extends StatelessWidget {
                 Text(
                   email,
                   style: TextStyle(
-                    color: AppTheme.card.withValues(alpha:0.7),
+                    color: AppTheme.card.withValues(alpha: 0.7),
                     fontSize: 13,
                   ),
                 ),
@@ -73,7 +73,7 @@ class ProfileHeaderCard extends StatelessWidget {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: AppTheme.card.withValues(alpha:0.15),
+                    color: AppTheme.card.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Row(
@@ -81,14 +81,14 @@ class ProfileHeaderCard extends StatelessWidget {
                     children: [
                       Icon(
                         Icons.shield_outlined,
-                        color: AppTheme.card.withValues(alpha:0.7),
+                        color: AppTheme.card.withValues(alpha: 0.7),
                         size: 14,
                       ),
                       const SizedBox(width: 4),
                       Text(
                         memberSince,
                         style: TextStyle(
-                          color: AppTheme.card.withValues(alpha:0.7),
+                          color: AppTheme.card.withValues(alpha: 0.7),
                           fontSize: 11,
                         ),
                       ),
@@ -104,7 +104,7 @@ class ProfileHeaderCard extends StatelessWidget {
               width: 36,
               height: 36,
               decoration: BoxDecoration(
-                color: AppTheme.card.withValues(alpha:0.15),
+                color: AppTheme.card.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
               child: const Icon(

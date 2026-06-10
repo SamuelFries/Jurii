@@ -20,12 +20,12 @@ class LawyerVerificationSuccessScreen extends StatelessWidget {
                 width: 96,
                 height: 96,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE8F4EC),
+                  color: AppTheme.successSurface,
                   borderRadius: BorderRadius.circular(48),
                 ),
                 child: const Icon(
                   Icons.check,
-                  color: Color(0xFF2D7A4F),
+                  color: AppTheme.success,
                   size: 48,
                 ),
               ),
@@ -63,18 +63,13 @@ class LawyerVerificationSuccessScreen extends StatelessWidget {
                   vertical: 16,
                 ),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFEF9EB),
+                  color: AppTheme.warningSurface,
                   borderRadius: BorderRadius.circular(18),
-                  border: Border.all(
-                    color: const Color(0xFFF0E5C0),
-                  ),
+                  border: Border.all(color: AppTheme.warningBorder),
                 ),
                 child: const Row(
                   children: [
-                    Icon(
-                      Icons.schedule_outlined,
-                      color: AppTheme.accent,
-                    ),
+                    Icon(Icons.schedule_outlined, color: AppTheme.accent),
                     SizedBox(width: 12),
                     Expanded(
                       child: Text(
@@ -97,14 +92,9 @@ class LawyerVerificationSuccessScreen extends StatelessWidget {
                 height: 56,
                 child: ElevatedButton(
                   onPressed: () {
-                    Navigator.popUntil(
-                      context,
-                      (route) => route.isFirst,
-                    );
+                    Navigator.popUntil(context, (route) => route.isFirst);
                   },
-                  child: const Text(
-                    'Entendi',
-                  ),
+                  child: const Text('Voltar ao perfil'),
                 ),
               ),
             ],

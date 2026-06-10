@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../data/mock/mock_professional_profile.dart';
 import '../theme/app_theme.dart';
 import 'attention_today_card.dart';
 
@@ -7,20 +8,16 @@ class AttentionTodaySection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // TODO: substituir por dados reais da API
-    const int pendingMessages = 0;
-    const int meetingsToday = 0;
-    const int upcomingDeadlines = 0;
-    const bool hasAttention =
+    final pendingMessages = mockAttentionSummary.pendingMessages;
+    final meetingsToday = mockAttentionSummary.meetingsToday;
+    final upcomingDeadlines = mockAttentionSummary.upcomingDeadlines;
+    final hasAttention =
         pendingMessages > 0 || meetingsToday > 0 || upcomingDeadlines > 0;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Atenção Hoje',
-          style: Theme.of(context).textTheme.titleLarge,
-        ),
+        Text('Atenção Hoje', style: Theme.of(context).textTheme.titleLarge),
         const SizedBox(height: 16),
         if (!hasAttention)
           const Center(
@@ -28,7 +25,13 @@ class AttentionTodaySection extends StatelessWidget {
               padding: EdgeInsets.all(24),
               child: Column(
                 children: [
-                  Text('✅', style: TextStyle(fontSize: 32, decoration: TextDecoration.none, ),),
+                  Text(
+                    '✅',
+                    style: TextStyle(
+                      fontSize: 32,
+                      decoration: TextDecoration.none,
+                    ),
+                  ),
                   SizedBox(height: 8),
                   Text(
                     'Nenhuma atenção necessária hoje',
@@ -44,7 +47,7 @@ class AttentionTodaySection extends StatelessWidget {
             ),
           )
         else
-          const Row(
+          Row(
             children: [
               Expanded(
                 child: AttentionTodayCard(
@@ -53,7 +56,7 @@ class AttentionTodaySection extends StatelessWidget {
                   label: 'Mensagens\npendentes',
                 ),
               ),
-              SizedBox(width: 12),
+              const SizedBox(width: 12),
               Expanded(
                 child: AttentionTodayCard(
                   emoji: '📅',
@@ -61,7 +64,7 @@ class AttentionTodaySection extends StatelessWidget {
                   label: 'Reuniões\nhoje',
                 ),
               ),
-              SizedBox(width: 12),
+              const SizedBox(width: 12),
               Expanded(
                 child: AttentionTodayCard(
                   emoji: '⏰',

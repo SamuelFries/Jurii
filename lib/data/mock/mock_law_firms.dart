@@ -1,6 +1,6 @@
-import '../models/law_firm.dart';
+import '../../models/law_firm.dart';
 
-const lawFirms = [
+const mockLawFirms = [
   LawFirm(
     id: 'fries',
     name: 'Fries Advogados',
@@ -11,7 +11,6 @@ const lawFirms = [
     reviews: 128,
     avatarType: 'navy',
   ),
-
   LawFirm(
     id: 'silva',
     name: 'Silva & Associados',
@@ -22,7 +21,6 @@ const lawFirms = [
     reviews: 94,
     avatarType: 'blue',
   ),
-
   LawFirm(
     id: 'moura',
     name: 'Moura Advogados',

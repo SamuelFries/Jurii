@@ -16,7 +16,7 @@ class LawyerCaseCard extends StatelessWidget {
 
   Color get _statusColor => switch (lawyerCase.status) {
     LawyerCaseStatus.newMessage => AppTheme.primary,
-    LawyerCaseStatus.deadline => Colors.redAccent,
+    LawyerCaseStatus.deadline => AppTheme.danger,
     LawyerCaseStatus.updated => AppTheme.textSecondary,
   };
 
@@ -64,30 +64,42 @@ class LawyerCaseCard extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      Text(
-                        lawyerCase.title,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14,
-                          color: AppTheme.textPrimary,
+                      Expanded(
+                        child: Text(
+                          lawyerCase.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                            color: AppTheme.textPrimary,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppTheme.lightBlue,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          lawyerCase.area,
-                          style: const TextStyle(
-                            fontSize: 10,
-                            color: AppTheme.primary,
-                            fontWeight: FontWeight.w500,
+                      Flexible(
+                        flex: 0,
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 92),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppTheme.lightBlue,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              lawyerCase.area,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 10,
+                                color: AppTheme.primary,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
                           ),
                         ),
                       ),
@@ -106,11 +118,12 @@ class LawyerCaseCard extends StatelessWidget {
                     children: [
                       Icon(_statusIcon, size: 12, color: _statusColor),
                       const SizedBox(width: 4),
-                      Text(
-                        lawyerCase.lastUpdate,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: _statusColor,
+                      Expanded(
+                        child: Text(
+                          lawyerCase.lastUpdate,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: 12, color: _statusColor),
                         ),
                       ),
                     ],

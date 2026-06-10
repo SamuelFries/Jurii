@@ -1,6 +1,6 @@
-import '../models/legal_category.dart';
+import '../../models/legal_category.dart';
 
-const categories = [
+const mockCategories = [
   LegalCategory(
     id: 'divorcio',
     emoji: '👨‍👩‍👧',

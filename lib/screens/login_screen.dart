@@ -7,10 +7,7 @@ import '../widgets/login_logo.dart';
 class LoginScreen extends StatefulWidget {
   final VoidCallback onLogin;
 
-  const LoginScreen({
-    super.key,
-    required this.onLogin,
-  });
+  const LoginScreen({super.key, required this.onLogin});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -40,7 +37,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: const [
                     BoxShadow(
-                      color: Color(0x140A1C3B),
+                      color: AppTheme.softShadow,
                       blurRadius: 8,
                       offset: Offset(0, 2),
                     ),
@@ -52,7 +49,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     hintText: 'Seu e-mail',
                     prefixIcon: Icon(Icons.mail_outline),
                     filled: true,
-                    fillColor: Colors.white,
+                    fillColor: AppTheme.card,
                   ),
                 ),
               ),
@@ -65,7 +62,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: const [
                     BoxShadow(
-                      color: Color(0x140A1C3B),
+                      color: AppTheme.softShadow,
                       blurRadius: 8,
                       offset: Offset(0, 2),
                     ),
@@ -77,7 +74,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     hintText: 'Sua senha',
                     prefixIcon: const Icon(Icons.lock_outline),
                     filled: true,
-                    fillColor: Colors.white,
+                    fillColor: AppTheme.card,
                     suffixIcon: IconButton(
                       onPressed: () =>
                           setState(() => showPassword = !showPassword),
@@ -127,10 +124,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   onPressed: widget.onLogin,
                   child: const Text(
                     'Entrar',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                    ),
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                   ),
                 ),
               ),
@@ -140,7 +134,8 @@ class _LoginScreenState extends State<LoginScreen> {
               Row(
                 children: [
                   Expanded(
-                      child: Container(height: 1, color: Colors.black12)),
+                    child: Container(height: 1, color: AppTheme.divider),
+                  ),
                   const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 12),
                     child: Text(
@@ -152,7 +147,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   Expanded(
-                      child: Container(height: 1, color: Colors.black12)),
+                    child: Container(height: 1, color: AppTheme.divider),
+                  ),
                 ],
               ),
 
@@ -162,11 +158,11 @@ class _LoginScreenState extends State<LoginScreen> {
               Container(
                 height: 52,
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AppTheme.card,
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: const [
                     BoxShadow(
-                      color: Color(0x140A1C3B),
+                      color: AppTheme.softShadow,
                       blurRadius: 8,
                       offset: Offset(0, 2),
                     ),
@@ -175,7 +171,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: OutlinedButton(
                   onPressed: widget.onLogin,
                   style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Color(0x110A1C3B)),
+                    side: const BorderSide(color: AppTheme.softBorder),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                     ),
@@ -207,11 +203,11 @@ class _LoginScreenState extends State<LoginScreen> {
               Container(
                 height: 52,
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AppTheme.card,
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: const [
                     BoxShadow(
-                      color: Color(0x140A1C3B),
+                      color: AppTheme.softShadow,
                       blurRadius: 8,
                       offset: Offset(0, 2),
                     ),
@@ -228,7 +224,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Color(0x110A1C3B)),
+                    side: const BorderSide(color: AppTheme.softBorder),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                     ),
@@ -252,9 +248,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   onPressed: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (_) => RegisterScreen(
-                          onLogin: widget.onLogin,
-                        ),
+                        builder: (_) => RegisterScreen(onLogin: widget.onLogin),
                       ),
                     );
                   },
@@ -281,7 +275,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 12,
-                  color: Color(0xFFB8C0D4),
+                  color: AppTheme.muted,
                   height: 1.6,
                 ),
               ),

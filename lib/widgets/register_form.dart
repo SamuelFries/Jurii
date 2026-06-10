@@ -6,10 +6,7 @@ import '../theme/app_theme.dart';
 class RegisterForm extends StatefulWidget {
   final VoidCallback onLogin;
 
-  const RegisterForm({
-    super.key,
-    required this.onLogin,
-  });
+  const RegisterForm({super.key, required this.onLogin});
 
   @override
   State<RegisterForm> createState() => _RegisterFormState();
@@ -133,7 +130,8 @@ class _RegisterFormState extends State<RegisterForm> {
                 prefixIcon: const Icon(Icons.lock_reset_outlined),
                 suffixIcon: IconButton(
                   onPressed: () => setState(
-                      () => _obscureConfirmPassword = !_obscureConfirmPassword),
+                    () => _obscureConfirmPassword = !_obscureConfirmPassword,
+                  ),
                   icon: Icon(
                     _obscureConfirmPassword
                         ? Icons.visibility_outlined
@@ -173,10 +171,7 @@ class _RegisterFormState extends State<RegisterForm> {
               },
               child: const Text(
                 'Criar conta',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                ),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
               ),
             ),
           ),
@@ -191,7 +186,7 @@ class _RegisterFormState extends State<RegisterForm> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x140A1C3B),
+            color: AppTheme.softShadow,
             blurRadius: 8,
             offset: Offset(0, 2),
           ),
@@ -203,11 +198,17 @@ class _RegisterFormState extends State<RegisterForm> {
 
   int get _passwordStrength {
     var strength = 0;
-    if (_password.length >= 8) strength++;
+    if (_password.length >= 8) {
+      strength++;
+    }
     if (RegExp(r'[a-z]').hasMatch(_password) &&
-        RegExp(r'[A-Z]').hasMatch(_password)) strength++;
+        RegExp(r'[A-Z]').hasMatch(_password)) {
+      strength++;
+    }
     if (RegExp(r'\d').hasMatch(_password) &&
-        RegExp(r'[^A-Za-z0-9]').hasMatch(_password)) strength++;
+        RegExp(r'[^A-Za-z0-9]').hasMatch(_password)) {
+      strength++;
+    }
     return strength;
   }
 }
@@ -219,8 +220,7 @@ class _CpfInputFormatter extends TextInputFormatter {
     TextEditingValue newValue,
   ) {
     final digits = newValue.text.replaceAll(RegExp(r'\D'), '');
-    final limitedDigits =
-        digits.length > 11 ? digits.substring(0, 11) : digits;
+    final limitedDigits = digits.length > 11 ? digits.substring(0, 11) : digits;
     final formattedCpf = _formatCpf(limitedDigits);
     return TextEditingValue(
       text: formattedCpf,
@@ -231,8 +231,11 @@ class _CpfInputFormatter extends TextInputFormatter {
   String _formatCpf(String digits) {
     final buffer = StringBuffer();
     for (var index = 0; index < digits.length; index++) {
-      if (index == 3 || index == 6) buffer.write('.');
-      else if (index == 9) buffer.write('-');
+      if (index == 3 || index == 6) {
+        buffer.write('.');
+      } else if (index == 9) {
+        buffer.write('-');
+      }
       buffer.write(digits[index]);
     }
     return buffer.toString();
@@ -245,9 +248,9 @@ class _PasswordStrengthIndicator extends StatelessWidget {
   final int strength;
 
   Color get _color => switch (strength) {
-    3 => const Color(0xFF2E7D32),
+    3 => AppTheme.success,
     2 => AppTheme.accent,
-    _ => const Color(0xFFD32F2F),
+    _ => AppTheme.danger,
   };
 
   String get _label => switch (strength) {

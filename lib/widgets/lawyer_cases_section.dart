@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
-import '../data/lawyer_cases_data.dart';
+import '../data/mock/mock_cases.dart';
 import '../theme/app_theme.dart';
 import 'lawyer_case_card.dart';
 
 class LawyerCasesSection extends StatelessWidget {
-  const LawyerCasesSection({super.key});
+  final VoidCallback? onOpenCases;
+
+  const LawyerCasesSection({super.key, this.onOpenCases});
 
   @override
   Widget build(BuildContext context) {
-    // TODO: substituir por dados reais da API
-    final cases = lawyerCases;
+    final cases = mockLawyerCases;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -17,15 +18,10 @@ class LawyerCasesSection extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              'Casos Ativos',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
+            Text('Casos Ativos', style: Theme.of(context).textTheme.titleLarge),
             if (cases.isNotEmpty)
               GestureDetector(
-                onTap: () {
-                  // TODO: navegar para lista completa de casos
-                },
+                onTap: onOpenCases,
                 child: const Row(
                   children: [
                     Text(
@@ -36,11 +32,7 @@ class LawyerCasesSection extends StatelessWidget {
                         fontSize: 14,
                       ),
                     ),
-                    Icon(
-                      Icons.chevron_right,
-                      color: AppTheme.accent,
-                      size: 18,
-                    ),
+                    Icon(Icons.chevron_right, color: AppTheme.accent, size: 18),
                   ],
                 ),
               ),
@@ -53,7 +45,13 @@ class LawyerCasesSection extends StatelessWidget {
               padding: EdgeInsets.all(24),
               child: Column(
                 children: [
-                  Text( '📂', style: TextStyle(fontSize: 32, decoration: TextDecoration.none,),),
+                  Text(
+                    '📂',
+                    style: TextStyle(
+                      fontSize: 32,
+                      decoration: TextDecoration.none,
+                    ),
+                  ),
                   SizedBox(height: 8),
                   Text(
                     'Nenhum caso ativo no momento',
@@ -73,13 +71,11 @@ class LawyerCasesSection extends StatelessWidget {
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             itemCount: cases.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 12),
+            separatorBuilder: (context, index) => const SizedBox(height: 12),
             itemBuilder: (context, index) {
               return LawyerCaseCard(
                 lawyerCase: cases[index],
-                onTap: () {
-                  // TODO: navegar para detalhe do caso
-                },
+                onTap: onOpenCases,
               );
             },
           ),

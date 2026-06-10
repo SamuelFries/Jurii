@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../data/law_firms_data.dart';
+import '../data/mock/mock_law_firms.dart';
 import 'office_card.dart';
 
 class OfficesSection extends StatelessWidget {
@@ -18,10 +18,10 @@ class OfficesSection extends StatelessWidget {
         ListView.separated(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          itemCount: lawFirms.length,
-          separatorBuilder: (_, _) => const SizedBox(height: 12),
+          itemCount: mockLawFirms.length,
+          separatorBuilder: (context, index) => const SizedBox(height: 12),
           itemBuilder: (context, index) {
-            final office = lawFirms[index];
+            final office = mockLawFirms[index];
             return OfficeCard(
               initials: office.initials,
               officeName: office.name,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../data/lawyer_cases_data.dart';
+import '../data/mock/mock_cases.dart';
+import '../models/lawyer_case.dart';
 import '../theme/app_theme.dart';
 import '../widgets/lawyer_case_card.dart';
 
@@ -8,8 +9,7 @@ class LawyerCasesScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // TODO: substituir por dados reais da API
-    final cases = lawyerCases;
+    const cases = mockLawyerCases;
 
     return SafeArea(
       child: cases.isEmpty
@@ -93,7 +93,7 @@ class _EmptyCasesState extends StatelessWidget {
 }
 
 class _CasesListState extends StatelessWidget {
-  final List cases;
+  final List<LawyerCase> cases;
 
   const _CasesListState({required this.cases});
 
@@ -104,7 +104,13 @@ class _CasesListState extends StatelessWidget {
       floatingActionButton: FloatingActionButton(
         backgroundColor: AppTheme.primary,
         onPressed: () {
-          // TODO: navegar para criar novo caso
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'A criação de casos será habilitada na integração.',
+              ),
+            ),
+          );
         },
         child: const Icon(Icons.add, color: AppTheme.card),
       ),
@@ -128,15 +134,24 @@ class _CasesListState extends StatelessWidget {
             Expanded(
               child: ListView.separated(
                 itemCount: cases.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 12),
+                separatorBuilder: (context, index) =>
+                    const SizedBox(height: 12),
                 itemBuilder: (context, index) {
                   return LawyerCaseCard(
                     lawyerCase: cases[index],
                     onTap: () {
-                      // TODO: navegar para detalhe do caso
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Detalhes do caso em preparação.'),
+                        ),
+                      );
                     },
                     onEdit: () {
-                      // TODO: navegar para editar caso
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Edição de caso em preparação.'),
+                        ),
+                      );
                     },
                   );
                 },

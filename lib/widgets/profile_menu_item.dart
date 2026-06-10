@@ -32,14 +32,14 @@ class ProfileMenuItemTile extends StatelessWidget {
     return Column(
       children: [
         ListTile(
-        shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
           leading: Container(
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: item.iconColor.withValues(alpha:0.1),
+              color: item.iconColor.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(item.icon, color: item.iconColor, size: 20),
@@ -61,11 +61,14 @@ class ProfileMenuItemTile extends StatelessWidget {
                   ),
                 )
               : null,
-          trailing: const Icon(Icons.chevron_right, color: AppTheme.textSecondary),
+          trailing: const Icon(
+            Icons.chevron_right,
+            color: AppTheme.textSecondary,
+          ),
           onTap: item.onTap,
         ),
         if (showDivider)
-          Divider(height: 1, indent: 56, color: Colors.grey.shade100),
+          const Divider(height: 1, indent: 56, color: AppTheme.divider),
       ],
     );
   }
