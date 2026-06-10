@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
 
-class MessagesScreen extends StatelessWidget {
-  const MessagesScreen({super.key});
+class LawyerMessagesScreen extends StatelessWidget {
+  const LawyerMessagesScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // Futuramente virá da API
+    // TODO: substituir por dados reais da API
     final conversations = [];
 
     return SafeArea(
@@ -27,23 +28,18 @@ class _EmptyMessagesState extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Conversas',
+            'Mensagens',
             style: TextStyle(
               fontSize: 34,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF0A1C3B),
+              color: AppTheme.textPrimary,
+              decoration: TextDecoration.none,
             ),
           ),
 
           const SizedBox(height: 8),
 
-          const Text(
-            '', //subtitulo aqui
-            style: TextStyle(
-              color: Color(0xFF6B7A99),
-              fontSize: 16,
-            ),
-          ),
+          const Text(''), 
 
           const Spacer(),
 
@@ -54,46 +50,33 @@ class _EmptyMessagesState extends StatelessWidget {
                   width: 96,
                   height: 96,
                   decoration: BoxDecoration(
-                    color: Color(0xFFEEF1F8),
+                    color: AppTheme.lightBlue,
                     borderRadius: BorderRadius.circular(48),
                   ),
                   child: const Icon(
                     Icons.chat_bubble_outline,
                     size: 42,
-                    color: Color(0xFF6B7A99),
+                    color: AppTheme.textSecondary,
                   ),
                 ),
-
                 const SizedBox(height: 24),
-
                 const Text(
-                  'Nenhuma conversa iniciada',
+                  'Nenhuma mensagem recebida',
                   style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF0A1C3B),
+                    color: AppTheme.textPrimary,
+                    decoration: TextDecoration.none,
                   ),
                 ),
-
                 const SizedBox(height: 12),
-
                 const Text(
-                  'Quando você solicitar atendimento a um escritório, suas conversas aparecerão aqui.',
+                  'Quando clientes entrarem em contato, as conversas aparecerão aqui.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: Color(0xFF6B7A99),
+                    color: AppTheme.textSecondary,
                     fontSize: 15,
-                  ),
-                ),
-
-                const SizedBox(height: 24),
-
-                ElevatedButton(
-                  onPressed: () {
-                    // depois vamos redirecionar para Home
-                  },
-                  child: const Text(
-                    'Encontrar Escritórios',
+                    decoration: TextDecoration.none,
                   ),
                 ),
               ],

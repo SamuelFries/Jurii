@@ -6,7 +6,12 @@ import '../widgets/register_form.dart';
 import '../widgets/register_social_buttons.dart';
 
 class RegisterScreen extends StatelessWidget {
-  const RegisterScreen({super.key});
+  final VoidCallback onLogin;
+
+  const RegisterScreen({
+    super.key,
+    required this.onLogin,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -14,26 +19,17 @@ class RegisterScreen extends StatelessWidget {
       backgroundColor: AppTheme.background,
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 28,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 28),
           child: Column(
             children: [
               const SizedBox(height: 24),
-
               const LoginLogo(
-                subtitle:
-                    'Crie sua conta e encontre o suporte\njurídico que você precisa.',
+                subtitle: 'Crie sua conta e encontre o suporte\njurídico que você precisa.',
               ),
-
               const SizedBox(height: 40),
-
-              const RegisterForm(),
-
+              RegisterForm(onLogin: onLogin),
               const SizedBox(height: 28),
-
-              const RegisterSocialButtons(),
-
+              RegisterSocialButtons(onLogin: onLogin),
               const SizedBox(height: 32),
             ],
           ),

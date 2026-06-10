@@ -4,7 +4,12 @@ import '../screens/login_screen.dart';
 import '../theme/app_theme.dart';
 
 class RegisterSocialButtons extends StatelessWidget {
-  const RegisterSocialButtons({super.key});
+  final VoidCallback onLogin;
+
+  const RegisterSocialButtons({
+    super.key,
+    required this.onLogin,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -12,17 +17,9 @@ class RegisterSocialButtons extends StatelessWidget {
       children: [
         Row(
           children: [
-            Expanded(
-              child: Container(
-                height: 1,
-                color: Colors.black12,
-              ),
-            ),
-
+            Expanded(child: Container(height: 1, color: Colors.black12)),
             const Padding(
-              padding: EdgeInsets.symmetric(
-                horizontal: 12,
-              ),
+              padding: EdgeInsets.symmetric(horizontal: 12),
               child: Text(
                 'ou cadastre-se com',
                 style: TextStyle(
@@ -31,34 +28,27 @@ class RegisterSocialButtons extends StatelessWidget {
                 ),
               ),
             ),
-
-            Expanded(
-              child: Container(
-                height: 1,
-                color: Colors.black12,
-              ),
-            ),
+            Expanded(child: Container(height: 1, color: Colors.black12)),
           ],
         ),
 
         const SizedBox(height: 24),
 
-        _googleButton(),
+        _googleButton(onLogin),
 
         const SizedBox(height: 12),
 
         _socialButton(
           icon: Icons.apple,
           text: 'Continuar com Apple',
+          onPressed: onLogin,
         ),
 
         const SizedBox(height: 32),
 
         const Text(
           'Já possui uma conta?',
-          style: TextStyle(
-            color: AppTheme.textSecondary,
-          ),
+          style: TextStyle(color: AppTheme.textSecondary),
         ),
 
         const SizedBox(height: 12),
@@ -70,17 +60,14 @@ class RegisterSocialButtons extends StatelessWidget {
             onPressed: () {
               Navigator.of(context).pushReplacement(
                 MaterialPageRoute(
-                  builder: (_) => const LoginScreen(),
+                  builder: (_) => LoginScreen(onLogin: onLogin),
                 ),
               );
             },
             style: OutlinedButton.styleFrom(
-              side: const BorderSide(
-                color: AppTheme.accent,
-              ),
+              side: const BorderSide(color: AppTheme.accent),
               shape: RoundedRectangleBorder(
-                borderRadius:
-                    BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(16),
               ),
             ),
             child: const Text(
@@ -108,7 +95,7 @@ class RegisterSocialButtons extends StatelessWidget {
     );
   }
 
-  Widget _googleButton() {
+  Widget _googleButton(VoidCallback onPressed) {
     return Container(
       height: 52,
       decoration: BoxDecoration(
@@ -123,10 +110,11 @@ class RegisterSocialButtons extends StatelessWidget {
         ],
       ),
       child: OutlinedButton(
-        onPressed: () {},
+        onPressed: onPressed,
         style: OutlinedButton.styleFrom(
-          side: const BorderSide(
-            color: Color(0x110A1C3B),
+          side: const BorderSide(color: Color(0x110A1C3B)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
           ),
         ),
         child: Row(
@@ -154,6 +142,7 @@ class RegisterSocialButtons extends StatelessWidget {
   Widget _socialButton({
     required IconData icon,
     required String text,
+    required VoidCallback onPressed,
   }) {
     return Container(
       height: 52,
@@ -169,11 +158,8 @@ class RegisterSocialButtons extends StatelessWidget {
         ],
       ),
       child: OutlinedButton.icon(
-        onPressed: () {},
-        icon: Icon(
-          icon,
-          color: AppTheme.textPrimary,
-        ),
+        onPressed: onPressed,
+        icon: Icon(icon, color: AppTheme.textPrimary),
         label: Text(
           text,
           style: const TextStyle(
@@ -182,8 +168,9 @@ class RegisterSocialButtons extends StatelessWidget {
           ),
         ),
         style: OutlinedButton.styleFrom(
-          side: const BorderSide(
-            color: Color(0x110A1C3B),
+          side: const BorderSide(color: Color(0x110A1C3B)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
           ),
         ),
       ),

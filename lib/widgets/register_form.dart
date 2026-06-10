@@ -4,7 +4,12 @@ import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
 
 class RegisterForm extends StatefulWidget {
-  const RegisterForm({super.key});
+  final VoidCallback onLogin;
+
+  const RegisterForm({
+    super.key,
+    required this.onLogin,
+  });
 
   @override
   State<RegisterForm> createState() => _RegisterFormState();
@@ -34,7 +39,6 @@ class _RegisterFormState extends State<RegisterForm> {
                 if (value == null || value.trim().length < 3) {
                   return 'Informe seu nome completo';
                 }
-
                 return null;
               },
             ),
@@ -56,7 +60,6 @@ class _RegisterFormState extends State<RegisterForm> {
                 if (!email.contains('@') || !email.contains('.')) {
                   return 'Informe um e-mail válido';
                 }
-
                 return null;
               },
             ),
@@ -78,7 +81,6 @@ class _RegisterFormState extends State<RegisterForm> {
                 if (cpf.length != 11) {
                   return 'Informe um CPF válido';
                 }
-
                 return null;
               },
             ),
@@ -95,11 +97,8 @@ class _RegisterFormState extends State<RegisterForm> {
                 hintText: 'Crie uma senha',
                 prefixIcon: const Icon(Icons.lock_outline),
                 suffixIcon: IconButton(
-                  onPressed: () {
-                    setState(() {
-                      _obscurePassword = !_obscurePassword;
-                    });
-                  },
+                  onPressed: () =>
+                      setState(() => _obscurePassword = !_obscurePassword),
                   icon: Icon(
                     _obscurePassword
                         ? Icons.visibility_outlined
@@ -107,16 +106,11 @@ class _RegisterFormState extends State<RegisterForm> {
                   ),
                 ),
               ),
-              onChanged: (value) {
-                setState(() {
-                  _password = value;
-                });
-              },
+              onChanged: (value) => setState(() => _password = value),
               validator: (value) {
                 if (value == null || value.length < 6) {
                   return 'Use pelo menos 6 caracteres';
                 }
-
                 return null;
               },
             ),
@@ -138,11 +132,8 @@ class _RegisterFormState extends State<RegisterForm> {
                 hintText: 'Confirme sua senha',
                 prefixIcon: const Icon(Icons.lock_reset_outlined),
                 suffixIcon: IconButton(
-                  onPressed: () {
-                    setState(() {
-                      _obscureConfirmPassword = !_obscureConfirmPassword;
-                    });
-                  },
+                  onPressed: () => setState(
+                      () => _obscureConfirmPassword = !_obscureConfirmPassword),
                   icon: Icon(
                     _obscureConfirmPassword
                         ? Icons.visibility_outlined
@@ -154,7 +145,6 @@ class _RegisterFormState extends State<RegisterForm> {
                 if (value != _password) {
                   return 'As senhas precisam ser iguais';
                 }
-
                 return null;
               },
             ),
@@ -177,7 +167,9 @@ class _RegisterFormState extends State<RegisterForm> {
             ),
             child: ElevatedButton(
               onPressed: () {
-                _formKey.currentState?.validate();
+                if (_formKey.currentState?.validate() ?? false) {
+                  widget.onLogin();
+                }
               },
               child: const Text(
                 'Criar conta',
@@ -211,21 +203,11 @@ class _RegisterFormState extends State<RegisterForm> {
 
   int get _passwordStrength {
     var strength = 0;
-
-    if (_password.length >= 8) {
-      strength++;
-    }
-
+    if (_password.length >= 8) strength++;
     if (RegExp(r'[a-z]').hasMatch(_password) &&
-        RegExp(r'[A-Z]').hasMatch(_password)) {
-      strength++;
-    }
-
+        RegExp(r'[A-Z]').hasMatch(_password)) strength++;
     if (RegExp(r'\d').hasMatch(_password) &&
-        RegExp(r'[^A-Za-z0-9]').hasMatch(_password)) {
-      strength++;
-    }
-
+        RegExp(r'[^A-Za-z0-9]').hasMatch(_password)) strength++;
     return strength;
   }
 }
@@ -237,9 +219,9 @@ class _CpfInputFormatter extends TextInputFormatter {
     TextEditingValue newValue,
   ) {
     final digits = newValue.text.replaceAll(RegExp(r'\D'), '');
-    final limitedDigits = digits.length > 11 ? digits.substring(0, 11) : digits;
+    final limitedDigits =
+        digits.length > 11 ? digits.substring(0, 11) : digits;
     final formattedCpf = _formatCpf(limitedDigits);
-
     return TextEditingValue(
       text: formattedCpf,
       selection: TextSelection.collapsed(offset: formattedCpf.length),
@@ -248,17 +230,11 @@ class _CpfInputFormatter extends TextInputFormatter {
 
   String _formatCpf(String digits) {
     final buffer = StringBuffer();
-
     for (var index = 0; index < digits.length; index++) {
-      if (index == 3 || index == 6) {
-        buffer.write('.');
-      } else if (index == 9) {
-        buffer.write('-');
-      }
-
+      if (index == 3 || index == 6) buffer.write('.');
+      else if (index == 9) buffer.write('-');
       buffer.write(digits[index]);
     }
-
     return buffer.toString();
   }
 }
@@ -268,21 +244,17 @@ class _PasswordStrengthIndicator extends StatelessWidget {
 
   final int strength;
 
-  Color get _color {
-    return switch (strength) {
-      3 => const Color(0xFF2E7D32),
-      2 => AppTheme.accent,
-      _ => const Color(0xFFD32F2F),
-    };
-  }
+  Color get _color => switch (strength) {
+    3 => const Color(0xFF2E7D32),
+    2 => AppTheme.accent,
+    _ => const Color(0xFFD32F2F),
+  };
 
-  String get _label {
-    return switch (strength) {
-      3 => 'Senha forte',
-      2 => 'Senha média',
-      _ => 'Senha fraca',
-    };
-  }
+  String get _label => switch (strength) {
+    3 => 'Senha forte',
+    2 => 'Senha média',
+    _ => 'Senha fraca',
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -294,13 +266,10 @@ class _PasswordStrengthIndicator extends StatelessWidget {
           Row(
             children: List.generate(3, (index) {
               final isActive = index < strength;
-
               return Expanded(
                 child: Container(
                   height: 6,
-                  margin: EdgeInsets.only(
-                    right: index == 2 ? 0 : 6,
-                  ),
+                  margin: EdgeInsets.only(right: index == 2 ? 0 : 6),
                   decoration: BoxDecoration(
                     color: isActive
                         ? _color
@@ -311,9 +280,7 @@ class _PasswordStrengthIndicator extends StatelessWidget {
               );
             }),
           ),
-
           const SizedBox(height: 8),
-
           Text(
             _label,
             style: TextStyle(

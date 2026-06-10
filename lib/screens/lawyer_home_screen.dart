@@ -16,11 +16,16 @@ class LawyerHomeScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Olá, Dr. João 👋',
-                style: Theme.of(context).textTheme.headlineMedium,
+              const Text(
+                'Olá, Dr. João',
+                style: TextStyle(
+                  fontSize: 36,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-              const SizedBox(height: 4),
+
+              const SizedBox(height: 8),
+
               const Text(
                 'Acompanhe seus atendimentos e atividades profissionais.',
                 style: TextStyle(
@@ -30,19 +35,19 @@ class LawyerHomeScreen extends StatelessWidget {
                 ),
               ),
 
-              const SizedBox(height: 32),
+              const SizedBox(height: 40),
 
               const AttentionTodaySection(),
 
-              const SizedBox(height: 32),
+              const SizedBox(height: 40),
 
               const LawyerCasesSection(),
 
-              const SizedBox(height: 32),
+              const SizedBox(height: 40),
 
               const LawyerContactsSection(),
 
-              const SizedBox(height: 32),
+              const SizedBox(height: 40),
             ],
           ),
         ),
