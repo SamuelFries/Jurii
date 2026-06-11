@@ -16,9 +16,12 @@ import 'screens/lawyer_messages_screen.dart';
 import 'screens/lawyer_cases_screen.dart';
 
 import 'theme/app_theme.dart';
+import 'services/supabase_config.dart';
 import 'widgets/jurii_bottom_nav.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await SupabaseConfig.initialize();
   runApp(const JuriiApp());
 }
 

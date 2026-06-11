@@ -1,0 +1,24 @@
+import '../models/legal_category.dart';
+import '../services/supabase_config.dart';
+
+class CategoryRepository {
+  const CategoryRepository();
+
+  Future<List<LegalCategory>> fetchCategories() async {
+    final rows = await SupabaseConfig.client
+        .from('legal_categories')
+        .select()
+        .order('sort_order');
+
+    return rows.map<LegalCategory>(_fromRow).toList();
+  }
+
+  LegalCategory _fromRow(Map<String, dynamic> row) {
+    return LegalCategory(
+      id: row['id'] as String,
+      emoji: '',
+      title: row['title'] as String,
+      isGold: row['is_highlighted'] as bool? ?? false,
+    );
+  }
+}
