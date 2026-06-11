@@ -17,6 +17,8 @@ class CategoryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final accentColor = isGold ? AppTheme.accent : AppTheme.primary;
+
     return InkWell(
       borderRadius: BorderRadius.circular(16),
       onTap: onTap,
@@ -32,7 +34,7 @@ class CategoryCard extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(emoji, style: const TextStyle(fontSize: 28)),
+            Icon(_categoryIcon, size: 28, color: accentColor),
             const SizedBox(height: 8),
             Text(
               title,
@@ -47,5 +49,30 @@ class CategoryCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  IconData get _categoryIcon {
+    final normalizedTitle = title.replaceAll('\n', ' ').toLowerCase();
+
+    if (normalizedTitle.contains('divórcio')) {
+      return Icons.family_restroom;
+    }
+    if (normalizedTitle.contains('pensão')) {
+      return Icons.child_care_outlined;
+    }
+    if (normalizedTitle.contains('trabalhista')) {
+      return Icons.work_outline;
+    }
+    if (normalizedTitle.contains('imobiliário')) {
+      return Icons.home_outlined;
+    }
+    if (normalizedTitle.contains('acidente')) {
+      return Icons.directions_car_outlined;
+    }
+    if (normalizedTitle.contains('consumidor')) {
+      return Icons.shopping_bag_outlined;
+    }
+
+    return Icons.balance_outlined;
   }
 }
