@@ -1,14 +1,23 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class SupabaseConfig {
-  static const url = String.fromEnvironment('SUPABASE_URL');
-  static const publishableKey = String.fromEnvironment(
+  static const _projectUrl = 'https://rlgtgipxltucrtkyrmag.supabase.co';
+  static const _projectPublishableKey =
+      'sb_publishable_3gA6AW1vF0Lg33dwobEULg_jpLkh8Fx';
+
+  static const _envUrl = String.fromEnvironment('SUPABASE_URL');
+  static const _envPublishableKey = String.fromEnvironment(
     'SUPABASE_PUBLISHABLE_KEY',
   );
-  static const legacyAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
+  static const _legacyAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
 
-  static String get key =>
-      publishableKey.isNotEmpty ? publishableKey : legacyAnonKey;
+  static String get url => _envUrl.isNotEmpty ? _envUrl : _projectUrl;
+
+  static String get key => _envPublishableKey.isNotEmpty
+      ? _envPublishableKey
+      : _legacyAnonKey.isNotEmpty
+      ? _legacyAnonKey
+      : _projectPublishableKey;
 
   static bool get isConfigured => url.isNotEmpty && key.isNotEmpty;
 

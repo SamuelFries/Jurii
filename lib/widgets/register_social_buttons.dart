@@ -1,12 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../screens/login_screen.dart';
 import '../theme/app_theme.dart';
 
 class RegisterSocialButtons extends StatelessWidget {
-  final VoidCallback onLogin;
-
-  const RegisterSocialButtons({super.key, required this.onLogin});
+  const RegisterSocialButtons({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -28,14 +25,14 @@ class RegisterSocialButtons extends StatelessWidget {
 
         const SizedBox(height: 24),
 
-        _googleButton(onLogin),
+        _googleButton(context),
 
         const SizedBox(height: 12),
 
         _socialButton(
           icon: Icons.apple,
           text: 'Continuar com Apple',
-          onPressed: onLogin,
+          onPressed: () => _showSocialUnavailable(context),
         ),
 
         const SizedBox(height: 32),
@@ -52,11 +49,7 @@ class RegisterSocialButtons extends StatelessWidget {
           height: 56,
           child: OutlinedButton(
             onPressed: () {
-              Navigator.of(context).pushReplacement(
-                MaterialPageRoute(
-                  builder: (_) => LoginScreen(onLogin: onLogin),
-                ),
-              );
+              Navigator.of(context).pop();
             },
             style: OutlinedButton.styleFrom(
               side: const BorderSide(color: AppTheme.accent),
@@ -85,7 +78,7 @@ class RegisterSocialButtons extends StatelessWidget {
     );
   }
 
-  Widget _googleButton(VoidCallback onPressed) {
+  Widget _googleButton(BuildContext context) {
     return Container(
       height: 52,
       decoration: BoxDecoration(
@@ -100,7 +93,7 @@ class RegisterSocialButtons extends StatelessWidget {
         ],
       ),
       child: OutlinedButton(
-        onPressed: onPressed,
+        onPressed: () => _showSocialUnavailable(context),
         style: OutlinedButton.styleFrom(
           side: const BorderSide(color: AppTheme.softBorder),
           shape: RoundedRectangleBorder(
@@ -159,6 +152,14 @@ class RegisterSocialButtons extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
           ),
         ),
+      ),
+    );
+  }
+
+  void _showSocialUnavailable(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Cadastro social será conectado em uma próxima etapa.'),
       ),
     );
   }

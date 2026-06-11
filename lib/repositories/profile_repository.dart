@@ -49,7 +49,7 @@ class ProfileRepository {
       email: row['email'] as String,
       initials: row['initials'] as String,
       memberSince: 'Cliente desde ${row['member_since'] ?? ''}',
-      oabNumber: row['oab_number'] as String?,
+      oabNumber: null,
       lawyerStatus: status,
     );
   }

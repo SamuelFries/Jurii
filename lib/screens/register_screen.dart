@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
+import '../types/auth_callbacks.dart';
 import '../widgets/login_logo.dart';
 import '../widgets/register_form.dart';
 import '../widgets/register_social_buttons.dart';
 
 class RegisterScreen extends StatelessWidget {
-  final VoidCallback onLogin;
+  final RegisterSubmit onRegister;
 
-  const RegisterScreen({super.key, required this.onLogin});
+  const RegisterScreen({super.key, required this.onRegister});
 
   @override
   Widget build(BuildContext context) {
@@ -25,9 +26,9 @@ class RegisterScreen extends StatelessWidget {
                     'Crie sua conta e encontre o suporte\njurídico que você precisa.',
               ),
               const SizedBox(height: 40),
-              RegisterForm(onLogin: onLogin),
+              RegisterForm(onRegister: onRegister),
               const SizedBox(height: 28),
-              RegisterSocialButtons(onLogin: onLogin),
+              const RegisterSocialButtons(),
               const SizedBox(height: 32),
             ],
           ),

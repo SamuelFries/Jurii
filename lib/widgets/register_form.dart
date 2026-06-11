@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../theme/app_theme.dart';
+import '../types/auth_callbacks.dart';
 
 class RegisterForm extends StatefulWidget {
-  final VoidCallback onLogin;
+  final RegisterSubmit onRegister;
 
-  const RegisterForm({super.key, required this.onLogin});
+  const RegisterForm({super.key, required this.onRegister});
 
   @override
   State<RegisterForm> createState() => _RegisterFormState();
@@ -14,9 +15,26 @@ class RegisterForm extends StatefulWidget {
 
 class _RegisterFormState extends State<RegisterForm> {
   final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _cpfController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   String _password = '';
+  bool _isLoading = false;
+  String? _errorMessage;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _cpfController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -26,6 +44,7 @@ class _RegisterFormState extends State<RegisterForm> {
         children: [
           _shadowedField(
             child: TextFormField(
+              controller: _nameController,
               textInputAction: TextInputAction.next,
               textCapitalization: TextCapitalization.words,
               decoration: const InputDecoration(
@@ -45,6 +64,7 @@ class _RegisterFormState extends State<RegisterForm> {
 
           _shadowedField(
             child: TextFormField(
+              controller: _emailController,
               keyboardType: TextInputType.emailAddress,
               textInputAction: TextInputAction.next,
               autofillHints: const [AutofillHints.email],
@@ -66,6 +86,7 @@ class _RegisterFormState extends State<RegisterForm> {
 
           _shadowedField(
             child: TextFormField(
+              controller: _cpfController,
               keyboardType: TextInputType.number,
               textInputAction: TextInputAction.next,
               inputFormatters: [_CpfInputFormatter()],
@@ -87,6 +108,7 @@ class _RegisterFormState extends State<RegisterForm> {
 
           _shadowedField(
             child: TextFormField(
+              controller: _passwordController,
               obscureText: _obscurePassword,
               textInputAction: TextInputAction.next,
               autofillHints: const [AutofillHints.newPassword],
@@ -122,6 +144,7 @@ class _RegisterFormState extends State<RegisterForm> {
 
           _shadowedField(
             child: TextFormField(
+              controller: _confirmPasswordController,
               obscureText: _obscureConfirmPassword,
               textInputAction: TextInputAction.done,
               autofillHints: const [AutofillHints.newPassword],
@@ -164,20 +187,91 @@ class _RegisterFormState extends State<RegisterForm> {
               ],
             ),
             child: ElevatedButton(
-              onPressed: () {
-                if (_formKey.currentState?.validate() ?? false) {
-                  widget.onLogin();
-                }
-              },
-              child: const Text(
-                'Criar conta',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-              ),
+              onPressed: _isLoading ? null : _submit,
+              child: _isLoading
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppTheme.card,
+                      ),
+                    )
+                  : const Text(
+                      'Criar conta',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
             ),
           ),
+
+          if (_errorMessage != null) ...[
+            const SizedBox(height: 12),
+            Text(
+              _errorMessage!,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: AppTheme.danger,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
         ],
       ),
     );
+  }
+
+  Future<void> _submit() async {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final result = await widget.onRegister(
+        fullName: _nameController.text.trim(),
+        email: _emailController.text.trim(),
+        cpf: _cpfController.text.trim(),
+        password: _passwordController.text,
+      );
+      if (!mounted) return;
+
+      if (result == RegisterResult.needsEmailConfirmation) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Conta criada. Confirme seu e-mail para entrar na Jurii.',
+            ),
+          ),
+        );
+        Navigator.of(context).pop();
+        return;
+      }
+
+      Navigator.of(context).popUntil((route) => route.isFirst);
+    } catch (error) {
+      setState(() => _errorMessage = _friendlyError(error));
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  String _friendlyError(Object error) {
+    final message = error.toString().toLowerCase();
+    if (message.contains('already registered') ||
+        message.contains('already exists')) {
+      return 'Já existe uma conta com este e-mail.';
+    }
+    if (message.contains('password')) {
+      return 'A senha informada não atende aos requisitos.';
+    }
+    return 'Não foi possível criar sua conta. Tente novamente.';
   }
 
   Widget _shadowedField({required Widget child}) {

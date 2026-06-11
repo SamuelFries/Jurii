@@ -2,19 +2,36 @@ import 'package:flutter/material.dart';
 
 import 'register_screen.dart';
 import '../theme/app_theme.dart';
+import '../types/auth_callbacks.dart';
 import '../widgets/login_logo.dart';
 
 class LoginScreen extends StatefulWidget {
-  final VoidCallback onLogin;
+  final LoginSubmit onLogin;
+  final RegisterSubmit onRegister;
 
-  const LoginScreen({super.key, required this.onLogin});
+  const LoginScreen({
+    super.key,
+    required this.onLogin,
+    required this.onRegister,
+  });
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  final emailController = TextEditingController();
+  final passwordController = TextEditingController();
   bool showPassword = false;
+  bool isLoading = false;
+  String? errorMessage;
+
+  @override
+  void dispose() {
+    emailController.dispose();
+    passwordController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -44,6 +61,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ],
                 ),
                 child: TextField(
+                  controller: emailController,
                   keyboardType: TextInputType.emailAddress,
                   decoration: const InputDecoration(
                     hintText: 'Seu e-mail',
@@ -69,6 +87,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ],
                 ),
                 child: TextField(
+                  controller: passwordController,
                   obscureText: !showPassword,
                   decoration: InputDecoration(
                     hintText: 'Sua senha',
@@ -121,13 +140,37 @@ class _LoginScreenState extends State<LoginScreen> {
                   ],
                 ),
                 child: ElevatedButton(
-                  onPressed: widget.onLogin,
-                  child: const Text(
-                    'Entrar',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-                  ),
+                  onPressed: isLoading ? null : _submit,
+                  child: isLoading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppTheme.card,
+                          ),
+                        )
+                      : const Text(
+                          'Entrar',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
                 ),
               ),
+
+              if (errorMessage != null) ...[
+                const SizedBox(height: 12),
+                Text(
+                  errorMessage!,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: AppTheme.danger,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
 
               const SizedBox(height: 22),
 
@@ -169,7 +212,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ],
                 ),
                 child: OutlinedButton(
-                  onPressed: widget.onLogin,
+                  onPressed: _showSocialUnavailable,
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: AppTheme.softBorder),
                     shape: RoundedRectangleBorder(
@@ -214,7 +257,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ],
                 ),
                 child: OutlinedButton.icon(
-                  onPressed: widget.onLogin,
+                  onPressed: _showSocialUnavailable,
                   icon: const Icon(Icons.apple, color: AppTheme.textPrimary),
                   label: const Text(
                     'Continuar com Apple',
@@ -248,7 +291,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   onPressed: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (_) => RegisterScreen(onLogin: widget.onLogin),
+                        builder: (_) =>
+                            RegisterScreen(onRegister: widget.onRegister),
                       ),
                     );
                   },
@@ -284,6 +328,47 @@ class _LoginScreenState extends State<LoginScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Future<void> _submit() async {
+    setState(() {
+      isLoading = true;
+      errorMessage = null;
+    });
+
+    try {
+      await widget.onLogin(
+        emailController.text.trim(),
+        passwordController.text,
+      );
+    } catch (error) {
+      setState(() {
+        errorMessage = _friendlyError(error);
+      });
+    } finally {
+      if (mounted) {
+        setState(() => isLoading = false);
+      }
+    }
+  }
+
+  String _friendlyError(Object error) {
+    final message = error.toString().toLowerCase();
+    if (message.contains('invalid login credentials')) {
+      return 'E-mail ou senha inválidos.';
+    }
+    if (message.contains('email not confirmed')) {
+      return 'Confirme seu e-mail antes de entrar.';
+    }
+    return 'Não foi possível entrar. Tente novamente.';
+  }
+
+  void _showSocialUnavailable() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Login social será conectado em uma próxima etapa.'),
       ),
     );
   }

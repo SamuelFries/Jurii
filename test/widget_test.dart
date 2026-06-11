@@ -5,6 +5,7 @@ import 'package:jurii/models/lawyer_verification.dart';
 import 'package:jurii/screens/profile_screen.dart';
 import 'package:jurii/screens/register_screen.dart';
 import 'package:jurii/theme/app_theme.dart';
+import 'package:jurii/types/auth_callbacks.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -12,8 +13,17 @@ void main() {
     lawyerStatus: LawyerStatus.client,
   );
 
+  Future<RegisterResult> registerStub({
+    required String fullName,
+    required String email,
+    required String cpf,
+    required String password,
+  }) async {
+    return RegisterResult.signedIn;
+  }
+
   testWidgets('shows the register screen', (WidgetTester tester) async {
-    await tester.pumpWidget(_testApp(RegisterScreen(onLogin: () {})));
+    await tester.pumpWidget(_testApp(RegisterScreen(onRegister: registerStub)));
 
     expect(
       find.text(
@@ -33,7 +43,7 @@ void main() {
   testWidgets('updates password strength while typing', (
     WidgetTester tester,
   ) async {
-    await tester.pumpWidget(_testApp(RegisterScreen(onLogin: () {})));
+    await tester.pumpWidget(_testApp(RegisterScreen(onRegister: registerStub)));
 
     expect(find.text('Senha fraca'), findsNothing);
     expect(find.text('Senha média'), findsNothing);
@@ -60,7 +70,7 @@ void main() {
   testWidgets('formats cpf while typing only digits', (
     WidgetTester tester,
   ) async {
-    await tester.pumpWidget(_testApp(RegisterScreen(onLogin: () {})));
+    await tester.pumpWidget(_testApp(RegisterScreen(onRegister: registerStub)));
 
     final cpfField = find.byType(TextFormField).at(2);
 
