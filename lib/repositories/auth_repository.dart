@@ -1,12 +1,9 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../services/supabase_config.dart';
-import 'profile_repository.dart';
 
 class AuthRepository {
-  const AuthRepository({this.profileRepository = const ProfileRepository()});
-
-  final ProfileRepository profileRepository;
+  const AuthRepository();
 
   Session? get currentSession => SupabaseConfig.client.auth.currentSession;
 
@@ -29,18 +26,8 @@ class AuthRepository {
     final response = await SupabaseConfig.client.auth.signUp(
       email: email,
       password: password,
-      data: {'full_name': fullName},
+      data: {'full_name': fullName, 'cpf': cpf},
     );
-
-    final user = response.user;
-    if (user != null) {
-      await profileRepository.upsertProfile(
-        id: user.id,
-        fullName: fullName,
-        email: email,
-        cpf: cpf,
-      );
-    }
 
     return response;
   }

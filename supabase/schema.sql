@@ -53,6 +53,148 @@ begin
 end;
 $$;
 
+create or replace function public.handle_new_auth_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  full_name_value text;
+begin
+  full_name_value := coalesce(
+    new.raw_user_meta_data ->> 'full_name',
+    split_part(new.email, '@', 1),
+    'Usuário Jurii'
+  );
+
+  insert into public.profiles (id, full_name, email, initials)
+  values (
+    new.id,
+    full_name_value,
+    new.email,
+    upper(left(full_name_value, 1))
+  )
+  on conflict (id) do nothing;
+
+  return new;
+end;
+$$;
+
+create or replace function public.can_access_case(case_id_value uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    exists (
+      select 1
+      from public.legal_cases lc
+      where lc.id = case_id_value
+        and (
+          lc.client_id = auth.uid()
+          or lc.assigned_lawyer_id = auth.uid()
+        )
+    )
+    or exists (
+      select 1
+      from public.case_participants cp
+      where cp.case_id = case_id_value
+        and cp.profile_id = auth.uid()
+    );
+$$;
+
+create or replace function public.can_manage_case(case_id_value uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    exists (
+      select 1
+      from public.legal_cases lc
+      where lc.id = case_id_value
+        and (
+          lc.client_id = auth.uid()
+          or lc.assigned_lawyer_id = auth.uid()
+        )
+    )
+    or exists (
+      select 1
+      from public.case_participants cp
+      where cp.case_id = case_id_value
+        and cp.profile_id = auth.uid()
+        and cp.role in ('lawyer', 'firm_member')
+    );
+$$;
+
+create or replace function public.can_access_conversation(conversation_id_value uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.conversations c
+    where c.id = conversation_id_value
+      and (
+        c.client_id = auth.uid()
+        or c.lawyer_id = auth.uid()
+        or (
+          c.case_id is not null
+          and public.can_access_case(c.case_id)
+        )
+      )
+  );
+$$;
+
+create or replace function public.can_select_profile(profile_id_value uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    profile_id_value = auth.uid()
+    or exists (
+      select 1
+      from public.legal_cases lc
+      where (
+        lc.client_id = auth.uid()
+        and lc.assigned_lawyer_id = profile_id_value
+      )
+      or (
+        lc.assigned_lawyer_id = auth.uid()
+        and lc.client_id = profile_id_value
+      )
+    )
+    or exists (
+      select 1
+      from public.case_participants cp
+      where cp.profile_id = profile_id_value
+        and public.can_access_case(cp.case_id)
+    )
+    or exists (
+      select 1
+      from public.conversations c
+      where (
+        c.client_id = auth.uid()
+        and c.lawyer_id = profile_id_value
+      )
+      or (
+        c.lawyer_id = auth.uid()
+        and c.client_id = profile_id_value
+      )
+    );
+$$;
+
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   full_name text not null,
@@ -66,6 +208,11 @@ create table if not exists public.profiles (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+after insert on auth.users
+for each row execute function public.handle_new_auth_user();
 
 create table if not exists public.legal_categories (
   id text primary key,
@@ -311,30 +458,7 @@ with check (id = auth.uid());
 create policy "profiles_select_related_case_or_conversation"
 on public.profiles for select
 to authenticated
-using (
-  exists (
-    select 1 from public.legal_cases lc
-    where (
-      lc.client_id = auth.uid()
-      and lc.assigned_lawyer_id = profiles.id
-    )
-    or (
-      lc.assigned_lawyer_id = auth.uid()
-      and lc.client_id = profiles.id
-    )
-  )
-  or exists (
-    select 1 from public.conversations c
-    where (
-      c.client_id = auth.uid()
-      and c.lawyer_id = profiles.id
-    )
-    or (
-      c.lawyer_id = auth.uid()
-      and c.client_id = profiles.id
-    )
-  )
-);
+using (public.can_select_profile(profiles.id));
 
 create policy "legal_categories_public_read"
 on public.legal_categories for select
@@ -415,15 +539,7 @@ with check (user_id = auth.uid());
 create policy "legal_cases_select_related"
 on public.legal_cases for select
 to authenticated
-using (
-  client_id = auth.uid()
-  or assigned_lawyer_id = auth.uid()
-  or exists (
-    select 1 from public.case_participants cp
-    where cp.case_id = legal_cases.id
-      and cp.profile_id = auth.uid()
-  )
-);
+using (public.can_access_case(legal_cases.id));
 
 create policy "legal_cases_insert_as_client"
 on public.legal_cases for insert
@@ -433,27 +549,14 @@ with check (client_id = auth.uid());
 create policy "legal_cases_update_related"
 on public.legal_cases for update
 to authenticated
-using (
-  client_id = auth.uid()
-  or assigned_lawyer_id = auth.uid()
-  or exists (
-    select 1 from public.case_participants cp
-    where cp.case_id = legal_cases.id
-      and cp.profile_id = auth.uid()
-      and cp.role in ('lawyer', 'firm_member')
-  )
-);
+using (public.can_manage_case(legal_cases.id));
 
 create policy "case_participants_select_related"
 on public.case_participants for select
 to authenticated
 using (
   profile_id = auth.uid()
-  or exists (
-    select 1 from public.legal_cases lc
-    where lc.id = case_participants.case_id
-      and (lc.client_id = auth.uid() or lc.assigned_lawyer_id = auth.uid())
-  )
+  or public.can_access_case(case_participants.case_id)
 );
 
 create policy "case_documents_select_related"
@@ -461,11 +564,7 @@ on public.case_documents for select
 to authenticated
 using (
   uploaded_by = auth.uid()
-  or exists (
-    select 1 from public.legal_cases lc
-    where lc.id = case_documents.case_id
-      and (lc.client_id = auth.uid() or lc.assigned_lawyer_id = auth.uid())
-  )
+  or public.can_access_case(case_documents.case_id)
 );
 
 create policy "case_documents_insert_related"
@@ -473,25 +572,13 @@ on public.case_documents for insert
 to authenticated
 with check (
   uploaded_by = auth.uid()
-  and exists (
-    select 1 from public.legal_cases lc
-    where lc.id = case_documents.case_id
-      and (lc.client_id = auth.uid() or lc.assigned_lawyer_id = auth.uid())
-  )
+  and public.can_access_case(case_documents.case_id)
 );
 
 create policy "conversations_select_related"
 on public.conversations for select
 to authenticated
-using (
-  client_id = auth.uid()
-  or lawyer_id = auth.uid()
-  or exists (
-    select 1 from public.legal_cases lc
-    where lc.id = conversations.case_id
-      and (lc.client_id = auth.uid() or lc.assigned_lawyer_id = auth.uid())
-  )
-);
+using (public.can_access_conversation(conversations.id));
 
 create policy "conversations_insert_as_client"
 on public.conversations for insert
@@ -501,24 +588,14 @@ with check (client_id = auth.uid());
 create policy "messages_select_related"
 on public.messages for select
 to authenticated
-using (
-  exists (
-    select 1 from public.conversations c
-    where c.id = messages.conversation_id
-      and (c.client_id = auth.uid() or c.lawyer_id = auth.uid())
-  )
-);
+using (public.can_access_conversation(messages.conversation_id));
 
 create policy "messages_insert_related"
 on public.messages for insert
 to authenticated
 with check (
   sender_id = auth.uid()
-  and exists (
-    select 1 from public.conversations c
-    where c.id = messages.conversation_id
-      and (c.client_id = auth.uid() or c.lawyer_id = auth.uid())
-  )
+  and public.can_access_conversation(messages.conversation_id)
 );
 
 create policy "appointments_select_related"
@@ -568,9 +645,8 @@ using (
   and exists (
     select 1
     from public.case_documents cd
-    join public.legal_cases lc on lc.id = cd.case_id
     where cd.storage_path = storage.objects.name
-      and (lc.client_id = auth.uid() or lc.assigned_lawyer_id = auth.uid())
+      and public.can_access_case(cd.case_id)
   )
 );
 

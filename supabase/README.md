@@ -30,8 +30,27 @@ flutter run \
   --dart-define=SUPABASE_PUBLISHABLE_KEY=SUA_PUBLISHABLE_KEY
 ```
 
-Enquanto esses defines não forem passados, o app continua abrindo normalmente
-com os mocks locais.
+Esses valores também estão configurados como padrão em `SupabaseConfig`, então
+os `dart-define` são opcionais neste projeto. Use `dart-define` se quiser
+apontar para outro ambiente.
+
+## 2.1. Patch para perfis automáticos
+
+Se você já rodou o `schema.sql` antes da criação do arquivo
+`patch_001_auth_profile_trigger.sql`, rode também esse patch no SQL Editor.
+Ele cria automaticamente uma linha em `profiles` quando um usuário se cadastra
+pelo Supabase Auth.
+
+## 2.2. Patch para recursão de RLS
+
+Se aparecer no terminal:
+
+```text
+infinite recursion detected in policy for relation "legal_cases"
+```
+
+rode também `patch_002_fix_rls_recursion.sql` no SQL Editor.
+Ele substitui policies recursivas por funções `security definer`.
 
 ## 3. Próxima etapa de integração
 
