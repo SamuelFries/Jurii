@@ -283,39 +283,26 @@ class _MetricsOverview extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _SectionHeader(title: 'Visão profissional'),
+        const _SectionHeader(title: 'Clientes'),
         const SizedBox(height: 12),
         LayoutBuilder(
           builder: (context, constraints) {
-            final isCompact = constraints.maxWidth < 360;
-            final cardWidth = isCompact
-                ? constraints.maxWidth
-                : (constraints.maxWidth - 10) / 2;
-
-            return Wrap(
-              spacing: 10,
-              runSpacing: 10,
+            return Column(
               children: [
                 _MetricCard(
-                  width: cardWidth,
+                  width: constraints.maxWidth,
                   icon: Icons.work_outline,
                   label: 'Casos ativos',
                   value: '${metrics.activeCases}',
                   accentColor: AppTheme.primary,
                 ),
+                const SizedBox(height: 10),
                 _MetricCard(
-                  width: cardWidth,
+                  width: constraints.maxWidth,
                   icon: Icons.mark_chat_unread_outlined,
                   label: 'Novos contatos',
                   value: '${metrics.newContacts}',
                   accentColor: AppTheme.accent,
-                ),
-                _MetricCard(
-                  width: constraints.maxWidth,
-                  icon: Icons.payments_outlined,
-                  label: 'Receita estimada',
-                  value: metrics.monthlyRevenue,
-                  accentColor: AppTheme.success,
                 ),
               ],
             );

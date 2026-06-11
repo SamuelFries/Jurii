@@ -57,11 +57,7 @@ const mockAttentionSummary = (
   upcomingDeadlines: 1,
 );
 
-const mockProfessionalMetrics = (
-  activeCases: 8,
-  newContacts: 3,
-  monthlyRevenue: 'R\$ 12,4 mil',
-);
+const mockProfessionalMetrics = (activeCases: 8, newContacts: 3);
 
 const mockTodaySchedule = [
   (

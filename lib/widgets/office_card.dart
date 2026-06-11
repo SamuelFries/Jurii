@@ -29,6 +29,11 @@ class OfficeCard extends StatelessWidget {
     _ => AppTheme.lightBlue,
   };
 
+  Color get _avatarTextColor => switch (avatarType) {
+    'navy' || 'gold' => AppTheme.card,
+    _ => AppTheme.primary,
+  };
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -52,8 +57,8 @@ class OfficeCard extends StatelessWidget {
               child: Center(
                 child: Text(
                   initials,
-                  style: const TextStyle(
-                    color: AppTheme.card,
+                  style: TextStyle(
+                    color: _avatarTextColor,
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
                   ),
@@ -67,15 +72,19 @@ class OfficeCard extends StatelessWidget {
                 children: [
                   Text(
                     officeName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       fontSize: 15,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w700,
                       color: AppTheme.textPrimary,
                     ),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     specialty,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       fontSize: 12,
                       color: AppTheme.textSecondary,
@@ -95,11 +104,15 @@ class OfficeCard extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 4),
-                      Text(
-                        '($reviews avaliações)',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: AppTheme.textSecondary,
+                      Flexible(
+                        child: Text(
+                          '($reviews avaliações)',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppTheme.textSecondary,
+                          ),
                         ),
                       ),
                       const Spacer(),
