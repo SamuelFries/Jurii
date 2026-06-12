@@ -18,33 +18,21 @@ class MessagingRepository {
       return const [];
     }
 
-    var query = SupabaseConfig.client
-        .from('conversations')
-        .select(
-          'id, type, title, specialty, last_message, last_message_at, law_firm_id, client_id, lawyer_id',
-        );
-
-    switch (scope) {
-      case ConversationScope.client:
-        query = query.eq(
-          'client_id',
-          SupabaseConfig.client.auth.currentUser!.id,
-        );
-      case ConversationScope.lawyer:
-        query = query.eq(
-          'lawyer_id',
-          SupabaseConfig.client.auth.currentUser!.id,
-        );
-      case ConversationScope.firmClient:
-        if (lawFirmId == null) return const [];
-        query = query.eq('law_firm_id', lawFirmId).neq('type', 'firm_internal');
-      case ConversationScope.firmTeam:
-        if (lawFirmId == null) return const [];
-        query = query.eq('law_firm_id', lawFirmId).eq('type', 'firm_internal');
+    if ((scope == ConversationScope.firmClient ||
+            scope == ConversationScope.firmTeam) &&
+        lawFirmId == null) {
+      return const [];
     }
 
-    final rows = await query.order('last_message_at', ascending: false);
-    return _conversationsFromRows(rows, scope: scope);
+    final rows = await SupabaseConfig.client.rpc(
+      'fetch_conversations_for_current_user',
+      params: {'scope_value': scope.name, 'law_firm_id_value': lawFirmId},
+    );
+
+    return (rows as List<dynamic>)
+        .cast<Map<String, dynamic>>()
+        .map(_conversationFromRow)
+        .toList();
   }
 
   Future<List<ChatMessage>> fetchMessages(String conversationId) async {
@@ -154,61 +142,9 @@ class MessagingRepository {
     return _conversationFromRow(row);
   }
 
-  Future<List<Conversation>> _conversationsFromRows(
-    List<dynamic> rows, {
-    required ConversationScope scope,
-  }) async {
-    final mappedRows = rows.cast<Map<String, dynamic>>();
-    if (scope != ConversationScope.lawyer &&
-        scope != ConversationScope.firmClient) {
-      return mappedRows.map(_conversationFromRow).toList();
-    }
-
-    final clientIds = mappedRows
-        .map((row) => row['client_id'] as String?)
-        .whereType<String>()
-        .toSet()
-        .toList();
-    final profilesById = await _fetchProfilesById(clientIds);
-
-    return mappedRows.map((row) {
-      final clientId = row['client_id'] as String?;
-      final profile = clientId == null ? null : profilesById[clientId];
-      return _conversationFromRow(row, displayProfile: profile);
-    }).toList();
-  }
-
-  Future<Map<String, _ConversationProfile>> _fetchProfilesById(
-    List<String> profileIds,
-  ) async {
-    if (profileIds.isEmpty) return const {};
-
-    try {
-      final rows = await SupabaseConfig.client
-          .from('profiles')
-          .select('id, full_name, initials')
-          .inFilter('id', profileIds);
-
-      return {
-        for (final row in rows)
-          row['id'] as String: _ConversationProfile(
-            name: row['full_name'] as String? ?? 'Cliente',
-            initials: row['initials'] as String? ?? '',
-          ),
-      };
-    } catch (_) {
-      return const {};
-    }
-  }
-
-  Conversation _conversationFromRow(
-    Map<String, dynamic> row, {
-    _ConversationProfile? displayProfile,
-  }) {
-    final title = displayProfile?.name ?? row['title'] as String? ?? 'Conversa';
-    final initials = displayProfile?.initials.isNotEmpty == true
-        ? displayProfile!.initials
-        : _initialsFor(title);
+  Conversation _conversationFromRow(Map<String, dynamic> row) {
+    final title = row['title'] as String? ?? 'Conversa';
+    final initials = row['initials'] as String? ?? _initialsFor(title);
     return Conversation(
       id: row['id'] as String?,
       initials: initials,
@@ -298,11 +234,4 @@ class MessagingRepository {
       lawyerId: lawyer.id,
     );
   }
-}
-
-class _ConversationProfile {
-  final String name;
-  final String initials;
-
-  const _ConversationProfile({required this.name, required this.initials});
 }

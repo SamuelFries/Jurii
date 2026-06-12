@@ -154,6 +154,16 @@ função `fetch_recommended_lawyers`, usada pela home do cliente para listar os
 advogados reais cadastrados em `lawyer_profiles` sem cair em mocks por bloqueios
 de RLS entre tabelas.
 
+## 2.12. Patch para nomes corretos nas conversas
+
+Rode `patch_012_conversation_display_names_rpc.sql` depois do patch 011. Ele
+cria a função `fetch_conversations_for_current_user`, que devolve o nome certo
+para cada inbox:
+
+- cliente vê o advogado ou escritório
+- advogado vê o cliente
+- escritório vê o cliente
+
 ## 3. Próxima etapa de integração
 
 A camada inicial de repositories já existe em `lib/repositories/`.
