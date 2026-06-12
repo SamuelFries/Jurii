@@ -7,8 +7,10 @@ import 'models/law_firm_verification.dart';
 import 'models/law_firm_verification_status.dart';
 import 'models/lawyer_status.dart';
 import 'models/lawyer_verification.dart';
+import 'models/firm_workspace.dart';
 import 'models/user_profile.dart';
 import 'repositories/auth_repository.dart';
+import 'repositories/firm_workspace_repository.dart';
 import 'repositories/law_firm_verification_repository.dart';
 import 'repositories/lawyer_verification_repository.dart';
 import 'repositories/profile_repository.dart';
@@ -53,6 +55,8 @@ class _JuriiAppState extends State<JuriiApp> {
       const LawyerVerificationRepository();
   final LawFirmVerificationRepository _lawFirmVerificationRepository =
       const LawFirmVerificationRepository();
+  final FirmWorkspaceRepository _firmWorkspaceRepository =
+      const FirmWorkspaceRepository();
 
   bool _isLoggedIn = false;
   bool _isLawyerMode = false;
@@ -61,6 +65,7 @@ class _JuriiAppState extends State<JuriiApp> {
   UserProfile _currentUser = mockCurrentUser;
   LawyerVerification? _lawyerVerification;
   LawFirmVerification? _lawFirmVerification;
+  FirmWorkspace? _firmWorkspace;
 
   @override
   void initState() {
@@ -84,6 +89,9 @@ class _JuriiAppState extends State<JuriiApp> {
       final profile = await _profileRepository.fetchCurrentProfile();
       final lawyerVerification = await _fetchLatestLawyerVerification();
       final lawFirmVerification = await _fetchLatestLawFirmVerification();
+      final firmWorkspace = await _fetchCurrentFirmWorkspace(
+        lawFirmVerification,
+      );
       setState(() {
         _lawyerVerification = lawyerVerification;
         _currentUser = _userWithLawyerVerification(
@@ -91,6 +99,7 @@ class _JuriiAppState extends State<JuriiApp> {
           lawyerVerification,
         );
         _lawFirmVerification = lawFirmVerification;
+        _firmWorkspace = firmWorkspace;
         _isLoggedIn = true;
         _isBootstrapping = false;
       });
@@ -276,6 +285,7 @@ class _JuriiAppState extends State<JuriiApp> {
       _currentUser = mockCurrentUser;
       _lawyerVerification = null;
       _lawFirmVerification = null;
+      _firmWorkspace = null;
     });
   }
 
@@ -295,6 +305,7 @@ class _JuriiAppState extends State<JuriiApp> {
       _isFirmMode = true;
       _isLawyerMode = false;
     });
+    _refreshFirmWorkspace();
   }
 
   void _switchToClient() {
@@ -349,8 +360,12 @@ class _JuriiAppState extends State<JuriiApp> {
     if (!SupabaseConfig.isReady) return;
 
     final verification = await _fetchLatestLawFirmVerification();
+    final workspace = await _fetchCurrentFirmWorkspace(verification);
     if (!mounted) return;
-    setState(() => _lawFirmVerification = verification);
+    setState(() {
+      _lawFirmVerification = verification;
+      _firmWorkspace = workspace;
+    });
   }
 
   Future<LawFirmVerification?> _fetchLatestLawFirmVerification() async {
@@ -365,8 +380,30 @@ class _JuriiAppState extends State<JuriiApp> {
   void _handleLawFirmVerificationSubmitted(LawFirmVerification verification) {
     setState(() {
       _lawFirmVerification = verification;
+      _firmWorkspace = null;
       _isLawyerMode = false;
     });
+  }
+
+  Future<void> _refreshFirmWorkspace() async {
+    if (!SupabaseConfig.isReady) return;
+
+    final workspace = await _fetchCurrentFirmWorkspace(_lawFirmVerification);
+    if (!mounted) return;
+    setState(() => _firmWorkspace = workspace);
+  }
+
+  Future<FirmWorkspace?> _fetchCurrentFirmWorkspace([
+    LawFirmVerification? verification,
+  ]) async {
+    try {
+      return await _firmWorkspaceRepository.fetchCurrentWorkspace(
+        verification: verification ?? _lawFirmVerification,
+      );
+    } catch (error) {
+      debugPrint('Supabase firm workspace fetch failed: $error');
+      return _firmWorkspace;
+    }
   }
 
   @override
@@ -382,6 +419,7 @@ class _JuriiAppState extends State<JuriiApp> {
           : _isFirmMode
           ? FirmNavigation(
               user: _currentUser,
+              workspace: _firmWorkspace,
               onSwitchToClient: _switchToClient,
               onLogout: _handleLogout,
             )
@@ -502,11 +540,13 @@ class FirmNavigation extends StatefulWidget {
   const FirmNavigation({
     super.key,
     required this.user,
+    required this.workspace,
     required this.onSwitchToClient,
     required this.onLogout,
   });
 
   final UserProfile user;
+  final FirmWorkspace? workspace;
   final VoidCallback onSwitchToClient;
   final VoidCallback onLogout;
 
@@ -521,15 +561,17 @@ class _FirmNavigationState extends State<FirmNavigation> {
   Widget build(BuildContext context) {
     final pages = [
       FirmHomeScreen(
+        workspace: widget.workspace,
         onOpenMessages: () => setState(() => currentIndex = 1),
         onOpenTeam: () => setState(() => currentIndex = 2),
         onOpenCases: () => setState(() => currentIndex = 3),
       ),
       const FirmMessagesScreen(),
-      const FirmTeamScreen(),
+      FirmTeamScreen(teamMembers: widget.workspace?.teamMembers),
       const FirmCasesScreen(),
       FirmProfileScreen(
         user: widget.user,
+        workspace: widget.workspace,
         onSwitchToClient: widget.onSwitchToClient,
         onLogout: widget.onLogout,
       ),

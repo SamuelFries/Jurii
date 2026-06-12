@@ -77,6 +77,24 @@ rode `patch_005_public_grants.sql` no SQL Editor. As policies RLS controlam as
 linhas acessíveis, mas o Postgres também precisa de permissões de tabela para
 as roles `anon` e `authenticated`.
 
+## 2.6. Patch para aprovar escritório
+
+Rode `patch_006_approve_law_firm_verification.sql` depois dos patches 004 e
+005. Ele cria uma função administrativa para aprovar a verificação de
+escritório do jeito que o app espera: preenchendo `law_firm_id`, criando ou
+atualizando o registro em `law_firms` e vinculando o dono em
+`law_firm_members`.
+
+Depois de enviar uma solicitação pelo app, aprove pelo SQL Editor com:
+
+```sql
+select public.approve_law_firm_verification('ID_DA_VERIFICACAO');
+```
+
+Evite aprovar apenas mudando `status` manualmente para `approved`, porque o app
+precisa do vínculo com o escritório para abrir a área administrativa com dados
+reais.
+
 ## 3. Próxima etapa de integração
 
 A camada inicial de repositories já existe em `lib/repositories/`.

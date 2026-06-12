@@ -1,16 +1,19 @@
 import 'package:flutter/material.dart';
 
 import '../data/mock/mock_firm_workspace.dart';
+import '../models/firm_workspace.dart';
 import '../theme/app_theme.dart';
 
 class FirmHomeScreen extends StatelessWidget {
   const FirmHomeScreen({
     super.key,
+    this.workspace,
     required this.onOpenMessages,
     required this.onOpenTeam,
     required this.onOpenCases,
   });
 
+  final FirmWorkspace? workspace;
   final VoidCallback onOpenMessages;
   final VoidCallback onOpenTeam;
   final VoidCallback onOpenCases;
@@ -18,6 +21,9 @@ class FirmHomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final metrics = mockFirmMetrics;
+    final workspaceName = workspace?.firm.name ?? mockFirmWorkspaceName;
+    final teamMembersCount =
+        workspace?.teamMembers.length ?? metrics.teamMembers;
 
     return SafeArea(
       child: ListView(
@@ -54,13 +60,15 @@ class FirmHomeScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 14),
-                const Expanded(
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        mockFirmWorkspaceName,
-                        style: TextStyle(
+                        workspaceName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
                           color: AppTheme.card,
                           fontSize: 20,
                           fontWeight: FontWeight.w900,
@@ -68,8 +76,12 @@ class FirmHomeScreen extends StatelessWidget {
                       ),
                       SizedBox(height: 4),
                       Text(
-                        'Área do escritório',
-                        style: TextStyle(
+                        workspace?.fromSupabase == true
+                            ? 'Área do escritório'
+                            : 'Área do escritório em preparação',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
                           color: AppTheme.card,
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -145,7 +157,7 @@ class FirmHomeScreen extends StatelessWidget {
                 icon: Icons.folder_copy_outlined,
               ),
               _MetricCard(
-                value: '${metrics.teamMembers}',
+                value: '$teamMembersCount',
                 label: 'Membros ativos',
                 icon: Icons.badge_outlined,
               ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../data/mock/mock_firm_workspace.dart';
+import '../models/firm_workspace.dart';
 import '../models/user_profile.dart';
 import '../theme/app_theme.dart';
 import '../widgets/profile_menu_item.dart';
@@ -10,16 +11,20 @@ class FirmProfileScreen extends StatelessWidget {
   const FirmProfileScreen({
     super.key,
     required this.user,
+    this.workspace,
     required this.onSwitchToClient,
     required this.onLogout,
   });
 
   final UserProfile user;
+  final FirmWorkspace? workspace;
   final VoidCallback onSwitchToClient;
   final VoidCallback onLogout;
 
   @override
   Widget build(BuildContext context) {
+    final workspaceName = workspace?.firm.name ?? mockFirmWorkspaceName;
+
     return SafeArea(
       child: ListView(
         padding: const EdgeInsets.all(24),
@@ -63,9 +68,11 @@ class FirmProfileScreen extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        mockFirmWorkspaceName,
-                        style: TextStyle(
+                      Text(
+                        workspaceName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
                           color: AppTheme.card,
                           fontSize: 18,
                           fontWeight: FontWeight.w900,
