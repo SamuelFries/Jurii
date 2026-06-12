@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../data/mock/mock_messages.dart';
 import '../models/conversation.dart';
 import '../repositories/messaging_repository.dart';
+import '../services/supabase_config.dart';
 import '../theme/app_theme.dart';
 import '../widgets/conversation_card.dart';
 import 'chat_screen.dart';
@@ -31,9 +32,12 @@ class _MessagesScreenState extends State<MessagesScreen> {
       final conversations = await _repository.fetchConversations(
         scope: ConversationScope.client,
       );
-      return conversations.isEmpty ? mockClientConversations : conversations;
-    } catch (_) {
+      if (conversations.isNotEmpty || SupabaseConfig.isReady) {
+        return conversations;
+      }
       return mockClientConversations;
+    } catch (_) {
+      return SupabaseConfig.isReady ? const [] : mockClientConversations;
     }
   }
 

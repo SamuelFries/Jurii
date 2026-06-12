@@ -4,6 +4,7 @@ import '../data/mock/mock_firm_workspace.dart';
 import '../models/conversation.dart';
 import '../models/firm_workspace.dart';
 import '../repositories/messaging_repository.dart';
+import '../services/supabase_config.dart';
 import '../theme/app_theme.dart';
 import '../widgets/conversation_card.dart';
 import 'chat_screen.dart';
@@ -40,22 +41,23 @@ class _FirmMessagesScreenState extends State<FirmMessagesScreen> {
     final fallback = selectedSegment == 0
         ? mockFirmClientConversations
         : mockFirmTeamConversations;
-    final lawFirmId = widget.workspace?.fromSupabase == true
+    final lawFirmId = SupabaseConfig.isReady
+        ? widget.workspace?.firm.id
+        : widget.workspace?.fromSupabase == true
         ? widget.workspace?.firm.id
         : null;
 
     if (lawFirmId == null) return fallback;
 
     try {
-      final conversations = await _repository.fetchConversations(
+      return await _repository.fetchConversations(
         scope: selectedSegment == 0
             ? ConversationScope.firmClient
             : ConversationScope.firmTeam,
         lawFirmId: lawFirmId,
       );
-      return conversations.isEmpty ? fallback : conversations;
     } catch (_) {
-      return fallback;
+      return SupabaseConfig.isReady ? const [] : fallback;
     }
   }
 
@@ -121,14 +123,12 @@ class _FirmMessagesScreenState extends State<FirmMessagesScreen> {
                     ),
                   ),
                 )
+              else if (conversations == null || conversations.isEmpty)
+                const _EmptyFirmMessagesState()
               else
-                for (
-                  var index = 0;
-                  index < (conversations ?? const <Conversation>[]).length;
-                  index++
-                ) ...[
+                for (var index = 0; index < conversations.length; index++) ...[
                   ConversationCard(
-                    conversation: conversations![index],
+                    conversation: conversations[index],
                     onTap: () => _openChat(context, conversations[index]),
                   ),
                   if (index < conversations.length - 1)
@@ -164,6 +164,30 @@ class _FirmMessagesScreenState extends State<FirmMessagesScreen> {
 
     if (!mounted) return;
     setState(() => _conversationsFuture = _loadConversations());
+  }
+}
+
+class _EmptyFirmMessagesState extends StatelessWidget {
+  const _EmptyFirmMessagesState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: AppTheme.card,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.officePurpleBorder),
+      ),
+      child: const Text(
+        'Nenhuma conversa encontrada para este escritório.',
+        style: TextStyle(
+          color: AppTheme.textSecondary,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
   }
 }
 

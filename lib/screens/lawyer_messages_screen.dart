@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../data/mock/mock_messages.dart';
 import '../models/conversation.dart';
 import '../repositories/messaging_repository.dart';
+import '../services/supabase_config.dart';
 import '../theme/app_theme.dart';
 import '../widgets/conversation_card.dart';
 import 'chat_screen.dart';
@@ -29,9 +30,12 @@ class _LawyerMessagesScreenState extends State<LawyerMessagesScreen> {
       final conversations = await _repository.fetchConversations(
         scope: ConversationScope.lawyer,
       );
-      return conversations.isEmpty ? mockLawyerConversations : conversations;
-    } catch (_) {
+      if (conversations.isNotEmpty || SupabaseConfig.isReady) {
+        return conversations;
+      }
       return mockLawyerConversations;
+    } catch (_) {
+      return SupabaseConfig.isReady ? const [] : mockLawyerConversations;
     }
   }
 

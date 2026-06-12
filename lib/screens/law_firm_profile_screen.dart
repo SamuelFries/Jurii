@@ -37,17 +37,26 @@ class _LawFirmProfileScreenState extends State<LawFirmProfileScreen> {
     if (_isOpeningChat) return;
     setState(() => _isOpeningChat = true);
 
-    final conversation = await widget.messagingRepository
-        .startLawFirmConversation(lawFirm: widget.lawFirm);
+    try {
+      final conversation = await widget.messagingRepository
+          .startLawFirmConversation(lawFirm: widget.lawFirm);
 
-    if (!mounted) return;
-    setState(() => _isOpeningChat = false);
+      if (!mounted) return;
+      setState(() => _isOpeningChat = false);
 
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => ChatScreen(conversation: conversation, isLawyer: false),
-      ),
-    );
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) =>
+              ChatScreen(conversation: conversation, isLawyer: false),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isOpeningChat = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Não foi possível abrir a conversa.')),
+      );
+    }
   }
 
   @override

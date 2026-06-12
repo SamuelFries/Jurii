@@ -59,7 +59,7 @@ class MessagingRepository {
           'id, conversation_id, sender_id, sender_type, body, read_at, created_at',
         )
         .eq('conversation_id', conversationId)
-        .order('created_at');
+        .order('created_at', ascending: true);
 
     final currentUserId = SupabaseConfig.client.auth.currentUser?.id;
 
@@ -114,7 +114,7 @@ class MessagingRepository {
 
       return await fetchConversationById(conversationId as String);
     } catch (_) {
-      return _fallbackLawFirmConversation(lawFirm);
+      rethrow;
     }
   }
 
@@ -138,7 +138,7 @@ class MessagingRepository {
 
       return await fetchConversationById(conversationId as String);
     } catch (_) {
-      return _fallbackLawyerConversation(lawyer);
+      rethrow;
     }
   }
 
@@ -183,18 +183,22 @@ class MessagingRepository {
   ) async {
     if (profileIds.isEmpty) return const {};
 
-    final rows = await SupabaseConfig.client
-        .from('profiles')
-        .select('id, full_name, initials')
-        .inFilter('id', profileIds);
+    try {
+      final rows = await SupabaseConfig.client
+          .from('profiles')
+          .select('id, full_name, initials')
+          .inFilter('id', profileIds);
 
-    return {
-      for (final row in rows)
-        row['id'] as String: _ConversationProfile(
-          name: row['full_name'] as String? ?? 'Cliente',
-          initials: row['initials'] as String? ?? '',
-        ),
-    };
+      return {
+        for (final row in rows)
+          row['id'] as String: _ConversationProfile(
+            name: row['full_name'] as String? ?? 'Cliente',
+            initials: row['initials'] as String? ?? '',
+          ),
+      };
+    } catch (_) {
+      return const {};
+    }
   }
 
   Conversation _conversationFromRow(

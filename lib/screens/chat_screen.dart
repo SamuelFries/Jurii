@@ -74,7 +74,7 @@ class _ChatScreenState extends State<ChatScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _messages = _mockMessages();
+        _messages = _usesSupabase ? const [] : _mockMessages();
         _isLoading = false;
       });
       _scrollToBottom();

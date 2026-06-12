@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import '../data/mock/mock_lawyers.dart';
 import '../models/lawyer_profile_summary.dart';
 import '../services/supabase_config.dart';
@@ -14,25 +16,64 @@ class LawyerProfileRepository {
     try {
       final rows = await SupabaseConfig.client
           .from('lawyer_profiles')
-          .select(
-            'id, oab_number, oab_state, primary_area, bio, profiles(full_name, initials)',
-          )
+          .select('id, oab_number, oab_state, primary_area, bio, approved_at')
           .eq('is_available', true)
           .order('approved_at', ascending: false)
           .limit(6);
 
-      final lawyers = rows.map<LawyerProfileSummary>(_fromRow).toList();
-      return lawyers.isEmpty ? mockRecommendedLawyers : lawyers;
-    } catch (_) {
-      return mockRecommendedLawyers;
+      final profileIds = rows
+          .map((row) => row['id'] as String?)
+          .whereType<String>()
+          .toList();
+      final profilesById = await _fetchProfilesById(profileIds);
+
+      return rows
+          .map<LawyerProfileSummary>(
+            (row) => _fromRow(row, profilesById[row['id'] as String?]),
+          )
+          .toList();
+    } catch (error, stackTrace) {
+      developer.log(
+        'Supabase recommended lawyers fetch failed',
+        name: 'LawyerProfileRepository',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      return const [];
     }
   }
 
-  LawyerProfileSummary _fromRow(Map<String, dynamic> row) {
-    final profile = row['profiles'];
-    final profileMap = profile is Map<String, dynamic> ? profile : const {};
-    final name = profileMap['full_name'] as String? ?? 'Advogado Jurii';
-    final initials = profileMap['initials'] as String? ?? _initialsFor(name);
+  Future<Map<String, _ProfileData>> _fetchProfilesById(
+    List<String> profileIds,
+  ) async {
+    if (profileIds.isEmpty) return const {};
+
+    try {
+      final rows = await SupabaseConfig.client
+          .from('profiles')
+          .select('id, full_name, initials')
+          .inFilter('id', profileIds);
+
+      return {
+        for (final row in rows)
+          row['id'] as String: _ProfileData(
+            name: row['full_name'] as String? ?? 'Advogado Jurii',
+            initials: row['initials'] as String? ?? '',
+          ),
+      };
+    } catch (_) {
+      return const {};
+    }
+  }
+
+  LawyerProfileSummary _fromRow(
+    Map<String, dynamic> row,
+    _ProfileData? profile,
+  ) {
+    final name = profile?.name ?? 'Advogado Jurii';
+    final initials = profile?.initials.isNotEmpty == true
+        ? profile!.initials
+        : _initialsFor(name);
 
     return LawyerProfileSummary(
       id: row['id'] as String,
@@ -59,4 +100,11 @@ class LawyerProfileRepository {
     if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
     return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
   }
+}
+
+class _ProfileData {
+  final String name;
+  final String initials;
+
+  const _ProfileData({required this.name, required this.initials});
 }

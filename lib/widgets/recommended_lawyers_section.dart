@@ -4,6 +4,7 @@ import '../data/mock/mock_lawyers.dart';
 import '../models/lawyer_profile_summary.dart';
 import '../repositories/lawyer_profile_repository.dart';
 import '../screens/lawyer_profile_screen.dart';
+import '../services/supabase_config.dart';
 import '../theme/app_theme.dart';
 import 'lawyer_profile_card.dart';
 
@@ -46,9 +47,26 @@ class _RecommendedLawyersSectionState extends State<RecommendedLawyersSection> {
         const SizedBox(height: 16),
         FutureBuilder<List<LawyerProfileSummary>>(
           future: _lawyersFuture,
-          initialData: mockRecommendedLawyers,
           builder: (context, snapshot) {
-            final lawyers = snapshot.data ?? mockRecommendedLawyers;
+            final shouldUseMock = !SupabaseConfig.isReady;
+            final lawyers =
+                snapshot.data ??
+                (shouldUseMock ? mockRecommendedLawyers : const []);
+
+            if (snapshot.connectionState == ConnectionState.waiting &&
+                !shouldUseMock) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(vertical: 16),
+                child: Center(
+                  child: CircularProgressIndicator(color: AppTheme.primary),
+                ),
+              );
+            }
+
+            if (lawyers.isEmpty) {
+              return const _EmptyRecommendedLawyersState();
+            }
+
             return ListView.separated(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
@@ -71,6 +89,30 @@ class _RecommendedLawyersSectionState extends State<RecommendedLawyersSection> {
           },
         ),
       ],
+    );
+  }
+}
+
+class _EmptyRecommendedLawyersState extends StatelessWidget {
+  const _EmptyRecommendedLawyersState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.card,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.lightBlueBorder),
+      ),
+      child: const Text(
+        'Nenhum advogado recomendado disponível no momento.',
+        style: TextStyle(
+          color: AppTheme.textSecondary,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
     );
   }
 }
