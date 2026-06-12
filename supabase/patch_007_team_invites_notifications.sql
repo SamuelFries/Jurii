@@ -39,6 +39,17 @@ with check (recipient_profile_id = auth.uid());
 
 grant select, update on public.notifications to authenticated;
 
+update public.law_firm_members lfm
+set lawyer_id = lfm.profile_id
+where lfm.lawyer_id is null
+  and lfm.profile_id is not null
+  and lfm.member_role in ('owner', 'admin')
+  and exists (
+    select 1
+    from public.lawyer_profiles lp
+    where lp.id = lfm.profile_id
+  );
+
 create or replace function public.can_select_profile(profile_id_value uuid)
 returns boolean
 language sql
@@ -228,8 +239,14 @@ begin
     set
       lawyer_id = target_verification.user_id,
       profile_id = target_verification.user_id,
-      role = 'lawyer',
-      member_role = 'lawyer',
+      role = case
+        when member_role in ('owner', 'admin') then role
+        else 'lawyer'
+      end,
+      member_role = case
+        when member_role in ('owner', 'admin') then member_role
+        else 'lawyer'::public.law_firm_member_role
+      end,
       status = case
         when status = 'active' then 'active'::public.law_firm_member_status
         else 'invited'::public.law_firm_member_status
@@ -270,4 +287,69 @@ revoke all on function public.invite_verified_lawyer_to_law_firm(uuid, text, tex
 from public, anon;
 
 grant execute on function public.invite_verified_lawyer_to_law_firm(uuid, text, text)
+to authenticated;
+
+create or replace function public.respond_to_law_firm_invite(
+  membership_id_value uuid,
+  accepted_value boolean
+)
+returns public.law_firm_member_status
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  membership_row public.law_firm_members%rowtype;
+  next_status public.law_firm_member_status;
+begin
+  if auth.uid() is null then
+    raise exception 'User must be authenticated';
+  end if;
+
+  select *
+  into membership_row
+  from public.law_firm_members
+  where id = membership_id_value;
+
+  if not found then
+    raise exception 'Invite not found';
+  end if;
+
+  if membership_row.profile_id <> auth.uid() then
+    raise exception 'Only the invited lawyer can respond to this invite';
+  end if;
+
+  if membership_row.status <> 'invited' then
+    raise exception 'Invite is no longer pending';
+  end if;
+
+  next_status := case
+    when accepted_value then 'active'::public.law_firm_member_status
+    else 'disabled'::public.law_firm_member_status
+  end;
+
+  update public.law_firm_members
+  set status = next_status
+  where id = membership_id_value;
+
+  update public.notifications
+  set
+    read_at = coalesce(read_at, now()),
+    metadata = metadata ||
+      jsonb_build_object(
+        'membership_id', membership_id_value,
+        'invite_status', case when accepted_value then 'accepted' else 'declined' end
+      )
+  where recipient_profile_id = auth.uid()
+    and type = 'team_invite'
+    and metadata ->> 'membership_id' = membership_id_value::text;
+
+  return next_status;
+end;
+$$;
+
+revoke all on function public.respond_to_law_firm_invite(uuid, boolean)
+from public, anon;
+
+grant execute on function public.respond_to_law_firm_invite(uuid, boolean)
 to authenticated;

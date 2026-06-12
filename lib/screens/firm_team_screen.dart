@@ -268,7 +268,7 @@ class _TeamMemberCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final roleLabel = switch (member.role) {
-      FirmRole.owner => 'Dono',
+      FirmRole.owner => 'Líder',
       FirmRole.admin => 'Admin',
       FirmRole.secretary => 'Secretaria',
       FirmRole.lawyer => 'Advogado',

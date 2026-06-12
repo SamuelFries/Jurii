@@ -101,12 +101,16 @@ Rode `patch_007_team_invites_notifications.sql` depois do patch 006. Ele cria:
 
 - tabela `notifications`
 - função `invite_verified_lawyer_to_law_firm`
+- função `respond_to_law_firm_invite`
 - permissões para o sino de notificações
 - validação para que apenas donos/admins ativos convidem advogados
 
 Na área do escritório, o botão de convidar usa a OAB para localizar uma
 verificação profissional aprovada. Se encontrar, o Supabase cria um membership
 com status `invited` e uma notificação para o advogado.
+
+Se você já rodou esse patch antes da versão com aceitar/recusar convite, rode
+o patch 007 novamente. Ele é idempotente e atualiza as funções existentes.
 
 ## 3. Próxima etapa de integração
 

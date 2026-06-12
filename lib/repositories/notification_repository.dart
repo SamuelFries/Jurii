@@ -14,7 +14,7 @@ class NotificationRepository {
     try {
       final rows = await SupabaseConfig.client
           .from('notifications')
-          .select('id, title, body, type, read_at, created_at')
+          .select('id, title, body, type, metadata, read_at, created_at')
           .order('created_at', ascending: false)
           .limit(limit);
 
@@ -62,6 +62,29 @@ class NotificationRepository {
     }
   }
 
+  Future<void> acceptTeamInvite(String membershipId) async {
+    await _respondToTeamInvite(membershipId: membershipId, accepted: true);
+  }
+
+  Future<void> declineTeamInvite(String membershipId) async {
+    await _respondToTeamInvite(membershipId: membershipId, accepted: false);
+  }
+
+  Future<void> _respondToTeamInvite({
+    required String membershipId,
+    required bool accepted,
+  }) async {
+    if (!SupabaseConfig.isReady ||
+        SupabaseConfig.client.auth.currentUser == null) {
+      throw StateError('A conexão com o Supabase não está ativa.');
+    }
+
+    await SupabaseConfig.client.rpc(
+      'respond_to_law_firm_invite',
+      params: {'membership_id_value': membershipId, 'accepted_value': accepted},
+    );
+  }
+
   JuriiNotification _fromRow(Map<String, dynamic> row) {
     return JuriiNotification(
       id: row['id'] as String,
@@ -72,6 +95,13 @@ class NotificationRepository {
           DateTime.tryParse(row['created_at'] as String? ?? '') ??
           DateTime.now(),
       readAt: DateTime.tryParse(row['read_at'] as String? ?? ''),
+      metadata: _metadataFromRow(row['metadata']),
     );
+  }
+
+  Map<String, dynamic> _metadataFromRow(Object? value) {
+    if (value is Map<String, dynamic>) return value;
+    if (value is Map) return Map<String, dynamic>.from(value);
+    return const {};
   }
 }

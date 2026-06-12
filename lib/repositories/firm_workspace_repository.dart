@@ -88,7 +88,7 @@ class FirmWorkspaceRepository {
       final rows = await SupabaseConfig.client
           .from('law_firm_members')
           .select(
-            'profile_id, member_role, role, status, profiles(full_name, initials)',
+            'profile_id, lawyer_id, member_role, role, status, profiles(full_name, initials)',
           )
           .eq('law_firm_id', lawFirmId)
           .neq('status', 'disabled');
@@ -97,6 +97,7 @@ class FirmWorkspaceRepository {
 
       return rows.map<FirmTeamMember>((row) {
         final profileId = row['profile_id'] as String? ?? '';
+        final lawyerId = row['lawyer_id'] as String?;
         final status = row['status'] as String? ?? 'active';
         final profileRow = row['profiles'];
         final role = _roleFromRow(
@@ -119,7 +120,7 @@ class FirmWorkspaceRepository {
           role: isCurrentUser ? currentUserRole : role,
           specialty: status == 'invited'
               ? 'Convite pendente'
-              : _roleSpecialty(role),
+              : _roleSpecialty(role, isAlsoLawyer: lawyerId != null),
           activeCases: role == FirmRole.lawyer ? 3 : 0,
           responseHours: role == FirmRole.secretary ? 0.8 : 1.6,
           rating: role == FirmRole.lawyer ? 4.8 : 4.7,
@@ -164,7 +165,7 @@ class FirmWorkspaceRepository {
         name: 'Você',
         initials: 'VC',
         role: FirmRole.owner,
-        specialty: 'Responsável legal',
+        specialty: 'Líder',
         activeCases: 0,
         responseHours: 0,
         rating: 0,
@@ -200,7 +201,7 @@ class FirmWorkspaceRepository {
 
   String _roleName(FirmRole role) {
     return switch (role) {
-      FirmRole.owner => 'Dono do escritório',
+      FirmRole.owner => 'Líder do escritório',
       FirmRole.admin => 'Administrador',
       FirmRole.secretary => 'Secretaria',
       FirmRole.lawyer => 'Advogado associado',
@@ -216,10 +217,10 @@ class FirmWorkspaceRepository {
     };
   }
 
-  String _roleSpecialty(FirmRole role) {
+  String _roleSpecialty(FirmRole role, {bool isAlsoLawyer = false}) {
     return switch (role) {
-      FirmRole.owner => 'Gestão',
-      FirmRole.admin => 'Operações',
+      FirmRole.owner => isAlsoLawyer ? 'Líder · Advogado' : 'Líder',
+      FirmRole.admin => isAlsoLawyer ? 'Admin · Advogado' : 'Operações',
       FirmRole.secretary => 'Atendimento',
       FirmRole.lawyer => 'Jurídico',
     };

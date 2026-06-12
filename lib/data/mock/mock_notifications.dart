@@ -7,6 +7,7 @@ final mockNotifications = [
     body: 'Você tem um convite pendente para integrar uma equipe.',
     type: 'team_invite',
     createdAt: DateTime(2026, 6, 12, 10, 30),
+    metadata: const {'membership_id': 'mock_membership_invite'},
   ),
   JuriiNotification(
     id: 'notification_message',
