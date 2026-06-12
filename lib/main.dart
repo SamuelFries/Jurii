@@ -298,6 +298,7 @@ class _JuriiAppState extends State<JuriiApp> {
       _isLawyerMode = true;
       _isFirmMode = false;
     });
+    _refreshFirmWorkspace();
   }
 
   void _switchToFirm() {
@@ -449,6 +450,8 @@ class _JuriiAppState extends State<JuriiApp> {
           : _isLawyerMode
           ? LawyerNavigation(
               user: _currentUser,
+              workspace: _firmWorkspace,
+              onRefreshFirmWorkspace: _refreshFirmWorkspace,
               onSwitchToClient: _switchToClient,
               onLogout: _handleLogout,
             )
@@ -622,12 +625,16 @@ class _FirmNavigationState extends State<FirmNavigation> {
 
 class LawyerNavigation extends StatefulWidget {
   final UserProfile user;
+  final FirmWorkspace? workspace;
+  final Future<void> Function() onRefreshFirmWorkspace;
   final VoidCallback onSwitchToClient;
   final VoidCallback onLogout;
 
   const LawyerNavigation({
     super.key,
     required this.user,
+    required this.workspace,
+    required this.onRefreshFirmWorkspace,
     required this.onSwitchToClient,
     required this.onLogout,
   });
@@ -644,9 +651,11 @@ class _LawyerNavigationState extends State<LawyerNavigation> {
     final List<Widget> pages = [
       LawyerHomeScreen(
         user: widget.user,
+        workspace: widget.workspace,
         onOpenMessages: () => setState(() => currentIndex = 1),
         onOpenCases: () => setState(() => currentIndex = 2),
         onOpenAgenda: () => _openAgenda(AppointmentRole.lawyer),
+        onNotificationsChanged: widget.onRefreshFirmWorkspace,
       ),
       const LawyerMessagesScreen(),
       const LawyerCasesScreen(),

@@ -10,12 +10,14 @@ class NotificationBell extends StatefulWidget {
     this.iconColor = AppTheme.primary,
     this.backgroundColor = AppTheme.card,
     this.borderColor = AppTheme.softBorder,
+    this.onChanged,
     this.repository = const NotificationRepository(),
   });
 
   final Color iconColor;
   final Color backgroundColor;
   final Color borderColor;
+  final Future<void> Function()? onChanged;
   final NotificationRepository repository;
 
   @override
@@ -58,6 +60,7 @@ class _NotificationBellState extends State<NotificationBell> {
 
     if (!mounted) return;
     await _loadCount();
+    await widget.onChanged?.call();
   }
 
   @override

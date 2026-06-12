@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../data/mock/mock_cases.dart';
 import '../data/mock/mock_messages.dart';
 import '../data/mock/mock_professional_profile.dart';
+import '../models/firm_workspace.dart';
 import '../models/lawyer_case.dart';
 import '../models/user_profile.dart';
 import '../theme/app_theme.dart';
@@ -9,16 +10,20 @@ import '../widgets/notification_bell.dart';
 
 class LawyerHomeScreen extends StatelessWidget {
   final UserProfile user;
+  final FirmWorkspace? workspace;
   final VoidCallback? onOpenMessages;
   final VoidCallback? onOpenCases;
   final VoidCallback? onOpenAgenda;
+  final Future<void> Function()? onNotificationsChanged;
 
   const LawyerHomeScreen({
     super.key,
     required this.user,
+    this.workspace,
     this.onOpenMessages,
     this.onOpenCases,
     this.onOpenAgenda,
+    this.onNotificationsChanged,
   });
 
   @override
@@ -37,6 +42,8 @@ class LawyerHomeScreen extends StatelessWidget {
               _ProfessionalHeader(
                 firstName: firstName,
                 oabNumber: user.oabNumber ?? 'OAB em revisão',
+                firmName: workspace?.firm.name,
+                onNotificationsChanged: onNotificationsChanged,
               ),
               const SizedBox(height: 20),
               _QuickActions(
@@ -63,8 +70,15 @@ class LawyerHomeScreen extends StatelessWidget {
 class _ProfessionalHeader extends StatelessWidget {
   final String firstName;
   final String oabNumber;
+  final String? firmName;
+  final Future<void> Function()? onNotificationsChanged;
 
-  const _ProfessionalHeader({required this.firstName, required this.oabNumber});
+  const _ProfessionalHeader({
+    required this.firstName,
+    required this.oabNumber,
+    this.firmName,
+    this.onNotificationsChanged,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -133,10 +147,11 @@ class _ProfessionalHeader extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 10),
-              const NotificationBell(
+              NotificationBell(
                 iconColor: AppTheme.primary,
                 backgroundColor: AppTheme.card,
                 borderColor: AppTheme.softBorder,
+                onChanged: onNotificationsChanged,
               ),
             ],
           ),
@@ -144,12 +159,14 @@ class _ProfessionalHeader extends StatelessWidget {
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: const [
-              _StatusChip(
+            children: [
+              const _StatusChip(
                 icon: Icons.verified_outlined,
                 label: 'Perfil verificado',
               ),
-              _StatusChip(icon: Icons.circle, label: 'Disponível hoje'),
+              const _StatusChip(icon: Icons.circle, label: 'Disponível hoje'),
+              if (firmName != null && firmName!.trim().isNotEmpty)
+                _StatusChip(icon: Icons.apartment_outlined, label: firmName!),
             ],
           ),
         ],
