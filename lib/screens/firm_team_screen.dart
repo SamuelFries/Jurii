@@ -6,10 +6,14 @@ import '../models/firm_team_member.dart';
 import '../theme/app_theme.dart';
 
 class FirmTeamScreen extends StatelessWidget {
-  const FirmTeamScreen({super.key});
+  const FirmTeamScreen({super.key, this.teamMembers});
+
+  final List<FirmTeamMember>? teamMembers;
 
   @override
   Widget build(BuildContext context) {
+    final members = teamMembers ?? mockFirmTeamMembers;
+
     return SafeArea(
       child: ListView(
         padding: const EdgeInsets.all(24),
@@ -57,10 +61,9 @@ class FirmTeamScreen extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 20),
-          for (var index = 0; index < mockFirmTeamMembers.length; index++) ...[
-            _TeamMemberCard(member: mockFirmTeamMembers[index]),
-            if (index < mockFirmTeamMembers.length - 1)
-              const SizedBox(height: 12),
+          for (var index = 0; index < members.length; index++) ...[
+            _TeamMemberCard(member: members[index]),
+            if (index < members.length - 1) const SizedBox(height: 12),
           ],
         ],
       ),
