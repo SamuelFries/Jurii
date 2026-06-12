@@ -1,50 +1,93 @@
 import 'package:flutter/material.dart';
 
 import '../data/mock/mock_messages.dart';
-import 'chat_screen.dart';
+import '../models/conversation.dart';
+import '../repositories/messaging_repository.dart';
 import '../theme/app_theme.dart';
 import '../widgets/conversation_card.dart';
+import 'chat_screen.dart';
 
-class MessagesScreen extends StatelessWidget {
+class MessagesScreen extends StatefulWidget {
   final VoidCallback? onFindLawFirms;
 
   const MessagesScreen({super.key, this.onFindLawFirms});
 
   @override
-  Widget build(BuildContext context) {
-    const conversations = mockClientConversations;
+  State<MessagesScreen> createState() => _MessagesScreenState();
+}
 
+class _MessagesScreenState extends State<MessagesScreen> {
+  final MessagingRepository _repository = const MessagingRepository();
+  late Future<List<Conversation>> _conversationsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _conversationsFuture = _loadConversations();
+  }
+
+  Future<List<Conversation>> _loadConversations() async {
+    try {
+      final conversations = await _repository.fetchConversations(
+        scope: ConversationScope.client,
+      );
+      return conversations.isEmpty ? mockClientConversations : conversations;
+    } catch (_) {
+      return mockClientConversations;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return SafeArea(
-      child: conversations.isEmpty
-          ? _EmptyMessagesState(onFindLawFirms: onFindLawFirms)
-          : ListView(
-              padding: const EdgeInsets.all(24),
-              children: [
-                const _MessagesHeader(
-                  title: 'Conversas',
-                  subtitle: 'Acompanhe seus atendimentos jurídicos.',
+      child: FutureBuilder<List<Conversation>>(
+        future: _conversationsFuture,
+        builder: (context, snapshot) {
+          final conversations = snapshot.data;
+
+          if (snapshot.connectionState == ConnectionState.waiting &&
+              conversations == null) {
+            return const Center(
+              child: CircularProgressIndicator(color: AppTheme.primary),
+            );
+          }
+
+          if (conversations == null || conversations.isEmpty) {
+            return _EmptyMessagesState(onFindLawFirms: widget.onFindLawFirms);
+          }
+
+          return ListView(
+            padding: const EdgeInsets.all(24),
+            children: [
+              const _MessagesHeader(
+                title: 'Conversas',
+                subtitle: 'Acompanhe seus atendimentos jurídicos.',
+              ),
+              const SizedBox(height: 20),
+              for (var index = 0; index < conversations.length; index++) ...[
+                ConversationCard(
+                  conversation: conversations[index],
+                  onTap: () => _openChat(conversations[index]),
                 ),
-                const SizedBox(height: 20),
-                for (var index = 0; index < conversations.length; index++) ...[
-                  ConversationCard(
-                    conversation: conversations[index],
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => ChatScreen(
-                            conversation: conversations[index],
-                            isLawyer: false,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                  if (index < conversations.length - 1)
-                    const SizedBox(height: 12),
-                ],
+                if (index < conversations.length - 1)
+                  const SizedBox(height: 12),
               ],
-            ),
+            ],
+          );
+        },
+      ),
     );
+  }
+
+  Future<void> _openChat(Conversation conversation) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ChatScreen(conversation: conversation, isLawyer: false),
+      ),
+    );
+
+    if (!mounted) return;
+    setState(() => _conversationsFuture = _loadConversations());
   }
 }
 
@@ -97,16 +140,12 @@ class _EmptyMessagesState extends StatelessWidget {
               color: AppTheme.textPrimary,
             ),
           ),
-
           const SizedBox(height: 8),
-
           const Text(
             'Suas conversas com escritórios aparecerão nesta área.',
             style: TextStyle(color: AppTheme.textSecondary, fontSize: 16),
           ),
-
           const Spacer(),
-
           Center(
             child: Column(
               children: [
@@ -123,9 +162,7 @@ class _EmptyMessagesState extends StatelessWidget {
                     color: AppTheme.textSecondary,
                   ),
                 ),
-
                 const SizedBox(height: 24),
-
                 const Text(
                   'Nenhuma conversa iniciada',
                   style: TextStyle(
@@ -134,17 +171,13 @@ class _EmptyMessagesState extends StatelessWidget {
                     color: AppTheme.textPrimary,
                   ),
                 ),
-
                 const SizedBox(height: 12),
-
                 const Text(
                   'Quando você solicitar atendimento a um escritório, suas conversas aparecerão aqui.',
                   textAlign: TextAlign.center,
                   style: TextStyle(color: AppTheme.textSecondary, fontSize: 15),
                 ),
-
                 const SizedBox(height: 24),
-
                 ElevatedButton(
                   onPressed: onFindLawFirms,
                   child: const Text('Encontrar Escritórios'),
@@ -152,7 +185,6 @@ class _EmptyMessagesState extends StatelessWidget {
               ],
             ),
           ),
-
           const Spacer(),
         ],
       ),

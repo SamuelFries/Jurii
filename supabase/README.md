@@ -112,6 +112,16 @@ com status `invited` e uma notificação para o advogado.
 Se você já rodou esse patch antes da versão com aceitar/recusar convite, rode
 o patch 007 novamente. Ele é idempotente e atualiza as funções existentes.
 
+## 2.8. Patch para mensagens e chat
+
+Rode `patch_008_messaging_integration.sql` para liberar o chat real. Ele:
+
+- permite que membros ativos do escritório acessem conversas do escritório
+- mantém o acesso do cliente e do advogado responsável
+- permite envio de mensagens por participantes autorizados
+- atualiza `last_message` e `last_message_at` automaticamente quando uma
+  mensagem é enviada
+
 ## 3. Próxima etapa de integração
 
 A camada inicial de repositories já existe em `lib/repositories/`.

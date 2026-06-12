@@ -598,7 +598,7 @@ class _FirmNavigationState extends State<FirmNavigation> {
         onOpenTeam: () => setState(() => currentIndex = 2),
         onOpenCases: () => setState(() => currentIndex = 3),
       ),
-      const FirmMessagesScreen(),
+      FirmMessagesScreen(workspace: widget.workspace),
       FirmTeamScreen(
         workspace: widget.workspace,
         teamMembers: widget.workspace?.teamMembers,
