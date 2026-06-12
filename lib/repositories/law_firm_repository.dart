@@ -24,6 +24,11 @@ class LawFirmRepository {
       specialty: row['specialty'] as String,
       reviews: row['reviews_count'] as int? ?? 0,
       avatarType: row['avatar_type'] as String? ?? 'blue',
+      description: row['description'] as String?,
+      phone: row['phone'] as String?,
+      email: row['email'] as String?,
+      websiteUrl: row['website_url'] as String?,
+      address: row['address'] as String?,
     );
   }
 }

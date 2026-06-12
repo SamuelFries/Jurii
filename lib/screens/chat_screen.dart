@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../data/mock/mock_chat_messages.dart';
 import '../models/chat_message.dart';
 import '../models/conversation.dart';
+import '../repositories/messaging_repository.dart';
+import '../services/supabase_config.dart';
 import '../theme/app_theme.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -21,22 +24,157 @@ class ChatScreen extends StatefulWidget {
 
 class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _messageController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
+  final MessagingRepository _repository = const MessagingRepository();
+  RealtimeChannel? _messagesChannel;
+  List<ChatMessage> _messages = const [];
+  bool _isLoading = true;
+  bool _isSending = false;
+
+  bool get _usesSupabase => widget.conversation.id != null;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMessages();
+    _subscribeToMessages();
+  }
 
   @override
   void dispose() {
+    final channel = _messagesChannel;
+    if (channel != null && SupabaseConfig.isReady) {
+      SupabaseConfig.client.removeChannel(channel);
+    }
+    _scrollController.dispose();
     _messageController.dispose();
     super.dispose();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final messages = mockChatMessages
+  Future<void> _loadMessages() async {
+    setState(() => _isLoading = true);
+
+    if (!_usesSupabase) {
+      setState(() {
+        _messages = _mockMessages();
+        _isLoading = false;
+      });
+      _scrollToBottom();
+      return;
+    }
+
+    try {
+      final messages = await _repository.fetchMessages(widget.conversation.id!);
+      if (!mounted) return;
+      setState(() {
+        _messages = messages;
+        _isLoading = false;
+      });
+      _scrollToBottom();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _messages = _usesSupabase ? const [] : _mockMessages();
+        _isLoading = false;
+      });
+      _scrollToBottom();
+    }
+  }
+
+  void _subscribeToMessages() {
+    final conversationId = widget.conversation.id;
+    if (conversationId == null || !SupabaseConfig.isReady) return;
+
+    _messagesChannel = SupabaseConfig.client
+        .channel('conversation_messages:$conversationId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.insert,
+          schema: 'public',
+          table: 'messages',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'conversation_id',
+            value: conversationId,
+          ),
+          callback: (payload) {
+            final message = _repository.messageFromRow(
+              payload.newRecord,
+              currentUserId: SupabaseConfig.client.auth.currentUser?.id,
+            );
+            _appendMessage(message);
+          },
+        )
+        .subscribe();
+  }
+
+  List<ChatMessage> _mockMessages() {
+    return mockChatMessages
         .where(
           (message) =>
               message.conversationKey == widget.conversation.officeName,
         )
         .toList();
+  }
 
+  Future<void> _sendMessage() async {
+    final text = _messageController.text.trim();
+    if (text.isEmpty || _isSending) return;
+
+    _messageController.clear();
+
+    if (!_usesSupabase) {
+      _appendMessage(
+        ChatMessage(
+          id: 'local_${DateTime.now().microsecondsSinceEpoch}',
+          conversationKey: widget.conversation.officeName,
+          author: MessageAuthor.me,
+          text: text,
+          time: 'Agora',
+          read: false,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isSending = true);
+    try {
+      final message = await _repository.sendMessage(
+        conversationId: widget.conversation.id!,
+        body: text,
+        senderType: widget.isLawyer ? 'lawyer' : 'client',
+      );
+      if (!mounted) return;
+      _appendMessage(message);
+      setState(() => _isSending = false);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isSending = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Não foi possível enviar a mensagem.')),
+      );
+      _messageController.text = text;
+    }
+  }
+
+  void _appendMessage(ChatMessage message) {
+    if (!mounted || _messages.any((item) => item.id == message.id)) return;
+    setState(() => _messages = [..._messages, message]);
+    _scrollToBottom();
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollController.hasClients) return;
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+      );
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(
@@ -87,44 +225,55 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
           ],
         ),
-        actions: [
-          IconButton(
-            onPressed: () {},
-            icon: const Icon(Icons.more_vert),
-            tooltip: 'Mais opções',
-          ),
-        ],
       ),
       body: SafeArea(
         child: Column(
           children: [
             Expanded(
-              child: ListView.builder(
-                reverse: true,
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                itemCount: messages.length,
-                itemBuilder: (context, index) {
-                  final message = messages[messages.length - 1 - index];
-                  return _MessageBubble(message: message);
-                },
-              ),
+              child: _isLoading
+                  ? const Center(
+                      child: CircularProgressIndicator(color: AppTheme.primary),
+                    )
+                  : _messages.isEmpty
+                  ? const _EmptyChatState()
+                  : ListView.builder(
+                      controller: _scrollController,
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                      itemCount: _messages.length,
+                      itemBuilder: (context, index) {
+                        final message = _messages[index];
+                        return _MessageBubble(message: message);
+                      },
+                    ),
             ),
             _Composer(
               controller: _messageController,
               isLawyer: widget.isLawyer,
-              onSend: () {
-                if (_messageController.text.trim().isEmpty) return;
-                _messageController.clear();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text(
-                      'Mensagem simulada. Envio real virá com Supabase.',
-                    ),
-                  ),
-                );
-              },
+              isSending: _isSending,
+              onSend: _sendMessage,
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyChatState extends StatelessWidget {
+  const _EmptyChatState();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: Padding(
+        padding: EdgeInsets.all(24),
+        child: Text(
+          'Nenhuma mensagem nesta conversa.',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: AppTheme.textSecondary,
+            fontWeight: FontWeight.w700,
+          ),
         ),
       ),
     );
@@ -139,12 +288,17 @@ class _MessageBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isMine = message.author == MessageAuthor.me;
+    final isSystem = message.author == MessageAuthor.system;
     final alignment = isMine ? Alignment.centerRight : Alignment.centerLeft;
-    final bubbleColor = isMine ? AppTheme.primary : AppTheme.card;
+    final bubbleColor = isSystem
+        ? AppTheme.lightGold
+        : isMine
+        ? AppTheme.primary
+        : AppTheme.card;
     final textColor = isMine ? AppTheme.card : AppTheme.textPrimary;
 
     return Align(
-      alignment: alignment,
+      alignment: isSystem ? Alignment.center : alignment,
       child: ConstrainedBox(
         constraints: BoxConstraints(
           maxWidth: MediaQuery.sizeOf(context).width * 0.78,
@@ -206,11 +360,13 @@ class _MessageBubble extends StatelessWidget {
 class _Composer extends StatelessWidget {
   final TextEditingController controller;
   final bool isLawyer;
+  final bool isSending;
   final VoidCallback onSend;
 
   const _Composer({
     required this.controller,
     required this.isLawyer,
+    required this.isSending,
     required this.onSend,
   });
 
@@ -249,6 +405,7 @@ class _Composer extends StatelessWidget {
                   borderSide: BorderSide.none,
                 ),
               ),
+              onSubmitted: (_) => onSend(),
             ),
           ),
           const SizedBox(width: 8),
@@ -256,14 +413,23 @@ class _Composer extends StatelessWidget {
             width: 44,
             height: 44,
             child: ElevatedButton(
-              onPressed: onSend,
+              onPressed: isSending ? null : onSend,
               style: ElevatedButton.styleFrom(
                 padding: EdgeInsets.zero,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
                 ),
               ),
-              child: const Icon(Icons.send, size: 18),
+              child: isSending
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        color: AppTheme.card,
+                        strokeWidth: 2,
+                      ),
+                    )
+                  : const Icon(Icons.send, size: 18),
             ),
           ),
         ],

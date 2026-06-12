@@ -4,6 +4,7 @@ import 'package:jurii/theme/app_theme.dart';
 import 'package:jurii/widgets/categories_section.dart';
 import 'package:jurii/widgets/notification_bell.dart';
 import 'package:jurii/widgets/offices_section.dart';
+import 'package:jurii/widgets/recommended_lawyers_section.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -55,6 +56,10 @@ class HomeScreen extends StatelessWidget {
               SizedBox(height: 40),
 
               CategoriesSection(),
+
+              SizedBox(height: 40),
+
+              RecommendedLawyersSection(),
 
               SizedBox(height: 40),
 
