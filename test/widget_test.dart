@@ -212,6 +212,43 @@ void main() {
     expect(find.text('Estamos verificando Fries Advogados'), findsOneWidget);
   });
 
+  testWidgets('approved law firm card opens firm area callback', (
+    WidgetTester tester,
+  ) async {
+    var openedFirmArea = false;
+    const verification = LawFirmVerification(
+      ownerProfileId: 'user_joao_silva',
+      firmName: 'Fries Advogados',
+      cnpj: '12.345.678/0001-90',
+      phone: '11999999999',
+      email: 'contato@friesadvogados.com',
+      address: 'Avenida Paulista, 1000',
+      lawyersCount: 4,
+      documents: [],
+      status: LawFirmVerificationStatus.approved,
+    );
+
+    await tester.pumpWidget(
+      _testApp(
+        Scaffold(
+          body: ProfileScreen(
+            user: clientUser,
+            lawFirmVerification: verification,
+            onVerificationSubmitted: (_) {},
+            onOpenLawFirmArea: () {
+              openedFirmArea = true;
+            },
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Área do Escritório'));
+    await tester.pump();
+
+    expect(openedFirmArea, isTrue);
+  });
+
   testWidgets('submitting verification emits pending verification', (
     WidgetTester tester,
   ) async {
