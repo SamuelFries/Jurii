@@ -3,16 +3,32 @@ import 'package:flutter/material.dart';
 import '../data/mock/mock_firm_workspace.dart';
 import '../models/firm_role.dart';
 import '../models/firm_team_member.dart';
+import '../models/firm_workspace.dart';
 import '../theme/app_theme.dart';
 
 class FirmTeamScreen extends StatelessWidget {
-  const FirmTeamScreen({super.key, this.teamMembers});
+  const FirmTeamScreen({
+    super.key,
+    this.workspace,
+    this.teamMembers,
+    this.onInviteLawyer,
+  });
 
+  final FirmWorkspace? workspace;
   final List<FirmTeamMember>? teamMembers;
+  final Future<void> Function({
+    required String oabState,
+    required String oabNumber,
+  })?
+  onInviteLawyer;
 
   @override
   Widget build(BuildContext context) {
     final members = teamMembers ?? mockFirmTeamMembers;
+    final canInvite =
+        workspace?.fromSupabase == true &&
+        (workspace?.currentUserRole == FirmRole.owner ||
+            workspace?.currentUserRole == FirmRole.admin);
 
     return SafeArea(
       child: ListView(
@@ -44,13 +60,7 @@ class FirmTeamScreen extends StatelessWidget {
                 ),
               ),
               IconButton.filled(
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Convites serão conectados ao Supabase.'),
-                    ),
-                  );
-                },
+                onPressed: () => _openInviteDialog(context, canInvite),
                 style: IconButton.styleFrom(
                   backgroundColor: AppTheme.officePurple,
                   foregroundColor: AppTheme.card,
@@ -67,6 +77,185 @@ class FirmTeamScreen extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+
+  Future<void> _openInviteDialog(BuildContext context, bool canInvite) async {
+    if (workspace?.fromSupabase != true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Aprove o escritório e rode o patch 006 antes de convidar.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    if (!canInvite || onInviteLawyer == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Apenas donos e admins podem convidar advogados.'),
+        ),
+      );
+      return;
+    }
+
+    final invited = await showDialog<bool>(
+      context: context,
+      builder: (_) => _InviteLawyerDialog(onInviteLawyer: onInviteLawyer!),
+    );
+
+    if (invited == true && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Convite enviado ao advogado.')),
+      );
+    }
+  }
+}
+
+class _InviteLawyerDialog extends StatefulWidget {
+  const _InviteLawyerDialog({required this.onInviteLawyer});
+
+  final Future<void> Function({
+    required String oabState,
+    required String oabNumber,
+  })
+  onInviteLawyer;
+
+  @override
+  State<_InviteLawyerDialog> createState() => _InviteLawyerDialogState();
+}
+
+class _InviteLawyerDialogState extends State<_InviteLawyerDialog> {
+  final TextEditingController _stateController = TextEditingController();
+  final TextEditingController _numberController = TextEditingController();
+  bool _isSubmitting = false;
+  String? _errorText;
+
+  @override
+  void dispose() {
+    _stateController.dispose();
+    _numberController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final oabState = _stateController.text.trim().toUpperCase();
+    final oabNumber = _numberController.text.trim();
+
+    if (oabState.length != 2 || oabNumber.isEmpty) {
+      setState(() {
+        _errorText = 'Informe a UF e o número da OAB do advogado.';
+      });
+      return;
+    }
+
+    setState(() {
+      _isSubmitting = true;
+      _errorText = null;
+    });
+
+    try {
+      await widget.onInviteLawyer(oabState: oabState, oabNumber: oabNumber);
+      if (!mounted) return;
+      Navigator.of(context).pop(true);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _errorText = _friendlyError(error);
+        _isSubmitting = false;
+      });
+    }
+  }
+
+  String _friendlyError(Object error) {
+    final message = error.toString();
+    if (message.contains('Lawyer not found') ||
+        message.contains('not approved')) {
+      return 'Não encontramos um advogado verificado com essa OAB.';
+    }
+
+    if (message.contains('Only active office owners')) {
+      return 'Apenas donos e admins ativos podem convidar advogados.';
+    }
+
+    if (message.contains('invite_verified_lawyer_to_law_firm') ||
+        message.contains('function') ||
+        message.contains('patch')) {
+      return 'Rode o patch 007 no Supabase antes de enviar convites.';
+    }
+
+    return 'Não foi possível enviar o convite. Tente novamente.';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Convidar advogado'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Informe a OAB de um advogado já verificado na Jurii.',
+              style: TextStyle(color: AppTheme.textSecondary),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _stateController,
+              enabled: !_isSubmitting,
+              textCapitalization: TextCapitalization.characters,
+              maxLength: 2,
+              decoration: const InputDecoration(
+                labelText: 'UF da OAB',
+                hintText: 'SP',
+                counterText: '',
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _numberController,
+              enabled: !_isSubmitting,
+              keyboardType: TextInputType.text,
+              decoration: const InputDecoration(
+                labelText: 'Número da OAB',
+                hintText: '123456',
+              ),
+            ),
+            if (_errorText != null) ...[
+              const SizedBox(height: 12),
+              Text(
+                _errorText!,
+                style: const TextStyle(
+                  color: AppTheme.danger,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          onPressed: _isSubmitting ? null : _submit,
+          child: _isSubmitting
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: AppTheme.card,
+                  ),
+                )
+              : const Text('Enviar convite'),
+        ),
+      ],
     );
   }
 }

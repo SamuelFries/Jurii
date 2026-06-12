@@ -10,6 +10,7 @@ import 'models/lawyer_verification.dart';
 import 'models/firm_workspace.dart';
 import 'models/user_profile.dart';
 import 'repositories/auth_repository.dart';
+import 'repositories/firm_invitation_repository.dart';
 import 'repositories/firm_workspace_repository.dart';
 import 'repositories/law_firm_verification_repository.dart';
 import 'repositories/lawyer_verification_repository.dart';
@@ -57,6 +58,8 @@ class _JuriiAppState extends State<JuriiApp> {
       const LawFirmVerificationRepository();
   final FirmWorkspaceRepository _firmWorkspaceRepository =
       const FirmWorkspaceRepository();
+  final FirmInvitationRepository _firmInvitationRepository =
+      const FirmInvitationRepository();
 
   bool _isLoggedIn = false;
   bool _isLawyerMode = false;
@@ -406,6 +409,25 @@ class _JuriiAppState extends State<JuriiApp> {
     }
   }
 
+  Future<void> _inviteLawyerToFirm({
+    required String oabState,
+    required String oabNumber,
+  }) async {
+    final workspace = _firmWorkspace;
+    if (workspace == null || !workspace.fromSupabase) {
+      throw StateError(
+        'A área do escritório precisa estar aprovada e sincronizada.',
+      );
+    }
+
+    await _firmInvitationRepository.inviteVerifiedLawyer(
+      lawFirmId: workspace.firm.id,
+      oabState: oabState,
+      oabNumber: oabNumber,
+    );
+    await _refreshFirmWorkspace();
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -420,6 +442,7 @@ class _JuriiAppState extends State<JuriiApp> {
           ? FirmNavigation(
               user: _currentUser,
               workspace: _firmWorkspace,
+              onInviteLawyer: _inviteLawyerToFirm,
               onSwitchToClient: _switchToClient,
               onLogout: _handleLogout,
             )
@@ -541,12 +564,18 @@ class FirmNavigation extends StatefulWidget {
     super.key,
     required this.user,
     required this.workspace,
+    required this.onInviteLawyer,
     required this.onSwitchToClient,
     required this.onLogout,
   });
 
   final UserProfile user;
   final FirmWorkspace? workspace;
+  final Future<void> Function({
+    required String oabState,
+    required String oabNumber,
+  })
+  onInviteLawyer;
   final VoidCallback onSwitchToClient;
   final VoidCallback onLogout;
 
@@ -567,7 +596,11 @@ class _FirmNavigationState extends State<FirmNavigation> {
         onOpenCases: () => setState(() => currentIndex = 3),
       ),
       const FirmMessagesScreen(),
-      FirmTeamScreen(teamMembers: widget.workspace?.teamMembers),
+      FirmTeamScreen(
+        workspace: widget.workspace,
+        teamMembers: widget.workspace?.teamMembers,
+        onInviteLawyer: widget.onInviteLawyer,
+      ),
       const FirmCasesScreen(),
       FirmProfileScreen(
         user: widget.user,
