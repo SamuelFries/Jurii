@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../data/mock/mock_chat_messages.dart';
 import '../models/chat_message.dart';
 import '../models/conversation.dart';
 import '../repositories/messaging_repository.dart';
+import '../services/supabase_config.dart';
 import '../theme/app_theme.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -22,7 +24,9 @@ class ChatScreen extends StatefulWidget {
 
 class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _messageController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
   final MessagingRepository _repository = const MessagingRepository();
+  RealtimeChannel? _messagesChannel;
   List<ChatMessage> _messages = const [];
   bool _isLoading = true;
   bool _isSending = false;
@@ -33,10 +37,16 @@ class _ChatScreenState extends State<ChatScreen> {
   void initState() {
     super.initState();
     _loadMessages();
+    _subscribeToMessages();
   }
 
   @override
   void dispose() {
+    final channel = _messagesChannel;
+    if (channel != null && SupabaseConfig.isReady) {
+      SupabaseConfig.client.removeChannel(channel);
+    }
+    _scrollController.dispose();
     _messageController.dispose();
     super.dispose();
   }
@@ -49,6 +59,7 @@ class _ChatScreenState extends State<ChatScreen> {
         _messages = _mockMessages();
         _isLoading = false;
       });
+      _scrollToBottom();
       return;
     }
 
@@ -56,16 +67,44 @@ class _ChatScreenState extends State<ChatScreen> {
       final messages = await _repository.fetchMessages(widget.conversation.id!);
       if (!mounted) return;
       setState(() {
-        _messages = messages.isEmpty ? _mockMessages() : messages;
+        _messages = messages;
         _isLoading = false;
       });
+      _scrollToBottom();
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _messages = _mockMessages();
         _isLoading = false;
       });
+      _scrollToBottom();
     }
+  }
+
+  void _subscribeToMessages() {
+    final conversationId = widget.conversation.id;
+    if (conversationId == null || !SupabaseConfig.isReady) return;
+
+    _messagesChannel = SupabaseConfig.client
+        .channel('conversation_messages:$conversationId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.insert,
+          schema: 'public',
+          table: 'messages',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'conversation_id',
+            value: conversationId,
+          ),
+          callback: (payload) {
+            final message = _repository.messageFromRow(
+              payload.newRecord,
+              currentUserId: SupabaseConfig.client.auth.currentUser?.id,
+            );
+            _appendMessage(message);
+          },
+        )
+        .subscribe();
   }
 
   List<ChatMessage> _mockMessages() {
@@ -84,19 +123,16 @@ class _ChatScreenState extends State<ChatScreen> {
     _messageController.clear();
 
     if (!_usesSupabase) {
-      setState(() {
-        _messages = [
-          ..._messages,
-          ChatMessage(
-            id: 'local_${DateTime.now().microsecondsSinceEpoch}',
-            conversationKey: widget.conversation.officeName,
-            author: MessageAuthor.me,
-            text: text,
-            time: 'Agora',
-            read: false,
-          ),
-        ];
-      });
+      _appendMessage(
+        ChatMessage(
+          id: 'local_${DateTime.now().microsecondsSinceEpoch}',
+          conversationKey: widget.conversation.officeName,
+          author: MessageAuthor.me,
+          text: text,
+          time: 'Agora',
+          read: false,
+        ),
+      );
       return;
     }
 
@@ -108,10 +144,8 @@ class _ChatScreenState extends State<ChatScreen> {
         senderType: widget.isLawyer ? 'lawyer' : 'client',
       );
       if (!mounted) return;
-      setState(() {
-        _messages = [..._messages, message];
-        _isSending = false;
-      });
+      _appendMessage(message);
+      setState(() => _isSending = false);
     } catch (_) {
       if (!mounted) return;
       setState(() => _isSending = false);
@@ -120,6 +154,23 @@ class _ChatScreenState extends State<ChatScreen> {
       );
       _messageController.text = text;
     }
+  }
+
+  void _appendMessage(ChatMessage message) {
+    if (!mounted || _messages.any((item) => item.id == message.id)) return;
+    setState(() => _messages = [..._messages, message]);
+    _scrollToBottom();
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollController.hasClients) return;
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+      );
+    });
   }
 
   @override
@@ -174,13 +225,6 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
           ],
         ),
-        actions: [
-          IconButton(
-            onPressed: _loadMessages,
-            icon: const Icon(Icons.refresh),
-            tooltip: 'Atualizar conversa',
-          ),
-        ],
       ),
       body: SafeArea(
         child: Column(
@@ -193,11 +237,11 @@ class _ChatScreenState extends State<ChatScreen> {
                   : _messages.isEmpty
                   ? const _EmptyChatState()
                   : ListView.builder(
-                      reverse: true,
+                      controller: _scrollController,
                       padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                       itemCount: _messages.length,
                       itemBuilder: (context, index) {
-                        final message = _messages[_messages.length - 1 - index];
+                        final message = _messages[index];
                         return _MessageBubble(message: message);
                       },
                     ),

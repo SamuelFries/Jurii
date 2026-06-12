@@ -4,6 +4,8 @@ import 'package:jurii/models/law_firm_verification.dart';
 import 'package:jurii/models/law_firm_verification_status.dart';
 import 'package:jurii/models/lawyer_status.dart';
 import 'package:jurii/models/lawyer_verification.dart';
+import 'package:jurii/models/conversation.dart';
+import 'package:jurii/screens/chat_screen.dart';
 import 'package:jurii/screens/profile_screen.dart';
 import 'package:jurii/screens/register_screen.dart';
 import 'package:jurii/theme/app_theme.dart';
@@ -298,6 +300,39 @@ void main() {
 
     expect(submittedVerification, isNotNull);
     expect(find.text('Solicitação enviada'), findsOneWidget);
+  });
+
+  testWidgets('chat keeps chronological order without refresh action', (
+    WidgetTester tester,
+  ) async {
+    const conversation = Conversation(
+      initials: 'FA',
+      officeName: 'Fries Advogados',
+      specialty: 'Direito Trabalhista',
+      lastMessage: 'Conversa iniciada.',
+      time: 'Agora',
+      unreadCount: 0,
+    );
+
+    await tester.pumpWidget(
+      _testApp(const ChatScreen(conversation: conversation, isLawyer: false)),
+    );
+    await tester.pumpAndSettle();
+
+    final firstMessage = find.text(
+      'Olá, João. Recebemos sua solicitação e podemos ajudar com a análise trabalhista.',
+    );
+    final latestMessage = find.text(
+      'Contrato, últimos contracheques e a comunicação de desligamento já são suficientes para começar.',
+    );
+
+    expect(find.byIcon(Icons.refresh), findsNothing);
+    expect(firstMessage, findsOneWidget);
+    expect(latestMessage, findsOneWidget);
+    expect(
+      tester.getTopLeft(firstMessage).dy,
+      lessThan(tester.getTopLeft(latestMessage).dy),
+    );
   });
 }
 

@@ -21,7 +21,7 @@ class MessagingRepository {
     var query = SupabaseConfig.client
         .from('conversations')
         .select(
-          'id, type, title, specialty, last_message, last_message_at, law_firm_id',
+          'id, type, title, specialty, last_message, last_message_at, law_firm_id, client_id, lawyer_id',
         );
 
     switch (scope) {
@@ -44,7 +44,7 @@ class MessagingRepository {
     }
 
     final rows = await query.order('last_message_at', ascending: false);
-    return rows.map<Conversation>(_conversationFromRow).toList();
+    return _conversationsFromRows(rows, scope: scope);
   }
 
   Future<List<ChatMessage>> fetchMessages(String conversationId) async {
@@ -65,7 +65,7 @@ class MessagingRepository {
 
     return rows
         .map<ChatMessage>(
-          (row) => _messageFromRow(row, currentUserId: currentUserId),
+          (row) => messageFromRow(row, currentUserId: currentUserId),
         )
         .toList();
   }
@@ -91,7 +91,7 @@ class MessagingRepository {
         )
         .single();
 
-    return _messageFromRow(row, currentUserId: user.id);
+    return messageFromRow(row, currentUserId: user.id);
   }
 
   Future<Conversation> startLawFirmConversation({
@@ -146,7 +146,7 @@ class MessagingRepository {
     final row = await SupabaseConfig.client
         .from('conversations')
         .select(
-          'id, type, title, specialty, last_message, last_message_at, law_firm_id',
+          'id, type, title, specialty, last_message, last_message_at, law_firm_id, client_id, lawyer_id',
         )
         .eq('id', conversationId)
         .single();
@@ -154,11 +154,60 @@ class MessagingRepository {
     return _conversationFromRow(row);
   }
 
-  Conversation _conversationFromRow(Map<String, dynamic> row) {
-    final title = row['title'] as String? ?? 'Conversa';
+  Future<List<Conversation>> _conversationsFromRows(
+    List<dynamic> rows, {
+    required ConversationScope scope,
+  }) async {
+    final mappedRows = rows.cast<Map<String, dynamic>>();
+    if (scope != ConversationScope.lawyer &&
+        scope != ConversationScope.firmClient) {
+      return mappedRows.map(_conversationFromRow).toList();
+    }
+
+    final clientIds = mappedRows
+        .map((row) => row['client_id'] as String?)
+        .whereType<String>()
+        .toSet()
+        .toList();
+    final profilesById = await _fetchProfilesById(clientIds);
+
+    return mappedRows.map((row) {
+      final clientId = row['client_id'] as String?;
+      final profile = clientId == null ? null : profilesById[clientId];
+      return _conversationFromRow(row, displayProfile: profile);
+    }).toList();
+  }
+
+  Future<Map<String, _ConversationProfile>> _fetchProfilesById(
+    List<String> profileIds,
+  ) async {
+    if (profileIds.isEmpty) return const {};
+
+    final rows = await SupabaseConfig.client
+        .from('profiles')
+        .select('id, full_name, initials')
+        .inFilter('id', profileIds);
+
+    return {
+      for (final row in rows)
+        row['id'] as String: _ConversationProfile(
+          name: row['full_name'] as String? ?? 'Cliente',
+          initials: row['initials'] as String? ?? '',
+        ),
+    };
+  }
+
+  Conversation _conversationFromRow(
+    Map<String, dynamic> row, {
+    _ConversationProfile? displayProfile,
+  }) {
+    final title = displayProfile?.name ?? row['title'] as String? ?? 'Conversa';
+    final initials = displayProfile?.initials.isNotEmpty == true
+        ? displayProfile!.initials
+        : _initialsFor(title);
     return Conversation(
       id: row['id'] as String?,
-      initials: _initialsFor(title),
+      initials: initials,
       officeName: title,
       specialty: row['specialty'] as String? ?? 'Atendimento jurídico',
       lastMessage: row['last_message'] as String? ?? 'Conversa iniciada.',
@@ -166,10 +215,12 @@ class MessagingRepository {
       unreadCount: 0,
       type: row['type'] as String? ?? 'client_firm',
       lawFirmId: row['law_firm_id'] as String?,
+      clientId: row['client_id'] as String?,
+      lawyerId: row['lawyer_id'] as String?,
     );
   }
 
-  ChatMessage _messageFromRow(
+  ChatMessage messageFromRow(
     Map<String, dynamic> row, {
     required String? currentUserId,
   }) {
@@ -240,6 +291,14 @@ class MessagingRepository {
       time: 'Agora',
       unreadCount: 0,
       type: 'client_lawyer',
+      lawyerId: lawyer.id,
     );
   }
+}
+
+class _ConversationProfile {
+  final String name;
+  final String initials;
+
+  const _ConversationProfile({required this.name, required this.initials});
 }

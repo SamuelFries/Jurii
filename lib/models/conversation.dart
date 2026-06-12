@@ -8,6 +8,8 @@ class Conversation {
   final int unreadCount;
   final String type;
   final String? lawFirmId;
+  final String? clientId;
+  final String? lawyerId;
 
   const Conversation({
     this.id,
@@ -19,6 +21,8 @@ class Conversation {
     required this.unreadCount,
     this.type = 'mock',
     this.lawFirmId,
+    this.clientId,
+    this.lawyerId,
   });
 
   bool get isFromSupabase => id != null;

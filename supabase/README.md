@@ -138,6 +138,15 @@ Para aprovar um advogado criando o perfil profissional:
 select public.approve_lawyer_verification('ID_DA_VERIFICACAO');
 ```
 
+## 2.10. Patch para chat em tempo real
+
+Rode `patch_010_realtime_messages_profiles.sql` depois do patch 009. Ele:
+
+- adiciona `public.messages` à publication do Supabase Realtime
+- permite que membros ativos do escritório leiam o nome do cliente em conversas
+  do escritório
+- mantém as mensagens chegando no app sem botão de atualizar
+
 ## 3. Próxima etapa de integração
 
 A camada inicial de repositories já existe em `lib/repositories/`.
