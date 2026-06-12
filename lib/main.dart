@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart' show User;
 import 'data/mock/mock_users.dart';
 import 'models/appointment.dart';
 import 'models/law_firm_verification.dart';
+import 'models/law_firm_verification_status.dart';
 import 'models/lawyer_status.dart';
 import 'models/lawyer_verification.dart';
 import 'models/user_profile.dart';
@@ -15,6 +16,11 @@ import 'screens/agenda_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/messages_screen.dart';
 import 'screens/cases_screen.dart';
+import 'screens/firm_cases_screen.dart';
+import 'screens/firm_home_screen.dart';
+import 'screens/firm_messages_screen.dart';
+import 'screens/firm_profile_screen.dart';
+import 'screens/firm_team_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/lawyer_home_screen.dart';
@@ -24,6 +30,7 @@ import 'screens/lawyer_cases_screen.dart';
 import 'theme/app_theme.dart';
 import 'services/supabase_config.dart';
 import 'types/auth_callbacks.dart';
+import 'widgets/firm_bottom_nav.dart';
 import 'widgets/jurii_bottom_nav.dart';
 
 Future<void> main() async {
@@ -49,6 +56,7 @@ class _JuriiAppState extends State<JuriiApp> {
 
   bool _isLoggedIn = false;
   bool _isLawyerMode = false;
+  bool _isFirmMode = false;
   bool _isBootstrapping = true;
   UserProfile _currentUser = mockCurrentUser;
   LawyerVerification? _lawyerVerification;
@@ -264,6 +272,7 @@ class _JuriiAppState extends State<JuriiApp> {
     setState(() {
       _isLoggedIn = false;
       _isLawyerMode = false;
+      _isFirmMode = false;
       _currentUser = mockCurrentUser;
       _lawyerVerification = null;
       _lawFirmVerification = null;
@@ -272,10 +281,28 @@ class _JuriiAppState extends State<JuriiApp> {
 
   void _switchToLawyer() {
     if (_currentUser.lawyerStatus != LawyerStatus.approved) return;
-    setState(() => _isLawyerMode = true);
+    setState(() {
+      _isLawyerMode = true;
+      _isFirmMode = false;
+    });
   }
 
-  void _switchToClient() => setState(() => _isLawyerMode = false);
+  void _switchToFirm() {
+    if (_lawFirmVerification?.status != LawFirmVerificationStatus.approved) {
+      return;
+    }
+    setState(() {
+      _isFirmMode = true;
+      _isLawyerMode = false;
+    });
+  }
+
+  void _switchToClient() {
+    setState(() {
+      _isLawyerMode = false;
+      _isFirmMode = false;
+    });
+  }
 
   void _handleVerificationSubmitted(LawyerVerification verification) {
     setState(() {
@@ -352,6 +379,12 @@ class _JuriiAppState extends State<JuriiApp> {
           ? const _BootstrapScreen()
           : !_isLoggedIn
           ? LoginScreen(onLogin: _handleLogin, onRegister: _handleRegister)
+          : _isFirmMode
+          ? FirmNavigation(
+              user: _currentUser,
+              onSwitchToClient: _switchToClient,
+              onLogout: _handleLogout,
+            )
           : _isLawyerMode
           ? LawyerNavigation(
               user: _currentUser,
@@ -363,6 +396,7 @@ class _JuriiAppState extends State<JuriiApp> {
               lawyerVerification: _lawyerVerification,
               lawFirmVerification: _lawFirmVerification,
               onSwitchToLawyer: _switchToLawyer,
+              onSwitchToFirm: _switchToFirm,
               onVerificationSubmitted: _handleVerificationSubmitted,
               onRefreshLawyerVerification: _refreshLawyerVerification,
               onLawFirmVerificationSubmitted:
@@ -391,6 +425,7 @@ class MainNavigation extends StatefulWidget {
   final LawyerVerification? lawyerVerification;
   final LawFirmVerification? lawFirmVerification;
   final VoidCallback onSwitchToLawyer;
+  final VoidCallback onSwitchToFirm;
   final ValueChanged<LawyerVerification> onVerificationSubmitted;
   final Future<void> Function() onRefreshLawyerVerification;
   final ValueChanged<LawFirmVerification> onLawFirmVerificationSubmitted;
@@ -403,6 +438,7 @@ class MainNavigation extends StatefulWidget {
     required this.lawyerVerification,
     required this.lawFirmVerification,
     required this.onSwitchToLawyer,
+    required this.onSwitchToFirm,
     required this.onVerificationSubmitted,
     required this.onRefreshLawyerVerification,
     required this.onLawFirmVerificationSubmitted,
@@ -431,7 +467,7 @@ class _MainNavigationState extends State<MainNavigation> {
         onVerificationSubmitted: widget.onVerificationSubmitted,
         onRefreshLawyerVerification: widget.onRefreshLawyerVerification,
         onLawFirmVerificationSubmitted: widget.onLawFirmVerificationSubmitted,
-        onOpenLawFirmArea: _showLawFirmAreaComingSoon,
+        onOpenLawFirmArea: widget.onSwitchToFirm,
         onRefreshLawFirmVerification: widget.onRefreshLawFirmVerification,
         onOpenMessages: () => setState(() => currentIndex = 1),
         onOpenCases: () => setState(() => currentIndex = 2),
@@ -460,11 +496,50 @@ class _MainNavigationState extends State<MainNavigation> {
       context,
     ).push(MaterialPageRoute(builder: (_) => AgendaScreen(role: role)));
   }
+}
 
-  void _showLawFirmAreaComingSoon() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('A área do escritório será construída na próxima etapa.'),
+class FirmNavigation extends StatefulWidget {
+  const FirmNavigation({
+    super.key,
+    required this.user,
+    required this.onSwitchToClient,
+    required this.onLogout,
+  });
+
+  final UserProfile user;
+  final VoidCallback onSwitchToClient;
+  final VoidCallback onLogout;
+
+  @override
+  State<FirmNavigation> createState() => _FirmNavigationState();
+}
+
+class _FirmNavigationState extends State<FirmNavigation> {
+  int currentIndex = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final pages = [
+      FirmHomeScreen(
+        onOpenMessages: () => setState(() => currentIndex = 1),
+        onOpenTeam: () => setState(() => currentIndex = 2),
+        onOpenCases: () => setState(() => currentIndex = 3),
+      ),
+      const FirmMessagesScreen(),
+      const FirmTeamScreen(),
+      const FirmCasesScreen(),
+      FirmProfileScreen(
+        user: widget.user,
+        onSwitchToClient: widget.onSwitchToClient,
+        onLogout: widget.onLogout,
+      ),
+    ];
+
+    return Scaffold(
+      body: pages[currentIndex],
+      bottomNavigationBar: FirmBottomNav(
+        currentIndex: currentIndex,
+        onTap: (index) => setState(() => currentIndex = index),
       ),
     );
   }
