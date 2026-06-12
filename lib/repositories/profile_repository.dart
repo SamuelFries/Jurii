@@ -19,6 +19,15 @@ class ProfileRepository {
     return _fromRow(row);
   }
 
+  Future<UserProfile?> fetchProfileById(String profileId) async {
+    final row = await SupabaseConfig.client
+        .rpc('fetch_chat_profile', params: {'profile_id_value': profileId})
+        .maybeSingle();
+
+    if (row == null) return null;
+    return _fromRow(row);
+  }
+
   Future<void> upsertProfile({
     required String id,
     required String fullName,
