@@ -87,28 +87,44 @@ class FirmWorkspaceRepository {
     try {
       final rows = await SupabaseConfig.client
           .from('law_firm_members')
-          .select('profile_id, member_role, role, status')
+          .select(
+            'profile_id, lawyer_id, member_role, role, status, profiles(full_name, initials)',
+          )
           .eq('law_firm_id', lawFirmId)
-          .eq('status', 'active');
+          .neq('status', 'disabled');
 
       if (rows.isEmpty) return mockFirmTeamMembers;
 
       return rows.map<FirmTeamMember>((row) {
         final profileId = row['profile_id'] as String? ?? '';
+        final lawyerId = row['lawyer_id'] as String?;
+        final status = row['status'] as String? ?? 'active';
+        final profileRow = row['profiles'];
         final role = _roleFromRow(
           row['member_role'] as String? ?? row['role'] as String?,
         );
         final isCurrentUser = profileId == currentProfileId;
+        final profileName = profileRow is Map<String, dynamic>
+            ? profileRow['full_name'] as String?
+            : null;
+        final profileInitials = profileRow is Map<String, dynamic>
+            ? profileRow['initials'] as String?
+            : null;
+
         return FirmTeamMember(
           id: profileId.isEmpty ? 'member_${rows.indexOf(row)}' : profileId,
-          name: isCurrentUser ? 'Você' : _roleName(role),
-          initials: isCurrentUser ? 'VC' : _roleInitials(role),
+          name: isCurrentUser ? 'Você' : profileName ?? _roleName(role),
+          initials: isCurrentUser
+              ? 'VC'
+              : profileInitials ?? _roleInitials(role),
           role: isCurrentUser ? currentUserRole : role,
-          specialty: _roleSpecialty(role),
+          specialty: status == 'invited'
+              ? 'Convite pendente'
+              : _roleSpecialty(role, isAlsoLawyer: lawyerId != null),
           activeCases: role == FirmRole.lawyer ? 3 : 0,
           responseHours: role == FirmRole.secretary ? 0.8 : 1.6,
           rating: role == FirmRole.lawyer ? 4.8 : 4.7,
-          available: true,
+          available: status == 'active',
         );
       }).toList();
     } catch (_) {
@@ -149,7 +165,7 @@ class FirmWorkspaceRepository {
         name: 'Você',
         initials: 'VC',
         role: FirmRole.owner,
-        specialty: 'Responsável legal',
+        specialty: 'Líder',
         activeCases: 0,
         responseHours: 0,
         rating: 0,
@@ -185,7 +201,7 @@ class FirmWorkspaceRepository {
 
   String _roleName(FirmRole role) {
     return switch (role) {
-      FirmRole.owner => 'Dono do escritório',
+      FirmRole.owner => 'Líder do escritório',
       FirmRole.admin => 'Administrador',
       FirmRole.secretary => 'Secretaria',
       FirmRole.lawyer => 'Advogado associado',
@@ -201,10 +217,10 @@ class FirmWorkspaceRepository {
     };
   }
 
-  String _roleSpecialty(FirmRole role) {
+  String _roleSpecialty(FirmRole role, {bool isAlsoLawyer = false}) {
     return switch (role) {
-      FirmRole.owner => 'Gestão',
-      FirmRole.admin => 'Operações',
+      FirmRole.owner => isAlsoLawyer ? 'Líder · Advogado' : 'Líder',
+      FirmRole.admin => isAlsoLawyer ? 'Admin · Advogado' : 'Operações',
       FirmRole.secretary => 'Atendimento',
       FirmRole.lawyer => 'Jurídico',
     };

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../data/mock/mock_firm_workspace.dart';
 import '../models/firm_workspace.dart';
 import '../theme/app_theme.dart';
+import '../widgets/notification_bell.dart';
 
 class FirmHomeScreen extends StatelessWidget {
   const FirmHomeScreen({
@@ -89,6 +90,12 @@ class FirmHomeScreen extends StatelessWidget {
                       ),
                     ],
                   ),
+                ),
+                const SizedBox(width: 10),
+                const NotificationBell(
+                  iconColor: AppTheme.officePurple,
+                  backgroundColor: AppTheme.card,
+                  borderColor: AppTheme.officePurpleBorder,
                 ),
               ],
             ),

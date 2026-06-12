@@ -5,6 +5,7 @@ import '../data/mock/mock_professional_profile.dart';
 import '../models/lawyer_case.dart';
 import '../models/user_profile.dart';
 import '../theme/app_theme.dart';
+import '../widgets/notification_bell.dart';
 
 class LawyerHomeScreen extends StatelessWidget {
   final UserProfile user;
@@ -130,6 +131,12 @@ class _ProfessionalHeader extends StatelessWidget {
                     ),
                   ],
                 ),
+              ),
+              const SizedBox(width: 10),
+              const NotificationBell(
+                iconColor: AppTheme.primary,
+                backgroundColor: AppTheme.card,
+                borderColor: AppTheme.softBorder,
               ),
             ],
           ),
