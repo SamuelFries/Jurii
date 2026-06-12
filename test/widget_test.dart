@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:jurii/data/mock/mock_users.dart';
+import 'package:jurii/models/law_firm_verification.dart';
+import 'package:jurii/models/law_firm_verification_status.dart';
 import 'package:jurii/models/lawyer_status.dart';
 import 'package:jurii/models/lawyer_verification.dart';
 import 'package:jurii/screens/profile_screen.dart';
@@ -99,6 +101,115 @@ void main() {
 
     expect(find.text('Ative seu Perfil\nProfissional'), findsOneWidget);
     expect(find.text('Começar Verificação'), findsOneWidget);
+  });
+
+  testWidgets('law firm registration item opens verification screen', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      _testApp(
+        Scaffold(
+          body: ProfileScreen(
+            user: clientUser,
+            onVerificationSubmitted: (_) {},
+            onLawFirmVerificationSubmitted: (_) {},
+          ),
+        ),
+      ),
+    );
+
+    await tester.ensureVisible(find.text('Cadastrar escritório'));
+    await tester.tap(find.text('Cadastrar escritório'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Cadastre seu\nEscritório'), findsOneWidget);
+    expect(find.text('Começar cadastro'), findsOneWidget);
+  });
+
+  testWidgets('submitting law firm verification emits pending verification', (
+    WidgetTester tester,
+  ) async {
+    LawFirmVerification? submittedVerification;
+
+    await tester.pumpWidget(
+      _testApp(
+        Scaffold(
+          body: ProfileScreen(
+            user: clientUser,
+            onVerificationSubmitted: (_) {},
+            onLawFirmVerificationSubmitted: (verification) {
+              submittedVerification = verification;
+            },
+          ),
+        ),
+      ),
+    );
+
+    await tester.ensureVisible(find.text('Cadastrar escritório'));
+    await tester.tap(find.text('Cadastrar escritório'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Começar cadastro'));
+    await tester.tap(find.text('Começar cadastro'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).at(0), 'Fries Advogados');
+    await tester.enterText(find.byType(TextField).at(1), '12345678000190');
+    await tester.enterText(find.byType(TextField).at(2), '11999999999');
+    await tester.enterText(
+      find.byType(TextField).at(3),
+      'contato@friesadvogados.com',
+    );
+    await tester.enterText(
+      find.byType(TextField).at(4),
+      'Avenida Paulista, 1000',
+    );
+    await tester.enterText(find.byType(TextField).at(5), '4');
+    await tester.pump();
+
+    while (find.text('Selecionar').evaluate().isNotEmpty) {
+      await tester.ensureVisible(find.text('Selecionar').first);
+      await tester.tap(find.text('Selecionar').first);
+      await tester.pump();
+    }
+
+    await tester.ensureVisible(find.text('Enviar para análise'));
+    await tester.tap(find.text('Enviar para análise'));
+    await tester.pumpAndSettle();
+
+    expect(submittedVerification, isNotNull);
+    expect(submittedVerification!.status, LawFirmVerificationStatus.pending);
+    expect(find.text('Cadastro enviado'), findsOneWidget);
+  });
+
+  testWidgets('pending law firm verification shows office status card', (
+    WidgetTester tester,
+  ) async {
+    const verification = LawFirmVerification(
+      ownerProfileId: 'user_joao_silva',
+      firmName: 'Fries Advogados',
+      cnpj: '12.345.678/0001-90',
+      phone: '11999999999',
+      email: 'contato@friesadvogados.com',
+      address: 'Avenida Paulista, 1000',
+      lawyersCount: 4,
+      documents: [],
+      status: LawFirmVerificationStatus.pending,
+    );
+
+    await tester.pumpWidget(
+      _testApp(
+        Scaffold(
+          body: ProfileScreen(
+            user: clientUser,
+            lawFirmVerification: verification,
+            onVerificationSubmitted: (_) {},
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Escritório em análise'), findsOneWidget);
+    expect(find.text('Estamos verificando Fries Advogados'), findsOneWidget);
   });
 
   testWidgets('submitting verification emits pending verification', (

@@ -10,6 +10,7 @@ class SupabaseConfig {
     'SUPABASE_PUBLISHABLE_KEY',
   );
   static const _legacyAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
+  static bool _initialized = false;
 
   static String get url => _envUrl.isNotEmpty ? _envUrl : _projectUrl;
 
@@ -20,11 +21,18 @@ class SupabaseConfig {
       : _projectPublishableKey;
 
   static bool get isConfigured => url.isNotEmpty && key.isNotEmpty;
+  static bool get isReady {
+    if (!isConfigured) return false;
+    if (_initialized) return true;
+    return _hasInitializedClient();
+  }
 
   static Future<void> initialize() async {
     if (!isConfigured) return;
+    if (_initialized) return;
 
     await Supabase.initialize(url: url, publishableKey: key);
+    _initialized = true;
   }
 
   static SupabaseClient get client {
@@ -35,7 +43,20 @@ class SupabaseConfig {
         '--dart-define=SUPABASE_PUBLISHABLE_KEY=...',
       );
     }
+    if (!_initialized && !_hasInitializedClient()) {
+      throw StateError('Supabase has not been initialized yet.');
+    }
 
     return Supabase.instance.client;
+  }
+
+  static bool _hasInitializedClient() {
+    try {
+      Supabase.instance.client;
+      _initialized = true;
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 }

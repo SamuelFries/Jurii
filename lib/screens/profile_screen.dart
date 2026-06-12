@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../models/law_firm_verification.dart';
+import '../models/law_firm_verification_status.dart';
 import '../models/lawyer_verification.dart';
 import '../models/user_profile.dart';
+import 'law_firm_verification_screen.dart';
 import 'lawyer_verification_screen.dart';
 import '../theme/app_theme.dart';
+import '../widgets/law_firm_mode_card.dart';
 import '../widgets/profile_header_card.dart';
 import '../widgets/profile_menu_section.dart';
 import '../widgets/profile_menu_item.dart';
@@ -13,9 +17,14 @@ import '../models/lawyer_status.dart';
 class ProfileScreen extends StatelessWidget {
   final UserProfile user;
   final LawyerVerification? lawyerVerification;
+  final LawFirmVerification? lawFirmVerification;
   final VoidCallback? onSwitchToLawyer;
   final VoidCallback? onSwitchToClient;
   final ValueChanged<LawyerVerification>? onVerificationSubmitted;
+  final Future<void> Function()? onRefreshLawyerVerification;
+  final ValueChanged<LawFirmVerification>? onLawFirmVerificationSubmitted;
+  final VoidCallback? onOpenLawFirmArea;
+  final Future<void> Function()? onRefreshLawFirmVerification;
   final VoidCallback? onOpenMessages;
   final VoidCallback? onOpenCases;
   final VoidCallback? onOpenAgenda;
@@ -25,9 +34,14 @@ class ProfileScreen extends StatelessWidget {
     super.key,
     required this.user,
     this.lawyerVerification,
+    this.lawFirmVerification,
     this.onSwitchToLawyer,
     this.onSwitchToClient,
     this.onVerificationSubmitted,
+    this.onRefreshLawyerVerification,
+    this.onLawFirmVerificationSubmitted,
+    this.onOpenLawFirmArea,
+    this.onRefreshLawFirmVerification,
     this.onOpenMessages,
     this.onOpenCases,
     this.onOpenAgenda,
@@ -102,6 +116,7 @@ class ProfileScreen extends StatelessWidget {
                         );
                         break;
                       case LawyerStatus.pending:
+                        onRefreshLawyerVerification?.call();
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
                             content: Text(
@@ -116,6 +131,45 @@ class ProfileScreen extends StatelessWidget {
                     }
                   },
                 ),
+
+              if (!isLawyerMode &&
+                  lawFirmVerification != null &&
+                  lawFirmVerification!.status !=
+                      LawFirmVerificationStatus.rejected) ...[
+                const SizedBox(height: 12),
+                LawFirmModeCard(
+                  verification: lawFirmVerification!,
+                  onTap: () {
+                    switch (lawFirmVerification!.status) {
+                      case LawFirmVerificationStatus.pending:
+                        onRefreshLawFirmVerification?.call();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'O cadastro do escritório está em análise.',
+                            ),
+                          ),
+                        );
+                        break;
+                      case LawFirmVerificationStatus.approved:
+                        if (onOpenLawFirmArea != null) {
+                          onOpenLawFirmArea?.call();
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'A área do escritório será liberada na próxima etapa.',
+                              ),
+                            ),
+                          );
+                        }
+                        break;
+                      case LawFirmVerificationStatus.rejected:
+                        break;
+                    }
+                  },
+                ),
+              ],
 
               if (!isLawyerMode &&
                   user.lawyerStatus == LawyerStatus.pending &&
@@ -242,6 +296,36 @@ class ProfileScreen extends StatelessWidget {
               ProfileMenuSection(
                 title: 'PLATAFORMA',
                 items: [
+                  if (!isLawyerMode &&
+                      (lawFirmVerification == null ||
+                          lawFirmVerification!.status ==
+                              LawFirmVerificationStatus.rejected))
+                    ProfileMenuItem(
+                      icon: Icons.apartment_outlined,
+                      iconColor: AppTheme.officePurple,
+                      label:
+                          lawFirmVerification?.status ==
+                              LawFirmVerificationStatus.rejected
+                          ? 'Reenviar cadastro do escritório'
+                          : 'Cadastrar escritório',
+                      subtitle:
+                          lawFirmVerification?.status ==
+                              LawFirmVerificationStatus.rejected
+                          ? 'Revise os dados e envie uma nova solicitação'
+                          : 'Valide CNPJ, documentos e responsável legal',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => LawFirmVerificationScreen(
+                              user: user,
+                              onVerificationSubmitted:
+                                  onLawFirmVerificationSubmitted,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
                   ProfileMenuItem(
                     icon: Icons.help_outline,
                     iconColor: AppTheme.primary,
