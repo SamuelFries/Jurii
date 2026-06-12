@@ -147,6 +147,13 @@ Rode `patch_010_realtime_messages_profiles.sql` depois do patch 009. Ele:
   do escritório
 - mantém as mensagens chegando no app sem botão de atualizar
 
+## 2.11. Patch para advogados recomendados
+
+Rode `patch_011_recommended_lawyers_rpc.sql` depois do patch 010. Ele cria a
+função `fetch_recommended_lawyers`, usada pela home do cliente para listar os
+advogados reais cadastrados em `lawyer_profiles` sem cair em mocks por bloqueios
+de RLS entre tabelas.
+
 ## 3. Próxima etapa de integração
 
 A camada inicial de repositories já existe em `lib/repositories/`.
