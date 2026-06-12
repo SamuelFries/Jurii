@@ -91,7 +91,9 @@ class _MessagesScreenState extends State<MessagesScreen> {
     );
 
     if (!mounted) return;
-    setState(() => _conversationsFuture = _loadConversations());
+    setState(() {
+      _conversationsFuture = _loadConversations();
+    });
   }
 }
 

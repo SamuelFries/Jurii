@@ -163,7 +163,9 @@ class _FirmMessagesScreenState extends State<FirmMessagesScreen> {
     );
 
     if (!mounted) return;
-    setState(() => _conversationsFuture = _loadConversations());
+    setState(() {
+      _conversationsFuture = _loadConversations();
+    });
   }
 }
 

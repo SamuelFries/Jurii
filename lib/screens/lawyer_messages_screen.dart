@@ -89,7 +89,9 @@ class _LawyerMessagesScreenState extends State<LawyerMessagesScreen> {
     );
 
     if (!mounted) return;
-    setState(() => _conversationsFuture = _loadConversations());
+    setState(() {
+      _conversationsFuture = _loadConversations();
+    });
   }
 }
 
