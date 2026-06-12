@@ -1,5 +1,7 @@
 import '../models/chat_message.dart';
 import '../models/conversation.dart';
+import '../models/law_firm.dart';
+import '../models/lawyer_profile_summary.dart';
 import '../services/supabase_config.dart';
 
 enum ConversationScope { client, lawyer, firmClient, firmTeam }
@@ -92,6 +94,66 @@ class MessagingRepository {
     return _messageFromRow(row, currentUserId: user.id);
   }
 
+  Future<Conversation> startLawFirmConversation({
+    required LawFirm lawFirm,
+    String? initialMessage,
+  }) async {
+    if (!SupabaseConfig.isReady ||
+        SupabaseConfig.client.auth.currentUser == null) {
+      return _fallbackLawFirmConversation(lawFirm);
+    }
+
+    try {
+      final conversationId = await SupabaseConfig.client.rpc(
+        'start_or_get_law_firm_conversation',
+        params: {
+          'law_firm_id_value': lawFirm.id,
+          'initial_message_value': initialMessage ?? '',
+        },
+      );
+
+      return await fetchConversationById(conversationId as String);
+    } catch (_) {
+      return _fallbackLawFirmConversation(lawFirm);
+    }
+  }
+
+  Future<Conversation> startLawyerConversation({
+    required LawyerProfileSummary lawyer,
+    String? initialMessage,
+  }) async {
+    if (!SupabaseConfig.isReady ||
+        SupabaseConfig.client.auth.currentUser == null) {
+      return _fallbackLawyerConversation(lawyer);
+    }
+
+    try {
+      final conversationId = await SupabaseConfig.client.rpc(
+        'start_or_get_lawyer_conversation',
+        params: {
+          'lawyer_profile_id_value': lawyer.id,
+          'initial_message_value': initialMessage ?? '',
+        },
+      );
+
+      return await fetchConversationById(conversationId as String);
+    } catch (_) {
+      return _fallbackLawyerConversation(lawyer);
+    }
+  }
+
+  Future<Conversation> fetchConversationById(String conversationId) async {
+    final row = await SupabaseConfig.client
+        .from('conversations')
+        .select(
+          'id, type, title, specialty, last_message, last_message_at, law_firm_id',
+        )
+        .eq('id', conversationId)
+        .single();
+
+    return _conversationFromRow(row);
+  }
+
   Conversation _conversationFromRow(Map<String, dynamic> row) {
     final title = row['title'] as String? ?? 'Conversa';
     return Conversation(
@@ -154,5 +216,30 @@ class MessagingRepository {
     if (parts.isEmpty) return 'J';
     if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
     return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
+  }
+
+  Conversation _fallbackLawFirmConversation(LawFirm lawFirm) {
+    return Conversation(
+      initials: lawFirm.initials,
+      officeName: lawFirm.name,
+      specialty: lawFirm.specialty,
+      lastMessage: 'Conversa iniciada.',
+      time: 'Agora',
+      unreadCount: 0,
+      type: 'client_firm',
+      lawFirmId: lawFirm.id,
+    );
+  }
+
+  Conversation _fallbackLawyerConversation(LawyerProfileSummary lawyer) {
+    return Conversation(
+      initials: lawyer.initials,
+      officeName: lawyer.name,
+      specialty: lawyer.primaryArea,
+      lastMessage: 'Conversa iniciada.',
+      time: 'Agora',
+      unreadCount: 0,
+      type: 'client_lawyer',
+    );
   }
 }

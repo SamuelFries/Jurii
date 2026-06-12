@@ -122,6 +122,22 @@ Rode `patch_008_messaging_integration.sql` para liberar o chat real. Ele:
 - atualiza `last_message` e `last_message_at` automaticamente quando uma
   mensagem é enviada
 
+## 2.9. Patch para perfis e início de conversa
+
+Rode `patch_009_profile_conversation_entrypoints.sql` depois do patch 008. Ele:
+
+- permite exibir dados básicos de advogados aprovados nos cards públicos
+- cria `approve_lawyer_verification`
+- cria `start_or_get_law_firm_conversation`
+- cria `start_or_get_lawyer_conversation`
+- evita conversas duplicadas ao clicar novamente em enviar mensagem
+
+Para aprovar um advogado criando o perfil profissional:
+
+```sql
+select public.approve_lawyer_verification('ID_DA_VERIFICACAO');
+```
+
 ## 3. Próxima etapa de integração
 
 A camada inicial de repositories já existe em `lib/repositories/`.

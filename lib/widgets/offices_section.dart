@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../data/mock/mock_law_firms.dart';
 import '../models/law_firm.dart';
 import '../repositories/law_firm_repository.dart';
+import '../screens/law_firm_profile_screen.dart';
 import 'office_card.dart';
 
 class OfficesSection extends StatefulWidget {
@@ -65,7 +66,13 @@ class _OfficesSectionState extends State<OfficesSection> {
                   specialty: office.specialty,
                   reviews: office.reviews,
                   avatarType: office.avatarType,
-                  onTap: () => debugPrint('Abrir perfil: ${office.id}'),
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => LawFirmProfileScreen(lawFirm: office),
+                      ),
+                    );
+                  },
                 );
               },
             );
