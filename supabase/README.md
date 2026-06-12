@@ -52,6 +52,31 @@ infinite recursion detected in policy for relation "legal_cases"
 rode também `patch_002_fix_rls_recursion.sql` no SQL Editor.
 Ele substitui policies recursivas por funções `security definer`.
 
+## 2.3. Patch para CPF no cadastro
+
+Se você já rodou o `schema.sql` antes do cadastro enviar CPF nos metadados do
+Auth, rode `patch_003_auth_profile_cpf.sql` no SQL Editor. Ele atualiza o
+trigger de criação de perfil para salvar o CPF recebido durante o cadastro.
+
+## 2.4. Patch para verificação de escritório
+
+Rode `patch_004_law_firm_verification.sql` antes de integrar a área do
+escritório. Esse patch cria as tabelas de verificação de escritório e ajusta
+`law_firm_members` para aceitar donos, admins e secretárias sem exigir OAB.
+
+## 2.5. Patch para permissões das roles do Supabase
+
+Se o app mostrar erros como:
+
+```text
+permission denied for table profiles
+Grant SELECT ON public.profiles TO authenticated
+```
+
+rode `patch_005_public_grants.sql` no SQL Editor. As policies RLS controlam as
+linhas acessíveis, mas o Postgres também precisa de permissões de tabela para
+as roles `anon` e `authenticated`.
+
 ## 3. Próxima etapa de integração
 
 A camada inicial de repositories já existe em `lib/repositories/`.
@@ -61,6 +86,7 @@ repositories:
 1. Auth + Profile
 2. Home cliente: categorias e escritórios
 3. Verificação profissional
-4. Casos
-5. Mensagens
-6. Agenda
+4. Verificação de escritório
+5. Casos
+6. Mensagens
+7. Agenda

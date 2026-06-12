@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
 
 import '../data/mock/mock_documents.dart';
 import '../data/mock/mock_professional_profile.dart';
@@ -7,17 +8,21 @@ import '../models/lawyer_status.dart';
 import '../models/lawyer_verification.dart';
 import '../models/user_profile.dart';
 import '../models/verification_document.dart';
+import '../repositories/lawyer_verification_repository.dart';
+import '../services/supabase_config.dart';
 import '../theme/app_theme.dart';
 import 'lawyer_verification_success_screen.dart';
 
 class LawyerVerificationFormScreen extends StatefulWidget {
   final UserProfile user;
   final ValueChanged<LawyerVerification>? onVerificationSubmitted;
+  final LawyerVerificationRepository repository;
 
   const LawyerVerificationFormScreen({
     super.key,
     required this.user,
     this.onVerificationSubmitted,
+    this.repository = const LawyerVerificationRepository(),
   });
 
   @override
@@ -29,6 +34,8 @@ class _LawyerVerificationFormScreenState
     extends State<LawyerVerificationFormScreen> {
   final oabController = TextEditingController();
   bool mostrarErros = false;
+  bool isSubmitting = false;
+  String? errorMessage;
   String? selectedState;
   String? selectedArea;
   late List<VerificationDocument> documents;
@@ -211,34 +218,31 @@ class _LawyerVerificationFormScreenState
                 width: double.infinity,
                 height: 56,
                 child: ElevatedButton(
-                  onPressed: () {
-                    if (!formularioValido) {
-                      setState(() {
-                        mostrarErros = true;
-                      });
-                      return;
-                    }
-
-                    widget.onVerificationSubmitted?.call(
-                      LawyerVerification(
-                        userId: widget.user.id,
-                        oabNumber: oabController.text.trim(),
-                        oabState: selectedState!,
-                        practiceArea: selectedArea!,
-                        documents: documents,
-                        status: LawyerStatus.pending,
-                      ),
-                    );
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const LawyerVerificationSuccessScreen(),
-                      ),
-                    );
-                  },
-                  child: const Text('Enviar para análise'),
+                  onPressed: isSubmitting ? null : _submit,
+                  child: isSubmitting
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppTheme.card,
+                          ),
+                        )
+                      : const Text('Enviar para análise'),
                 ),
               ),
+
+              if (errorMessage != null) ...[
+                const SizedBox(height: 12),
+                Text(
+                  errorMessage!,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: AppTheme.danger,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -332,6 +336,77 @@ class _LawyerVerificationFormScreenState
     setState(() {
       documents[index] = documents[index].copyWith(uploaded: true);
     });
+  }
+
+  Future<void> _submit() async {
+    if (!formularioValido) {
+      setState(() {
+        mostrarErros = true;
+        errorMessage = null;
+      });
+      return;
+    }
+
+    setState(() {
+      isSubmitting = true;
+      errorMessage = null;
+    });
+
+    try {
+      final verification = SupabaseConfig.isReady
+          ? await widget.repository.submitVerification(
+              oabNumber: oabController.text.trim(),
+              oabState: selectedState!,
+              practiceArea: selectedArea!,
+              documents: documents,
+            )
+          : LawyerVerification(
+              userId: widget.user.id,
+              oabNumber: oabController.text.trim(),
+              oabState: selectedState!,
+              practiceArea: selectedArea!,
+              documents: documents,
+              status: LawyerStatus.pending,
+            );
+
+      widget.onVerificationSubmitted?.call(verification);
+      if (!mounted) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => const LawyerVerificationSuccessScreen(),
+        ),
+      );
+    } catch (error) {
+      debugPrint('Lawyer verification submit failed: $error');
+      if (!mounted) return;
+      setState(() => errorMessage = _friendlyError(error));
+    } finally {
+      if (mounted) {
+        setState(() => isSubmitting = false);
+      }
+    }
+  }
+
+  String _friendlyError(Object error) {
+    final message = error.toString().toLowerCase();
+    final code = error is PostgrestException ? error.code : null;
+    if (code == '42P01' || message.contains('does not exist')) {
+      return 'A tabela de verificação profissional não foi encontrada no Supabase.';
+    }
+    if (code == 'PGRST204' || message.contains('schema cache')) {
+      return 'O Supabase ainda não atualizou o schema da tabela. Recarregue o schema cache e tente novamente.';
+    }
+    if (code == '23503' || message.contains('foreign key')) {
+      return 'Seu perfil ainda não foi encontrado no banco. Saia e entre novamente antes de enviar.';
+    }
+    if (message.contains('row-level security') || message.contains('rls')) {
+      return 'Não foi possível enviar por permissão do banco. Verifique as policies no Supabase.';
+    }
+    if (message.contains('authenticated') || message.contains('auth')) {
+      return 'Faça login novamente para enviar sua verificação.';
+    }
+    return 'Não foi possível enviar sua verificação. Tente novamente.';
   }
 
   IconData _iconForDocument(VerificationDocumentType type) {

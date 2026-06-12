@@ -3,10 +3,13 @@ import 'package:supabase_flutter/supabase_flutter.dart' show User;
 
 import 'data/mock/mock_users.dart';
 import 'models/appointment.dart';
+import 'models/law_firm_verification.dart';
 import 'models/lawyer_status.dart';
 import 'models/lawyer_verification.dart';
 import 'models/user_profile.dart';
 import 'repositories/auth_repository.dart';
+import 'repositories/law_firm_verification_repository.dart';
+import 'repositories/lawyer_verification_repository.dart';
 import 'repositories/profile_repository.dart';
 import 'screens/agenda_screen.dart';
 import 'screens/home_screen.dart';
@@ -39,12 +42,17 @@ class JuriiApp extends StatefulWidget {
 class _JuriiAppState extends State<JuriiApp> {
   final AuthRepository _authRepository = const AuthRepository();
   final ProfileRepository _profileRepository = const ProfileRepository();
+  final LawyerVerificationRepository _lawyerVerificationRepository =
+      const LawyerVerificationRepository();
+  final LawFirmVerificationRepository _lawFirmVerificationRepository =
+      const LawFirmVerificationRepository();
 
   bool _isLoggedIn = false;
   bool _isLawyerMode = false;
   bool _isBootstrapping = true;
   UserProfile _currentUser = mockCurrentUser;
   LawyerVerification? _lawyerVerification;
+  LawFirmVerification? _lawFirmVerification;
 
   @override
   void initState() {
@@ -66,8 +74,15 @@ class _JuriiAppState extends State<JuriiApp> {
 
     try {
       final profile = await _profileRepository.fetchCurrentProfile();
+      final lawyerVerification = await _fetchLatestLawyerVerification();
+      final lawFirmVerification = await _fetchLatestLawFirmVerification();
       setState(() {
-        _currentUser = profile ?? mockCurrentUser;
+        _lawyerVerification = lawyerVerification;
+        _currentUser = _userWithLawyerVerification(
+          profile ?? mockCurrentUser,
+          lawyerVerification,
+        );
+        _lawFirmVerification = lawFirmVerification;
         _isLoggedIn = true;
         _isBootstrapping = false;
       });
@@ -126,6 +141,8 @@ class _JuriiAppState extends State<JuriiApp> {
       _currentUser = profile ?? fallbackProfile;
       _isLoggedIn = true;
     });
+    await _refreshLawyerVerification();
+    await _refreshLawFirmVerification();
   }
 
   Future<RegisterResult> _handleRegister({
@@ -249,6 +266,7 @@ class _JuriiAppState extends State<JuriiApp> {
       _isLawyerMode = false;
       _currentUser = mockCurrentUser;
       _lawyerVerification = null;
+      _lawFirmVerification = null;
     });
   }
 
@@ -258,13 +276,68 @@ class _JuriiAppState extends State<JuriiApp> {
   }
 
   void _switchToClient() => setState(() => _isLawyerMode = false);
+
   void _handleVerificationSubmitted(LawyerVerification verification) {
     setState(() {
       _lawyerVerification = verification;
-      _currentUser = _currentUser.copyWith(
-        lawyerStatus: LawyerStatus.pending,
-        oabNumber: 'OAB/${verification.oabState} ${verification.oabNumber}',
-      );
+      _currentUser = _userWithLawyerVerification(_currentUser, verification);
+      _isLawyerMode = false;
+    });
+  }
+
+  Future<void> _refreshLawyerVerification() async {
+    if (!SupabaseConfig.isReady) return;
+
+    final verification = await _fetchLatestLawyerVerification();
+    if (!mounted) return;
+    setState(() {
+      _lawyerVerification = verification;
+      _currentUser = _userWithLawyerVerification(_currentUser, verification);
+    });
+  }
+
+  Future<LawyerVerification?> _fetchLatestLawyerVerification() async {
+    try {
+      return await _lawyerVerificationRepository.fetchLatestForCurrentUser();
+    } catch (error) {
+      debugPrint('Supabase lawyer verification fetch failed: $error');
+      return _lawyerVerification;
+    }
+  }
+
+  UserProfile _userWithLawyerVerification(
+    UserProfile user,
+    LawyerVerification? verification,
+  ) {
+    if (verification == null) return user;
+    return user.copyWith(
+      lawyerStatus: verification.status,
+      oabNumber: verification.oabNumber.isEmpty
+          ? user.oabNumber
+          : 'OAB/${verification.oabState} ${verification.oabNumber}',
+    );
+  }
+
+  Future<void> _refreshLawFirmVerification() async {
+    if (!SupabaseConfig.isReady) return;
+
+    final verification = await _fetchLatestLawFirmVerification();
+    if (!mounted) return;
+    setState(() => _lawFirmVerification = verification);
+  }
+
+  Future<LawFirmVerification?> _fetchLatestLawFirmVerification() async {
+    try {
+      return await _lawFirmVerificationRepository.fetchLatestForCurrentUser();
+    } catch (error) {
+      debugPrint('Supabase law firm verification fetch failed: $error');
+      return _lawFirmVerification;
+    }
+  }
+
+  void _handleLawFirmVerificationSubmitted(LawFirmVerification verification) {
+    setState(() {
+      _lawFirmVerification = verification;
       _isLawyerMode = false;
     });
   }
@@ -288,8 +361,13 @@ class _JuriiAppState extends State<JuriiApp> {
           : MainNavigation(
               user: _currentUser,
               lawyerVerification: _lawyerVerification,
+              lawFirmVerification: _lawFirmVerification,
               onSwitchToLawyer: _switchToLawyer,
               onVerificationSubmitted: _handleVerificationSubmitted,
+              onRefreshLawyerVerification: _refreshLawyerVerification,
+              onLawFirmVerificationSubmitted:
+                  _handleLawFirmVerificationSubmitted,
+              onRefreshLawFirmVerification: _refreshLawFirmVerification,
               onLogout: _handleLogout,
             ),
     );
@@ -311,16 +389,24 @@ class _BootstrapScreen extends StatelessWidget {
 class MainNavigation extends StatefulWidget {
   final UserProfile user;
   final LawyerVerification? lawyerVerification;
+  final LawFirmVerification? lawFirmVerification;
   final VoidCallback onSwitchToLawyer;
   final ValueChanged<LawyerVerification> onVerificationSubmitted;
+  final Future<void> Function() onRefreshLawyerVerification;
+  final ValueChanged<LawFirmVerification> onLawFirmVerificationSubmitted;
+  final Future<void> Function() onRefreshLawFirmVerification;
   final VoidCallback onLogout;
 
   const MainNavigation({
     super.key,
     required this.user,
     required this.lawyerVerification,
+    required this.lawFirmVerification,
     required this.onSwitchToLawyer,
     required this.onVerificationSubmitted,
+    required this.onRefreshLawyerVerification,
+    required this.onLawFirmVerificationSubmitted,
+    required this.onRefreshLawFirmVerification,
     required this.onLogout,
   });
 
@@ -340,8 +426,13 @@ class _MainNavigationState extends State<MainNavigation> {
       ProfileScreen(
         user: widget.user,
         lawyerVerification: widget.lawyerVerification,
+        lawFirmVerification: widget.lawFirmVerification,
         onSwitchToLawyer: widget.onSwitchToLawyer,
         onVerificationSubmitted: widget.onVerificationSubmitted,
+        onRefreshLawyerVerification: widget.onRefreshLawyerVerification,
+        onLawFirmVerificationSubmitted: widget.onLawFirmVerificationSubmitted,
+        onOpenLawFirmArea: _showLawFirmAreaComingSoon,
+        onRefreshLawFirmVerification: widget.onRefreshLawFirmVerification,
         onOpenMessages: () => setState(() => currentIndex = 1),
         onOpenCases: () => setState(() => currentIndex = 2),
         onOpenAgenda: () => _openAgenda(AppointmentRole.client),
@@ -353,7 +444,13 @@ class _MainNavigationState extends State<MainNavigation> {
       body: pages[currentIndex],
       bottomNavigationBar: JuriiBottomNav(
         currentIndex: currentIndex,
-        onTap: (index) => setState(() => currentIndex = index),
+        onTap: (index) {
+          setState(() => currentIndex = index);
+          if (index == 3) {
+            widget.onRefreshLawyerVerification();
+            widget.onRefreshLawFirmVerification();
+          }
+        },
       ),
     );
   }
@@ -362,6 +459,14 @@ class _MainNavigationState extends State<MainNavigation> {
     Navigator.of(
       context,
     ).push(MaterialPageRoute(builder: (_) => AgendaScreen(role: role)));
+  }
+
+  void _showLawFirmAreaComingSoon() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('A área do escritório será construída na próxima etapa.'),
+      ),
+    );
   }
 }
 
