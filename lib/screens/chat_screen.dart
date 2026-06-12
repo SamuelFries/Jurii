@@ -4,9 +4,15 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../data/mock/mock_chat_messages.dart';
 import '../models/chat_message.dart';
 import '../models/conversation.dart';
+import '../repositories/law_firm_repository.dart';
+import '../repositories/lawyer_profile_repository.dart';
 import '../repositories/messaging_repository.dart';
+import '../repositories/profile_repository.dart';
 import '../services/supabase_config.dart';
 import '../theme/app_theme.dart';
+import 'client_profile_screen.dart';
+import 'law_firm_profile_screen.dart';
+import 'lawyer_profile_screen.dart';
 
 class ChatScreen extends StatefulWidget {
   final Conversation conversation;
@@ -26,10 +32,15 @@ class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final MessagingRepository _repository = const MessagingRepository();
+  final ProfileRepository _profileRepository = const ProfileRepository();
+  final LawyerProfileRepository _lawyerProfileRepository =
+      const LawyerProfileRepository();
+  final LawFirmRepository _lawFirmRepository = const LawFirmRepository();
   RealtimeChannel? _messagesChannel;
   List<ChatMessage> _messages = const [];
   bool _isLoading = true;
   bool _isSending = false;
+  bool _isOpeningProfile = false;
 
   bool get _usesSupabase => widget.conversation.id != null;
 
@@ -173,6 +184,64 @@ class _ChatScreenState extends State<ChatScreen> {
     });
   }
 
+  Future<void> _openCounterpartProfile() async {
+    if (_isOpeningProfile || !SupabaseConfig.isReady) return;
+    setState(() => _isOpeningProfile = true);
+
+    try {
+      if (widget.isLawyer && widget.conversation.clientId != null) {
+        final profile = await _profileRepository.fetchProfileById(
+          widget.conversation.clientId!,
+        );
+        if (!mounted) return;
+        if (profile == null) throw StateError('Client profile not found.');
+        await Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => ClientProfileScreen(profile: profile),
+          ),
+        );
+        return;
+      }
+
+      if (!widget.isLawyer && widget.conversation.lawFirmId != null) {
+        final lawFirm = await _lawFirmRepository.fetchLawFirmById(
+          widget.conversation.lawFirmId!,
+        );
+        if (!mounted) return;
+        if (lawFirm == null) throw StateError('Law firm profile not found.');
+        await Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => LawFirmProfileScreen(lawFirm: lawFirm),
+          ),
+        );
+        return;
+      }
+
+      if (!widget.isLawyer && widget.conversation.lawyerId != null) {
+        final lawyer = await _lawyerProfileRepository.fetchLawyerById(
+          widget.conversation.lawyerId!,
+        );
+        if (!mounted) return;
+        if (lawyer == null) throw StateError('Lawyer profile not found.');
+        await Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => LawyerProfileScreen(lawyer: lawyer),
+          ),
+        );
+        return;
+      }
+
+      throw StateError('Conversation profile not available.');
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Não foi possível abrir o perfil.')),
+      );
+    } finally {
+      if (mounted) setState(() => _isOpeningProfile = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -180,50 +249,71 @@ class _ChatScreenState extends State<ChatScreen> {
       appBar: AppBar(
         backgroundColor: AppTheme.background,
         titleSpacing: 0,
-        title: Row(
-          children: [
-            CircleAvatar(
-              radius: 18,
-              backgroundColor: widget.isLawyer
-                  ? AppTheme.lightGold
-                  : AppTheme.lightBlue,
-              child: Text(
-                widget.conversation.initials,
-                style: TextStyle(
-                  color: widget.isLawyer ? AppTheme.accent : AppTheme.primary,
-                  fontWeight: FontWeight.w900,
-                  fontSize: 12,
+        title: InkWell(
+          onTap: _isOpeningProfile ? null : _openCounterpartProfile,
+          borderRadius: BorderRadius.circular(14),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 18,
+                  backgroundColor: widget.isLawyer
+                      ? AppTheme.lightGold
+                      : AppTheme.lightBlue,
+                  child: _isOpeningProfile
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Text(
+                          widget.conversation.initials,
+                          style: TextStyle(
+                            color: widget.isLawyer
+                                ? AppTheme.accent
+                                : AppTheme.primary,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 12,
+                          ),
+                        ),
                 ),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    widget.conversation.officeName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: AppTheme.textPrimary,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w900,
-                    ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.conversation.officeName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: AppTheme.textPrimary,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      Text(
+                        widget.conversation.specialty,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: AppTheme.textSecondary,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
                   ),
-                  Text(
-                    widget.conversation.specialty,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: AppTheme.textSecondary,
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
+                ),
+                const SizedBox(width: 6),
+                const Icon(
+                  Icons.chevron_right,
+                  size: 18,
+                  color: AppTheme.textSecondary,
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
       body: SafeArea(

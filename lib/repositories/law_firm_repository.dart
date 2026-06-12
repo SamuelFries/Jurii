@@ -14,6 +14,17 @@ class LawFirmRepository {
     return rows.map<LawFirm>(_fromRow).toList();
   }
 
+  Future<LawFirm?> fetchLawFirmById(String lawFirmId) async {
+    final row = await SupabaseConfig.client
+        .from('law_firms')
+        .select()
+        .eq('id', lawFirmId)
+        .maybeSingle();
+
+    if (row == null) return null;
+    return _fromRow(row);
+  }
+
   LawFirm _fromRow(Map<String, dynamic> row) {
     return LawFirm(
       id: row['id'] as String,

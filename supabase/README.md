@@ -164,6 +164,13 @@ para cada inbox:
 - advogado vê o cliente
 - escritório vê o cliente
 
+## 2.13. Patch para abrir perfis pelo chat
+
+Rode `patch_013_chat_profile_entrypoints.sql` depois do patch 012. Ele cria:
+
+- `fetch_chat_profile`, usado para abrir o perfil do cliente pelo chat
+- `fetch_lawyer_public_profile`, usado para abrir o perfil do advogado pelo chat
+
 ## 3. Próxima etapa de integração
 
 A camada inicial de repositories já existe em `lib/repositories/`.

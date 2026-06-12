@@ -34,6 +34,23 @@ class LawyerProfileRepository {
     }
   }
 
+  Future<LawyerProfileSummary?> fetchLawyerById(String lawyerId) async {
+    if (!SupabaseConfig.isReady ||
+        SupabaseConfig.client.auth.currentUser == null) {
+      return null;
+    }
+
+    final row = await SupabaseConfig.client
+        .rpc(
+          'fetch_lawyer_public_profile',
+          params: {'lawyer_profile_id_value': lawyerId},
+        )
+        .maybeSingle();
+
+    if (row == null) return null;
+    return _fromRow(row);
+  }
+
   LawyerProfileSummary _fromRow(Map<String, dynamic> row) {
     final name = row['full_name'] as String? ?? 'Advogado Jurii';
     final initials = row['initials'] as String? ?? _initialsFor(name);
