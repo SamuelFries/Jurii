@@ -171,6 +171,61 @@ Rode `patch_013_chat_profile_entrypoints.sql` depois do patch 012. Ele cria:
 - `fetch_chat_profile`, usado para abrir o perfil do cliente pelo chat
 - `fetch_lawyer_public_profile`, usado para abrir o perfil do advogado pelo chat
 
+## 2.14. Patch para Meus Casos
+
+Rode `patch_014_cases_integration.sql` depois do patch 013. Ele cria:
+
+- `fetch_client_cases`
+- `fetch_lawyer_cases`
+- `fetch_law_firm_cases`
+
+Essas funções alimentam as abas de casos do cliente, advogado e escritório.
+
+## 2.15. Patch para solicitações e atualizações de caso
+
+Rode `patch_015_case_requests_updates.sql` depois do patch 014. Ele cria:
+
+- `case_requests`
+- `case_updates`
+- `create_case_request`
+- `respond_to_case_request`
+- `fetch_case_requests_for_client`
+- `fetch_case_updates`
+- `add_case_update`
+
+Esse patch habilita o fluxo em que advogado ou escritório envia uma solicitação
+de caso, o cliente aceita ou recusa, e os profissionais registram atualizações.
+
+## 2.16. Patch para aceite de caso no sino e no chat
+
+Rode `patch_016_case_request_actions.sql` depois do patch 015. Ele:
+
+- adiciona `metadata` nas mensagens
+- vincula cada solicitação a uma mensagem do chat e uma notificação
+- permite aceitar ou recusar pelo sino, chat ou Meus Casos
+- sincroniza o status da solicitação em todos os pontos de entrada
+- notifica advogado e escritório quando o cliente aceita ou recusa
+- impede que casos do cliente apareçam indevidamente no fluxo profissional
+
+## 2.17. Patch para envio de verificação profissional
+
+Rode `patch_017_fix_profile_rls_lawyer_verification_submit.sql` depois do
+patch 016 se o envio da verificação profissional falhar com:
+
+`infinite recursion detected in policy for relation "profiles"`
+
+Ele corrige a policy recursiva entre `profiles` e `lawyer_profiles` e cria a
+RPC `submit_lawyer_verification`, usada pelo app para enviar a análise da OAB.
+
+## 2.18. Patch para ambiguidade na RPC de verificação
+
+Rode `patch_018_fix_lawyer_verification_rpc_ambiguity.sql` depois do patch 017
+se o envio da verificação profissional falhar com:
+
+`column reference "id" is ambiguous`
+
+Ele recria a RPC `submit_lawyer_verification` sem referências ambíguas a `id`.
+
 ## 3. Próxima etapa de integração
 
 A camada inicial de repositories já existe em `lib/repositories/`.

@@ -277,9 +277,21 @@ class _NotificationTile extends StatelessWidget {
                     repository: repository,
                     onChanged: onChanged,
                   ),
+                ] else if (notification.isPendingCaseRequest) ...[
+                  const SizedBox(height: 12),
+                  _CaseRequestActions(
+                    caseRequestId: notification.caseRequestId!,
+                    repository: repository,
+                    onChanged: onChanged,
+                  ),
                 ] else if (notification.inviteStatus != null) ...[
                   const SizedBox(height: 10),
                   _InviteStatusPill(status: notification.inviteStatus!),
+                ] else if (notification.caseRequestStatus != null) ...[
+                  const SizedBox(height: 10),
+                  _CaseRequestStatusPill(
+                    status: notification.caseRequestStatus!,
+                  ),
                 ],
               ],
             ),
@@ -293,6 +305,9 @@ class _NotificationTile extends StatelessWidget {
     return switch (type) {
       'team_invite' => Icons.group_add_outlined,
       'message' => Icons.mark_chat_unread_outlined,
+      'case_request' => Icons.assignment_add,
+      'case_request_response' => Icons.assignment_turned_in_outlined,
+      'firm_case_started' => Icons.business_center_outlined,
       'case_update' => Icons.folder_special_outlined,
       _ => Icons.notifications_none_outlined,
     };
@@ -391,6 +406,117 @@ class _InviteStatusPill extends StatelessWidget {
         accepted ? 'Convite aceito' : 'Convite recusado',
         style: TextStyle(
           color: accepted ? AppTheme.success : AppTheme.warningText,
+          fontSize: 12,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+}
+
+class _CaseRequestActions extends StatefulWidget {
+  const _CaseRequestActions({
+    required this.caseRequestId,
+    required this.repository,
+    required this.onChanged,
+  });
+
+  final String caseRequestId;
+  final NotificationRepository repository;
+  final Future<void> Function() onChanged;
+
+  @override
+  State<_CaseRequestActions> createState() => _CaseRequestActionsState();
+}
+
+class _CaseRequestActionsState extends State<_CaseRequestActions> {
+  bool _isSubmitting = false;
+
+  Future<void> _respond({required bool accepted}) async {
+    setState(() => _isSubmitting = true);
+
+    try {
+      if (accepted) {
+        await widget.repository.acceptCaseRequest(widget.caseRequestId);
+      } else {
+        await widget.repository.declineCaseRequest(widget.caseRequestId);
+      }
+
+      await widget.onChanged();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(accepted ? 'Caso aceito.' : 'Caso recusado.')),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Não foi possível responder ao caso.')),
+      );
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        FilledButton(
+          onPressed: _isSubmitting ? null : () => _respond(accepted: true),
+          style: FilledButton.styleFrom(
+            backgroundColor: AppTheme.success,
+            foregroundColor: AppTheme.card,
+            minimumSize: const Size(112, 40),
+          ),
+          child: const Text('Aceitar caso'),
+        ),
+        OutlinedButton(
+          onPressed: _isSubmitting ? null : () => _respond(accepted: false),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AppTheme.danger,
+            side: const BorderSide(color: AppTheme.danger),
+            minimumSize: const Size(96, 40),
+          ),
+          child: const Text('Recusar'),
+        ),
+      ],
+    );
+  }
+}
+
+class _CaseRequestStatusPill extends StatelessWidget {
+  const _CaseRequestStatusPill({required this.status});
+
+  final String status;
+
+  @override
+  Widget build(BuildContext context) {
+    final accepted = status == 'accepted';
+    final declined = status == 'declined';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: accepted
+            ? AppTheme.successSurface
+            : declined
+            ? AppTheme.warningSurface
+            : AppTheme.lightBlue,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        accepted
+            ? 'Caso aceito'
+            : declined
+            ? 'Caso recusado'
+            : 'Solicitação pendente',
+        style: TextStyle(
+          color: accepted
+              ? AppTheme.success
+              : declined
+              ? AppTheme.warningText
+              : AppTheme.primary,
           fontSize: 12,
           fontWeight: FontWeight.w800,
         ),

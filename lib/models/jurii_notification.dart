@@ -23,10 +23,20 @@ class JuriiNotification {
 
   String? get inviteStatus => metadata['invite_status'] as String?;
 
+  String? get caseRequestId => metadata['case_request_id'] as String?;
+
+  String? get caseRequestStatus => metadata['request_status'] as String?;
+
   bool get isPendingTeamInvite {
     return type == 'team_invite' &&
         membershipId != null &&
         inviteStatus == null &&
         isUnread;
+  }
+
+  bool get isPendingCaseRequest {
+    return type == 'case_request' &&
+        caseRequestId != null &&
+        caseRequestStatus == 'pending';
   }
 }

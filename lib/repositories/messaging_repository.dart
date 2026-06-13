@@ -44,7 +44,7 @@ class MessagingRepository {
     final rows = await SupabaseConfig.client
         .from('messages')
         .select(
-          'id, conversation_id, sender_id, sender_type, body, read_at, created_at',
+          'id, conversation_id, sender_id, sender_type, body, metadata, read_at, created_at',
         )
         .eq('conversation_id', conversationId)
         .order('created_at', ascending: true);
@@ -75,7 +75,7 @@ class MessagingRepository {
           'body': body,
         })
         .select(
-          'id, conversation_id, sender_id, sender_type, body, read_at, created_at',
+          'id, conversation_id, sender_id, sender_type, body, metadata, read_at, created_at',
         )
         .single();
 
@@ -178,7 +178,14 @@ class MessagingRepository {
       text: row['body'] as String? ?? '',
       time: _relativeTime(row['created_at'] as String?),
       read: row['read_at'] != null,
+      metadata: _metadataFromRow(row['metadata']),
     );
+  }
+
+  Map<String, dynamic> _metadataFromRow(Object? value) {
+    if (value is Map<String, dynamic>) return value;
+    if (value is Map) return Map<String, dynamic>.from(value);
+    return const {};
   }
 
   String _relativeTime(String? value) {
