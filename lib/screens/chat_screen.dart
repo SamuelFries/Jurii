@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../data/mock/mock_chat_messages.dart';
 import '../models/chat_message.dart';
 import '../models/conversation.dart';
+import '../repositories/case_repository.dart';
 import '../repositories/law_firm_repository.dart';
 import '../repositories/lawyer_profile_repository.dart';
 import '../repositories/messaging_repository.dart';
@@ -32,6 +33,7 @@ class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final MessagingRepository _repository = const MessagingRepository();
+  final CaseRepository _caseRepository = const CaseRepository();
   final ProfileRepository _profileRepository = const ProfileRepository();
   final LawyerProfileRepository _lawyerProfileRepository =
       const LawyerProfileRepository();
@@ -41,6 +43,7 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _isLoading = true;
   bool _isSending = false;
   bool _isOpeningProfile = false;
+  bool _isCreatingCaseRequest = false;
 
   bool get _usesSupabase => widget.conversation.id != null;
 
@@ -242,6 +245,47 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  bool get _canRequestCase {
+    return widget.isLawyer &&
+        _usesSupabase &&
+        widget.conversation.clientId != null;
+  }
+
+  Future<void> _openCaseRequestSheet() async {
+    if (_isCreatingCaseRequest) return;
+
+    final draft = await showModalBottomSheet<_CaseRequestDraft>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (context) =>
+          _CaseRequestSheet(initialTitle: widget.conversation.specialty),
+    );
+
+    if (draft == null || widget.conversation.id == null) return;
+    setState(() => _isCreatingCaseRequest = true);
+
+    try {
+      await _caseRepository.createCaseRequest(
+        conversationId: widget.conversation.id!,
+        title: draft.title,
+        area: draft.area,
+        summary: draft.summary,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Solicitação enviada ao cliente.')),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Não foi possível enviar a solicitação.')),
+      );
+    } finally {
+      if (mounted) setState(() => _isCreatingCaseRequest = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -315,6 +359,20 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
           ),
         ),
+        actions: [
+          if (_canRequestCase)
+            IconButton(
+              onPressed: _isCreatingCaseRequest ? null : _openCaseRequestSheet,
+              icon: _isCreatingCaseRequest
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.assignment_add),
+              tooltip: 'Enviar solicitação de caso',
+            ),
+        ],
       ),
       body: SafeArea(
         child: Column(
@@ -347,6 +405,126 @@ class _ChatScreenState extends State<ChatScreen> {
       ),
     );
   }
+}
+
+class _CaseRequestSheet extends StatefulWidget {
+  const _CaseRequestSheet({required this.initialTitle});
+
+  final String initialTitle;
+
+  @override
+  State<_CaseRequestSheet> createState() => _CaseRequestSheetState();
+}
+
+class _CaseRequestSheetState extends State<_CaseRequestSheet> {
+  late final TextEditingController _titleController;
+  late final TextEditingController _areaController;
+  final TextEditingController _summaryController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _titleController = TextEditingController(text: 'Novo caso jurídico');
+    _areaController = TextEditingController(text: widget.initialTitle);
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _areaController.dispose();
+    _summaryController.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final title = _titleController.text.trim();
+    final area = _areaController.text.trim();
+    if (title.isEmpty || area.isEmpty) return;
+
+    Navigator.of(context).pop(
+      _CaseRequestDraft(
+        title: title,
+        area: area,
+        summary: _summaryController.text.trim(),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20, 20, 20, bottomInset + 20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Solicitar aceite do caso',
+            style: TextStyle(
+              color: AppTheme.textPrimary,
+              fontSize: 22,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'O cliente poderá aceitar ou recusar na aba Meus Casos.',
+            style: TextStyle(color: AppTheme.textSecondary),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _titleController,
+            textInputAction: TextInputAction.next,
+            decoration: const InputDecoration(
+              labelText: 'Título do caso',
+              hintText: 'Ex.: Rescisão trabalhista',
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _areaController,
+            textInputAction: TextInputAction.next,
+            decoration: const InputDecoration(
+              labelText: 'Área jurídica',
+              hintText: 'Ex.: Direito Trabalhista',
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _summaryController,
+            minLines: 3,
+            maxLines: 5,
+            decoration: const InputDecoration(
+              labelText: 'Resumo para o cliente',
+              hintText: 'Explique o escopo inicial do atendimento',
+            ),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _submit,
+              child: const Text('Enviar solicitação'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CaseRequestDraft {
+  final String title;
+  final String area;
+  final String summary;
+
+  const _CaseRequestDraft({
+    required this.title,
+    required this.area,
+    required this.summary,
+  });
 }
 
 class _EmptyChatState extends StatelessWidget {

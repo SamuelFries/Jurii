@@ -6,6 +6,7 @@ import '../models/firm_workspace.dart';
 import '../repositories/case_repository.dart';
 import '../services/supabase_config.dart';
 import '../theme/app_theme.dart';
+import 'case_details_screen.dart';
 
 class FirmCasesScreen extends StatefulWidget {
   const FirmCasesScreen({
@@ -49,6 +50,24 @@ class _FirmCasesScreenState extends State<FirmCasesScreen> {
     }
   }
 
+  Future<void> _openCaseDetails(FirmCaseOverview overview) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => CaseDetailsScreen(
+          caseId: overview.id,
+          title: overview.title,
+          subtitle: '${overview.clientName} · ${overview.assignedLawyer}',
+          canAddUpdates: true,
+        ),
+      ),
+    );
+
+    if (!mounted) return;
+    setState(() {
+      _casesFuture = _loadCases();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return SafeArea(
@@ -88,7 +107,10 @@ class _FirmCasesScreenState extends State<FirmCasesScreen> {
                 const _EmptyFirmCasesState()
               else
                 for (var index = 0; index < cases.length; index++) ...[
-                  _FirmCaseCard(overview: cases[index]),
+                  _FirmCaseCard(
+                    overview: cases[index],
+                    onTap: () => _openCaseDetails(cases[index]),
+                  ),
                   if (index < cases.length - 1) const SizedBox(height: 12),
                 ],
             ],
@@ -124,126 +146,131 @@ class _EmptyFirmCasesState extends StatelessWidget {
 }
 
 class _FirmCaseCard extends StatelessWidget {
-  const _FirmCaseCard({required this.overview});
+  const _FirmCaseCard({required this.overview, required this.onTap});
 
   final FirmCaseOverview overview;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final statusColor = overview.urgent ? AppTheme.danger : AppTheme.primary;
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppTheme.card,
-        border: Border.all(
-          color: overview.urgent
-              ? AppTheme.danger.withValues(alpha: 0.35)
-              : AppTheme.officePurpleBorder,
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppTheme.card,
+          border: Border.all(
+            color: overview.urgent
+                ? AppTheme.danger.withValues(alpha: 0.35)
+                : AppTheme.officePurpleBorder,
+          ),
+          borderRadius: BorderRadius.circular(14),
         ),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(
-              color: overview.urgent
-                  ? AppTheme.danger.withValues(alpha: 0.10)
-                  : AppTheme.officePurpleSurface,
-              borderRadius: BorderRadius.circular(13),
-            ),
-            child: Center(
-              child: Text(
-                overview.clientInitials,
-                style: TextStyle(
-                  color: overview.urgent
-                      ? AppTheme.danger
-                      : AppTheme.officePurple,
-                  fontWeight: FontWeight.w900,
+        child: Row(
+          children: [
+            Container(
+              width: 46,
+              height: 46,
+              decoration: BoxDecoration(
+                color: overview.urgent
+                    ? AppTheme.danger.withValues(alpha: 0.10)
+                    : AppTheme.officePurpleSurface,
+                borderRadius: BorderRadius.circular(13),
+              ),
+              child: Center(
+                child: Text(
+                  overview.clientInitials,
+                  style: TextStyle(
+                    color: overview.urgent
+                        ? AppTheme.danger
+                        : AppTheme.officePurple,
+                    fontWeight: FontWeight.w900,
+                  ),
                 ),
               ),
             ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        overview.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: AppTheme.textPrimary,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w800,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          overview.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: AppTheme.textPrimary,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: statusColor.withValues(alpha: 0.10),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        overview.area,
-                        style: TextStyle(
-                          color: statusColor,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: statusColor.withValues(alpha: 0.10),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          overview.area,
+                          style: TextStyle(
+                            color: statusColor,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '${overview.clientName} · ${overview.assignedLawyer}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppTheme.textSecondary,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
+                    ],
                   ),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Icon(
-                      overview.urgent
-                          ? Icons.warning_amber_outlined
-                          : Icons.task_alt_outlined,
-                      color: statusColor,
-                      size: 14,
+                  const SizedBox(height: 4),
+                  Text(
+                    '${overview.clientName} · ${overview.assignedLawyer}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppTheme.textSecondary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
                     ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        '${overview.statusLabel}: ${overview.nextStep}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(color: statusColor, fontSize: 12),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Icon(
+                        overview.urgent
+                            ? Icons.warning_amber_outlined
+                            : Icons.task_alt_outlined,
+                        color: statusColor,
+                        size: 14,
                       ),
-                    ),
-                  ],
-                ),
-              ],
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          '${overview.statusLabel}: ${overview.nextStep}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(color: statusColor, fontSize: 12),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(width: 8),
-          const Icon(Icons.chevron_right, color: AppTheme.textSecondary),
-        ],
+            const SizedBox(width: 8),
+            const Icon(Icons.chevron_right, color: AppTheme.textSecondary),
+          ],
+        ),
       ),
     );
   }

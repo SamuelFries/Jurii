@@ -5,6 +5,7 @@ import '../repositories/case_repository.dart';
 import '../services/supabase_config.dart';
 import '../theme/app_theme.dart';
 import '../widgets/lawyer_case_card.dart';
+import 'case_details_screen.dart';
 
 class LawyerCasesScreen extends StatefulWidget {
   const LawyerCasesScreen({
@@ -37,6 +38,24 @@ class _LawyerCasesScreenState extends State<LawyerCasesScreen> {
     }
   }
 
+  Future<void> _openCaseDetails(LawyerCase lawyerCase) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => CaseDetailsScreen(
+          caseId: lawyerCase.id,
+          title: lawyerCase.title,
+          subtitle: '${lawyerCase.clientName} · ${lawyerCase.area}',
+          canAddUpdates: true,
+        ),
+      ),
+    );
+
+    if (!mounted) return;
+    setState(() {
+      _casesFuture = _loadCases();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return SafeArea(
@@ -56,7 +75,7 @@ class _LawyerCasesScreenState extends State<LawyerCasesScreen> {
             return const _EmptyCasesState();
           }
 
-          return _CasesListState(cases: cases);
+          return _CasesListState(cases: cases, onOpenCase: _openCaseDetails);
         },
       ),
     );
@@ -138,8 +157,9 @@ class _EmptyCasesState extends StatelessWidget {
 
 class _CasesListState extends StatelessWidget {
   final List<LawyerCase> cases;
+  final ValueChanged<LawyerCase> onOpenCase;
 
-  const _CasesListState({required this.cases});
+  const _CasesListState({required this.cases, required this.onOpenCase});
 
   @override
   Widget build(BuildContext context) {
@@ -183,20 +203,8 @@ class _CasesListState extends StatelessWidget {
                 itemBuilder: (context, index) {
                   return LawyerCaseCard(
                     lawyerCase: cases[index],
-                    onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Detalhes do caso em preparação.'),
-                        ),
-                      );
-                    },
-                    onEdit: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Edição de caso em preparação.'),
-                        ),
-                      );
-                    },
+                    onTap: () => onOpenCase(cases[index]),
+                    onEdit: () => onOpenCase(cases[index]),
                   );
                 },
               ),

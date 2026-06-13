@@ -181,6 +181,21 @@ Rode `patch_014_cases_integration.sql` depois do patch 013. Ele cria:
 
 Essas funções alimentam as abas de casos do cliente, advogado e escritório.
 
+## 2.15. Patch para solicitações e atualizações de caso
+
+Rode `patch_015_case_requests_updates.sql` depois do patch 014. Ele cria:
+
+- `case_requests`
+- `case_updates`
+- `create_case_request`
+- `respond_to_case_request`
+- `fetch_case_requests_for_client`
+- `fetch_case_updates`
+- `add_case_update`
+
+Esse patch habilita o fluxo em que advogado ou escritório envia uma solicitação
+de caso, o cliente aceita ou recusa, e os profissionais registram atualizações.
+
 ## 3. Próxima etapa de integração
 
 A camada inicial de repositories já existe em `lib/repositories/`.
