@@ -207,6 +207,25 @@ Rode `patch_016_case_request_actions.sql` depois do patch 015. Ele:
 - notifica advogado e escritório quando o cliente aceita ou recusa
 - impede que casos do cliente apareçam indevidamente no fluxo profissional
 
+## 2.17. Patch para envio de verificação profissional
+
+Rode `patch_017_fix_profile_rls_lawyer_verification_submit.sql` depois do
+patch 016 se o envio da verificação profissional falhar com:
+
+`infinite recursion detected in policy for relation "profiles"`
+
+Ele corrige a policy recursiva entre `profiles` e `lawyer_profiles` e cria a
+RPC `submit_lawyer_verification`, usada pelo app para enviar a análise da OAB.
+
+## 2.18. Patch para ambiguidade na RPC de verificação
+
+Rode `patch_018_fix_lawyer_verification_rpc_ambiguity.sql` depois do patch 017
+se o envio da verificação profissional falhar com:
+
+`column reference "id" is ambiguous`
+
+Ele recria a RPC `submit_lawyer_verification` sem referências ambíguas a `id`.
+
 ## 3. Próxima etapa de integração
 
 A camada inicial de repositories já existe em `lib/repositories/`.

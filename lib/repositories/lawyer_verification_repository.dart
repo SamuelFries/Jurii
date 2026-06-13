@@ -2,14 +2,9 @@ import '../models/lawyer_status.dart';
 import '../models/lawyer_verification.dart';
 import '../models/verification_document.dart';
 import '../services/supabase_config.dart';
-import 'profile_repository.dart';
 
 class LawyerVerificationRepository {
-  const LawyerVerificationRepository({
-    this.profileRepository = const ProfileRepository(),
-  });
-
-  final ProfileRepository profileRepository;
+  const LawyerVerificationRepository();
 
   Future<LawyerVerification?> fetchLatestForCurrentUser() async {
     final user = SupabaseConfig.client.auth.currentUser;
@@ -37,26 +32,22 @@ class LawyerVerificationRepository {
       throw StateError('User must be authenticated to submit verification.');
     }
 
-    await profileRepository.upsertProfile(
-      id: user.id,
-      fullName: _nameForUser(user.email, user.userMetadata),
-      email: user.email ?? '',
-      cpf: user.userMetadata?['cpf'] as String?,
+    final rows = await SupabaseConfig.client.rpc(
+      'submit_lawyer_verification',
+      params: {
+        'oab_number_value': oabNumber,
+        'oab_state_value': oabState,
+        'practice_area_value': practiceArea,
+      },
     );
 
-    await SupabaseConfig.client.from('lawyer_verifications').insert({
-      'user_id': user.id,
-      'oab_number': oabNumber,
-      'oab_state': oabState,
-      'practice_area': practiceArea,
-      'status': 'pending',
-    });
+    final row = (rows as List<dynamic>).cast<Map<String, dynamic>>().first;
 
     return LawyerVerification(
-      userId: user.id,
-      oabNumber: oabNumber,
-      oabState: oabState,
-      practiceArea: practiceArea,
+      userId: row['user_id'] as String? ?? user.id,
+      oabNumber: row['oab_number'] as String? ?? oabNumber,
+      oabState: row['oab_state'] as String? ?? oabState,
+      practiceArea: row['practice_area'] as String? ?? practiceArea,
       documents: documents,
       status: LawyerStatus.pending,
     );
@@ -79,21 +70,5 @@ class LawyerVerificationRepository {
       'pending' || 'draft' => LawyerStatus.pending,
       _ => LawyerStatus.client,
     };
-  }
-
-  String _nameForUser(String? email, Map<String, dynamic>? metadata) {
-    final metadataName =
-        metadata?['full_name'] as String? ?? metadata?['name'] as String?;
-    if (metadataName != null && metadataName.trim().isNotEmpty) {
-      return metadataName.trim();
-    }
-
-    final localPart = email?.split('@').first.trim() ?? '';
-    if (localPart.isEmpty) return 'Usuário Jurii';
-    return localPart
-        .split(RegExp(r'[._-]+'))
-        .where((part) => part.isNotEmpty)
-        .map((part) => '${part[0].toUpperCase()}${part.substring(1)}')
-        .join(' ');
   }
 }
