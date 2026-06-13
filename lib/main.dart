@@ -604,7 +604,7 @@ class _FirmNavigationState extends State<FirmNavigation> {
         teamMembers: widget.workspace?.teamMembers,
         onInviteLawyer: widget.onInviteLawyer,
       ),
-      const FirmCasesScreen(),
+      FirmCasesScreen(workspace: widget.workspace),
       FirmProfileScreen(
         user: widget.user,
         workspace: widget.workspace,

@@ -2,36 +2,122 @@ import 'package:flutter/material.dart';
 
 import '../data/mock/mock_firm_workspace.dart';
 import '../models/firm_case_overview.dart';
+import '../models/firm_workspace.dart';
+import '../repositories/case_repository.dart';
+import '../services/supabase_config.dart';
 import '../theme/app_theme.dart';
 
-class FirmCasesScreen extends StatelessWidget {
-  const FirmCasesScreen({super.key});
+class FirmCasesScreen extends StatefulWidget {
+  const FirmCasesScreen({
+    super.key,
+    this.workspace,
+    this.repository = const CaseRepository(),
+  });
+
+  final FirmWorkspace? workspace;
+  final CaseRepository repository;
+
+  @override
+  State<FirmCasesScreen> createState() => _FirmCasesScreenState();
+}
+
+class _FirmCasesScreenState extends State<FirmCasesScreen> {
+  late Future<List<FirmCaseOverview>> _casesFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _casesFuture = _loadCases();
+  }
+
+  @override
+  void didUpdateWidget(covariant FirmCasesScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.workspace?.firm.id != widget.workspace?.firm.id) {
+      _casesFuture = _loadCases();
+    }
+  }
+
+  Future<List<FirmCaseOverview>> _loadCases() async {
+    final lawFirmId = widget.workspace?.firm.id;
+    if (!SupabaseConfig.isReady || lawFirmId == null) return mockFirmCases;
+
+    try {
+      return await widget.repository.fetchLawFirmCases(lawFirmId);
+    } catch (_) {
+      return const [];
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return SafeArea(
-      child: ListView(
-        padding: const EdgeInsets.all(24),
-        children: [
-          const Text(
-            'Casos',
-            style: TextStyle(
-              fontSize: 34,
-              fontWeight: FontWeight.bold,
-              color: AppTheme.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Visão geral dos casos por cliente e advogado responsável.',
-            style: TextStyle(color: AppTheme.textSecondary, fontSize: 16),
-          ),
-          const SizedBox(height: 20),
-          for (var index = 0; index < mockFirmCases.length; index++) ...[
-            _FirmCaseCard(overview: mockFirmCases[index]),
-            if (index < mockFirmCases.length - 1) const SizedBox(height: 12),
-          ],
-        ],
+      child: FutureBuilder<List<FirmCaseOverview>>(
+        future: _casesFuture,
+        builder: (context, snapshot) {
+          final cases = snapshot.data;
+
+          return ListView(
+            padding: const EdgeInsets.all(24),
+            children: [
+              const Text(
+                'Casos',
+                style: TextStyle(
+                  fontSize: 34,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Visão geral dos casos por cliente e advogado responsável.',
+                style: TextStyle(color: AppTheme.textSecondary, fontSize: 16),
+              ),
+              const SizedBox(height: 20),
+              if (snapshot.connectionState == ConnectionState.waiting &&
+                  cases == null)
+                const Padding(
+                  padding: EdgeInsets.only(top: 32),
+                  child: Center(
+                    child: CircularProgressIndicator(
+                      color: AppTheme.officePurple,
+                    ),
+                  ),
+                )
+              else if (cases == null || cases.isEmpty)
+                const _EmptyFirmCasesState()
+              else
+                for (var index = 0; index < cases.length; index++) ...[
+                  _FirmCaseCard(overview: cases[index]),
+                  if (index < cases.length - 1) const SizedBox(height: 12),
+                ],
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _EmptyFirmCasesState extends StatelessWidget {
+  const _EmptyFirmCasesState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: AppTheme.card,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.officePurpleBorder),
+      ),
+      child: const Text(
+        'Nenhum caso encontrado para este escritório.',
+        style: TextStyle(
+          color: AppTheme.textSecondary,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }

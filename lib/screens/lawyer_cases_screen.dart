@@ -1,20 +1,64 @@
 import 'package:flutter/material.dart';
 import '../data/mock/mock_cases.dart';
 import '../models/lawyer_case.dart';
+import '../repositories/case_repository.dart';
+import '../services/supabase_config.dart';
 import '../theme/app_theme.dart';
 import '../widgets/lawyer_case_card.dart';
 
-class LawyerCasesScreen extends StatelessWidget {
-  const LawyerCasesScreen({super.key});
+class LawyerCasesScreen extends StatefulWidget {
+  const LawyerCasesScreen({
+    super.key,
+    this.repository = const CaseRepository(),
+  });
+
+  final CaseRepository repository;
+
+  @override
+  State<LawyerCasesScreen> createState() => _LawyerCasesScreenState();
+}
+
+class _LawyerCasesScreenState extends State<LawyerCasesScreen> {
+  late Future<List<LawyerCase>> _casesFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _casesFuture = _loadCases();
+  }
+
+  Future<List<LawyerCase>> _loadCases() async {
+    if (!SupabaseConfig.isReady) return mockLawyerCases;
+
+    try {
+      return await widget.repository.fetchLawyerCases();
+    } catch (_) {
+      return const [];
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    const cases = mockLawyerCases;
-
     return SafeArea(
-      child: cases.isEmpty
-          ? const _EmptyCasesState()
-          : _CasesListState(cases: cases),
+      child: FutureBuilder<List<LawyerCase>>(
+        future: _casesFuture,
+        builder: (context, snapshot) {
+          final cases = snapshot.data;
+
+          if (snapshot.connectionState == ConnectionState.waiting &&
+              cases == null) {
+            return const Center(
+              child: CircularProgressIndicator(color: AppTheme.primary),
+            );
+          }
+
+          if (cases == null || cases.isEmpty) {
+            return const _EmptyCasesState();
+          }
+
+          return _CasesListState(cases: cases);
+        },
+      ),
     );
   }
 }

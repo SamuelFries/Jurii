@@ -171,6 +171,16 @@ Rode `patch_013_chat_profile_entrypoints.sql` depois do patch 012. Ele cria:
 - `fetch_chat_profile`, usado para abrir o perfil do cliente pelo chat
 - `fetch_lawyer_public_profile`, usado para abrir o perfil do advogado pelo chat
 
+## 2.14. Patch para Meus Casos
+
+Rode `patch_014_cases_integration.sql` depois do patch 013. Ele cria:
+
+- `fetch_client_cases`
+- `fetch_lawyer_cases`
+- `fetch_law_firm_cases`
+
+Essas funções alimentam as abas de casos do cliente, advogado e escritório.
+
 ## 3. Próxima etapa de integração
 
 A camada inicial de repositories já existe em `lib/repositories/`.
