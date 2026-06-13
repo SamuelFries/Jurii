@@ -70,6 +70,14 @@ class NotificationRepository {
     await _respondToTeamInvite(membershipId: membershipId, accepted: false);
   }
 
+  Future<void> acceptCaseRequest(String caseRequestId) async {
+    await _respondToCaseRequest(caseRequestId: caseRequestId, accepted: true);
+  }
+
+  Future<void> declineCaseRequest(String caseRequestId) async {
+    await _respondToCaseRequest(caseRequestId: caseRequestId, accepted: false);
+  }
+
   Future<void> _respondToTeamInvite({
     required String membershipId,
     required bool accepted,
@@ -82,6 +90,21 @@ class NotificationRepository {
     await SupabaseConfig.client.rpc(
       'respond_to_law_firm_invite',
       params: {'membership_id_value': membershipId, 'accepted_value': accepted},
+    );
+  }
+
+  Future<void> _respondToCaseRequest({
+    required String caseRequestId,
+    required bool accepted,
+  }) async {
+    if (!SupabaseConfig.isReady ||
+        SupabaseConfig.client.auth.currentUser == null) {
+      throw StateError('A conexão com o Supabase não está ativa.');
+    }
+
+    await SupabaseConfig.client.rpc(
+      'respond_to_case_request',
+      params: {'request_id_value': caseRequestId, 'accepted_value': accepted},
     );
   }
 

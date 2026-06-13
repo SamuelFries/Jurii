@@ -44,6 +44,7 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _isSending = false;
   bool _isOpeningProfile = false;
   bool _isCreatingCaseRequest = false;
+  String? _respondingCaseRequestId;
 
   bool get _usesSupabase => widget.conversation.id != null;
 
@@ -118,6 +119,23 @@ class _ChatScreenState extends State<ChatScreen> {
             _appendMessage(message);
           },
         )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.update,
+          schema: 'public',
+          table: 'messages',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'conversation_id',
+            value: conversationId,
+          ),
+          callback: (payload) {
+            final message = _repository.messageFromRow(
+              payload.newRecord,
+              currentUserId: SupabaseConfig.client.auth.currentUser?.id,
+            );
+            _upsertMessage(message);
+          },
+        )
         .subscribe();
   }
 
@@ -173,6 +191,31 @@ class _ChatScreenState extends State<ChatScreen> {
   void _appendMessage(ChatMessage message) {
     if (!mounted || _messages.any((item) => item.id == message.id)) return;
     setState(() => _messages = [..._messages, message]);
+    _scrollToBottom();
+  }
+
+  void _upsertMessage(ChatMessage message) {
+    if (!mounted) return;
+
+    final index = _messages.indexWhere((item) => item.id == message.id);
+    if (index == -1) {
+      setState(() => _messages = [..._messages, message]);
+      _scrollToBottom();
+      return;
+    }
+
+    final nextMessages = [..._messages];
+    nextMessages[index] = message;
+    setState(() => _messages = nextMessages);
+  }
+
+  Future<void> _refreshMessagesSilently() async {
+    final conversationId = widget.conversation.id;
+    if (conversationId == null) return;
+
+    final messages = await _repository.fetchMessages(conversationId);
+    if (!mounted) return;
+    setState(() => _messages = messages);
     _scrollToBottom();
   }
 
@@ -286,6 +329,35 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  Future<void> _respondToCaseRequestFromChat(
+    ChatMessage message, {
+    required bool accepted,
+  }) async {
+    final requestId = message.caseRequestId;
+    if (requestId == null || _respondingCaseRequestId != null) return;
+
+    setState(() => _respondingCaseRequestId = requestId);
+
+    try {
+      await _caseRepository.respondToCaseRequest(
+        requestId: requestId,
+        accepted: accepted,
+      );
+      await _refreshMessagesSilently();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(accepted ? 'Caso aceito.' : 'Caso recusado.')),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Não foi possível responder ao caso.')),
+      );
+    } finally {
+      if (mounted) setState(() => _respondingCaseRequestId = null);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -390,7 +462,23 @@ class _ChatScreenState extends State<ChatScreen> {
                       itemCount: _messages.length,
                       itemBuilder: (context, index) {
                         final message = _messages[index];
-                        return _MessageBubble(message: message);
+                        return _MessageBubble(
+                          message: message,
+                          canRespondToCaseRequest:
+                              !widget.isLawyer && message.isPendingCaseRequest,
+                          isRespondingCaseRequest:
+                              _respondingCaseRequestId == message.caseRequestId,
+                          onAcceptCaseRequest: () =>
+                              _respondToCaseRequestFromChat(
+                                message,
+                                accepted: true,
+                              ),
+                          onDeclineCaseRequest: () =>
+                              _respondToCaseRequestFromChat(
+                                message,
+                                accepted: false,
+                              ),
+                        );
                       },
                     ),
             ),
@@ -550,11 +638,31 @@ class _EmptyChatState extends StatelessWidget {
 
 class _MessageBubble extends StatelessWidget {
   final ChatMessage message;
+  final bool canRespondToCaseRequest;
+  final bool isRespondingCaseRequest;
+  final VoidCallback onAcceptCaseRequest;
+  final VoidCallback onDeclineCaseRequest;
 
-  const _MessageBubble({required this.message});
+  const _MessageBubble({
+    required this.message,
+    required this.canRespondToCaseRequest,
+    required this.isRespondingCaseRequest,
+    required this.onAcceptCaseRequest,
+    required this.onDeclineCaseRequest,
+  });
 
   @override
   Widget build(BuildContext context) {
+    if (message.isCaseRequest) {
+      return _CaseRequestMessageCard(
+        message: message,
+        canRespond: canRespondToCaseRequest,
+        isSubmitting: isRespondingCaseRequest,
+        onAccept: onAcceptCaseRequest,
+        onDecline: onDeclineCaseRequest,
+      );
+    }
+
     final isMine = message.author == MessageAuthor.me;
     final isSystem = message.author == MessageAuthor.system;
     final alignment = isMine ? Alignment.centerRight : Alignment.centerLeft;
@@ -619,6 +727,195 @@ class _MessageBubble extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CaseRequestMessageCard extends StatelessWidget {
+  const _CaseRequestMessageCard({
+    required this.message,
+    required this.canRespond,
+    required this.isSubmitting,
+    required this.onAccept,
+    required this.onDecline,
+  });
+
+  final ChatMessage message;
+  final bool canRespond;
+  final bool isSubmitting;
+  final VoidCallback onAccept;
+  final VoidCallback onDecline;
+
+  @override
+  Widget build(BuildContext context) {
+    final status = message.caseRequestStatus ?? 'pending';
+    final accepted = status == 'accepted';
+    final declined = status == 'declined';
+    final statusColor = accepted
+        ? AppTheme.success
+        : declined
+        ? AppTheme.danger
+        : AppTheme.accent;
+    final statusSurface = accepted
+        ? AppTheme.successSurface
+        : declined
+        ? AppTheme.danger.withValues(alpha: 0.10)
+        : AppTheme.lightGold;
+
+    return Align(
+      alignment: Alignment.center,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.sizeOf(context).width * 0.88,
+        ),
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: AppTheme.card,
+            border: Border.all(color: AppTheme.lightGoldBorder),
+            borderRadius: BorderRadius.circular(18),
+            boxShadow: [
+              BoxShadow(
+                color: AppTheme.primary.withValues(alpha: 0.06),
+                blurRadius: 18,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      color: statusSurface,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                      accepted
+                          ? Icons.task_alt_outlined
+                          : declined
+                          ? Icons.block_outlined
+                          : Icons.assignment_add,
+                      color: statusColor,
+                      size: 19,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      message.caseRequestTitle ?? 'Solicitação de caso',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppTheme.textPrimary,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Text(
+                message.caseRequestArea ?? 'Atendimento jurídico',
+                style: const TextStyle(
+                  color: AppTheme.textSecondary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 12),
+              _CaseRequestStatusChip(status: status),
+              if (canRespond) ...[
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: isSubmitting ? null : onDecline,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppTheme.danger,
+                          side: const BorderSide(color: AppTheme.danger),
+                        ),
+                        child: const Text('Recusar'),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: isSubmitting ? null : onAccept,
+                        child: isSubmitting
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: AppTheme.card,
+                                ),
+                              )
+                            : const Text('Aceitar caso'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+              const SizedBox(height: 8),
+              Text(
+                message.time,
+                style: const TextStyle(
+                  color: AppTheme.textSecondary,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CaseRequestStatusChip extends StatelessWidget {
+  const _CaseRequestStatusChip({required this.status});
+
+  final String status;
+
+  @override
+  Widget build(BuildContext context) {
+    final accepted = status == 'accepted';
+    final declined = status == 'declined';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: accepted
+            ? AppTheme.successSurface
+            : declined
+            ? AppTheme.danger.withValues(alpha: 0.10)
+            : AppTheme.lightGold,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        accepted
+            ? 'Caso aceito'
+            : declined
+            ? 'Caso recusado'
+            : 'Aguardando aceite do cliente',
+        style: TextStyle(
+          color: accepted
+              ? AppTheme.success
+              : declined
+              ? AppTheme.danger
+              : AppTheme.accent,
+          fontSize: 12,
+          fontWeight: FontWeight.w800,
         ),
       ),
     );

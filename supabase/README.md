@@ -196,6 +196,17 @@ Rode `patch_015_case_requests_updates.sql` depois do patch 014. Ele cria:
 Esse patch habilita o fluxo em que advogado ou escritório envia uma solicitação
 de caso, o cliente aceita ou recusa, e os profissionais registram atualizações.
 
+## 2.16. Patch para aceite de caso no sino e no chat
+
+Rode `patch_016_case_request_actions.sql` depois do patch 015. Ele:
+
+- adiciona `metadata` nas mensagens
+- vincula cada solicitação a uma mensagem do chat e uma notificação
+- permite aceitar ou recusar pelo sino, chat ou Meus Casos
+- sincroniza o status da solicitação em todos os pontos de entrada
+- notifica advogado e escritório quando o cliente aceita ou recusa
+- impede que casos do cliente apareçam indevidamente no fluxo profissional
+
 ## 3. Próxima etapa de integração
 
 A camada inicial de repositories já existe em `lib/repositories/`.
