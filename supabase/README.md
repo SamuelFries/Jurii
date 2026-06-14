@@ -15,6 +15,10 @@ Esse script cria:
 - policies RLS
 - seeds iniciais de categorias e escritórios
 
+Para um ambiente novo do Jurii, execute também os patches em ordem crescente
+depois do `schema.sql`. O app atual depende das funções e ajustes criados até
+o patch 018.
+
 ## 2. Configurar o app Flutter
 
 No Supabase Dashboard, copie:
@@ -226,16 +230,22 @@ se o envio da verificação profissional falhar com:
 
 Ele recria a RPC `submit_lawyer_verification` sem referências ambíguas a `id`.
 
-## 3. Próxima etapa de integração
+## 3. Status da integração
 
 A camada inicial de repositories já existe em `lib/repositories/`.
-O próximo passo é trocar as telas, uma por vez, dos mocks para esses
-repositories:
+As áreas já conectadas ao Supabase, com fallback local quando o ambiente não
+está configurado, são:
 
 1. Auth + Profile
-2. Home cliente: categorias e escritórios
+2. Home cliente: categorias, escritórios e advogados recomendados
 3. Verificação profissional
 4. Verificação de escritório
-5. Casos
-6. Mensagens
+5. Casos e solicitações de aceite
+6. Mensagens e chat em tempo real
 7. Agenda
+
+Ainda usam dados mockados como superfície de produto:
+
+- métricas da home profissional
+- resumo de hoje da home profissional
+- métricas e overview da home do escritório

@@ -63,10 +63,8 @@ class _CategoriesSectionState extends State<CategoriesSection> {
               itemBuilder: (context, index) {
                 final category = categories[index];
                 return CategoryCard(
-                  emoji: category.emoji,
                   title: category.title,
                   isGold: category.isGold,
-                  onTap: () => debugPrint('Categoria clicada: ${category.id}'),
                 );
               },
             );
