@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/jurii_notification.dart';
 import '../repositories/notification_repository.dart';
+import '../services/supabase_config.dart';
 import '../theme/app_theme.dart';
 
 class NotificationBell extends StatefulWidget {
@@ -26,17 +28,65 @@ class NotificationBell extends StatefulWidget {
 
 class _NotificationBellState extends State<NotificationBell> {
   int _unreadCount = 0;
+  RealtimeChannel? _notificationsChannel;
 
   @override
   void initState() {
     super.initState();
     _loadCount();
+    _subscribeToNotifications();
+  }
+
+  @override
+  void dispose() {
+    final channel = _notificationsChannel;
+    if (channel != null && SupabaseConfig.isReady) {
+      SupabaseConfig.client.removeChannel(channel);
+    }
+    super.dispose();
   }
 
   Future<void> _loadCount() async {
     final count = await widget.repository.fetchUnreadCount();
     if (!mounted) return;
     setState(() => _unreadCount = count);
+  }
+
+  void _subscribeToNotifications() {
+    if (!SupabaseConfig.isReady) return;
+    final userId = SupabaseConfig.client.auth.currentUser?.id;
+    if (userId == null) return;
+
+    _notificationsChannel = SupabaseConfig.client
+        .channel('notifications:$userId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.insert,
+          schema: 'public',
+          table: 'notifications',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'recipient_profile_id',
+            value: userId,
+          ),
+          callback: (_) => _handleNotificationChanged(),
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.update,
+          schema: 'public',
+          table: 'notifications',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'recipient_profile_id',
+            value: userId,
+          ),
+          callback: (_) => _handleNotificationChanged(),
+        )
+        .subscribe();
+  }
+
+  void _handleNotificationChanged() {
+    _loadCount();
+    widget.onChanged?.call();
   }
 
   Future<void> _openNotifications() async {

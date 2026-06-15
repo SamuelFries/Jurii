@@ -17,7 +17,7 @@ Esse script cria:
 
 Para um ambiente novo do Jurii, execute também os patches em ordem crescente
 depois do `schema.sql`. O app atual depende das funções e ajustes criados até
-o patch 022.
+o patch 024.
 
 ## 2. Configurar o app Flutter
 
@@ -263,6 +263,19 @@ Rode `patch_022_firm_case_operations.sql` depois do patch 021. Ele:
 - garante `created_at` em `law_firm_members`, usado nos fluxos de caso
 - faz a aba de casos do escritório incluir casos aceitos por advogados membros
 - cria `fetch_law_firm_operation_metrics` para a home do escritório usar dados reais
+
+## 2.23. Patch para realtime de notificações
+
+Rode `patch_023_notifications_realtime.sql` depois do patch 022. Ele adiciona
+`public.notifications` à publication `supabase_realtime`, permitindo que o sino
+das homes atualize quando uma solicitação de caso, convite ou resposta chegar.
+
+## 2.24. Patch para reparar superfícies de solicitação de caso
+
+Rode `patch_024_case_request_surfaces_repair.sql` depois do patch 023 se uma
+solicitação de caso for criada, mas o cliente não receber notificação nem card
+acionável no chat. Ele cria/atualiza mensagem de sistema, notificação e faz
+backfill das solicitações pendentes já existentes.
 
 ## 3. Status da integração
 

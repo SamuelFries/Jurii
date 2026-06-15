@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 import '../data/mock/mock_notifications.dart';
 import '../models/jurii_notification.dart';
 import '../services/supabase_config.dart';
@@ -20,6 +22,7 @@ class NotificationRepository {
 
       return rows.map<JuriiNotification>(_fromRow).toList();
     } catch (error) {
+      debugPrint('Supabase notifications fetch failed: $error');
       return mockNotifications.take(limit).toList();
     }
   }
@@ -40,6 +43,7 @@ class NotificationRepository {
 
       return rows.length;
     } catch (error) {
+      debugPrint('Supabase notifications count failed: $error');
       return mockNotifications
           .where((notification) => notification.isUnread)
           .length;
@@ -57,7 +61,8 @@ class NotificationRepository {
           .from('notifications')
           .update({'read_at': DateTime.now().toIso8601String()})
           .filter('read_at', 'is', null);
-    } catch (_) {
+    } catch (error) {
+      debugPrint('Supabase notifications mark read failed: $error');
       return;
     }
   }

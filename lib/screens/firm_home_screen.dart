@@ -65,8 +65,11 @@ class _FirmHomeScreenState extends State<FirmHomeScreen> {
   }
 
   Future<void> _reloadMetrics() async {
-    setState(() => _metricsFuture = _loadMetrics());
-    await _metricsFuture;
+    final nextMetrics = _loadMetrics();
+    setState(() {
+      _metricsFuture = nextMetrics;
+    });
+    await nextMetrics;
   }
 
   @override
