@@ -16,7 +16,6 @@ class CategoryRepository {
   LegalCategory _fromRow(Map<String, dynamic> row) {
     return LegalCategory(
       id: row['id'] as String,
-      emoji: '',
       title: row['title'] as String,
       isGold: row['is_highlighted'] as bool? ?? false,
     );

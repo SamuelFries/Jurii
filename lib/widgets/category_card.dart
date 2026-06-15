@@ -2,14 +2,12 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 
 class CategoryCard extends StatelessWidget {
-  final String emoji;
   final String title;
   final bool isGold;
   final VoidCallback? onTap;
 
   const CategoryCard({
     super.key,
-    required this.emoji,
     required this.title,
     required this.isGold,
     this.onTap,

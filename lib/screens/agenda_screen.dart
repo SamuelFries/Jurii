@@ -2,19 +2,53 @@ import 'package:flutter/material.dart';
 
 import '../data/mock/mock_appointments.dart';
 import '../models/appointment.dart';
+import '../repositories/appointment_repository.dart';
+import '../services/supabase_config.dart';
 import '../theme/app_theme.dart';
 
-class AgendaScreen extends StatelessWidget {
+class AgendaScreen extends StatefulWidget {
   final AppointmentRole role;
+  final AppointmentRepository repository;
 
-  const AgendaScreen({super.key, required this.role});
+  const AgendaScreen({
+    super.key,
+    required this.role,
+    this.repository = const AppointmentRepository(),
+  });
+
+  @override
+  State<AgendaScreen> createState() => _AgendaScreenState();
+}
+
+class _AgendaScreenState extends State<AgendaScreen> {
+  late Future<List<Appointment>> _appointmentsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _appointmentsFuture = _loadAppointments();
+  }
+
+  Future<List<Appointment>> _loadAppointments() async {
+    final fallback = widget.role == AppointmentRole.lawyer
+        ? mockLawyerAppointments
+        : mockClientAppointments;
+
+    if (!SupabaseConfig.isReady ||
+        SupabaseConfig.client.auth.currentUser == null) {
+      return fallback;
+    }
+
+    try {
+      return await widget.repository.fetchAppointments(widget.role);
+    } catch (_) {
+      return const [];
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final appointments = role == AppointmentRole.lawyer
-        ? mockLawyerAppointments
-        : mockClientAppointments;
-    final isLawyer = role == AppointmentRole.lawyer;
+    final isLawyer = widget.role == AppointmentRole.lawyer;
 
     return Scaffold(
       backgroundColor: AppTheme.background,
@@ -23,25 +57,44 @@ class AgendaScreen extends StatelessWidget {
         backgroundColor: AppTheme.background,
       ),
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
-          children: [
-            _AgendaHero(isLawyer: isLawyer),
-            const SizedBox(height: 20),
-            const _DateSelector(),
-            const SizedBox(height: 24),
-            Text(
-              isLawyer ? 'Compromissos profissionais' : 'Seus compromissos',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 12),
-            for (var index = 0; index < appointments.length; index++) ...[
-              _AppointmentCard(appointment: appointments[index]),
-              if (index < appointments.length - 1) const SizedBox(height: 12),
-            ],
-            const SizedBox(height: 24),
-            _AvailabilityCard(isLawyer: isLawyer),
-          ],
+        child: FutureBuilder<List<Appointment>>(
+          future: _appointmentsFuture,
+          builder: (context, snapshot) {
+            final appointments = snapshot.data;
+
+            return ListView(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
+              children: [
+                _AgendaHero(isLawyer: isLawyer),
+                const SizedBox(height: 20),
+                const _DateSelector(),
+                const SizedBox(height: 24),
+                Text(
+                  isLawyer ? 'Compromissos profissionais' : 'Seus compromissos',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 12),
+                if (snapshot.connectionState == ConnectionState.waiting &&
+                    appointments == null)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 32),
+                    child: Center(
+                      child: CircularProgressIndicator(color: AppTheme.primary),
+                    ),
+                  )
+                else if (appointments == null || appointments.isEmpty)
+                  _EmptyAgendaState(isLawyer: isLawyer)
+                else
+                  for (var index = 0; index < appointments.length; index++) ...[
+                    _AppointmentCard(appointment: appointments[index]),
+                    if (index < appointments.length - 1)
+                      const SizedBox(height: 12),
+                  ],
+                const SizedBox(height: 24),
+                _AvailabilityCard(isLawyer: isLawyer),
+              ],
+            );
+          },
         ),
       ),
     );
@@ -118,12 +171,18 @@ class _DateSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final days = const [
-      (label: 'Hoje', day: '10'),
-      (label: 'Amanhã', day: '11'),
-      (label: 'Sex', day: '12'),
-      (label: 'Sáb', day: '13'),
-    ];
+    final now = DateTime.now();
+    final days = List.generate(4, (index) {
+      final date = now.add(Duration(days: index));
+      return (
+        label: switch (index) {
+          0 => 'Hoje',
+          1 => 'Amanhã',
+          _ => _weekdayLabel(date.weekday),
+        },
+        day: date.day.toString().padLeft(2, '0'),
+      );
+    });
 
     return Row(
       children: [
@@ -172,6 +231,18 @@ class _DateSelector extends StatelessWidget {
         ],
       ],
     );
+  }
+
+  String _weekdayLabel(int weekday) {
+    return const {
+      DateTime.monday: 'Seg',
+      DateTime.tuesday: 'Ter',
+      DateTime.wednesday: 'Qua',
+      DateTime.thursday: 'Qui',
+      DateTime.friday: 'Sex',
+      DateTime.saturday: 'Sáb',
+      DateTime.sunday: 'Dom',
+    }[weekday]!;
   }
 }
 
@@ -307,6 +378,34 @@ class _Pill extends StatelessWidget {
           color: pillColor,
           fontSize: 11,
           fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyAgendaState extends StatelessWidget {
+  const _EmptyAgendaState({required this.isLawyer});
+
+  final bool isLawyer;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.card,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppTheme.lightBlueBorder),
+      ),
+      child: Text(
+        isLawyer
+            ? 'Nenhum compromisso profissional encontrado.'
+            : 'Nenhum compromisso agendado no momento.',
+        style: const TextStyle(
+          color: AppTheme.textSecondary,
+          fontWeight: FontWeight.w700,
         ),
       ),
     );
