@@ -178,7 +178,8 @@ class _ChatScreenState extends State<ChatScreen> {
       if (!mounted) return;
       _appendMessage(message);
       setState(() => _isSending = false);
-    } catch (_) {
+    } catch (error) {
+      debugPrint('Supabase message send failed: $error');
       if (!mounted) return;
       setState(() => _isSending = false);
       ScaffoldMessenger.of(context).showSnackBar(

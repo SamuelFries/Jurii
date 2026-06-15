@@ -354,6 +354,7 @@ create table if not exists public.messages (
   sender_id uuid references public.profiles(id) on delete set null,
   sender_type public.message_sender_type not null,
   body text not null,
+  metadata jsonb not null default '{}'::jsonb,
   read_at timestamptz,
   created_at timestamptz not null default now()
 );
