@@ -9,6 +9,8 @@ import '../theme/app_theme.dart';
 class NotificationBell extends StatefulWidget {
   const NotificationBell({
     super.key,
+    required this.scope,
+    this.lawFirmId,
     this.iconColor = AppTheme.primary,
     this.backgroundColor = AppTheme.card,
     this.borderColor = AppTheme.softBorder,
@@ -16,6 +18,8 @@ class NotificationBell extends StatefulWidget {
     this.repository = const NotificationRepository(),
   });
 
+  final NotificationScope scope;
+  final String? lawFirmId;
   final Color iconColor;
   final Color backgroundColor;
   final Color borderColor;
@@ -47,7 +51,10 @@ class _NotificationBellState extends State<NotificationBell> {
   }
 
   Future<void> _loadCount() async {
-    final count = await widget.repository.fetchUnreadCount();
+    final count = await widget.repository.fetchUnreadCount(
+      scope: widget.scope,
+      lawFirmId: widget.lawFirmId,
+    );
     if (!mounted) return;
     setState(() => _unreadCount = count);
   }
@@ -58,7 +65,7 @@ class _NotificationBellState extends State<NotificationBell> {
     if (userId == null) return;
 
     _notificationsChannel = SupabaseConfig.client
-        .channel('notifications:$userId')
+        .channel('notifications:${widget.scope.databaseValue}:$userId')
         .onPostgresChanges(
           event: PostgresChangeEvent.insert,
           schema: 'public',
@@ -90,7 +97,10 @@ class _NotificationBellState extends State<NotificationBell> {
   }
 
   Future<void> _openNotifications() async {
-    final notifications = await widget.repository.fetchLatest();
+    final notifications = await widget.repository.fetchLatest(
+      scope: widget.scope,
+      lawFirmId: widget.lawFirmId,
+    );
     if (!mounted) return;
 
     await showModalBottomSheet<void>(
@@ -103,6 +113,8 @@ class _NotificationBellState extends State<NotificationBell> {
       builder: (context) {
         return _NotificationSheet(
           notifications: notifications,
+          scope: widget.scope,
+          lawFirmId: widget.lawFirmId,
           repository: widget.repository,
         );
       },
@@ -170,10 +182,14 @@ class _NotificationBellState extends State<NotificationBell> {
 class _NotificationSheet extends StatefulWidget {
   const _NotificationSheet({
     required this.notifications,
+    required this.scope,
+    this.lawFirmId,
     required this.repository,
   });
 
   final List<JuriiNotification> notifications;
+  final NotificationScope scope;
+  final String? lawFirmId;
   final NotificationRepository repository;
 
   @override
@@ -190,7 +206,10 @@ class _NotificationSheetState extends State<_NotificationSheet> {
   }
 
   Future<void> _reload() async {
-    final notifications = await widget.repository.fetchLatest();
+    final notifications = await widget.repository.fetchLatest(
+      scope: widget.scope,
+      lawFirmId: widget.lawFirmId,
+    );
     if (!mounted) return;
     setState(() => _notifications = notifications);
   }
@@ -215,7 +234,7 @@ class _NotificationSheetState extends State<_NotificationSheet> {
             ),
             const SizedBox(height: 14),
             if (_notifications.isEmpty)
-              const _EmptyNotifications()
+              _EmptyNotifications(scope: widget.scope)
             else
               Flexible(
                 child: ListView.separated(
@@ -239,16 +258,20 @@ class _NotificationSheetState extends State<_NotificationSheet> {
 }
 
 class _EmptyNotifications extends StatelessWidget {
-  const _EmptyNotifications();
+  const _EmptyNotifications({required this.scope});
+
+  final NotificationScope scope;
 
   @override
   Widget build(BuildContext context) {
+    final colors = _emptyColorsForScope(scope);
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: AppTheme.lightBlue,
-        border: Border.all(color: AppTheme.lightBlueBorder),
+        color: colors.surface,
+        border: Border.all(color: colors.border),
         borderRadius: BorderRadius.circular(14),
       ),
       child: const Text(
@@ -259,6 +282,25 @@ class _EmptyNotifications extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  ({Color surface, Color border}) _emptyColorsForScope(
+    NotificationScope scope,
+  ) {
+    return switch (scope) {
+      NotificationScope.client => (
+        surface: AppTheme.lightGold,
+        border: AppTheme.lightGoldBorder,
+      ),
+      NotificationScope.lawyer => (
+        surface: AppTheme.lightBlue,
+        border: AppTheme.lightBlueBorder,
+      ),
+      NotificationScope.firm => (
+        surface: AppTheme.officePurpleSurface,
+        border: AppTheme.officePurpleBorder,
+      ),
+    };
   }
 }
 
@@ -275,25 +317,18 @@ class _NotificationTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = _colorsForScope(notification.scope, notification.isUnread);
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: notification.isUnread ? AppTheme.lightGold : AppTheme.lightBlue,
-        border: Border.all(
-          color: notification.isUnread
-              ? AppTheme.lightGoldBorder
-              : AppTheme.lightBlueBorder,
-        ),
+        color: colors.surface,
+        border: Border.all(color: colors.border),
         borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            _iconForType(notification.type),
-            color: notification.isUnread ? AppTheme.accent : AppTheme.primary,
-            size: 22,
-          ),
+          Icon(_iconForType(notification.type), color: colors.icon, size: 22),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -349,6 +384,29 @@ class _NotificationTile extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  ({Color surface, Color border, Color icon}) _colorsForScope(
+    NotificationScope scope,
+    bool isUnread,
+  ) {
+    return switch (scope) {
+      NotificationScope.client => (
+        surface: isUnread ? AppTheme.lightGold : AppTheme.card,
+        border: AppTheme.lightGoldBorder,
+        icon: AppTheme.accent,
+      ),
+      NotificationScope.lawyer => (
+        surface: isUnread ? AppTheme.lightBlue : AppTheme.card,
+        border: AppTheme.lightBlueBorder,
+        icon: AppTheme.primary,
+      ),
+      NotificationScope.firm => (
+        surface: isUnread ? AppTheme.officePurpleSurface : AppTheme.card,
+        border: AppTheme.officePurpleBorder,
+        icon: AppTheme.officePurple,
+      ),
+    };
   }
 
   IconData _iconForType(String type) {

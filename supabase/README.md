@@ -17,7 +17,7 @@ Esse script cria:
 
 Para um ambiente novo do Jurii, execute também os patches em ordem crescente
 depois do `schema.sql`. O app atual depende das funções e ajustes criados até
-o patch 024.
+o patch 025.
 
 ## 2. Configurar o app Flutter
 
@@ -276,6 +276,18 @@ Rode `patch_024_case_request_surfaces_repair.sql` depois do patch 023 se uma
 solicitação de caso for criada, mas o cliente não receber notificação nem card
 acionável no chat. Ele cria/atualiza mensagem de sistema, notificação e faz
 backfill das solicitações pendentes já existentes.
+
+## 2.25. Patch para segmentar notificações por fluxo
+
+Rode `patch_025_notification_scopes.sql` depois do patch 024. Ele adiciona o
+escopo das notificações:
+
+- `client`: aparece apenas no fluxo do cliente
+- `lawyer`: aparece apenas no fluxo profissional
+- `firm`: aparece apenas no fluxo do escritório
+
+O patch também faz backfill das notificações antigas e instala um trigger para
+classificar novas notificações automaticamente pelo tipo.
 
 ## 3. Status da integração
 

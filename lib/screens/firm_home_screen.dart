@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/firm_operation_metrics.dart';
 import '../models/firm_workspace.dart';
+import '../models/jurii_notification.dart';
 import '../repositories/firm_workspace_repository.dart';
 import '../services/supabase_config.dart';
 import '../theme/app_theme.dart';
@@ -143,6 +144,8 @@ class _FirmHomeScreenState extends State<FirmHomeScreen> {
                 ),
                 const SizedBox(width: 10),
                 NotificationBell(
+                  scope: NotificationScope.firm,
+                  lawFirmId: widget.workspace?.firm.id,
                   iconColor: AppTheme.officePurple,
                   backgroundColor: AppTheme.card,
                   borderColor: AppTheme.officePurpleBorder,
