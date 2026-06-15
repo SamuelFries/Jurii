@@ -17,7 +17,7 @@ Esse script cria:
 
 Para um ambiente novo do Jurii, execute também os patches em ordem crescente
 depois do `schema.sql`. O app atual depende das funções e ajustes criados até
-o patch 018.
+o patch 021.
 
 ## 2. Configurar o app Flutter
 
@@ -229,6 +229,32 @@ se o envio da verificação profissional falhar com:
 `column reference "id" is ambiguous`
 
 Ele recria a RPC `submit_lawyer_verification` sem referências ambíguas a `id`.
+
+## 2.19. Patch para rascunhos de conversa
+
+Rode `patch_019_hide_empty_conversation_drafts.sql` depois do patch 018. Ele
+faz com que conversas abertas a partir do perfil de advogado ou escritório só
+apareçam nas abas de mensagens depois que uma mensagem real for enviada.
+
+Isso evita que o simples ato de tocar em **Enviar mensagem** crie uma conversa
+persistente visível caso o usuário desista e volte sem escrever nada.
+
+## 2.20. Patch de estabilidade do primeiro envio de mensagem
+
+Rode `patch_020_restore_chat_draft_metadata.sql` depois do patch 019. Ele
+mantém os rascunhos vazios escondidos pela listagem, mas restaura os metadados
+do rascunho usados pelo fluxo de chat antes da primeira mensagem real.
+
+## 2.21. Patch para coluna metadata em mensagens
+
+Rode `patch_021_ensure_message_metadata.sql` depois do patch 020 se o envio de
+mensagem falhar com:
+
+`column messages.metadata does not exist`
+
+Ele garante que `public.messages.metadata` exista, tenha default `{}` e esteja
+pronta para mensagens comuns, cards de solicitação de caso e notificações. O
+patch também solicita reload do schema da API do Supabase.
 
 ## 3. Status da integração
 
