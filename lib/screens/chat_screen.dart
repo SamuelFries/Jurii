@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../data/mock/mock_chat_messages.dart';
+import '../models/case_request.dart';
 import '../models/chat_message.dart';
 import '../models/conversation.dart';
 import '../repositories/case_repository.dart';
@@ -79,7 +80,9 @@ class _ChatScreenState extends State<ChatScreen> {
     }
 
     try {
-      final messages = await _repository.fetchMessages(widget.conversation.id!);
+      final messages = await _messagesWithPendingCaseRequestFallback(
+        await _repository.fetchMessages(widget.conversation.id!),
+      );
       if (!mounted) return;
       setState(() {
         _messages = messages;
@@ -190,7 +193,11 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _appendMessage(ChatMessage message) {
-    if (!mounted || _messages.any((item) => item.id == message.id)) return;
+    if (!mounted ||
+        _shouldHideCaseRequestStatusText(message) ||
+        _messages.any((item) => item.id == message.id)) {
+      return;
+    }
     setState(() => _messages = [..._messages, message]);
     _scrollToBottom();
   }
@@ -200,6 +207,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
     final index = _messages.indexWhere((item) => item.id == message.id);
     if (index == -1) {
+      if (_shouldHideCaseRequestStatusText(message)) return;
       setState(() => _messages = [..._messages, message]);
       _scrollToBottom();
       return;
@@ -210,14 +218,76 @@ class _ChatScreenState extends State<ChatScreen> {
     setState(() => _messages = nextMessages);
   }
 
+  bool _shouldHideCaseRequestStatusText(ChatMessage message) {
+    if (message.isCaseRequest || message.author != MessageAuthor.system) {
+      return false;
+    }
+
+    final text = message.text.trim().toLowerCase();
+    return text == 'solicitação de caso aceita pelo cliente.' ||
+        text == 'solicitação de caso recusada pelo cliente.';
+  }
+
   Future<void> _refreshMessagesSilently() async {
     final conversationId = widget.conversation.id;
     if (conversationId == null) return;
 
-    final messages = await _repository.fetchMessages(conversationId);
+    final messages = await _messagesWithPendingCaseRequestFallback(
+      await _repository.fetchMessages(conversationId),
+    );
     if (!mounted) return;
     setState(() => _messages = messages);
     _scrollToBottom();
+  }
+
+  Future<List<ChatMessage>> _messagesWithPendingCaseRequestFallback(
+    List<ChatMessage> messages,
+  ) async {
+    final conversationId = widget.conversation.id;
+    if (widget.isLawyer || conversationId == null || !SupabaseConfig.isReady) {
+      return messages;
+    }
+
+    try {
+      final requests = await _caseRepository.fetchClientCaseRequests();
+      final fallbackMessages = requests
+          .where((request) => request.conversationId == conversationId)
+          .where(
+            (request) =>
+                !messages.any((message) => message.caseRequestId == request.id),
+          )
+          .map(_caseRequestFallbackMessage)
+          .toList();
+
+      return [
+        ...messages.where(
+          (message) => !_shouldHideCaseRequestStatusText(message),
+        ),
+        ...fallbackMessages,
+      ];
+    } catch (error) {
+      debugPrint('Supabase case request fallback fetch failed: $error');
+      return messages;
+    }
+  }
+
+  ChatMessage _caseRequestFallbackMessage(CaseRequest request) {
+    return ChatMessage(
+      id: 'case_request_${request.id}',
+      conversationKey: request.conversationId,
+      author: MessageAuthor.system,
+      text: 'Solicitação de aceite do caso: ${request.title}',
+      time: request.createdAtLabel,
+      read: false,
+      metadata: {
+        'type': 'case_request',
+        'case_request_id': request.id,
+        'request_status': 'pending',
+        'conversation_id': request.conversationId,
+        'title': request.title,
+        'area': request.area,
+      },
+    );
   }
 
   void _scrollToBottom() {
@@ -316,6 +386,7 @@ class _ChatScreenState extends State<ChatScreen> {
         area: draft.area,
         summary: draft.summary,
       );
+      await _refreshMessagesSilently();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Solicitação enviada ao cliente.')),
@@ -465,6 +536,8 @@ class _ChatScreenState extends State<ChatScreen> {
                         final message = _messages[index];
                         return _MessageBubble(
                           message: message,
+                          counterpartName: widget.conversation.officeName,
+                          counterpartInitials: widget.conversation.initials,
                           canRespondToCaseRequest:
                               !widget.isLawyer && message.isPendingCaseRequest,
                           isRespondingCaseRequest:
@@ -559,7 +632,7 @@ class _CaseRequestSheetState extends State<_CaseRequestSheet> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'O cliente poderá aceitar ou recusar na aba Meus Casos.',
+            'O cliente poderá aceitar ou recusar pelo sino, pelo chat ou pela aba Meus Casos.',
             style: TextStyle(color: AppTheme.textSecondary),
           ),
           const SizedBox(height: 16),
@@ -639,6 +712,8 @@ class _EmptyChatState extends StatelessWidget {
 
 class _MessageBubble extends StatelessWidget {
   final ChatMessage message;
+  final String counterpartName;
+  final String counterpartInitials;
   final bool canRespondToCaseRequest;
   final bool isRespondingCaseRequest;
   final VoidCallback onAcceptCaseRequest;
@@ -646,6 +721,8 @@ class _MessageBubble extends StatelessWidget {
 
   const _MessageBubble({
     required this.message,
+    required this.counterpartName,
+    required this.counterpartInitials,
     required this.canRespondToCaseRequest,
     required this.isRespondingCaseRequest,
     required this.onAcceptCaseRequest,
@@ -657,6 +734,8 @@ class _MessageBubble extends StatelessWidget {
     if (message.isCaseRequest) {
       return _CaseRequestMessageCard(
         message: message,
+        requesterName: counterpartName,
+        requesterInitials: counterpartInitials,
         canRespond: canRespondToCaseRequest,
         isSubmitting: isRespondingCaseRequest,
         onAccept: onAcceptCaseRequest,
@@ -737,6 +816,8 @@ class _MessageBubble extends StatelessWidget {
 class _CaseRequestMessageCard extends StatelessWidget {
   const _CaseRequestMessageCard({
     required this.message,
+    required this.requesterName,
+    required this.requesterInitials,
     required this.canRespond,
     required this.isSubmitting,
     required this.onAccept,
@@ -744,6 +825,8 @@ class _CaseRequestMessageCard extends StatelessWidget {
   });
 
   final ChatMessage message;
+  final String requesterName;
+  final String requesterInitials;
   final bool canRespond;
   final bool isSubmitting;
   final VoidCallback onAccept;
@@ -752,18 +835,6 @@ class _CaseRequestMessageCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final status = message.caseRequestStatus ?? 'pending';
-    final accepted = status == 'accepted';
-    final declined = status == 'declined';
-    final statusColor = accepted
-        ? AppTheme.success
-        : declined
-        ? AppTheme.danger
-        : AppTheme.accent;
-    final statusSurface = accepted
-        ? AppTheme.successSurface
-        : declined
-        ? AppTheme.danger.withValues(alpha: 0.10)
-        : AppTheme.lightGold;
 
     return Align(
       alignment: Alignment.center,
@@ -792,48 +863,54 @@ class _CaseRequestMessageCard extends StatelessWidget {
               Row(
                 children: [
                   Container(
-                    width: 34,
-                    height: 34,
+                    width: 56,
+                    height: 56,
                     decoration: BoxDecoration(
-                      color: statusSurface,
-                      borderRadius: BorderRadius.circular(10),
+                      color: AppTheme.lightGold,
+                      borderRadius: BorderRadius.circular(16),
                     ),
-                    child: Icon(
-                      accepted
-                          ? Icons.task_alt_outlined
-                          : declined
-                          ? Icons.block_outlined
-                          : Icons.assignment_add,
-                      color: statusColor,
-                      size: 19,
+                    child: Center(
+                      child: Text(
+                        requesterInitials,
+                        style: const TextStyle(
+                          color: AppTheme.accent,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 16,
+                        ),
+                      ),
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 14),
                   Expanded(
-                    child: Text(
-                      message.caseRequestTitle ?? 'Solicitação de caso',
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppTheme.textPrimary,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w900,
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          message.caseRequestTitle ?? 'Solicitação de caso',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: AppTheme.textPrimary,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '$requesterName · ${message.caseRequestArea ?? 'Atendimento jurídico'}',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: AppTheme.textSecondary,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 10),
-              Text(
-                message.caseRequestArea ?? 'Atendimento jurídico',
-                style: const TextStyle(
-                  color: AppTheme.textSecondary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 12),
-              _CaseRequestStatusChip(status: status),
               if (canRespond) ...[
                 const SizedBox(height: 14),
                 Row(
@@ -843,7 +920,11 @@ class _CaseRequestMessageCard extends StatelessWidget {
                         onPressed: isSubmitting ? null : onDecline,
                         style: OutlinedButton.styleFrom(
                           foregroundColor: AppTheme.danger,
-                          side: const BorderSide(color: AppTheme.danger),
+                          side: const BorderSide(color: AppTheme.divider),
+                          minimumSize: const Size(0, 56),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(18),
+                          ),
                         ),
                         child: const Text('Recusar'),
                       ),
@@ -852,6 +933,12 @@ class _CaseRequestMessageCard extends StatelessWidget {
                     Expanded(
                       child: ElevatedButton(
                         onPressed: isSubmitting ? null : onAccept,
+                        style: ElevatedButton.styleFrom(
+                          minimumSize: const Size(0, 56),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(18),
+                          ),
+                        ),
                         child: isSubmitting
                             ? const SizedBox(
                                 width: 18,
@@ -866,6 +953,9 @@ class _CaseRequestMessageCard extends StatelessWidget {
                     ),
                   ],
                 ),
+              ] else ...[
+                const SizedBox(height: 12),
+                _CaseRequestStatusChip(status: status),
               ],
               const SizedBox(height: 8),
               Text(

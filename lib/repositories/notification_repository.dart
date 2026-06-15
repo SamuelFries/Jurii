@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 import '../data/mock/mock_notifications.dart';
 import '../models/jurii_notification.dart';
 import '../services/supabase_config.dart';
@@ -5,59 +7,105 @@ import '../services/supabase_config.dart';
 class NotificationRepository {
   const NotificationRepository();
 
-  Future<List<JuriiNotification>> fetchLatest({int limit = 10}) async {
+  Future<List<JuriiNotification>> fetchLatest({
+    required NotificationScope scope,
+    String? lawFirmId,
+    int limit = 10,
+  }) async {
     if (!SupabaseConfig.isReady ||
         SupabaseConfig.client.auth.currentUser == null) {
-      return mockNotifications.take(limit).toList();
+      return mockNotifications
+          .where((notification) => notification.scope == scope)
+          .take(limit)
+          .toList();
     }
 
     try {
-      final rows = await SupabaseConfig.client
+      var query = SupabaseConfig.client
           .from('notifications')
-          .select('id, title, body, type, metadata, read_at, created_at')
+          .select('id, title, body, type, scope, metadata, read_at, created_at')
+          .eq('scope', scope.databaseValue);
+
+      if (scope == NotificationScope.firm && lawFirmId != null) {
+        query = query.eq('law_firm_id', lawFirmId);
+      }
+
+      final rows = await query
           .order('created_at', ascending: false)
           .limit(limit);
 
       return rows.map<JuriiNotification>(_fromRow).toList();
     } catch (error) {
-      return mockNotifications.take(limit).toList();
+      debugPrint('Supabase notifications fetch failed: $error');
+      return mockNotifications
+          .where((notification) => notification.scope == scope)
+          .take(limit)
+          .toList();
     }
   }
 
-  Future<int> fetchUnreadCount() async {
+  Future<int> fetchUnreadCount({
+    required NotificationScope scope,
+    String? lawFirmId,
+  }) async {
     if (!SupabaseConfig.isReady ||
         SupabaseConfig.client.auth.currentUser == null) {
       return mockNotifications
-          .where((notification) => notification.isUnread)
+          .where(
+            (notification) =>
+                notification.scope == scope && notification.isUnread,
+          )
           .length;
     }
 
     try {
-      final rows = await SupabaseConfig.client
+      var query = SupabaseConfig.client
           .from('notifications')
           .select('id')
+          .eq('scope', scope.databaseValue)
           .filter('read_at', 'is', null);
+
+      if (scope == NotificationScope.firm && lawFirmId != null) {
+        query = query.eq('law_firm_id', lawFirmId);
+      }
+
+      final rows = await query;
 
       return rows.length;
     } catch (error) {
+      debugPrint('Supabase notifications count failed: $error');
       return mockNotifications
-          .where((notification) => notification.isUnread)
+          .where(
+            (notification) =>
+                notification.scope == scope && notification.isUnread,
+          )
           .length;
     }
   }
 
-  Future<void> markAllAsRead() async {
+  Future<void> markAllAsRead({
+    required NotificationScope scope,
+    String? lawFirmId,
+  }) async {
     if (!SupabaseConfig.isReady ||
         SupabaseConfig.client.auth.currentUser == null) {
       return;
     }
 
     try {
-      await SupabaseConfig.client
+      var query = SupabaseConfig.client
           .from('notifications')
           .update({'read_at': DateTime.now().toIso8601String()})
+          .eq('scope', scope.databaseValue)
           .filter('read_at', 'is', null);
-    } catch (_) {
+
+      if (scope == NotificationScope.firm && lawFirmId != null) {
+        query = query.eq('law_firm_id', lawFirmId);
+      }
+
+      await query;
+    } catch (error) {
+      debugPrint('Supabase notifications mark read failed: $error');
       return;
     }
   }
@@ -114,6 +162,7 @@ class NotificationRepository {
       title: row['title'] as String? ?? 'Notificação',
       body: row['body'] as String? ?? '',
       type: row['type'] as String? ?? 'system',
+      scope: NotificationScope.fromDatabase(row['scope'] as String?),
       createdAt:
           DateTime.tryParse(row['created_at'] as String? ?? '') ??
           DateTime.now(),

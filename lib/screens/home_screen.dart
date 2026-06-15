@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:jurii/models/jurii_notification.dart';
 import 'package:jurii/theme/app_theme.dart';
 import 'package:jurii/widgets/categories_section.dart';
 import 'package:jurii/widgets/notification_bell.dart';
@@ -33,6 +34,7 @@ class HomeScreen extends StatelessWidget {
                   ),
                   SizedBox(width: 12),
                   NotificationBell(
+                    scope: NotificationScope.client,
                     iconColor: AppTheme.accent,
                     backgroundColor: AppTheme.card,
                     borderColor: AppTheme.lightGoldBorder,

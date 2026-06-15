@@ -1,8 +1,27 @@
+enum NotificationScope {
+  client('client'),
+  lawyer('lawyer'),
+  firm('firm');
+
+  const NotificationScope(this.databaseValue);
+
+  final String databaseValue;
+
+  static NotificationScope fromDatabase(String? value) {
+    return switch (value) {
+      'lawyer' => NotificationScope.lawyer,
+      'firm' => NotificationScope.firm,
+      _ => NotificationScope.client,
+    };
+  }
+}
+
 class JuriiNotification {
   final String id;
   final String title;
   final String body;
   final String type;
+  final NotificationScope scope;
   final DateTime createdAt;
   final DateTime? readAt;
   final Map<String, dynamic> metadata;
@@ -12,6 +31,7 @@ class JuriiNotification {
     required this.title,
     required this.body,
     required this.type,
+    this.scope = NotificationScope.client,
     required this.createdAt,
     this.readAt,
     this.metadata = const {},

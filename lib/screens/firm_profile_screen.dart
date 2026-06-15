@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../data/mock/mock_firm_workspace.dart';
 import '../models/firm_workspace.dart';
+import '../models/lawyer_status.dart';
 import '../models/user_profile.dart';
 import '../theme/app_theme.dart';
 import '../widgets/profile_menu_item.dart';
@@ -13,12 +14,14 @@ class FirmProfileScreen extends StatelessWidget {
     required this.user,
     this.workspace,
     required this.onSwitchToClient,
+    this.onSwitchToLawyer,
     required this.onLogout,
   });
 
   final UserProfile user;
   final FirmWorkspace? workspace;
   final VoidCallback onSwitchToClient;
+  final VoidCallback? onSwitchToLawyer;
   final VoidCallback onLogout;
 
   @override
@@ -132,6 +135,19 @@ class FirmProfileScreen extends StatelessWidget {
               label: const Text('Voltar ao modo cliente'),
             ),
           ),
+          if (user.lawyerStatus == LawyerStatus.approved &&
+              onSwitchToLawyer != null) ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              height: 56,
+              child: ElevatedButton.icon(
+                onPressed: onSwitchToLawyer,
+                icon: const Icon(Icons.balance_outlined),
+                label: const Text('Voltar ao modo profissional'),
+              ),
+            ),
+          ],
           const SizedBox(height: 12),
           SizedBox(
             width: double.infinity,

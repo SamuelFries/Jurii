@@ -3,6 +3,7 @@ import '../data/mock/mock_cases.dart';
 import '../data/mock/mock_messages.dart';
 import '../data/mock/mock_professional_profile.dart';
 import '../models/firm_workspace.dart';
+import '../models/jurii_notification.dart';
 import '../models/lawyer_case.dart';
 import '../models/user_profile.dart';
 import '../theme/app_theme.dart';
@@ -148,6 +149,7 @@ class _ProfessionalHeader extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               NotificationBell(
+                scope: NotificationScope.lawyer,
                 iconColor: AppTheme.primary,
                 backgroundColor: AppTheme.card,
                 borderColor: AppTheme.softBorder,
