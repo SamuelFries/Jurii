@@ -110,7 +110,10 @@ class _LawyerVerificationFormScreenState
               TextField(
                 controller: oabController,
                 keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(8),
+                ],
                 decoration: InputDecoration(
                   hintText: 'Número da OAB',
                   errorText: mostrarErros && oabController.text.trim().isEmpty
