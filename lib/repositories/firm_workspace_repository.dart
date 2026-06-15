@@ -1,4 +1,5 @@
 import '../data/mock/mock_firm_workspace.dart';
+import '../models/firm_operation_metrics.dart';
 import '../models/firm_role.dart';
 import '../models/firm_team_member.dart';
 import '../models/firm_workspace.dart';
@@ -9,6 +10,31 @@ import '../services/supabase_config.dart';
 
 class FirmWorkspaceRepository {
   const FirmWorkspaceRepository();
+
+  Future<FirmOperationMetrics> fetchLawFirmOperationMetrics(
+    String lawFirmId,
+  ) async {
+    if (!SupabaseConfig.isReady ||
+        SupabaseConfig.client.auth.currentUser == null) {
+      return const FirmOperationMetrics.empty();
+    }
+
+    final rows = await SupabaseConfig.client.rpc(
+      'fetch_law_firm_operation_metrics',
+      params: {'law_firm_id_value': lawFirmId},
+    );
+
+    final data = (rows as List<dynamic>).cast<Map<String, dynamic>>();
+    if (data.isEmpty) return const FirmOperationMetrics.empty();
+
+    final row = data.first;
+    return FirmOperationMetrics(
+      clientMessages: row['client_messages'] as int? ?? 0,
+      teamMessages: row['team_messages'] as int? ?? 0,
+      activeCases: row['active_cases'] as int? ?? 0,
+      teamMembers: row['team_members'] as int? ?? 0,
+    );
+  }
 
   Future<FirmWorkspace?> fetchCurrentWorkspace({
     LawFirmVerification? verification,

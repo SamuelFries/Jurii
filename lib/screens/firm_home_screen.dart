@@ -1,30 +1,77 @@
 import 'package:flutter/material.dart';
 
-import '../data/mock/mock_firm_workspace.dart';
+import '../models/firm_operation_metrics.dart';
 import '../models/firm_workspace.dart';
+import '../repositories/firm_workspace_repository.dart';
+import '../services/supabase_config.dart';
 import '../theme/app_theme.dart';
 import '../widgets/notification_bell.dart';
 
-class FirmHomeScreen extends StatelessWidget {
+class FirmHomeScreen extends StatefulWidget {
   const FirmHomeScreen({
     super.key,
     this.workspace,
+    this.repository = const FirmWorkspaceRepository(),
     required this.onOpenMessages,
     required this.onOpenTeam,
     required this.onOpenCases,
   });
 
   final FirmWorkspace? workspace;
+  final FirmWorkspaceRepository repository;
   final VoidCallback onOpenMessages;
   final VoidCallback onOpenTeam;
   final VoidCallback onOpenCases;
 
   @override
+  State<FirmHomeScreen> createState() => _FirmHomeScreenState();
+}
+
+class _FirmHomeScreenState extends State<FirmHomeScreen> {
+  late Future<FirmOperationMetrics> _metricsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _metricsFuture = _loadMetrics();
+  }
+
+  @override
+  void didUpdateWidget(covariant FirmHomeScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.workspace?.firm.id != widget.workspace?.firm.id) {
+      _metricsFuture = _loadMetrics();
+    }
+  }
+
+  Future<FirmOperationMetrics> _loadMetrics() async {
+    final lawFirmId = widget.workspace?.firm.id;
+    final localTeamCount =
+        widget.workspace?.teamMembers
+            .where((member) => member.available)
+            .length ??
+        0;
+
+    if (!SupabaseConfig.isReady || lawFirmId == null) {
+      return FirmOperationMetrics.empty(teamMembers: localTeamCount);
+    }
+
+    try {
+      return await widget.repository.fetchLawFirmOperationMetrics(lawFirmId);
+    } catch (error) {
+      debugPrint('Supabase firm operation metrics fetch failed: $error');
+      return FirmOperationMetrics.empty(teamMembers: localTeamCount);
+    }
+  }
+
+  Future<void> _reloadMetrics() async {
+    setState(() => _metricsFuture = _loadMetrics());
+    await _metricsFuture;
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final metrics = mockFirmMetrics;
-    final workspaceName = workspace?.firm.name ?? mockFirmWorkspaceName;
-    final teamMembersCount =
-        workspace?.teamMembers.length ?? metrics.teamMembers;
+    final workspaceName = widget.workspace?.firm.name ?? 'Escritório';
 
     return SafeArea(
       child: ListView(
@@ -77,7 +124,7 @@ class FirmHomeScreen extends StatelessWidget {
                       ),
                       SizedBox(height: 4),
                       Text(
-                        workspace?.fromSupabase == true
+                        widget.workspace?.fromSupabase == true
                             ? 'Área do escritório'
                             : 'Área do escritório em preparação',
                         maxLines: 1,
@@ -92,10 +139,11 @@ class FirmHomeScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 10),
-                const NotificationBell(
+                NotificationBell(
                   iconColor: AppTheme.officePurple,
                   backgroundColor: AppTheme.card,
                   borderColor: AppTheme.officePurpleBorder,
+                  onChanged: _reloadMetrics,
                 ),
               ],
             ),
@@ -107,7 +155,7 @@ class FirmHomeScreen extends StatelessWidget {
                 child: _ActionButton(
                   icon: Icons.chat_bubble_outline,
                   label: 'Mensagens',
-                  onTap: onOpenMessages,
+                  onTap: widget.onOpenMessages,
                 ),
               ),
               const SizedBox(width: 10),
@@ -115,7 +163,7 @@ class FirmHomeScreen extends StatelessWidget {
                 child: _ActionButton(
                   icon: Icons.group_outlined,
                   label: 'Equipe',
-                  onTap: onOpenTeam,
+                  onTap: widget.onOpenTeam,
                 ),
               ),
               const SizedBox(width: 10),
@@ -123,7 +171,7 @@ class FirmHomeScreen extends StatelessWidget {
                 child: _ActionButton(
                   icon: Icons.folder_outlined,
                   label: 'Casos',
-                  onTap: onOpenCases,
+                  onTap: widget.onOpenCases,
                 ),
               ),
             ],
@@ -138,70 +186,127 @@ class FirmHomeScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          GridView(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              crossAxisSpacing: 10,
-              mainAxisSpacing: 10,
-              childAspectRatio: 1.75,
-            ),
-            children: [
-              _MetricCard(
-                value: '${metrics.clientMessages}',
-                label: 'Mensagens de clientes',
-                icon: Icons.mark_chat_unread_outlined,
-              ),
-              _MetricCard(
-                value: '${metrics.teamMessages}',
-                label: 'Mensagens internas',
-                icon: Icons.forum_outlined,
-              ),
-              _MetricCard(
-                value: '${metrics.activeCases}',
-                label: 'Casos ativos',
-                icon: Icons.folder_copy_outlined,
-              ),
-              _MetricCard(
-                value: '$teamMembersCount',
-                label: 'Membros ativos',
-                icon: Icons.badge_outlined,
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          const Text(
-            'Hoje',
-            style: TextStyle(
-              color: AppTheme.textPrimary,
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 12),
-          const _TodayItem(
-            icon: Icons.mail_outline,
-            title: 'Responder clientes',
-            subtitle: '3 conversas aguardam retorno do escritório',
-            color: AppTheme.officePurple,
-          ),
-          const SizedBox(height: 10),
-          const _TodayItem(
-            icon: Icons.assignment_late_outlined,
-            title: 'Prazo crítico',
-            subtitle: 'Rescisão trabalhista vence em 24h',
-            color: AppTheme.danger,
-          ),
-          const SizedBox(height: 10),
-          const _TodayItem(
-            icon: Icons.groups_outlined,
-            title: 'Alinhamento interno',
-            subtitle: 'Dra. Marina solicitou revisão da minuta',
-            color: AppTheme.accent,
+          FutureBuilder<FirmOperationMetrics>(
+            future: _metricsFuture,
+            builder: (context, snapshot) {
+              final metrics =
+                  snapshot.data ??
+                  FirmOperationMetrics.empty(
+                    teamMembers:
+                        widget.workspace?.teamMembers
+                            .where((member) => member.available)
+                            .length ??
+                        0,
+                  );
+
+              return Column(
+                children: [
+                  _OperationMetrics(metrics: metrics),
+                  const SizedBox(height: 24),
+                  _TodayOverview(metrics: metrics),
+                ],
+              );
+            },
           ),
         ],
       ),
+    );
+  }
+}
+
+class _OperationMetrics extends StatelessWidget {
+  const _OperationMetrics({required this.metrics});
+
+  final FirmOperationMetrics metrics;
+
+  @override
+  Widget build(BuildContext context) {
+    return GridView(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 10,
+        mainAxisSpacing: 10,
+        childAspectRatio: 1.75,
+      ),
+      children: [
+        _MetricCard(
+          value: '${metrics.clientMessages}',
+          label: 'Conversas com clientes',
+          icon: Icons.mark_chat_unread_outlined,
+        ),
+        _MetricCard(
+          value: '${metrics.teamMessages}',
+          label: 'Conversas internas',
+          icon: Icons.forum_outlined,
+        ),
+        _MetricCard(
+          value: '${metrics.activeCases}',
+          label: 'Casos ativos',
+          icon: Icons.folder_copy_outlined,
+        ),
+        _MetricCard(
+          value: '${metrics.teamMembers}',
+          label: 'Membros ativos',
+          icon: Icons.badge_outlined,
+        ),
+      ],
+    );
+  }
+}
+
+class _TodayOverview extends StatelessWidget {
+  const _TodayOverview({required this.metrics});
+
+  final FirmOperationMetrics metrics;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Hoje',
+          style: TextStyle(
+            color: AppTheme.textPrimary,
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 12),
+        _TodayItem(
+          icon: Icons.mail_outline,
+          title: metrics.clientMessages > 0
+              ? 'Conversas com clientes'
+              : 'Sem novas conversas',
+          subtitle: metrics.clientMessages > 0
+              ? '${metrics.clientMessages} conversas ativas com clientes do escritório'
+              : 'As conversas aparecerão aqui após a primeira mensagem real.',
+          color: AppTheme.officePurple,
+        ),
+        const SizedBox(height: 10),
+        _TodayItem(
+          icon: Icons.folder_copy_outlined,
+          title: metrics.activeCases > 0
+              ? 'Casos em andamento'
+              : 'Sem casos ativos',
+          subtitle: metrics.activeCases > 0
+              ? '${metrics.activeCases} casos vinculados ao escritório'
+              : 'Casos aceitos por advogados do escritório aparecerão aqui.',
+          color: metrics.activeCases > 0
+              ? AppTheme.primary
+              : AppTheme.textSecondary,
+        ),
+        const SizedBox(height: 10),
+        _TodayItem(
+          icon: Icons.groups_outlined,
+          title: 'Equipe ativa',
+          subtitle:
+              '${metrics.teamMembers} membros ativos vinculados ao escritório',
+          color: AppTheme.accent,
+        ),
+      ],
     );
   }
 }

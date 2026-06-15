@@ -17,7 +17,7 @@ Esse script cria:
 
 Para um ambiente novo do Jurii, execute também os patches em ordem crescente
 depois do `schema.sql`. O app atual depende das funções e ajustes criados até
-o patch 021.
+o patch 022.
 
 ## 2. Configurar o app Flutter
 
@@ -255,6 +255,14 @@ mensagem falhar com:
 Ele garante que `public.messages.metadata` exista, tenha default `{}` e esteja
 pronta para mensagens comuns, cards de solicitação de caso e notificações. O
 patch também solicita reload do schema da API do Supabase.
+
+## 2.22. Patch para casos e métricas do escritório
+
+Rode `patch_022_firm_case_operations.sql` depois do patch 021. Ele:
+
+- garante `created_at` em `law_firm_members`, usado nos fluxos de caso
+- faz a aba de casos do escritório incluir casos aceitos por advogados membros
+- cria `fetch_law_firm_operation_metrics` para a home do escritório usar dados reais
 
 ## 3. Status da integração
 

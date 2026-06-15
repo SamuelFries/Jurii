@@ -559,7 +559,7 @@ class _CaseRequestSheetState extends State<_CaseRequestSheet> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'O cliente poderá aceitar ou recusar na aba Meus Casos.',
+            'O cliente poderá aceitar ou recusar pelo sino, pelo chat ou pela aba Meus Casos.',
             style: TextStyle(color: AppTheme.textSecondary),
           ),
           const SizedBox(height: 16),

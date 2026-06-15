@@ -268,6 +268,7 @@ create table if not exists public.law_firm_members (
   lawyer_id uuid not null references public.lawyer_profiles(id) on delete cascade,
   role text not null default 'lawyer',
   joined_at timestamptz not null default now(),
+  created_at timestamptz not null default now(),
   unique (law_firm_id, lawyer_id)
 );
 

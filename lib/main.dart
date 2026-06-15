@@ -445,6 +445,10 @@ class _JuriiAppState extends State<JuriiApp> {
               workspace: _firmWorkspace,
               onInviteLawyer: _inviteLawyerToFirm,
               onSwitchToClient: _switchToClient,
+              onSwitchToLawyer:
+                  _currentUser.lawyerStatus == LawyerStatus.approved
+                  ? _switchToLawyer
+                  : null,
               onLogout: _handleLogout,
             )
           : _isLawyerMode
@@ -569,6 +573,7 @@ class FirmNavigation extends StatefulWidget {
     required this.workspace,
     required this.onInviteLawyer,
     required this.onSwitchToClient,
+    this.onSwitchToLawyer,
     required this.onLogout,
   });
 
@@ -580,6 +585,7 @@ class FirmNavigation extends StatefulWidget {
   })
   onInviteLawyer;
   final VoidCallback onSwitchToClient;
+  final VoidCallback? onSwitchToLawyer;
   final VoidCallback onLogout;
 
   @override
@@ -609,6 +615,7 @@ class _FirmNavigationState extends State<FirmNavigation> {
         user: widget.user,
         workspace: widget.workspace,
         onSwitchToClient: widget.onSwitchToClient,
+        onSwitchToLawyer: widget.onSwitchToLawyer,
         onLogout: widget.onLogout,
       ),
     ];
