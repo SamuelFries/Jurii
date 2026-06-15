@@ -89,7 +89,10 @@ class _RegisterFormState extends State<RegisterForm> {
               controller: _cpfController,
               keyboardType: TextInputType.number,
               textInputAction: TextInputAction.next,
-              inputFormatters: [_CpfInputFormatter()],
+              inputFormatters: [
+                _CpfInputFormatter(),
+                LengthLimitingTextInputFormatter(14),
+              ],
               decoration: const InputDecoration(
                 hintText: 'Seu CPF',
                 prefixIcon: Icon(Icons.badge_outlined),

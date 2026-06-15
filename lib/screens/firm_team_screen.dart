@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../data/mock/mock_firm_workspace.dart';
 import '../models/firm_role.dart';
@@ -218,7 +219,11 @@ class _InviteLawyerDialogState extends State<_InviteLawyerDialog> {
             TextField(
               controller: _numberController,
               enabled: !_isSubmitting,
-              keyboardType: TextInputType.text,
+              keyboardType: TextInputType.number,
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(8),
+              ],
               decoration: const InputDecoration(
                 labelText: 'Número da OAB',
                 hintText: '123456',

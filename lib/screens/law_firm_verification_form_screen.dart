@@ -45,7 +45,7 @@ class _LawFirmVerificationFormScreenState
   bool get formIsValid {
     return firmNameController.text.trim().length >= 3 &&
         _onlyDigits(cnpjController.text).length == 14 &&
-        phoneController.text.trim().length >= 10 &&
+        _isValidPhone(phoneController.text) &&
         emailController.text.trim().contains('@') &&
         addressController.text.trim().length >= 8 &&
         int.tryParse(lawyersCountController.text.trim()) != null &&
@@ -122,7 +122,10 @@ class _LawFirmVerificationFormScreenState
               TextField(
                 controller: cnpjController,
                 keyboardType: TextInputType.number,
-                inputFormatters: [_CnpjInputFormatter()],
+                inputFormatters: [
+                  _CnpjInputFormatter(),
+                  LengthLimitingTextInputFormatter(18),
+                ],
                 decoration: InputDecoration(
                   hintText: 'CNPJ',
                   errorText:
@@ -136,10 +139,13 @@ class _LawFirmVerificationFormScreenState
               TextField(
                 controller: phoneController,
                 keyboardType: TextInputType.phone,
+                inputFormatters: [
+                  _PhoneInputFormatter(),
+                  LengthLimitingTextInputFormatter(15),
+                ],
                 decoration: InputDecoration(
                   hintText: 'Telefone comercial',
-                  errorText:
-                      showErrors && phoneController.text.trim().length < 10
+                  errorText: showErrors && !_isValidPhone(phoneController.text)
                       ? 'Informe um telefone de contato'
                       : null,
                 ),
@@ -172,7 +178,10 @@ class _LawFirmVerificationFormScreenState
               TextField(
                 controller: lawyersCountController,
                 keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(4),
+                ],
                 decoration: InputDecoration(
                   hintText: 'Quantidade de advogados',
                   errorText:
@@ -412,6 +421,11 @@ class _LawFirmVerificationFormScreenState
 
   String _onlyDigits(String value) => value.replaceAll(RegExp(r'\D'), '');
 
+  bool _isValidPhone(String value) {
+    final digits = _onlyDigits(value);
+    return digits.length == 10 || digits.length == 11;
+  }
+
   String _friendlyError(Object error) {
     final message = error.toString().toLowerCase();
     final code = error is PostgrestException ? error.code : null;
@@ -457,6 +471,37 @@ class _CnpjInputFormatter extends TextInputFormatter {
       } else if (index == 8) {
         buffer.write('/');
       } else if (index == 12) {
+        buffer.write('-');
+      }
+      buffer.write(digits[index]);
+    }
+    return buffer.toString();
+  }
+}
+
+class _PhoneInputFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final digits = newValue.text.replaceAll(RegExp(r'\D'), '');
+    final limitedDigits = digits.length > 11 ? digits.substring(0, 11) : digits;
+    final formattedPhone = _formatPhone(limitedDigits);
+    return TextEditingValue(
+      text: formattedPhone,
+      selection: TextSelection.collapsed(offset: formattedPhone.length),
+    );
+  }
+
+  String _formatPhone(String digits) {
+    final buffer = StringBuffer();
+    for (var index = 0; index < digits.length; index++) {
+      if (index == 0) {
+        buffer.write('(');
+      } else if (index == 2) {
+        buffer.write(') ');
+      } else if (index == (digits.length > 10 ? 7 : 6)) {
         buffer.write('-');
       }
       buffer.write(digits[index]);
