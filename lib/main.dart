@@ -302,7 +302,11 @@ class _JuriiAppState extends State<JuriiApp> {
   }
 
   void _switchToFirm() {
-    if (_lawFirmVerification?.status != LawFirmVerificationStatus.approved) {
+    final hasApprovedVerification =
+        _lawFirmVerification?.status == LawFirmVerificationStatus.approved;
+    final hasSyncedWorkspace = _firmWorkspace?.fromSupabase == true;
+
+    if (!hasApprovedVerification && !hasSyncedWorkspace) {
       return;
     }
     setState(() {
@@ -456,6 +460,7 @@ class _JuriiAppState extends State<JuriiApp> {
               user: _currentUser,
               workspace: _firmWorkspace,
               onRefreshFirmWorkspace: _refreshFirmWorkspace,
+              onSwitchToFirm: _switchToFirm,
               onSwitchToClient: _switchToClient,
               onLogout: _handleLogout,
             )
@@ -634,6 +639,7 @@ class LawyerNavigation extends StatefulWidget {
   final UserProfile user;
   final FirmWorkspace? workspace;
   final Future<void> Function() onRefreshFirmWorkspace;
+  final VoidCallback onSwitchToFirm;
   final VoidCallback onSwitchToClient;
   final VoidCallback onLogout;
 
@@ -642,6 +648,7 @@ class LawyerNavigation extends StatefulWidget {
     required this.user,
     required this.workspace,
     required this.onRefreshFirmWorkspace,
+    required this.onSwitchToFirm,
     required this.onSwitchToClient,
     required this.onLogout,
   });
@@ -668,6 +675,8 @@ class _LawyerNavigationState extends State<LawyerNavigation> {
       const LawyerCasesScreen(),
       ProfileScreen(
         user: widget.user,
+        firmWorkspace: widget.workspace,
+        onOpenLawFirmArea: widget.onSwitchToFirm,
         onSwitchToClient: widget.onSwitchToClient,
         onOpenMessages: () => setState(() => currentIndex = 1),
         onOpenCases: () => setState(() => currentIndex = 2),
