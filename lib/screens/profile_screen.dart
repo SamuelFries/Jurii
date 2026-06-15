@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../models/firm_workspace.dart';
 import '../models/law_firm_verification.dart';
 import '../models/law_firm_verification_status.dart';
 import '../models/lawyer_verification.dart';
@@ -18,6 +19,7 @@ class ProfileScreen extends StatelessWidget {
   final UserProfile user;
   final LawyerVerification? lawyerVerification;
   final LawFirmVerification? lawFirmVerification;
+  final FirmWorkspace? firmWorkspace;
   final VoidCallback? onSwitchToLawyer;
   final VoidCallback? onSwitchToClient;
   final ValueChanged<LawyerVerification>? onVerificationSubmitted;
@@ -35,6 +37,7 @@ class ProfileScreen extends StatelessWidget {
     required this.user,
     this.lawyerVerification,
     this.lawFirmVerification,
+    this.firmWorkspace,
     this.onSwitchToLawyer,
     this.onSwitchToClient,
     this.onVerificationSubmitted,
@@ -51,6 +54,10 @@ class ProfileScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isLawyerMode = onSwitchToClient != null;
+    final canOpenLawFirmArea =
+        isLawyerMode &&
+        firmWorkspace?.fromSupabase == true &&
+        onOpenLawFirmArea != null;
 
     return SafeArea(
       child: SingleChildScrollView(
@@ -212,6 +219,14 @@ class ProfileScreen extends StatelessWidget {
                 ProfileMenuSection(
                   title: 'ÁREA PROFISSIONAL',
                   items: [
+                    if (canOpenLawFirmArea)
+                      ProfileMenuItem(
+                        icon: Icons.apartment_outlined,
+                        iconColor: AppTheme.officePurple,
+                        label: 'Área do Escritório',
+                        subtitle: 'Acesse ${firmWorkspace!.firm.name}',
+                        onTap: onOpenLawFirmArea,
+                      ),
                     ProfileMenuItem(
                       icon: Icons.badge_outlined,
                       iconColor: AppTheme.accent,

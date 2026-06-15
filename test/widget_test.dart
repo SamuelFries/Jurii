@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:jurii/data/mock/mock_users.dart';
+import 'package:jurii/models/firm_role.dart';
+import 'package:jurii/models/firm_workspace.dart';
+import 'package:jurii/models/law_firm.dart';
 import 'package:jurii/models/law_firm_verification.dart';
 import 'package:jurii/models/law_firm_verification_status.dart';
 import 'package:jurii/models/lawyer_status.dart';
@@ -15,6 +18,25 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   final clientUser = mockCurrentUser.copyWith(
     lawyerStatus: LawyerStatus.client,
+  );
+  final lawyerUser = mockCurrentUser.copyWith(
+    lawyerStatus: LawyerStatus.approved,
+    oabNumber: 'OAB/SP 123456',
+  );
+  const firmWorkspace = FirmWorkspace(
+    firm: LawFirm(
+      id: 'firm_fries_advogados',
+      name: 'Fries Advogados',
+      initials: 'FA',
+      rating: 0,
+      distance: '',
+      specialty: 'Escritório jurídico',
+      reviews: 0,
+      avatarType: 'purple',
+    ),
+    currentUserRole: FirmRole.owner,
+    teamMembers: [],
+    fromSupabase: true,
   );
 
   Future<RegisterResult> registerStub({
@@ -249,6 +271,53 @@ void main() {
     await tester.pump();
 
     expect(openedFirmArea, isTrue);
+  });
+
+  testWidgets('professional profile shows firm area only with workspace', (
+    WidgetTester tester,
+  ) async {
+    var openedFirmArea = false;
+
+    await tester.pumpWidget(
+      _testApp(
+        Scaffold(
+          body: ProfileScreen(
+            user: lawyerUser,
+            firmWorkspace: firmWorkspace,
+            onSwitchToClient: () {},
+            onOpenLawFirmArea: () {
+              openedFirmArea = true;
+            },
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Área do Escritório'), findsOneWidget);
+    expect(find.text('Acesse Fries Advogados'), findsOneWidget);
+
+    await tester.tap(find.text('Área do Escritório'));
+    await tester.pump();
+
+    expect(openedFirmArea, isTrue);
+  });
+
+  testWidgets('professional profile hides firm area without workspace', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      _testApp(
+        Scaffold(
+          body: ProfileScreen(
+            user: lawyerUser,
+            onSwitchToClient: () {},
+            onOpenLawFirmArea: () {},
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Área do Escritório'), findsNothing);
   });
 
   testWidgets('submitting verification emits pending verification', (
