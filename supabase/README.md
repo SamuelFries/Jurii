@@ -17,7 +17,7 @@ Esse script cria:
 
 Para um ambiente novo do Jurii, execute também os patches em ordem crescente
 depois do `schema.sql`. O app atual depende das funções e ajustes criados até
-o patch 027.
+o patch 028.
 
 ## 2. Configurar o app Flutter
 
@@ -309,6 +309,16 @@ Esse patch recria `fetch_lawyer_cases()` para listar somente casos onde o
 usuário atua profissionalmente, como `assigned_lawyer_id` ou participante com
 role `lawyer`/`firm_member`. Casos onde o usuário é `client` continuam
 aparecendo apenas no fluxo do cliente.
+
+## 2.28. Patch para convite do próprio advogado
+
+Rode `patch_028_self_lawyer_invite_requires_acceptance.sql` depois do patch
+027 se o dono/admin do escritório convidar o próprio perfil de advogado e a
+notificação ficar pendente sem conseguir aceitar ou recusar.
+
+Esse patch separa o membership ativo de líder/admin do aceite como advogado do
+escritório. O usuário mantém acesso ao escritório, mas o vínculo como advogado
+fica pendente até ser aceito pelo sino de notificações.
 
 ## 3. Status da integração
 
