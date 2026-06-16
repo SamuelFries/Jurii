@@ -320,6 +320,21 @@ Esse patch separa o membership ativo de líder/admin do aceite como advogado do
 escritório. O usuário mantém acesso ao escritório, mas o vínculo como advogado
 fica pendente até ser aceito pelo sino de notificações.
 
+## 2.29. Patch para busca por intenção jurídica
+
+Rode `patch_029_legal_search_intents.sql` depois do patch 028. Ele adiciona
+uma camada ampla de intenção de busca para a Home do cliente, permitindo que
+termos formais e informais como `Maria da Penha`, `meu marido me bateu`,
+`estupro`, `pai não pagou pensão`, `fui demitido sem receber`, `nome sujo`,
+`minha compra não chegou`, `INSS`, `bateram no meu carro` ou `whatsapp clonado`
+encontrem advogados e escritórios pelas áreas jurídicas corretas.
+
+O patch cria a tabela `legal_search_intents`, instala a função
+`infer_legal_search_areas` e recria as RPCs `fetch_recommended_lawyers` e
+`fetch_recommended_law_firms` para considerar essas intenções no ranking. O
+patch é idempotente e pode ser executado novamente para atualizar o dicionário
+de termos.
+
 ## 3. Status da integração
 
 A camada inicial de repositories já existe em `lib/repositories/`.

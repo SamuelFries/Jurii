@@ -30,9 +30,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _toggleArea(String area) {
-    final selected =
-        normalizePracticeAreaQuery(_searchQuery) ==
-        normalizePracticeAreaQuery(area);
+    final selected = isPracticeAreaSelectedForQuery(
+      area: area,
+      query: _searchQuery,
+    );
     final nextQuery = selected ? '' : area;
     _searchController.text = nextQuery;
     _setSearchQuery(nextQuery);
@@ -77,7 +78,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 textInputAction: TextInputAction.search,
                 onChanged: _setSearchQuery,
                 decoration: InputDecoration(
-                  hintText: 'Busque por área do direito',
+                  hintText: 'Descreva seu problema jurídico',
                   prefixIcon: const Icon(Icons.search),
                   suffixIcon: _searchQuery.isEmpty
                       ? null
@@ -94,7 +95,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
               const SizedBox(height: 12),
 
-              const Text('Ex.: "Direito de Família"'),
+              const Text('Ex.: "Maria da Penha", "estupro" ou "pensão"'),
 
               const SizedBox(height: 14),
 
@@ -107,9 +108,10 @@ class _HomeScreenState extends State<HomeScreen> {
                       const SizedBox(width: 8),
                   itemBuilder: (context, index) {
                     final area = legalPracticeAreas[index];
-                    final selected =
-                        normalizePracticeAreaQuery(_searchQuery) ==
-                        normalizePracticeAreaQuery(area);
+                    final selected = isPracticeAreaSelectedForQuery(
+                      area: area,
+                      query: _searchQuery,
+                    );
                     return FilterChip(
                       label: Text(area),
                       selected: selected,

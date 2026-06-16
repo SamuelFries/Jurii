@@ -71,9 +71,10 @@ class _CategoriesSectionState extends State<CategoriesSection> {
                   id: category.id,
                   title: category.title,
                 );
-                final selected =
-                    normalizePracticeAreaQuery(widget.searchQuery) ==
-                    normalizePracticeAreaQuery(practiceArea);
+                final selected = isPracticeAreaSelectedForQuery(
+                  area: practiceArea,
+                  query: widget.searchQuery,
+                );
                 return CategoryCard(
                   title: category.title,
                   isGold: category.isGold,
