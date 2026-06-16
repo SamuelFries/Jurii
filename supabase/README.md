@@ -17,7 +17,7 @@ Esse script cria:
 
 Para um ambiente novo do Jurii, execute também os patches em ordem crescente
 depois do `schema.sql`. O app atual depende das funções e ajustes criados até
-o patch 026.
+o patch 027.
 
 ## 2. Configurar o app Flutter
 
@@ -298,6 +298,17 @@ Rode `patch_026_practice_area_tags_search.sql` depois do patch 025. Ele:
 - atualiza as funções de envio/aprovação para salvar múltiplas tags
 - cria busca por área para a Home do cliente em advogados e escritórios
 - solicita reload do schema da API do Supabase
+
+## 2.27. Patch para escopo estrito dos casos do advogado
+
+Rode `patch_027_strict_lawyer_case_scope.sql` depois do patch 026 se um usuário
+que também é advogado enxergar, no fluxo profissional, casos onde ele está
+apenas como cliente.
+
+Esse patch recria `fetch_lawyer_cases()` para listar somente casos onde o
+usuário atua profissionalmente, como `assigned_lawyer_id` ou participante com
+role `lawyer`/`firm_member`. Casos onde o usuário é `client` continuam
+aparecendo apenas no fluxo do cliente.
 
 ## 3. Status da integração
 
