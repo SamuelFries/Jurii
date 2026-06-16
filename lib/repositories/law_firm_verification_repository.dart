@@ -33,6 +33,7 @@ class LawFirmVerificationRepository {
     required String email,
     required String address,
     required int lawyersCount,
+    required List<String> practiceAreas,
     required List<LawFirmVerificationDocument> documents,
   }) async {
     final user = SupabaseConfig.client.auth.currentUser;
@@ -57,6 +58,7 @@ class LawFirmVerificationRepository {
       'email': email,
       'address': address,
       'lawyers_count': lawyersCount,
+      'practice_areas': practiceAreas,
       'status': 'pending',
     });
 
@@ -68,6 +70,7 @@ class LawFirmVerificationRepository {
       email: email,
       address: address,
       lawyersCount: lawyersCount,
+      practiceAreas: practiceAreas,
       documents: documents,
       status: LawFirmVerificationStatus.pending,
     );
@@ -84,6 +87,7 @@ class LawFirmVerificationRepository {
       email: row['email'] as String? ?? '',
       address: row['address'] as String? ?? '',
       lawyersCount: row['lawyers_count'] as int? ?? 0,
+      practiceAreas: _practiceAreasFromRow(row['practice_areas']),
       documents: const [],
       status: _statusFromRow(row['status'] as String?),
       reviewedAt: _dateTimeFromRow(row['reviewed_at']),
@@ -103,6 +107,16 @@ class LawFirmVerificationRepository {
   DateTime? _dateTimeFromRow(dynamic value) {
     if (value is! String || value.isEmpty) return null;
     return DateTime.tryParse(value);
+  }
+
+  List<String> _practiceAreasFromRow(Object? value) {
+    final areas = value is List
+        ? value.whereType<String>().toList()
+        : const <String>[];
+    return areas
+        .map((area) => area.trim())
+        .where((area) => area.isNotEmpty)
+        .toList();
   }
 
   String _nameForUser(String? email, Map<String, dynamic>? metadata) {

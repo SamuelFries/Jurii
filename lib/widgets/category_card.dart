@@ -4,12 +4,14 @@ import '../theme/app_theme.dart';
 class CategoryCard extends StatelessWidget {
   final String title;
   final bool isGold;
+  final bool selected;
   final VoidCallback? onTap;
 
   const CategoryCard({
     super.key,
     required this.title,
     required this.isGold,
+    this.selected = false,
     this.onTap,
   });
 
@@ -24,8 +26,12 @@ class CategoryCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: isGold ? AppTheme.lightGold : AppTheme.lightBlue,
           border: Border.all(
-            color: isGold ? AppTheme.lightGoldBorder : AppTheme.lightBlueBorder,
-            width: 1.5,
+            color: selected
+                ? accentColor
+                : isGold
+                ? AppTheme.lightGoldBorder
+                : AppTheme.lightBlueBorder,
+            width: selected ? 2 : 1.5,
           ),
           borderRadius: BorderRadius.circular(16),
         ),

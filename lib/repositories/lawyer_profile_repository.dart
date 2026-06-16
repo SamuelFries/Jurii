@@ -1,5 +1,6 @@
 import 'dart:developer' as developer;
 
+import '../data/legal_practice_areas.dart';
 import '../data/mock/mock_lawyers.dart';
 import '../models/lawyer_profile_summary.dart';
 import '../services/supabase_config.dart';
@@ -7,12 +8,41 @@ import '../services/supabase_config.dart';
 class LawyerProfileRepository {
   const LawyerProfileRepository();
 
-  Future<List<LawyerProfileSummary>> fetchRecommendedLawyers() async {
+  Future<List<LawyerProfileSummary>> fetchRecommendedLawyers({
+    String searchQuery = '',
+  }) async {
     if (!SupabaseConfig.isReady ||
         SupabaseConfig.client.auth.currentUser == null) {
-      return mockRecommendedLawyers;
+      return _filterLawyers(mockRecommendedLawyers, searchQuery);
     }
 
+    try {
+      final rows = await SupabaseConfig.client.rpc(
+        'fetch_recommended_lawyers',
+        params: {'limit_value': 6, 'search_value': searchQuery},
+      );
+
+      return (rows as List<dynamic>)
+          .cast<Map<String, dynamic>>()
+          .map<LawyerProfileSummary>(_fromRow)
+          .toList();
+    } catch (error, stackTrace) {
+      final fallback = await _fetchRecommendedLawyersLegacy();
+      if (fallback.isNotEmpty) {
+        return _filterLawyers(fallback, searchQuery);
+      }
+
+      developer.log(
+        'Supabase recommended lawyers fetch failed',
+        name: 'LawyerProfileRepository',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      return const [];
+    }
+  }
+
+  Future<List<LawyerProfileSummary>> _fetchRecommendedLawyersLegacy() async {
     try {
       final rows = await SupabaseConfig.client.rpc(
         'fetch_recommended_lawyers',
@@ -23,13 +53,7 @@ class LawyerProfileRepository {
           .cast<Map<String, dynamic>>()
           .map<LawyerProfileSummary>(_fromRow)
           .toList();
-    } catch (error, stackTrace) {
-      developer.log(
-        'Supabase recommended lawyers fetch failed',
-        name: 'LawyerProfileRepository',
-        error: error,
-        stackTrace: stackTrace,
-      );
+    } catch (_) {
       return const [];
     }
   }
@@ -54,6 +78,8 @@ class LawyerProfileRepository {
   LawyerProfileSummary _fromRow(Map<String, dynamic> row) {
     final name = row['full_name'] as String? ?? 'Advogado Jurii';
     final initials = row['initials'] as String? ?? _initialsFor(name);
+    final primaryArea =
+        row['primary_area'] as String? ?? 'Atendimento jurídico';
 
     return LawyerProfileSummary(
       id: row['id'].toString(),
@@ -61,13 +87,48 @@ class LawyerProfileRepository {
       initials: initials,
       oabNumber: row['oab_number'] as String? ?? '',
       oabState: row['oab_state'] as String? ?? '',
-      primaryArea: row['primary_area'] as String? ?? 'Atendimento jurídico',
+      primaryArea: primaryArea,
+      practiceAreas: _practiceAreasFromRow(
+        row['practice_areas'],
+        fallback: [primaryArea],
+      ),
       bio:
           row['bio'] as String? ?? 'Perfil profissional verificado pela Jurii.',
       rating: (row['rating'] as num?)?.toDouble() ?? 4.8,
       reviews: row['reviews_count'] as int? ?? 0,
       avatarType: row['avatar_type'] as String? ?? 'navy',
     );
+  }
+
+  List<LawyerProfileSummary> _filterLawyers(
+    List<LawyerProfileSummary> lawyers,
+    String query,
+  ) {
+    return lawyers
+        .where(
+          (lawyer) => matchesPracticeAreaSearch(
+            practiceAreas: lawyer.practiceAreas,
+            query: query,
+            extraFields: [lawyer.name, lawyer.primaryArea],
+          ),
+        )
+        .toList();
+  }
+
+  List<String> _practiceAreasFromRow(Object? value, {List<String>? fallback}) {
+    final areas = value is List
+        ? value.whereType<String>().toList()
+        : const <String>[];
+    final cleanAreas = areas
+        .map((area) => area.trim())
+        .where((area) => area.isNotEmpty)
+        .toList();
+    if (cleanAreas.isNotEmpty) return cleanAreas;
+
+    return (fallback ?? const <String>[])
+        .map((area) => area.trim())
+        .where((area) => area.isNotEmpty)
+        .toList();
   }
 
   String _initialsFor(String value) {

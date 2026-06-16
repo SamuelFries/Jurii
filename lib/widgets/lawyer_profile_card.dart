@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../data/legal_practice_areas.dart';
 import '../models/lawyer_profile_summary.dart';
 import '../theme/app_theme.dart';
 
@@ -71,7 +72,7 @@ class LawyerProfileCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      lawyer.primaryArea,
+                      practiceAreaSummary(lawyer.practiceAreas),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(

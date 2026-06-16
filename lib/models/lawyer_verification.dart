@@ -6,6 +6,7 @@ class LawyerVerification {
   final String oabNumber;
   final String oabState;
   final String practiceArea;
+  final List<String> practiceAreas;
   final List<VerificationDocument> documents;
   final LawyerStatus status;
 
@@ -14,6 +15,7 @@ class LawyerVerification {
     required this.oabNumber,
     required this.oabState,
     required this.practiceArea,
+    required this.practiceAreas,
     required this.documents,
     required this.status,
   });

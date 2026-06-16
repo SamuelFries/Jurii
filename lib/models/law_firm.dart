@@ -5,6 +5,7 @@ class LawFirm {
   final double rating;
   final String distance;
   final String specialty;
+  final List<String> practiceAreas;
   final int reviews;
   final String avatarType;
   final String? description;
@@ -20,6 +21,7 @@ class LawFirm {
     required this.rating,
     required this.distance,
     required this.specialty,
+    required this.practiceAreas,
     required this.reviews,
     required this.avatarType,
     this.description,

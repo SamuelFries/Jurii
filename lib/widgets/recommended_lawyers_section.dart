@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../data/legal_practice_areas.dart';
 import '../data/mock/mock_lawyers.dart';
 import '../models/lawyer_profile_summary.dart';
 import '../repositories/lawyer_profile_repository.dart';
@@ -11,9 +12,11 @@ import 'lawyer_profile_card.dart';
 class RecommendedLawyersSection extends StatefulWidget {
   const RecommendedLawyersSection({
     super.key,
+    this.searchQuery = '',
     this.repository = const LawyerProfileRepository(),
   });
 
+  final String searchQuery;
   final LawyerProfileRepository repository;
 
   @override
@@ -22,12 +25,26 @@ class RecommendedLawyersSection extends StatefulWidget {
 }
 
 class _RecommendedLawyersSectionState extends State<RecommendedLawyersSection> {
-  late final Future<List<LawyerProfileSummary>> _lawyersFuture;
+  late Future<List<LawyerProfileSummary>> _lawyersFuture;
 
   @override
   void initState() {
     super.initState();
-    _lawyersFuture = widget.repository.fetchRecommendedLawyers();
+    _lawyersFuture = _loadLawyers();
+  }
+
+  @override
+  void didUpdateWidget(covariant RecommendedLawyersSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.searchQuery != widget.searchQuery) {
+      _lawyersFuture = _loadLawyers();
+    }
+  }
+
+  Future<List<LawyerProfileSummary>> _loadLawyers() {
+    return widget.repository.fetchRecommendedLawyers(
+      searchQuery: widget.searchQuery,
+    );
   }
 
   @override
@@ -51,7 +68,7 @@ class _RecommendedLawyersSectionState extends State<RecommendedLawyersSection> {
             final shouldUseMock = !SupabaseConfig.isReady;
             final lawyers =
                 snapshot.data ??
-                (shouldUseMock ? mockRecommendedLawyers : const []);
+                (shouldUseMock ? _filterMockLawyers() : const []);
 
             if (snapshot.connectionState == ConnectionState.waiting &&
                 !shouldUseMock) {
@@ -90,6 +107,18 @@ class _RecommendedLawyersSectionState extends State<RecommendedLawyersSection> {
         ),
       ],
     );
+  }
+
+  List<LawyerProfileSummary> _filterMockLawyers() {
+    return mockRecommendedLawyers
+        .where(
+          (lawyer) => matchesPracticeAreaSearch(
+            practiceAreas: lawyer.practiceAreas,
+            query: widget.searchQuery,
+            extraFields: [lawyer.name, lawyer.primaryArea],
+          ),
+        )
+        .toList();
   }
 }
 

@@ -11,6 +11,7 @@ import '../models/verification_document.dart';
 import '../repositories/lawyer_verification_repository.dart';
 import '../services/supabase_config.dart';
 import '../theme/app_theme.dart';
+import '../widgets/practice_area_selector.dart';
 import 'lawyer_verification_success_screen.dart';
 
 class LawyerVerificationFormScreen extends StatefulWidget {
@@ -37,13 +38,13 @@ class _LawyerVerificationFormScreenState
   bool isSubmitting = false;
   String? errorMessage;
   String? selectedState;
-  String? selectedArea;
+  List<String> selectedAreas = const [];
   late List<VerificationDocument> documents;
 
   bool get formularioValido {
     return oabController.text.trim().isNotEmpty &&
         selectedState != null &&
-        selectedArea != null &&
+        selectedAreas.isNotEmpty &&
         documents.every((document) => document.uploaded);
   }
 
@@ -149,29 +150,10 @@ class _LawyerVerificationFormScreenState
 
               const SizedBox(height: 14),
 
-              DropdownButtonFormField<String>(
-                initialValue: selectedArea,
-                isExpanded: true,
-                menuMaxHeight: 280,
-                decoration: InputDecoration(
-                  hintText: 'Área de atuação',
-                  errorText: mostrarErros && selectedArea == null
-                      ? 'Selecione sua área principal'
-                      : null,
-                ),
-                items: mockPracticeAreas
-                    .map(
-                      (area) => DropdownMenuItem(
-                        value: area,
-                        child: Text(area, overflow: TextOverflow.ellipsis),
-                      ),
-                    )
-                    .toList(),
-                onChanged: (value) {
-                  setState(() {
-                    selectedArea = value;
-                  });
-                },
+              PracticeAreaSelector(
+                selectedAreas: selectedAreas,
+                showError: mostrarErros,
+                onChanged: (areas) => setState(() => selectedAreas = areas),
               ),
 
               const SizedBox(height: 32),
@@ -360,14 +342,16 @@ class _LawyerVerificationFormScreenState
           ? await widget.repository.submitVerification(
               oabNumber: oabController.text.trim(),
               oabState: selectedState!,
-              practiceArea: selectedArea!,
+              practiceArea: selectedAreas.first,
+              practiceAreas: selectedAreas,
               documents: documents,
             )
           : LawyerVerification(
               userId: widget.user.id,
               oabNumber: oabController.text.trim(),
               oabState: selectedState!,
-              practiceArea: selectedArea!,
+              practiceArea: selectedAreas.first,
+              practiceAreas: selectedAreas,
               documents: documents,
               status: LawyerStatus.pending,
             );

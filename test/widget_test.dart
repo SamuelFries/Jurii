@@ -31,6 +31,7 @@ void main() {
       rating: 0,
       distance: '',
       specialty: 'Escritório jurídico',
+      practiceAreas: ['Direito Trabalhista'],
       reviews: 0,
       avatarType: 'purple',
     ),
@@ -189,6 +190,9 @@ void main() {
     );
     await tester.enterText(find.byType(TextField).at(5), '4');
     await tester.pump();
+    await tester.ensureVisible(find.text('Direito Trabalhista'));
+    await tester.tap(find.text('Direito Trabalhista'));
+    await tester.pump();
 
     while (find.text('Selecionar').evaluate().isNotEmpty) {
       await tester.ensureVisible(find.text('Selecionar').first);
@@ -216,6 +220,7 @@ void main() {
       email: 'contato@friesadvogados.com',
       address: 'Avenida Paulista, 1000',
       lawyersCount: 4,
+      practiceAreas: ['Direito Trabalhista'],
       documents: [],
       status: LawFirmVerificationStatus.pending,
     );
@@ -248,6 +253,7 @@ void main() {
       email: 'contato@friesadvogados.com',
       address: 'Avenida Paulista, 1000',
       lawyersCount: 4,
+      practiceAreas: ['Direito Trabalhista'],
       documents: [],
       status: LawFirmVerificationStatus.approved,
     );
@@ -351,11 +357,9 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('AC').last);
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('Área de atuação'));
-    await tester.tap(find.byType(DropdownButtonFormField<String>).at(1));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Direito Civil').last);
-    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Direito Trabalhista'));
+    await tester.tap(find.text('Direito Trabalhista'));
+    await tester.pump();
 
     while (find.text('Selecionar').evaluate().isNotEmpty) {
       await tester.ensureVisible(find.text('Selecionar').first);

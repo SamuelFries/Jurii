@@ -1,3 +1,4 @@
+import '../data/legal_practice_areas.dart';
 import '../data/mock/mock_firm_workspace.dart';
 import '../models/firm_operation_metrics.dart';
 import '../models/firm_role.dart';
@@ -168,7 +169,8 @@ class FirmWorkspaceRepository {
       initials: _initialsFor(verification.firmName),
       rating: 0,
       distance: '',
-      specialty: 'Escritório jurídico',
+      specialty: primaryPracticeArea(verification.practiceAreas),
+      practiceAreas: verification.practiceAreas,
       reviews: 0,
       avatarType: 'purple',
     );
@@ -211,9 +213,29 @@ class FirmWorkspaceRepository {
       rating: (row['rating'] as num?)?.toDouble() ?? 0,
       distance: row['distance_label'] as String? ?? '',
       specialty: row['specialty'] as String? ?? 'Escritório jurídico',
+      practiceAreas: _practiceAreasFromRow(
+        row['practice_areas'],
+        fallback: [row['specialty'] as String? ?? ''],
+      ),
       reviews: row['reviews_count'] as int? ?? 0,
       avatarType: row['avatar_type'] as String? ?? 'purple',
     );
+  }
+
+  List<String> _practiceAreasFromRow(Object? value, {List<String>? fallback}) {
+    final areas = value is List
+        ? value.whereType<String>().toList()
+        : const <String>[];
+    final cleanAreas = areas
+        .map((area) => area.trim())
+        .where((area) => area.isNotEmpty)
+        .toList();
+    if (cleanAreas.isNotEmpty) return cleanAreas;
+
+    return (fallback ?? const <String>[])
+        .map((area) => area.trim())
+        .where((area) => area.isNotEmpty)
+        .toList();
   }
 
   FirmRole _roleFromRow(String? value) {

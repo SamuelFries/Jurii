@@ -5,6 +5,7 @@ class LawyerProfileSummary {
   final String oabNumber;
   final String oabState;
   final String primaryArea;
+  final List<String> practiceAreas;
   final String bio;
   final double rating;
   final int reviews;
@@ -17,6 +18,7 @@ class LawyerProfileSummary {
     required this.oabNumber,
     required this.oabState,
     required this.primaryArea,
+    required this.practiceAreas,
     required this.bio,
     required this.rating,
     required this.reviews,

@@ -11,6 +11,7 @@ class LawFirmVerification {
   final String email;
   final String address;
   final int lawyersCount;
+  final List<String> practiceAreas;
   final List<LawFirmVerificationDocument> documents;
   final LawFirmVerificationStatus status;
   final DateTime? reviewedAt;
@@ -27,6 +28,7 @@ class LawFirmVerification {
     required this.email,
     required this.address,
     required this.lawyersCount,
+    required this.practiceAreas,
     required this.documents,
     required this.status,
     this.reviewedAt,
@@ -44,6 +46,7 @@ class LawFirmVerification {
     String? email,
     String? address,
     int? lawyersCount,
+    List<String>? practiceAreas,
     List<LawFirmVerificationDocument>? documents,
     LawFirmVerificationStatus? status,
     DateTime? reviewedAt,
@@ -60,6 +63,7 @@ class LawFirmVerification {
       email: email ?? this.email,
       address: address ?? this.address,
       lawyersCount: lawyersCount ?? this.lawyersCount,
+      practiceAreas: practiceAreas ?? this.practiceAreas,
       documents: documents ?? this.documents,
       status: status ?? this.status,
       reviewedAt: reviewedAt ?? this.reviewedAt,
