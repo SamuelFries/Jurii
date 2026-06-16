@@ -8,7 +8,9 @@ import 'package:jurii/models/law_firm_verification_status.dart';
 import 'package:jurii/models/lawyer_status.dart';
 import 'package:jurii/models/lawyer_verification.dart';
 import 'package:jurii/models/conversation.dart';
+import 'package:jurii/repositories/messaging_repository.dart';
 import 'package:jurii/screens/chat_screen.dart';
+import 'package:jurii/screens/lawyer_home_screen.dart';
 import 'package:jurii/screens/profile_screen.dart';
 import 'package:jurii/screens/register_screen.dart';
 import 'package:jurii/theme/app_theme.dart';
@@ -326,6 +328,46 @@ void main() {
     expect(find.text('Área do Escritório'), findsNothing);
   });
 
+  testWidgets('lawyer home shows real new contacts from repository', (
+    WidgetTester tester,
+  ) async {
+    const repository = _FakeMessagingRepository([
+      Conversation(
+        id: 'conversation_real_01',
+        initials: 'MR',
+        officeName: 'Marina Real',
+        specialty: 'Direito Trabalhista',
+        lastMessage: 'Preciso de ajuda com uma rescisão.',
+        time: '10:20',
+        unreadCount: 0,
+        type: 'client_lawyer',
+        clientId: 'client_marina',
+      ),
+      Conversation(
+        id: 'conversation_real_02',
+        initials: 'RB',
+        officeName: 'Rafael Banco',
+        specialty: 'Direito Bancário',
+        lastMessage: 'Tenho dúvidas sobre uma cobrança.',
+        time: '09:45',
+        unreadCount: 0,
+        type: 'client_lawyer',
+        clientId: 'client_rafael',
+      ),
+    ]);
+
+    await tester.pumpWidget(
+      _testApp(
+        LawyerHomeScreen(user: lawyerUser, messagingRepository: repository),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Marina Real'), findsOneWidget);
+    expect(find.text('Rafael Banco'), findsOneWidget);
+    expect(find.text('Ana Pereira'), findsNothing);
+  });
+
   testWidgets('submitting verification emits pending verification', (
     WidgetTester tester,
   ) async {
@@ -411,4 +453,18 @@ void main() {
 
 Widget _testApp(Widget child) {
   return MaterialApp(theme: AppTheme.lightTheme, home: child);
+}
+
+class _FakeMessagingRepository extends MessagingRepository {
+  final List<Conversation> conversations;
+
+  const _FakeMessagingRepository(this.conversations);
+
+  @override
+  Future<List<Conversation>> fetchConversations({
+    required ConversationScope scope,
+    String? lawFirmId,
+  }) async {
+    return conversations;
+  }
 }

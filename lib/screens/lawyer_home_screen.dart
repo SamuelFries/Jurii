@@ -1,17 +1,20 @@
 import 'package:flutter/material.dart';
 import '../data/mock/mock_cases.dart';
-import '../data/mock/mock_messages.dart';
 import '../data/mock/mock_professional_profile.dart';
+import '../models/conversation.dart';
 import '../models/firm_workspace.dart';
 import '../models/jurii_notification.dart';
 import '../models/lawyer_case.dart';
 import '../models/user_profile.dart';
+import '../repositories/messaging_repository.dart';
+import '../services/supabase_config.dart';
 import '../theme/app_theme.dart';
 import '../widgets/notification_bell.dart';
 
-class LawyerHomeScreen extends StatelessWidget {
+class LawyerHomeScreen extends StatefulWidget {
   final UserProfile user;
   final FirmWorkspace? workspace;
+  final MessagingRepository messagingRepository;
   final VoidCallback? onOpenMessages;
   final VoidCallback? onOpenCases;
   final VoidCallback? onOpenAgenda;
@@ -21,6 +24,7 @@ class LawyerHomeScreen extends StatelessWidget {
     super.key,
     required this.user,
     this.workspace,
+    this.messagingRepository = const MessagingRepository(),
     this.onOpenMessages,
     this.onOpenCases,
     this.onOpenAgenda,
@@ -28,8 +32,46 @@ class LawyerHomeScreen extends StatelessWidget {
   });
 
   @override
+  State<LawyerHomeScreen> createState() => _LawyerHomeScreenState();
+}
+
+class _LawyerHomeScreenState extends State<LawyerHomeScreen> {
+  late Future<List<Conversation>> _newContactsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _newContactsFuture = _loadNewContacts();
+  }
+
+  @override
+  void didUpdateWidget(covariant LawyerHomeScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.messagingRepository != widget.messagingRepository) {
+      _newContactsFuture = _loadNewContacts();
+    }
+  }
+
+  Future<List<Conversation>> _loadNewContacts() async {
+    try {
+      final conversations = await widget.messagingRepository.fetchConversations(
+        scope: ConversationScope.lawyer,
+      );
+
+      if (conversations.isNotEmpty || SupabaseConfig.isReady) {
+        return conversations;
+      }
+    } catch (error) {
+      debugPrint('Supabase lawyer contacts fetch failed: $error');
+      if (SupabaseConfig.isReady) return const [];
+    }
+
+    return const [];
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final firstName = user.name.split(' ').first;
+    final firstName = widget.user.name.split(' ').first;
 
     return SafeArea(
       child: SingleChildScrollView(
@@ -42,24 +84,27 @@ class LawyerHomeScreen extends StatelessWidget {
             children: [
               _ProfessionalHeader(
                 firstName: firstName,
-                oabNumber: user.oabNumber ?? 'OAB em revisão',
-                firmName: workspace?.firm.name,
-                onNotificationsChanged: onNotificationsChanged,
+                oabNumber: widget.user.oabNumber ?? 'OAB em revisão',
+                firmName: widget.workspace?.firm.name,
+                onNotificationsChanged: widget.onNotificationsChanged,
               ),
               const SizedBox(height: 20),
               _QuickActions(
-                onOpenMessages: onOpenMessages,
-                onOpenCases: onOpenCases,
-                onOpenAgenda: onOpenAgenda,
+                onOpenMessages: widget.onOpenMessages,
+                onOpenCases: widget.onOpenCases,
+                onOpenAgenda: widget.onOpenAgenda,
               ),
               const SizedBox(height: 24),
-              const _MetricsOverview(),
+              _MetricsOverview(newContactsFuture: _newContactsFuture),
               const SizedBox(height: 24),
               const _TodayAgenda(),
               const SizedBox(height: 24),
-              _PriorityCases(onOpenCases: onOpenCases),
+              _PriorityCases(onOpenCases: widget.onOpenCases),
               const SizedBox(height: 24),
-              _NewContacts(onOpenMessages: onOpenMessages),
+              _NewContacts(
+                conversationsFuture: _newContactsFuture,
+                onOpenMessages: widget.onOpenMessages,
+              ),
             ],
           ),
         ),
@@ -300,7 +345,9 @@ class _ActionButton extends StatelessWidget {
 }
 
 class _MetricsOverview extends StatelessWidget {
-  const _MetricsOverview();
+  final Future<List<Conversation>> newContactsFuture;
+
+  const _MetricsOverview({required this.newContactsFuture});
 
   @override
   Widget build(BuildContext context) {
@@ -323,12 +370,21 @@ class _MetricsOverview extends StatelessWidget {
                   accentColor: AppTheme.primary,
                 ),
                 const SizedBox(height: 10),
-                _MetricCard(
-                  width: constraints.maxWidth,
-                  icon: Icons.mark_chat_unread_outlined,
-                  label: 'Novos contatos',
-                  value: '${metrics.newContacts}',
-                  accentColor: AppTheme.accent,
+                FutureBuilder<List<Conversation>>(
+                  future: newContactsFuture,
+                  builder: (context, snapshot) {
+                    final newContactsValue = snapshot.hasData
+                        ? '${snapshot.data!.length}'
+                        : '...';
+
+                    return _MetricCard(
+                      width: constraints.maxWidth,
+                      icon: Icons.mark_chat_unread_outlined,
+                      label: 'Novos contatos',
+                      value: newContactsValue,
+                      accentColor: AppTheme.accent,
+                    );
+                  },
                 ),
               ],
             );
@@ -726,69 +782,169 @@ class _PriorityCaseCard extends StatelessWidget {
 }
 
 class _NewContacts extends StatelessWidget {
+  final Future<List<Conversation>> conversationsFuture;
   final VoidCallback? onOpenMessages;
 
-  const _NewContacts({this.onOpenMessages});
+  const _NewContacts({required this.conversationsFuture, this.onOpenMessages});
 
   @override
   Widget build(BuildContext context) {
-    final contacts = mockLawyerContacts.take(3).toList();
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _SectionHeader(title: 'Novos contatos', onTap: onOpenMessages),
         const SizedBox(height: 12),
-        Material(
-          color: AppTheme.card,
-          clipBehavior: Clip.antiAlias,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-            side: const BorderSide(color: AppTheme.lightBlueBorder),
-          ),
-          child: Column(
-            children: [
-              for (var index = 0; index < contacts.length; index++) ...[
-                ListTile(
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 6,
-                  ),
-                  leading: CircleAvatar(
-                    radius: 20,
-                    backgroundColor: AppTheme.lightGold,
-                    child: Text(
-                      contacts[index].initials,
-                      style: const TextStyle(
-                        color: AppTheme.accent,
-                        fontWeight: FontWeight.w900,
-                      ),
+        FutureBuilder<List<Conversation>>(
+          future: conversationsFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting &&
+                !snapshot.hasData) {
+              return const _NewContactsLoadingCard();
+            }
+
+            final contacts = (snapshot.data ?? const <Conversation>[])
+                .take(3)
+                .toList();
+
+            if (contacts.isEmpty) {
+              return const _EmptyNewContactsCard();
+            }
+
+            return Material(
+              color: AppTheme.card,
+              clipBehavior: Clip.antiAlias,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+                side: const BorderSide(color: AppTheme.lightBlueBorder),
+              ),
+              child: Column(
+                children: [
+                  for (var index = 0; index < contacts.length; index++) ...[
+                    _NewContactTile(
+                      conversation: contacts[index],
+                      onTap: onOpenMessages,
                     ),
-                  ),
-                  title: Text(
-                    contacts[index].name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w800),
-                  ),
-                  subtitle: Text(
-                    contacts[index].description,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  trailing: const Icon(
-                    Icons.chevron_right,
-                    color: AppTheme.textSecondary,
-                  ),
-                  onTap: onOpenMessages,
-                ),
-                if (index < contacts.length - 1)
-                  const Divider(height: 1, indent: 68, color: AppTheme.divider),
-              ],
-            ],
-          ),
+                    if (index < contacts.length - 1)
+                      const Divider(
+                        height: 1,
+                        indent: 68,
+                        color: AppTheme.divider,
+                      ),
+                  ],
+                ],
+              ),
+            );
+          },
         ),
       ],
+    );
+  }
+}
+
+class _NewContactTile extends StatelessWidget {
+  final Conversation conversation;
+  final VoidCallback? onTap;
+
+  const _NewContactTile({required this.conversation, this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+      leading: CircleAvatar(
+        radius: 20,
+        backgroundColor: AppTheme.lightGold,
+        child: Text(
+          conversation.initials,
+          style: const TextStyle(
+            color: AppTheme.accent,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      ),
+      title: Text(
+        conversation.officeName,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(fontWeight: FontWeight.w800),
+      ),
+      subtitle: Text(
+        _description,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      trailing: const Icon(Icons.chevron_right, color: AppTheme.textSecondary),
+      onTap: onTap,
+    );
+  }
+
+  String get _description {
+    if (conversation.specialty.trim().isNotEmpty) {
+      return conversation.specialty;
+    }
+    return conversation.lastMessage;
+  }
+}
+
+class _NewContactsLoadingCard extends StatelessWidget {
+  const _NewContactsLoadingCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: AppTheme.card,
+        border: Border.all(color: AppTheme.lightBlueBorder),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: const Row(
+        children: [
+          SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: AppTheme.primary,
+            ),
+          ),
+          SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Carregando contatos...',
+              style: TextStyle(
+                color: AppTheme.textSecondary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyNewContactsCard extends StatelessWidget {
+  const _EmptyNewContactsCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: AppTheme.card,
+        border: Border.all(color: AppTheme.lightBlueBorder),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: const Text(
+        'Nenhum novo contato recebido no momento.',
+        style: TextStyle(
+          color: AppTheme.textSecondary,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
     );
   }
 }
