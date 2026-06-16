@@ -181,6 +181,14 @@ class _InviteLawyerDialogState extends State<_InviteLawyerDialog> {
       return 'Apenas donos e admins ativos podem convidar advogados.';
     }
 
+    if (message.contains('Lawyer already active')) {
+      return 'Esse advogado já está ativo neste escritório.';
+    }
+
+    if (message.contains('Lawyer invite already pending')) {
+      return 'Já existe um convite pendente para esse advogado.';
+    }
+
     if (message.contains('invite_verified_lawyer_to_law_firm') ||
         message.contains('function') ||
         message.contains('patch')) {
