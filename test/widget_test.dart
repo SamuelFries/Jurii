@@ -5,9 +5,11 @@ import 'package:jurii/models/firm_workspace.dart';
 import 'package:jurii/models/law_firm.dart';
 import 'package:jurii/models/law_firm_verification.dart';
 import 'package:jurii/models/law_firm_verification_status.dart';
+import 'package:jurii/models/lawyer_case.dart';
 import 'package:jurii/models/lawyer_status.dart';
 import 'package:jurii/models/lawyer_verification.dart';
 import 'package:jurii/models/conversation.dart';
+import 'package:jurii/repositories/case_repository.dart';
 import 'package:jurii/repositories/messaging_repository.dart';
 import 'package:jurii/screens/chat_screen.dart';
 import 'package:jurii/screens/lawyer_home_screen.dart';
@@ -328,10 +330,24 @@ void main() {
     expect(find.text('Área do Escritório'), findsNothing);
   });
 
-  testWidgets('lawyer home shows real new contacts from repository', (
+  testWidgets('lawyer home shows real client metrics from repositories', (
     WidgetTester tester,
   ) async {
-    const repository = _FakeMessagingRepository([
+    final caseRepository = _FakeCaseRepository(
+      List.generate(
+        7,
+        (index) => LawyerCase(
+          id: 'case_real_$index',
+          title: 'Caso real $index',
+          clientName: 'Cliente $index',
+          clientInitials: 'C$index',
+          area: 'Direito Trabalhista',
+          lastUpdate: 'Atualizado hoje',
+          status: LawyerCaseStatus.updated,
+        ),
+      ),
+    );
+    const messagingRepository = _FakeMessagingRepository([
       Conversation(
         id: 'conversation_real_01',
         initials: 'MR',
@@ -358,11 +374,17 @@ void main() {
 
     await tester.pumpWidget(
       _testApp(
-        LawyerHomeScreen(user: lawyerUser, messagingRepository: repository),
+        LawyerHomeScreen(
+          user: lawyerUser,
+          caseRepository: caseRepository,
+          messagingRepository: messagingRepository,
+        ),
       ),
     );
     await tester.pump();
 
+    expect(find.text('7'), findsOneWidget);
+    expect(find.text('8'), findsNothing);
     expect(find.text('Marina Real'), findsOneWidget);
     expect(find.text('Rafael Banco'), findsOneWidget);
     expect(find.text('Ana Pereira'), findsNothing);
@@ -466,5 +488,16 @@ class _FakeMessagingRepository extends MessagingRepository {
     String? lawFirmId,
   }) async {
     return conversations;
+  }
+}
+
+class _FakeCaseRepository extends CaseRepository {
+  final List<LawyerCase> cases;
+
+  const _FakeCaseRepository(this.cases);
+
+  @override
+  Future<List<LawyerCase>> fetchLawyerCases() async {
+    return cases;
   }
 }
