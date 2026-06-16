@@ -6,6 +6,7 @@ import '../models/firm_workspace.dart';
 import '../models/jurii_notification.dart';
 import '../models/lawyer_case.dart';
 import '../models/user_profile.dart';
+import '../repositories/case_repository.dart';
 import '../repositories/messaging_repository.dart';
 import '../services/supabase_config.dart';
 import '../theme/app_theme.dart';
@@ -14,6 +15,7 @@ import '../widgets/notification_bell.dart';
 class LawyerHomeScreen extends StatefulWidget {
   final UserProfile user;
   final FirmWorkspace? workspace;
+  final CaseRepository caseRepository;
   final MessagingRepository messagingRepository;
   final VoidCallback? onOpenMessages;
   final VoidCallback? onOpenCases;
@@ -24,6 +26,7 @@ class LawyerHomeScreen extends StatefulWidget {
     super.key,
     required this.user,
     this.workspace,
+    this.caseRepository = const CaseRepository(),
     this.messagingRepository = const MessagingRepository(),
     this.onOpenMessages,
     this.onOpenCases,
@@ -36,20 +39,40 @@ class LawyerHomeScreen extends StatefulWidget {
 }
 
 class _LawyerHomeScreenState extends State<LawyerHomeScreen> {
+  late Future<List<LawyerCase>> _activeCasesFuture;
   late Future<List<Conversation>> _newContactsFuture;
 
   @override
   void initState() {
     super.initState();
+    _activeCasesFuture = _loadActiveCases();
     _newContactsFuture = _loadNewContacts();
   }
 
   @override
   void didUpdateWidget(covariant LawyerHomeScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.caseRepository != widget.caseRepository) {
+      _activeCasesFuture = _loadActiveCases();
+    }
     if (oldWidget.messagingRepository != widget.messagingRepository) {
       _newContactsFuture = _loadNewContacts();
     }
+  }
+
+  Future<List<LawyerCase>> _loadActiveCases() async {
+    try {
+      final cases = await widget.caseRepository.fetchLawyerCases();
+
+      if (cases.isNotEmpty || SupabaseConfig.isReady) {
+        return cases;
+      }
+    } catch (error) {
+      debugPrint('Supabase lawyer active cases fetch failed: $error');
+      if (SupabaseConfig.isReady) return const [];
+    }
+
+    return const [];
   }
 
   Future<List<Conversation>> _loadNewContacts() async {
@@ -95,7 +118,10 @@ class _LawyerHomeScreenState extends State<LawyerHomeScreen> {
                 onOpenAgenda: widget.onOpenAgenda,
               ),
               const SizedBox(height: 24),
-              _MetricsOverview(newContactsFuture: _newContactsFuture),
+              _MetricsOverview(
+                activeCasesFuture: _activeCasesFuture,
+                newContactsFuture: _newContactsFuture,
+              ),
               const SizedBox(height: 24),
               const _TodayAgenda(),
               const SizedBox(height: 24),
@@ -345,14 +371,16 @@ class _ActionButton extends StatelessWidget {
 }
 
 class _MetricsOverview extends StatelessWidget {
+  final Future<List<LawyerCase>> activeCasesFuture;
   final Future<List<Conversation>> newContactsFuture;
 
-  const _MetricsOverview({required this.newContactsFuture});
+  const _MetricsOverview({
+    required this.activeCasesFuture,
+    required this.newContactsFuture,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final metrics = mockProfessionalMetrics;
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -362,12 +390,21 @@ class _MetricsOverview extends StatelessWidget {
           builder: (context, constraints) {
             return Column(
               children: [
-                _MetricCard(
-                  width: constraints.maxWidth,
-                  icon: Icons.work_outline,
-                  label: 'Casos ativos',
-                  value: '${metrics.activeCases}',
-                  accentColor: AppTheme.primary,
+                FutureBuilder<List<LawyerCase>>(
+                  future: activeCasesFuture,
+                  builder: (context, snapshot) {
+                    final activeCasesValue = snapshot.hasData
+                        ? '${snapshot.data!.length}'
+                        : '...';
+
+                    return _MetricCard(
+                      width: constraints.maxWidth,
+                      icon: Icons.work_outline,
+                      label: 'Casos ativos',
+                      value: activeCasesValue,
+                      accentColor: AppTheme.primary,
+                    );
+                  },
                 ),
                 const SizedBox(height: 10),
                 FutureBuilder<List<Conversation>>(
