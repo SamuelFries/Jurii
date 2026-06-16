@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:jurii/data/legal_practice_areas.dart';
 import 'package:jurii/data/mock/mock_users.dart';
 import 'package:jurii/models/firm_role.dart';
 import 'package:jurii/models/firm_workspace.dart';
@@ -52,6 +53,41 @@ void main() {
   }) async {
     return RegisterResult.signedIn;
   }
+
+  test('legal search infers practice areas from client language', () {
+    const examples = {
+      'Preciso de ajuda com Maria da Penha': 'Direito Criminal',
+      'meu marido me bateu': 'Direito Criminal',
+      'estupro': 'Direito Criminal',
+      'não consigo ver meu filho': 'Direito de Família',
+      'pai não pagou pensão': 'Direito de Família',
+      'fui demitido sem receber': 'Direito Trabalhista',
+      'minha compra não chegou': 'Direito do Consumidor',
+      'meu benefício do INSS foi cortado': 'Direito Previdenciário',
+      'inquilino não paga aluguel': 'Direito Imobiliário',
+      'bateram no meu carro': 'Acidente de Trânsito',
+      'briga com sócio da empresa': 'Direito Empresarial',
+      'cobrança da Receita Federal': 'Direito Tributário',
+      'levei calote': 'Direito Cível',
+      'whatsapp clonado': 'Direito Digital',
+    };
+
+    for (final entry in examples.entries) {
+      expect(
+        inferPracticeAreasForSearch(entry.key),
+        contains(entry.value),
+        reason: '"${entry.key}" should infer ${entry.value}',
+      );
+    }
+
+    expect(
+      matchesPracticeAreaSearch(
+        practiceAreas: const ['Direito Trabalhista'],
+        query: 'Maria da Penha',
+      ),
+      isFalse,
+    );
+  });
 
   testWidgets('shows the register screen', (WidgetTester tester) async {
     await tester.pumpWidget(_testApp(RegisterScreen(onRegister: registerStub)));
