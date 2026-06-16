@@ -17,7 +17,7 @@ Esse script cria:
 
 Para um ambiente novo do Jurii, execute também os patches em ordem crescente
 depois do `schema.sql`. O app atual depende das funções e ajustes criados até
-o patch 025.
+o patch 026.
 
 ## 2. Configurar o app Flutter
 
@@ -288,6 +288,16 @@ escopo das notificações:
 
 O patch também faz backfill das notificações antigas e instala um trigger para
 classificar novas notificações automaticamente pelo tipo.
+
+## 2.26. Patch para tags de áreas e busca
+
+Rode `patch_026_practice_area_tags_search.sql` depois do patch 025. Ele:
+
+- adiciona `practice_areas` em advogados, escritórios e verificações
+- preserva `primary_area`, `practice_area` e `specialty` como área principal
+- atualiza as funções de envio/aprovação para salvar múltiplas tags
+- cria busca por área para a Home do cliente em advogados e escritórios
+- solicita reload do schema da API do Supabase
 
 ## 3. Status da integração
 

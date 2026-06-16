@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../data/legal_practice_areas.dart';
 import '../models/lawyer_profile_summary.dart';
 import '../repositories/messaging_repository.dart';
 import '../theme/app_theme.dart';
@@ -115,7 +116,7 @@ class _LawyerProfileScreenState extends State<LawyerProfileScreen> {
                             ),
                             const SizedBox(height: 6),
                             Text(
-                              widget.lawyer.primaryArea,
+                              practiceAreaSummary(widget.lawyer.practiceAreas),
                               style: const TextStyle(
                                 color: AppTheme.textSecondary,
                                 fontWeight: FontWeight.w700,
@@ -152,13 +153,20 @@ class _LawyerProfileScreenState extends State<LawyerProfileScreen> {
             const SizedBox(height: 20),
             _ProfileSection(
               title: 'Sobre',
-              child: Text(
-                widget.lawyer.bio,
-                style: const TextStyle(
-                  color: AppTheme.textSecondary,
-                  fontSize: 15,
-                  height: 1.45,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _AreaTags(areas: widget.lawyer.practiceAreas),
+                  const SizedBox(height: 12),
+                  Text(
+                    widget.lawyer.bio,
+                    style: const TextStyle(
+                      color: AppTheme.textSecondary,
+                      fontSize: 15,
+                      height: 1.45,
+                    ),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 16),
@@ -268,6 +276,41 @@ class _InfoChip extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _AreaTags extends StatelessWidget {
+  const _AreaTags({required this.areas});
+
+  final List<String> areas;
+
+  @override
+  Widget build(BuildContext context) {
+    if (areas.isEmpty) return const SizedBox.shrink();
+
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: areas
+          .map(
+            (area) => Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+              decoration: BoxDecoration(
+                color: AppTheme.lightGold,
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Text(
+                area,
+                style: const TextStyle(
+                  color: AppTheme.accent,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          )
+          .toList(),
     );
   }
 }

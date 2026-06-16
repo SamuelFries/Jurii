@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../data/legal_practice_areas.dart';
 import '../data/mock/mock_law_firms.dart';
 import '../models/law_firm.dart';
 import '../repositories/law_firm_repository.dart';
@@ -8,9 +9,11 @@ import 'office_card.dart';
 class OfficesSection extends StatefulWidget {
   const OfficesSection({
     super.key,
+    this.searchQuery = '',
     this.repository = const LawFirmRepository(),
   });
 
+  final String searchQuery;
   final LawFirmRepository repository;
 
   @override
@@ -18,7 +21,7 @@ class OfficesSection extends StatefulWidget {
 }
 
 class _OfficesSectionState extends State<OfficesSection> {
-  late final Future<List<LawFirm>> _lawFirmsFuture;
+  late Future<List<LawFirm>> _lawFirmsFuture;
 
   @override
   void initState() {
@@ -26,14 +29,38 @@ class _OfficesSectionState extends State<OfficesSection> {
     _lawFirmsFuture = _loadLawFirms();
   }
 
+  @override
+  void didUpdateWidget(covariant OfficesSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.searchQuery != widget.searchQuery) {
+      _lawFirmsFuture = _loadLawFirms();
+    }
+  }
+
   Future<List<LawFirm>> _loadLawFirms() async {
     try {
-      final lawFirms = await widget.repository.fetchRecommendedLawFirms();
-      if (lawFirms.isNotEmpty) return lawFirms;
+      final lawFirms = await widget.repository.fetchRecommendedLawFirms(
+        searchQuery: widget.searchQuery,
+      );
+      if (lawFirms.isNotEmpty || widget.searchQuery.trim().isNotEmpty) {
+        return lawFirms;
+      }
     } catch (error) {
       debugPrint('Supabase law firms fetch failed: $error');
     }
-    return mockLawFirms;
+    return _filterMockLawFirms();
+  }
+
+  List<LawFirm> _filterMockLawFirms() {
+    return mockLawFirms
+        .where(
+          (lawFirm) => matchesPracticeAreaSearch(
+            practiceAreas: lawFirm.practiceAreas,
+            query: widget.searchQuery,
+            extraFields: [lawFirm.name, lawFirm.specialty],
+          ),
+        )
+        .toList();
   }
 
   @override
@@ -48,9 +75,9 @@ class _OfficesSectionState extends State<OfficesSection> {
         const SizedBox(height: 16),
         FutureBuilder<List<LawFirm>>(
           future: _lawFirmsFuture,
-          initialData: mockLawFirms,
+          initialData: _filterMockLawFirms(),
           builder: (context, snapshot) {
-            final lawFirms = snapshot.data ?? mockLawFirms;
+            final lawFirms = snapshot.data ?? _filterMockLawFirms();
             return ListView.separated(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
@@ -63,7 +90,7 @@ class _OfficesSectionState extends State<OfficesSection> {
                   officeName: office.name,
                   rating: office.rating,
                   distance: office.distance,
-                  specialty: office.specialty,
+                  specialty: practiceAreaSummary(office.practiceAreas),
                   reviews: office.reviews,
                   avatarType: office.avatarType,
                   onTap: () {

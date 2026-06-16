@@ -10,6 +10,7 @@ import '../models/user_profile.dart';
 import '../repositories/law_firm_verification_repository.dart';
 import '../services/supabase_config.dart';
 import '../theme/app_theme.dart';
+import '../widgets/practice_area_selector.dart';
 import 'law_firm_verification_success_screen.dart';
 
 class LawFirmVerificationFormScreen extends StatefulWidget {
@@ -40,6 +41,7 @@ class _LawFirmVerificationFormScreenState
   bool showErrors = false;
   bool isSubmitting = false;
   String? errorMessage;
+  List<String> selectedAreas = const [];
   late List<LawFirmVerificationDocument> documents;
 
   bool get formIsValid {
@@ -49,6 +51,7 @@ class _LawFirmVerificationFormScreenState
         emailController.text.trim().contains('@') &&
         addressController.text.trim().length >= 8 &&
         int.tryParse(lawyersCountController.text.trim()) != null &&
+        selectedAreas.isNotEmpty &&
         documents.every((document) => document.uploaded);
   }
 
@@ -191,6 +194,13 @@ class _LawFirmVerificationFormScreenState
                       ? 'Informe a quantidade de advogados'
                       : null,
                 ),
+              ),
+              const SizedBox(height: 14),
+              PracticeAreaSelector(
+                selectedAreas: selectedAreas,
+                showError: showErrors,
+                selectedColor: AppTheme.officePurple,
+                onChanged: (areas) => setState(() => selectedAreas = areas),
               ),
               const SizedBox(height: 32),
               const Text(
@@ -368,6 +378,7 @@ class _LawFirmVerificationFormScreenState
               email: emailController.text.trim(),
               address: addressController.text.trim(),
               lawyersCount: int.parse(lawyersCountController.text.trim()),
+              practiceAreas: selectedAreas,
               documents: documents,
             )
           : LawFirmVerification(
@@ -378,6 +389,7 @@ class _LawFirmVerificationFormScreenState
               email: emailController.text.trim(),
               address: addressController.text.trim(),
               lawyersCount: int.parse(lawyersCountController.text.trim()),
+              practiceAreas: selectedAreas,
               documents: documents,
               status: LawFirmVerificationStatus.pending,
             );

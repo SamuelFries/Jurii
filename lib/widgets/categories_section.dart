@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../data/legal_practice_areas.dart';
 import '../data/mock/mock_categories.dart';
 import '../models/legal_category.dart';
 import '../repositories/category_repository.dart';
@@ -7,9 +8,13 @@ import 'category_card.dart';
 class CategoriesSection extends StatefulWidget {
   const CategoriesSection({
     super.key,
+    this.searchQuery = '',
+    this.onCategorySelected,
     this.repository = const CategoryRepository(),
   });
 
+  final String searchQuery;
+  final ValueChanged<String>? onCategorySelected;
   final CategoryRepository repository;
 
   @override
@@ -62,9 +67,18 @@ class _CategoriesSectionState extends State<CategoriesSection> {
               ),
               itemBuilder: (context, index) {
                 final category = categories[index];
+                final practiceArea = practiceAreaForCategory(
+                  id: category.id,
+                  title: category.title,
+                );
+                final selected =
+                    normalizePracticeAreaQuery(widget.searchQuery) ==
+                    normalizePracticeAreaQuery(practiceArea);
                 return CategoryCard(
                   title: category.title,
                   isGold: category.isGold,
+                  selected: selected,
+                  onTap: () => widget.onCategorySelected?.call(practiceArea),
                 );
               },
             );

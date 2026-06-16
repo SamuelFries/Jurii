@@ -228,6 +228,7 @@ create table if not exists public.law_firms (
   name text not null,
   initials text not null,
   specialty text not null,
+  practice_areas text[] not null default '{}'::text[],
   description text,
   rating numeric(2, 1) not null default 0 check (rating >= 0 and rating <= 5),
   reviews_count int not null default 0 check (reviews_count >= 0),
@@ -253,6 +254,7 @@ create table if not exists public.lawyer_profiles (
   oab_number text not null,
   oab_state char(2) not null,
   primary_area text not null,
+  practice_areas text[] not null default '{}'::text[],
   bio text,
   professional_photo_url text,
   is_available boolean not null default true,
@@ -278,6 +280,7 @@ create table if not exists public.lawyer_verifications (
   oab_number text not null,
   oab_state char(2) not null,
   practice_area text not null,
+  practice_areas text[] not null default '{}'::text[],
   status public.verification_status not null default 'pending',
   submitted_at timestamptz not null default now(),
   reviewed_at timestamptz,
@@ -381,6 +384,8 @@ create table if not exists public.appointments (
 create index if not exists profiles_lawyer_status_idx on public.profiles(lawyer_status);
 create index if not exists law_firms_active_idx on public.law_firms(is_active);
 create index if not exists lawyer_profiles_oab_idx on public.lawyer_profiles(oab_state, oab_number);
+create index if not exists lawyer_profiles_practice_areas_idx on public.lawyer_profiles using gin (practice_areas);
+create index if not exists law_firms_practice_areas_idx on public.law_firms using gin (practice_areas);
 create index if not exists lawyer_verifications_user_idx on public.lawyer_verifications(user_id);
 create index if not exists lawyer_verifications_status_idx on public.lawyer_verifications(status);
 create index if not exists legal_cases_client_idx on public.legal_cases(client_id);
@@ -687,15 +692,56 @@ on conflict (id) do update set
   is_highlighted = excluded.is_highlighted,
   sort_order = excluded.sort_order;
 
-insert into public.law_firms (id, name, initials, specialty, rating, reviews_count, distance_label, avatar_type)
+insert into public.law_firms (
+  id,
+  name,
+  initials,
+  specialty,
+  practice_areas,
+  rating,
+  reviews_count,
+  distance_label,
+  avatar_type
+)
 values
-  ('11111111-1111-4111-8111-111111111111', 'Fries Advogados', 'FA', 'Direito Trabalhista', 4.9, 128, '1,8 km', 'navy'),
-  ('22222222-2222-4222-8222-222222222222', 'Silva & Associados', 'SA', 'Direito de Família', 4.8, 94, '2,4 km', 'blue'),
-  ('33333333-3333-4333-8333-333333333333', 'Moura Advogados', 'MA', 'Direito do Consumidor', 4.7, 76, '3,1 km', 'gold')
+  (
+    '11111111-1111-4111-8111-111111111111',
+    'Fries Advogados',
+    'FA',
+    'Direito Trabalhista',
+    array['Direito Trabalhista', 'Direito Empresarial'],
+    4.9,
+    128,
+    '1,8 km',
+    'navy'
+  ),
+  (
+    '22222222-2222-4222-8222-222222222222',
+    'Silva & Associados',
+    'SA',
+    'Direito de Família',
+    array['Direito de Família', 'Direito Cível'],
+    4.8,
+    94,
+    '2,4 km',
+    'blue'
+  ),
+  (
+    '33333333-3333-4333-8333-333333333333',
+    'Moura Advogados',
+    'MA',
+    'Direito do Consumidor',
+    array['Direito do Consumidor', 'Direito Digital'],
+    4.7,
+    76,
+    '3,1 km',
+    'gold'
+  )
 on conflict (id) do update set
   name = excluded.name,
   initials = excluded.initials,
   specialty = excluded.specialty,
+  practice_areas = excluded.practice_areas,
   rating = excluded.rating,
   reviews_count = excluded.reviews_count,
   distance_label = excluded.distance_label,

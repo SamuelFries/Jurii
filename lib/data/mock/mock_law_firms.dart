@@ -8,6 +8,10 @@ const mockLawFirms = [
     rating: 4.9,
     distance: '1,8 km',
     specialty: 'Direito Trabalhista',
+    practiceAreas: [
+      'Direito Trabalhista',
+      'Direito Empresarial',
+    ],
     reviews: 128,
     avatarType: 'navy',
   ),
@@ -18,6 +22,10 @@ const mockLawFirms = [
     rating: 4.8,
     distance: '2,4 km',
     specialty: 'Direito de Família',
+    practiceAreas: [
+      'Direito de Família',
+      'Direito Cível',
+    ],
     reviews: 94,
     avatarType: 'blue',
   ),
@@ -28,6 +36,10 @@ const mockLawFirms = [
     rating: 4.7,
     distance: '3,1 km',
     specialty: 'Direito do Consumidor',
+    practiceAreas: [
+      'Direito do Consumidor',
+      'Direito Digital',
+    ],
     reviews: 76,
     avatarType: 'gold',
   ),
