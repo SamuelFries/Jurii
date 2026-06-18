@@ -10,6 +10,9 @@ class SupabaseConfig {
     'SUPABASE_PUBLISHABLE_KEY',
   );
   static const _legacyAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
+  static const _envOAuthRedirectUrl = String.fromEnvironment(
+    'SUPABASE_OAUTH_REDIRECT_URL',
+  );
   static bool _initialized = false;
 
   static String get url => _envUrl.isNotEmpty ? _envUrl : _projectUrl;
@@ -19,6 +22,10 @@ class SupabaseConfig {
       : _legacyAnonKey.isNotEmpty
       ? _legacyAnonKey
       : _projectPublishableKey;
+
+  static String get oauthRedirectUrl => _envOAuthRedirectUrl.isNotEmpty
+      ? _envOAuthRedirectUrl
+      : 'jurii://login-callback';
 
   static bool get isConfigured => url.isNotEmpty && key.isNotEmpty;
   static bool get isReady {

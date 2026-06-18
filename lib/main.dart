@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart' show User;
+import 'package:supabase_flutter/supabase_flutter.dart'
+    show AuthChangeEvent, AuthState, User;
 
 import 'data/mock/mock_users.dart';
 import 'models/appointment.dart';
@@ -9,6 +12,7 @@ import 'models/lawyer_status.dart';
 import 'models/lawyer_verification.dart';
 import 'models/firm_role.dart';
 import 'models/firm_workspace.dart';
+import 'models/social_auth_provider.dart';
 import 'models/user_profile.dart';
 import 'repositories/auth_repository.dart';
 import 'repositories/firm_invitation_repository.dart';
@@ -61,11 +65,13 @@ class _JuriiAppState extends State<JuriiApp> {
       const FirmWorkspaceRepository();
   final FirmInvitationRepository _firmInvitationRepository =
       const FirmInvitationRepository();
+  StreamSubscription<AuthState>? _authSubscription;
 
   bool _isLoggedIn = false;
   bool _isLawyerMode = false;
   bool _isFirmMode = false;
   bool _isBootstrapping = true;
+  bool _isCompletingAuthSession = false;
   UserProfile _currentUser = mockCurrentUser;
   LawyerVerification? _lawyerVerification;
   LawFirmVerification? _lawFirmVerification;
@@ -74,7 +80,35 @@ class _JuriiAppState extends State<JuriiApp> {
   @override
   void initState() {
     super.initState();
+    if (SupabaseConfig.isReady) {
+      _authSubscription = SupabaseConfig.client.auth.onAuthStateChange.listen(
+        _handleAuthStateChange,
+      );
+    }
     _bootstrapSession();
+  }
+
+  @override
+  void dispose() {
+    _authSubscription?.cancel();
+    super.dispose();
+  }
+
+  void _handleAuthStateChange(AuthState authState) {
+    if (!mounted) return;
+
+    if (authState.event == AuthChangeEvent.signedOut) {
+      setState(_clearSessionState);
+      return;
+    }
+
+    if (authState.event == AuthChangeEvent.signedIn ||
+        authState.event == AuthChangeEvent.initialSession) {
+      final user = authState.session?.user;
+      if (user != null) {
+        _completeAuthenticatedSession(authUser: user);
+      }
+    }
   }
 
   Future<void> _bootstrapSession() async {
@@ -90,23 +124,10 @@ class _JuriiAppState extends State<JuriiApp> {
     }
 
     try {
-      final profile = await _profileRepository.fetchCurrentProfile();
-      final lawyerVerification = await _fetchLatestLawyerVerification();
-      final lawFirmVerification = await _fetchLatestLawFirmVerification();
-      final firmWorkspace = await _fetchCurrentFirmWorkspace(
-        lawFirmVerification,
-      );
-      setState(() {
-        _lawyerVerification = lawyerVerification;
-        _currentUser = _userWithLawyerVerification(
-          profile ?? mockCurrentUser,
-          lawyerVerification,
-        );
-        _lawFirmVerification = lawFirmVerification;
-        _firmWorkspace = firmWorkspace;
-        _isLoggedIn = true;
-        _isBootstrapping = false;
-      });
+      await _completeAuthenticatedSession(authUser: session.user);
+      if (mounted && !_isLoggedIn && !_isCompletingAuthSession) {
+        setState(() => _isBootstrapping = false);
+      }
     } catch (error) {
       debugPrint('Supabase bootstrap failed: $error');
       setState(() {
@@ -132,38 +153,91 @@ class _JuriiAppState extends State<JuriiApp> {
       email: email,
       password: password,
     );
-    final user = response.user ?? SupabaseConfig.client.auth.currentUser;
-    final fallbackProfile = _localProfileFromAuthUser(user, email);
+    await _completeAuthenticatedSession(
+      authUser: response.user ?? SupabaseConfig.client.auth.currentUser,
+      fallbackEmail: email,
+    );
+  }
 
-    UserProfile? profile;
-    var profileFetchFailed = false;
-    try {
-      profile = await _profileRepository.fetchCurrentProfile();
-    } catch (error) {
-      profileFetchFailed = true;
-      debugPrint('Supabase profile fetch after login failed: $error');
+  Future<void> _handleSocialLogin(SocialAuthProvider provider) async {
+    if (!SupabaseConfig.isConfigured) {
+      throw StateError('Supabase is not configured.');
     }
 
-    if (profile == null && !profileFetchFailed && user != null) {
+    final launched = await _authRepository.signInWithSocialProvider(provider);
+    if (!launched) {
+      throw StateError('Could not launch social login.');
+    }
+  }
+
+  Future<void> _completeAuthenticatedSession({
+    User? authUser,
+    String? fallbackEmail,
+  }) async {
+    if (!SupabaseConfig.isReady || _isCompletingAuthSession) return;
+
+    _isCompletingAuthSession = true;
+    try {
+      final user = authUser ?? SupabaseConfig.client.auth.currentUser;
+      if (user == null) return;
+
+      final typedEmail = fallbackEmail ?? user.email ?? '';
+      final fallbackProfile = _localProfileFromAuthUser(user, typedEmail);
+
+      UserProfile? profile;
+      var profileFetchFailed = false;
       try {
-        await _profileRepository.upsertProfile(
-          id: user.id,
-          fullName: fallbackProfile.name,
-          email: fallbackProfile.email,
-          cpf: user.userMetadata?['cpf'] as String?,
-        );
         profile = await _profileRepository.fetchCurrentProfile();
       } catch (error) {
-        debugPrint('Supabase profile recovery after login failed: $error');
+        profileFetchFailed = true;
+        debugPrint('Supabase profile fetch after login failed: $error');
       }
-    }
 
-    setState(() {
-      _currentUser = profile ?? fallbackProfile;
-      _isLoggedIn = true;
-    });
-    await _refreshLawyerVerification();
-    await _refreshLawFirmVerification();
+      if (profile == null && !profileFetchFailed) {
+        try {
+          await _profileRepository.upsertProfile(
+            id: user.id,
+            fullName: fallbackProfile.name,
+            email: fallbackProfile.email,
+            cpf: user.userMetadata?['cpf'] as String?,
+          );
+          profile = await _profileRepository.fetchCurrentProfile();
+        } catch (error) {
+          debugPrint('Supabase profile recovery after login failed: $error');
+        }
+      }
+
+      final lawyerVerification = await _fetchLatestLawyerVerification();
+      final lawFirmVerification = await _fetchLatestLawFirmVerification();
+      final firmWorkspace = await _fetchCurrentFirmWorkspace(
+        lawFirmVerification,
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _lawyerVerification = lawyerVerification;
+        _currentUser = _userWithLawyerVerification(
+          profile ?? fallbackProfile,
+          lawyerVerification,
+        );
+        _lawFirmVerification = lawFirmVerification;
+        _firmWorkspace = firmWorkspace;
+        _isLoggedIn = true;
+        _isBootstrapping = false;
+      });
+    } finally {
+      _isCompletingAuthSession = false;
+    }
+  }
+
+  void _clearSessionState() {
+    _isLoggedIn = false;
+    _isLawyerMode = false;
+    _isFirmMode = false;
+    _currentUser = mockCurrentUser;
+    _lawyerVerification = null;
+    _lawFirmVerification = null;
+    _firmWorkspace = null;
   }
 
   Future<RegisterResult> _handleRegister({
@@ -282,15 +356,7 @@ class _JuriiAppState extends State<JuriiApp> {
       await _authRepository.signOut();
     }
 
-    setState(() {
-      _isLoggedIn = false;
-      _isLawyerMode = false;
-      _isFirmMode = false;
-      _currentUser = mockCurrentUser;
-      _lawyerVerification = null;
-      _lawFirmVerification = null;
-      _firmWorkspace = null;
-    });
+    setState(_clearSessionState);
   }
 
   void _switchToLawyer() {
@@ -462,7 +528,11 @@ class _JuriiAppState extends State<JuriiApp> {
       home: _isBootstrapping
           ? const _BootstrapScreen()
           : !_isLoggedIn
-          ? LoginScreen(onLogin: _handleLogin, onRegister: _handleRegister)
+          ? LoginScreen(
+              onLogin: _handleLogin,
+              onSocialLogin: _handleSocialLogin,
+              onRegister: _handleRegister,
+            )
           : _isFirmMode
           ? FirmNavigation(
               user: _currentUser,

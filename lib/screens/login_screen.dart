@@ -1,17 +1,20 @@
 import 'package:flutter/material.dart';
 
 import 'register_screen.dart';
+import '../models/social_auth_provider.dart';
 import '../theme/app_theme.dart';
 import '../types/auth_callbacks.dart';
 import '../widgets/login_logo.dart';
 
 class LoginScreen extends StatefulWidget {
   final LoginSubmit onLogin;
+  final SocialLoginSubmit onSocialLogin;
   final RegisterSubmit onRegister;
 
   const LoginScreen({
     super.key,
     required this.onLogin,
+    required this.onSocialLogin,
     required this.onRegister,
   });
 
@@ -24,7 +27,10 @@ class _LoginScreenState extends State<LoginScreen> {
   final passwordController = TextEditingController();
   bool showPassword = false;
   bool isLoading = false;
+  SocialAuthProvider? socialLoadingProvider;
   String? errorMessage;
+
+  bool get _isAnyAuthLoading => isLoading || socialLoadingProvider != null;
 
   @override
   void dispose() {
@@ -140,7 +146,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ],
                 ),
                 child: ElevatedButton(
-                  onPressed: isLoading ? null : _submit,
+                  onPressed: _isAnyAuthLoading ? null : _submit,
                   child: isLoading
                       ? const SizedBox(
                           width: 20,
@@ -212,7 +218,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   ],
                 ),
                 child: OutlinedButton(
-                  onPressed: _showSocialUnavailable,
+                  onPressed: _isAnyAuthLoading
+                      ? null
+                      : () => _submitSocial(SocialAuthProvider.google),
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: AppTheme.softBorder),
                     shape: RoundedRectangleBorder(
@@ -222,11 +230,21 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Image.asset(
-                        'assets/images/google_logo.png',
-                        width: 20,
-                        height: 20,
-                      ),
+                      if (socialLoadingProvider == SocialAuthProvider.google)
+                        const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppTheme.primary,
+                          ),
+                        )
+                      else
+                        Image.asset(
+                          'assets/images/google_logo.png',
+                          width: 20,
+                          height: 20,
+                        ),
                       const SizedBox(width: 12),
                       const Text(
                         'Continuar com Google',
@@ -257,8 +275,19 @@ class _LoginScreenState extends State<LoginScreen> {
                   ],
                 ),
                 child: OutlinedButton.icon(
-                  onPressed: _showSocialUnavailable,
-                  icon: const Icon(Icons.apple, color: AppTheme.textPrimary),
+                  onPressed: _isAnyAuthLoading
+                      ? null
+                      : () => _submitSocial(SocialAuthProvider.apple),
+                  icon: socialLoadingProvider == SocialAuthProvider.apple
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppTheme.primary,
+                          ),
+                        )
+                      : const Icon(Icons.apple, color: AppTheme.textPrimary),
                   label: const Text(
                     'Continuar com Apple',
                     style: TextStyle(
@@ -354,6 +383,34 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  Future<void> _submitSocial(SocialAuthProvider provider) async {
+    setState(() {
+      socialLoadingProvider = provider;
+      errorMessage = null;
+    });
+
+    try {
+      await widget.onSocialLogin(provider);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Conclua o login com ${provider.label} para continuar.',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        errorMessage = _friendlySocialError(error);
+      });
+    } finally {
+      if (mounted) {
+        setState(() => socialLoadingProvider = null);
+      }
+    }
+  }
+
   String _friendlyError(Object error) {
     final message = error.toString().toLowerCase();
     if (message.contains('invalid login credentials')) {
@@ -365,11 +422,14 @@ class _LoginScreenState extends State<LoginScreen> {
     return 'Não foi possível entrar. Tente novamente.';
   }
 
-  void _showSocialUnavailable() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Login social será conectado em uma próxima etapa.'),
-      ),
-    );
+  String _friendlySocialError(Object error) {
+    final message = error.toString().toLowerCase();
+    if (message.contains('cancel')) {
+      return 'Login social cancelado.';
+    }
+    if (message.contains('not configured') || message.contains('supabase')) {
+      return 'Login social indisponível. Verifique a configuração do Supabase.';
+    }
+    return 'Não foi possível iniciar o login social. Tente novamente.';
   }
 }

@@ -1,4 +1,8 @@
+import '../models/social_auth_provider.dart';
+
 typedef LoginSubmit = Future<void> Function(String email, String password);
+
+typedef SocialLoginSubmit = Future<void> Function(SocialAuthProvider provider);
 
 enum RegisterResult { signedIn, needsEmailConfirmation }
 
