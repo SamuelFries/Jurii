@@ -1,5 +1,7 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../models/social_auth_provider.dart';
 import '../services/supabase_config.dart';
 
 class AuthRepository {
@@ -30,6 +32,19 @@ class AuthRepository {
     );
 
     return response;
+  }
+
+  Future<bool> signInWithSocialProvider(SocialAuthProvider provider) {
+    final oauthProvider = switch (provider) {
+      SocialAuthProvider.google => OAuthProvider.google,
+      SocialAuthProvider.apple => OAuthProvider.apple,
+    };
+
+    return SupabaseConfig.client.auth.signInWithOAuth(
+      oauthProvider,
+      redirectTo: kIsWeb ? null : SupabaseConfig.oauthRedirectUrl,
+      authScreenLaunchMode: LaunchMode.externalApplication,
+    );
   }
 
   Future<void> signOut() => SupabaseConfig.client.auth.signOut();
