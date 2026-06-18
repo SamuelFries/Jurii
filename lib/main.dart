@@ -23,6 +23,7 @@ import 'repositories/profile_repository.dart';
 import 'screens/agenda_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/messages_screen.dart';
+import 'screens/password_reset_screen.dart';
 import 'screens/cases_screen.dart';
 import 'screens/firm_cases_screen.dart';
 import 'screens/firm_home_screen.dart';
@@ -71,6 +72,8 @@ class _JuriiAppState extends State<JuriiApp> {
   bool _isLawyerMode = false;
   bool _isFirmMode = false;
   bool _isBootstrapping = true;
+  bool _isPasswordRecovery = false;
+  bool _isPasswordRecoveryExpected = false;
   bool _isCompletingAuthSession = false;
   UserProfile _currentUser = mockCurrentUser;
   LawyerVerification? _lawyerVerification;
@@ -97,6 +100,11 @@ class _JuriiAppState extends State<JuriiApp> {
   void _handleAuthStateChange(AuthState authState) {
     if (!mounted) return;
 
+    if (authState.event == AuthChangeEvent.passwordRecovery) {
+      _openPasswordRecoveryFlow();
+      return;
+    }
+
     if (authState.event == AuthChangeEvent.signedOut) {
       setState(_clearSessionState);
       return;
@@ -106,9 +114,25 @@ class _JuriiAppState extends State<JuriiApp> {
         authState.event == AuthChangeEvent.initialSession) {
       final user = authState.session?.user;
       if (user != null) {
+        if (_isPasswordRecoveryExpected) {
+          _openPasswordRecoveryFlow();
+          return;
+        }
         _completeAuthenticatedSession(authUser: user);
       }
     }
+  }
+
+  void _openPasswordRecoveryFlow() {
+    if (!mounted) return;
+    setState(() {
+      _isLoggedIn = false;
+      _isLawyerMode = false;
+      _isFirmMode = false;
+      _isPasswordRecovery = true;
+      _isPasswordRecoveryExpected = true;
+      _isBootstrapping = false;
+    });
   }
 
   Future<void> _bootstrapSession() async {
@@ -153,6 +177,7 @@ class _JuriiAppState extends State<JuriiApp> {
       email: email,
       password: password,
     );
+    _isPasswordRecoveryExpected = false;
     await _completeAuthenticatedSession(
       authUser: response.user ?? SupabaseConfig.client.auth.currentUser,
       fallbackEmail: email,
@@ -164,10 +189,34 @@ class _JuriiAppState extends State<JuriiApp> {
       throw StateError('Supabase is not configured.');
     }
 
+    _isPasswordRecoveryExpected = false;
     final launched = await _authRepository.signInWithSocialProvider(provider);
     if (!launched) {
       throw StateError('Could not launch social login.');
     }
+  }
+
+  Future<void> _handlePasswordResetRequested(String email) async {
+    if (!SupabaseConfig.isConfigured) {
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      _isPasswordRecoveryExpected = true;
+      return;
+    }
+
+    await _authRepository.sendPasswordResetEmail(email);
+    _isPasswordRecoveryExpected = true;
+  }
+
+  Future<void> _handlePasswordUpdate(String password) async {
+    if (!SupabaseConfig.isReady) {
+      throw StateError('Supabase is not ready.');
+    }
+
+    await _authRepository.updatePassword(password);
+    _isPasswordRecoveryExpected = false;
+    await _authRepository.signOut();
+    if (!mounted) return;
+    setState(_clearSessionState);
   }
 
   Future<void> _completeAuthenticatedSession({
@@ -223,6 +272,7 @@ class _JuriiAppState extends State<JuriiApp> {
         _lawFirmVerification = lawFirmVerification;
         _firmWorkspace = firmWorkspace;
         _isLoggedIn = true;
+        _isPasswordRecovery = false;
         _isBootstrapping = false;
       });
     } finally {
@@ -234,6 +284,9 @@ class _JuriiAppState extends State<JuriiApp> {
     _isLoggedIn = false;
     _isLawyerMode = false;
     _isFirmMode = false;
+    _isBootstrapping = false;
+    _isPasswordRecovery = false;
+    _isPasswordRecoveryExpected = false;
     _currentUser = mockCurrentUser;
     _lawyerVerification = null;
     _lawFirmVerification = null;
@@ -527,10 +580,16 @@ class _JuriiAppState extends State<JuriiApp> {
       theme: AppTheme.lightTheme,
       home: _isBootstrapping
           ? const _BootstrapScreen()
+          : _isPasswordRecovery
+          ? PasswordResetScreen(
+              onUpdatePassword: _handlePasswordUpdate,
+              onCancel: _handleLogout,
+            )
           : !_isLoggedIn
           ? LoginScreen(
               onLogin: _handleLogin,
               onSocialLogin: _handleSocialLogin,
+              onPasswordResetRequested: _handlePasswordResetRequested,
               onRegister: _handleRegister,
             )
           : _isFirmMode
