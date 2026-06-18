@@ -118,7 +118,11 @@ class _JuriiAppState extends State<JuriiApp> {
           _openPasswordRecoveryFlow();
           return;
         }
-        _completeAuthenticatedSession(authUser: user);
+        unawaited(
+          _completeAuthenticatedSession(authUser: user).catchError((error) {
+            debugPrint('Supabase auth session completion failed: $error');
+          }),
+        );
       }
     }
   }
@@ -237,6 +241,12 @@ class _JuriiAppState extends State<JuriiApp> {
       var profileFetchFailed = false;
       try {
         profile = await _profileRepository.fetchCurrentProfile();
+      } on DeletedAccountException {
+        await _authRepository.signOut();
+        if (mounted) {
+          setState(_clearSessionState);
+        }
+        rethrow;
       } catch (error) {
         profileFetchFailed = true;
         debugPrint('Supabase profile fetch after login failed: $error');
@@ -278,6 +288,18 @@ class _JuriiAppState extends State<JuriiApp> {
     } finally {
       _isCompletingAuthSession = false;
     }
+  }
+
+  Future<void> _handleDeleteAccount() async {
+    if (!SupabaseConfig.isReady) {
+      setState(_clearSessionState);
+      return;
+    }
+
+    await _profileRepository.deleteCurrentAccount();
+    await _authRepository.signOut();
+    if (!mounted) return;
+    setState(_clearSessionState);
   }
 
   void _clearSessionState() {
@@ -604,6 +626,7 @@ class _JuriiAppState extends State<JuriiApp> {
                   ? _switchToLawyer
                   : null,
               onLogout: _handleLogout,
+              onDeleteAccount: _handleDeleteAccount,
             )
           : _isLawyerMode
           ? LawyerNavigation(
@@ -613,6 +636,7 @@ class _JuriiAppState extends State<JuriiApp> {
               onSwitchToFirm: _switchToFirm,
               onSwitchToClient: _switchToClient,
               onLogout: _handleLogout,
+              onDeleteAccount: _handleDeleteAccount,
             )
           : MainNavigation(
               user: _currentUser,
@@ -626,6 +650,7 @@ class _JuriiAppState extends State<JuriiApp> {
                   _handleLawFirmVerificationSubmitted,
               onRefreshLawFirmVerification: _refreshLawFirmVerification,
               onLogout: _handleLogout,
+              onDeleteAccount: _handleDeleteAccount,
             ),
     );
   }
@@ -654,6 +679,7 @@ class MainNavigation extends StatefulWidget {
   final ValueChanged<LawFirmVerification> onLawFirmVerificationSubmitted;
   final Future<void> Function() onRefreshLawFirmVerification;
   final VoidCallback onLogout;
+  final Future<void> Function() onDeleteAccount;
 
   const MainNavigation({
     super.key,
@@ -667,6 +693,7 @@ class MainNavigation extends StatefulWidget {
     required this.onLawFirmVerificationSubmitted,
     required this.onRefreshLawFirmVerification,
     required this.onLogout,
+    required this.onDeleteAccount,
   });
 
   @override
@@ -696,6 +723,7 @@ class _MainNavigationState extends State<MainNavigation> {
         onOpenCases: () => setState(() => currentIndex = 2),
         onOpenAgenda: () => _openAgenda(AppointmentRole.client),
         onLogout: widget.onLogout,
+        onDeleteAccount: widget.onDeleteAccount,
       ),
     ];
 
@@ -731,6 +759,7 @@ class FirmNavigation extends StatefulWidget {
     required this.onSwitchToClient,
     this.onSwitchToLawyer,
     required this.onLogout,
+    required this.onDeleteAccount,
   });
 
   final UserProfile user;
@@ -748,6 +777,7 @@ class FirmNavigation extends StatefulWidget {
   final VoidCallback onSwitchToClient;
   final VoidCallback? onSwitchToLawyer;
   final VoidCallback onLogout;
+  final Future<void> Function() onDeleteAccount;
 
   @override
   State<FirmNavigation> createState() => _FirmNavigationState();
@@ -779,6 +809,7 @@ class _FirmNavigationState extends State<FirmNavigation> {
         onSwitchToClient: widget.onSwitchToClient,
         onSwitchToLawyer: widget.onSwitchToLawyer,
         onLogout: widget.onLogout,
+        onDeleteAccount: widget.onDeleteAccount,
       ),
     ];
 
@@ -799,6 +830,7 @@ class LawyerNavigation extends StatefulWidget {
   final VoidCallback onSwitchToFirm;
   final VoidCallback onSwitchToClient;
   final VoidCallback onLogout;
+  final Future<void> Function() onDeleteAccount;
 
   const LawyerNavigation({
     super.key,
@@ -808,6 +840,7 @@ class LawyerNavigation extends StatefulWidget {
     required this.onSwitchToFirm,
     required this.onSwitchToClient,
     required this.onLogout,
+    required this.onDeleteAccount,
   });
 
   @override
@@ -839,6 +872,7 @@ class _LawyerNavigationState extends State<LawyerNavigation> {
         onOpenCases: () => setState(() => currentIndex = 2),
         onOpenAgenda: () => _openAgenda(AppointmentRole.lawyer),
         onLogout: widget.onLogout,
+        onDeleteAccount: widget.onDeleteAccount,
       ),
     ];
 

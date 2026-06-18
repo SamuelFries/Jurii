@@ -2,6 +2,13 @@ import '../models/lawyer_status.dart';
 import '../models/user_profile.dart';
 import '../services/supabase_config.dart';
 
+class DeletedAccountException implements Exception {
+  const DeletedAccountException();
+
+  @override
+  String toString() => 'Conta excluída.';
+}
+
 class ProfileRepository {
   const ProfileRepository();
 
@@ -16,6 +23,9 @@ class ProfileRepository {
         .maybeSingle();
 
     if (row == null) return null;
+    if (row['deleted_at'] != null) {
+      throw const DeletedAccountException();
+    }
     return _fromRow(row);
   }
 
@@ -43,6 +53,10 @@ class ProfileRepository {
       'cpf': cpf,
       'phone': phone,
     });
+  }
+
+  Future<void> deleteCurrentAccount() async {
+    await SupabaseConfig.client.rpc('delete_current_account');
   }
 
   UserProfile _fromRow(Map<String, dynamic> row) {

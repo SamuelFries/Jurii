@@ -29,6 +29,8 @@ class AppTheme {
   static const Color officePurpleBorder = Color(0xFFD8CDFB);
   static const Color officePurpleText = Color(0xFF2B214C);
   static const Color danger = Color(0xFFD32F2F);
+  static const Color dangerSurface = Color(0xFFFFF1F1);
+  static const Color dangerBorder = Color(0xFFF1B8B8);
   static const Color divider = Color(0xFFE8ECF5);
   static const Color muted = Color(0xFFB8C0D4);
   static const Color softShadow = Color(0x140A1C3B);

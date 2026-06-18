@@ -377,6 +377,20 @@ uma policy de `delete` em `notifications` para que o destinatário consiga
 excluir notificações pelo gesto de deslizar no app, sem permitir apagar
 notificações de outros usuários.
 
+## 2.35. Patch para exclusão de conta
+
+Rode `patch_035_account_deletion.sql` depois do patch 034. Ele implementa a
+exclusão segura da conta como soft delete:
+
+- marca o perfil com `deleted_at`
+- remove o perfil profissional de advogado e verificações privadas
+- mantém conversas, casos, documentos compartilhados e escritórios ativos
+- exibe o nome histórico como `nome (delleted account)` em chats e casos
+- impede abertura de perfil de contas deletadas
+- transfere o escritório criado pelo usuário deletado para o membro ativo de
+  maior hierarquia, usando a ordem dono, admin, advogado, secretária e estagiário
+- bloqueia o login da conta deletada no app
+
 ## 3. Status da integração
 
 A camada inicial de repositories já existe em `lib/repositories/`.
