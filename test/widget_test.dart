@@ -4,6 +4,7 @@ import 'package:jurii/data/mock/mock_users.dart';
 import 'package:jurii/models/firm_role.dart';
 import 'package:jurii/models/firm_team_member.dart';
 import 'package:jurii/models/firm_workspace.dart';
+import 'package:jurii/models/jurii_notification.dart';
 import 'package:jurii/models/law_firm.dart';
 import 'package:jurii/models/law_firm_verification.dart';
 import 'package:jurii/models/law_firm_verification_status.dart';
@@ -99,6 +100,22 @@ void main() {
       ),
       isFalse,
     );
+  });
+
+  test('read team invite notifications remain actionable while pending', () {
+    final notification = JuriiNotification(
+      id: 'notification_read_invite',
+      title: 'Convite para escritório',
+      body: 'Você tem um convite pendente.',
+      type: 'team_invite',
+      scope: NotificationScope.lawyer,
+      createdAt: DateTime(2026, 6, 18, 10),
+      readAt: DateTime(2026, 6, 18, 10, 1),
+      metadata: const {'membership_id': 'membership_01'},
+    );
+
+    expect(notification.isUnread, isFalse);
+    expect(notification.isPendingTeamInvite, isTrue);
   });
 
   test('firm roles expose permission sets', () {

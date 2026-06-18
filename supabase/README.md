@@ -370,6 +370,13 @@ se o convite falhar com `function public.normalize_practice_areas(text[]) does
 not exist`. Ele cria a funcao usada pela RPC de convite e garante a tabela
 `notifications`, que tambem e usada por esse fluxo.
 
+## 2.34. Patch para excluir notificações
+
+Rode `patch_034_notification_dismissal.sql` depois do patch 033. Ele adiciona
+uma policy de `delete` em `notifications` para que o destinatário consiga
+excluir notificações pelo gesto de deslizar no app, sem permitir apagar
+notificações de outros usuários.
+
 ## 3. Status da integração
 
 A camada inicial de repositories já existe em `lib/repositories/`.
