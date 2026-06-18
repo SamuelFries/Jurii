@@ -12,10 +12,13 @@ import 'package:jurii/models/lawyer_case.dart';
 import 'package:jurii/models/lawyer_status.dart';
 import 'package:jurii/models/lawyer_verification.dart';
 import 'package:jurii/models/conversation.dart';
+import 'package:jurii/models/social_auth_provider.dart';
 import 'package:jurii/repositories/case_repository.dart';
 import 'package:jurii/repositories/messaging_repository.dart';
 import 'package:jurii/screens/chat_screen.dart';
 import 'package:jurii/screens/lawyer_home_screen.dart';
+import 'package:jurii/screens/login_screen.dart';
+import 'package:jurii/screens/password_reset_screen.dart';
 import 'package:jurii/screens/profile_screen.dart';
 import 'package:jurii/screens/register_screen.dart';
 import 'package:jurii/theme/app_theme.dart';
@@ -66,6 +69,10 @@ void main() {
   }) async {
     return RegisterResult.signedIn;
   }
+
+  Future<void> loginStub(String email, String password) async {}
+
+  Future<void> socialLoginStub(SocialAuthProvider provider) async {}
 
   test('legal search infers practice areas from client language', () {
     const examples = {
@@ -238,6 +245,64 @@ void main() {
     await tester.pump();
 
     expect(find.text('123.456.789-00'), findsOneWidget);
+  });
+
+  testWidgets('login password recovery sends reset email', (
+    WidgetTester tester,
+  ) async {
+    String? resetEmail;
+
+    await tester.pumpWidget(
+      _testApp(
+        LoginScreen(
+          onLogin: loginStub,
+          onSocialLogin: socialLoginStub,
+          onPasswordResetRequested: (email) async {
+            resetEmail = email;
+          },
+          onRegister: registerStub,
+        ),
+      ),
+    );
+
+    await tester.enterText(find.byType(TextField).first, 'joao@jurii.com');
+    await tester.tap(find.text('Esqueceu sua senha?'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Enviar link'));
+    await tester.pumpAndSettle();
+
+    expect(resetEmail, 'joao@jurii.com');
+    expect(
+      find.text('Enviamos um link de recuperação para seu e-mail.'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('password reset screen submits a new password', (
+    WidgetTester tester,
+  ) async {
+    String? updatedPassword;
+
+    await tester.pumpWidget(
+      _testApp(
+        PasswordResetScreen(
+          onUpdatePassword: (password) async {
+            updatedPassword = password;
+          },
+          onCancel: () {},
+        ),
+      ),
+    );
+
+    await tester.enterText(find.byType(TextFormField).at(0), 'NovaSenha1!');
+    await tester.enterText(find.byType(TextFormField).at(1), 'NovaSenha1!');
+    await tester.tap(
+      find.widgetWithText(ElevatedButton, 'Confirmar nova senha'),
+    );
+    await tester.pumpAndSettle();
+
+    expect(updatedPassword, 'NovaSenha1!');
+    expect(find.text('Senha atualizada com sucesso.'), findsOneWidget);
   });
 
   testWidgets('professional mode button opens verification screen', (

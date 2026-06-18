@@ -47,5 +47,18 @@ class AuthRepository {
     );
   }
 
+  Future<void> sendPasswordResetEmail(String email) {
+    return SupabaseConfig.client.auth.resetPasswordForEmail(
+      email,
+      redirectTo: kIsWeb ? null : SupabaseConfig.oauthRedirectUrl,
+    );
+  }
+
+  Future<void> updatePassword(String password) {
+    return SupabaseConfig.client.auth.updateUser(
+      UserAttributes(password: password),
+    );
+  }
+
   Future<void> signOut() => SupabaseConfig.client.auth.signOut();
 }
