@@ -110,6 +110,18 @@ class NotificationRepository {
     }
   }
 
+  Future<void> deleteNotification(String notificationId) async {
+    if (!SupabaseConfig.isReady ||
+        SupabaseConfig.client.auth.currentUser == null) {
+      return;
+    }
+
+    await SupabaseConfig.client
+        .from('notifications')
+        .delete()
+        .eq('id', notificationId);
+  }
+
   Future<void> acceptTeamInvite(String membershipId) async {
     await _respondToTeamInvite(membershipId: membershipId, accepted: true);
   }

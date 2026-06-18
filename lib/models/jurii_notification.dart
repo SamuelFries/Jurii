@@ -39,6 +39,28 @@ class JuriiNotification {
 
   bool get isUnread => readAt == null;
 
+  JuriiNotification copyWith({
+    String? id,
+    String? title,
+    String? body,
+    String? type,
+    NotificationScope? scope,
+    DateTime? createdAt,
+    DateTime? readAt,
+    Map<String, dynamic>? metadata,
+  }) {
+    return JuriiNotification(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      body: body ?? this.body,
+      type: type ?? this.type,
+      scope: scope ?? this.scope,
+      createdAt: createdAt ?? this.createdAt,
+      readAt: readAt ?? this.readAt,
+      metadata: metadata ?? this.metadata,
+    );
+  }
+
   String? get membershipId => metadata['membership_id'] as String?;
 
   String? get inviteStatus => metadata['invite_status'] as String?;
@@ -50,8 +72,7 @@ class JuriiNotification {
   bool get isPendingTeamInvite {
     return type == 'team_invite' &&
         membershipId != null &&
-        inviteStatus == null &&
-        isUnread;
+        inviteStatus == null;
   }
 
   bool get isPendingCaseRequest {

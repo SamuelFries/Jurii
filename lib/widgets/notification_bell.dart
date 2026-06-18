@@ -103,6 +103,29 @@ class _NotificationBellState extends State<NotificationBell> {
     );
     if (!mounted) return;
 
+    final openedAt = DateTime.now();
+    final hasUnreadNotifications = notifications.any(
+      (notification) => notification.isUnread,
+    );
+    if (hasUnreadNotifications) {
+      setState(() => _unreadCount = 0);
+      await widget.repository.markAllAsRead(
+        scope: widget.scope,
+        lawFirmId: widget.lawFirmId,
+      );
+    }
+    if (!mounted) return;
+
+    final visibleNotifications = hasUnreadNotifications
+        ? notifications
+              .map(
+                (notification) => notification.isUnread
+                    ? notification.copyWith(readAt: openedAt)
+                    : notification,
+              )
+              .toList()
+        : notifications;
+
     await showModalBottomSheet<void>(
       context: context,
       backgroundColor: AppTheme.card,
@@ -112,7 +135,7 @@ class _NotificationBellState extends State<NotificationBell> {
       ),
       builder: (context) {
         return _NotificationSheet(
-          notifications: notifications,
+          notifications: visibleNotifications,
           scope: widget.scope,
           lawFirmId: widget.lawFirmId,
           repository: widget.repository,
@@ -214,6 +237,27 @@ class _NotificationSheetState extends State<_NotificationSheet> {
     setState(() => _notifications = notifications);
   }
 
+  Future<void> _dismissNotification(JuriiNotification notification) async {
+    final removedIndex = _notifications.indexWhere(
+      (item) => item.id == notification.id,
+    );
+    if (removedIndex == -1) return;
+
+    setState(() => _notifications.removeAt(removedIndex));
+
+    try {
+      await widget.repository.deleteNotification(notification.id);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _notifications.insert(removedIndex, notification));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Não foi possível excluir a notificação.'),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return SafeArea(
@@ -242,16 +286,77 @@ class _NotificationSheetState extends State<_NotificationSheet> {
                   itemCount: _notifications.length,
                   separatorBuilder: (_, _) => const SizedBox(height: 10),
                   itemBuilder: (context, index) {
-                    return _NotificationTile(
-                      notification: _notifications[index],
-                      repository: widget.repository,
-                      onChanged: _reload,
+                    final notification = _notifications[index];
+                    return Dismissible(
+                      key: ValueKey('notification_${notification.id}'),
+                      direction: DismissDirection.endToStart,
+                      resizeDuration: const Duration(milliseconds: 180),
+                      movementDuration: const Duration(milliseconds: 260),
+                      dismissThresholds: const {
+                        DismissDirection.endToStart: 0.28,
+                      },
+                      background: const SizedBox.shrink(),
+                      secondaryBackground: _DismissNotificationBackground(
+                        scope: notification.scope,
+                      ),
+                      onDismissed: (_) => _dismissNotification(notification),
+                      child: _NotificationTile(
+                        notification: notification,
+                        repository: widget.repository,
+                        onChanged: _reload,
+                      ),
                     );
                   },
                 ),
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _DismissNotificationBackground extends StatelessWidget {
+  const _DismissNotificationBackground({required this.scope});
+
+  final NotificationScope scope;
+
+  @override
+  Widget build(BuildContext context) {
+    final accentColor = switch (scope) {
+      NotificationScope.client => AppTheme.accent,
+      NotificationScope.lawyer => AppTheme.primary,
+      NotificationScope.firm => AppTheme.officePurple,
+    };
+
+    return Container(
+      alignment: Alignment.centerRight,
+      padding: const EdgeInsets.symmetric(horizontal: 18),
+      decoration: BoxDecoration(
+        color: AppTheme.danger,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: accentColor.withValues(alpha: 0.10),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: const Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          Text(
+            'Excluir',
+            style: TextStyle(
+              color: AppTheme.card,
+              fontSize: 13,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          SizedBox(width: 10),
+          Icon(Icons.delete_outline, color: AppTheme.card, size: 22),
+        ],
       ),
     );
   }
