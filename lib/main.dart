@@ -7,6 +7,7 @@ import 'models/law_firm_verification.dart';
 import 'models/law_firm_verification_status.dart';
 import 'models/lawyer_status.dart';
 import 'models/lawyer_verification.dart';
+import 'models/firm_role.dart';
 import 'models/firm_workspace.dart';
 import 'models/user_profile.dart';
 import 'repositories/auth_repository.dart';
@@ -433,6 +434,25 @@ class _JuriiAppState extends State<JuriiApp> {
     await _refreshFirmWorkspace();
   }
 
+  Future<void> _updateFirmMemberRoles({
+    required String memberProfileId,
+    required List<FirmRole> roles,
+  }) async {
+    final workspace = _firmWorkspace;
+    if (workspace == null || !workspace.fromSupabase) {
+      throw StateError(
+        'A Ã¡rea do escritÃ³rio precisa estar aprovada e sincronizada.',
+      );
+    }
+
+    await _firmWorkspaceRepository.updateMemberRoles(
+      lawFirmId: workspace.firm.id,
+      memberProfileId: memberProfileId,
+      roles: roles,
+    );
+    await _refreshFirmWorkspace();
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -448,6 +468,7 @@ class _JuriiAppState extends State<JuriiApp> {
               user: _currentUser,
               workspace: _firmWorkspace,
               onInviteLawyer: _inviteLawyerToFirm,
+              onUpdateMemberRoles: _updateFirmMemberRoles,
               onSwitchToClient: _switchToClient,
               onSwitchToLawyer:
                   _currentUser.lawyerStatus == LawyerStatus.approved
@@ -577,6 +598,7 @@ class FirmNavigation extends StatefulWidget {
     required this.user,
     required this.workspace,
     required this.onInviteLawyer,
+    required this.onUpdateMemberRoles,
     required this.onSwitchToClient,
     this.onSwitchToLawyer,
     required this.onLogout,
@@ -589,6 +611,11 @@ class FirmNavigation extends StatefulWidget {
     required String oabNumber,
   })
   onInviteLawyer;
+  final Future<void> Function({
+    required String memberProfileId,
+    required List<FirmRole> roles,
+  })
+  onUpdateMemberRoles;
   final VoidCallback onSwitchToClient;
   final VoidCallback? onSwitchToLawyer;
   final VoidCallback onLogout;
@@ -614,6 +641,7 @@ class _FirmNavigationState extends State<FirmNavigation> {
         workspace: widget.workspace,
         teamMembers: widget.workspace?.teamMembers,
         onInviteLawyer: widget.onInviteLawyer,
+        onUpdateMemberRoles: widget.onUpdateMemberRoles,
       ),
       FirmCasesScreen(workspace: widget.workspace),
       FirmProfileScreen(

@@ -53,6 +53,26 @@ class CaseRepository {
         .toList();
   }
 
+  Future<void> assignLawFirmCase({
+    required String lawFirmId,
+    required String caseId,
+    required String lawyerProfileId,
+  }) async {
+    if (!SupabaseConfig.isReady ||
+        SupabaseConfig.client.auth.currentUser == null) {
+      throw StateError('A conexÃ£o com o Supabase nÃ£o estÃ¡ ativa.');
+    }
+
+    await SupabaseConfig.client.rpc(
+      'assign_law_firm_case',
+      params: {
+        'law_firm_id_value': lawFirmId,
+        'case_id_value': caseId,
+        'lawyer_profile_id_value': lawyerProfileId,
+      },
+    );
+  }
+
   Future<void> createCaseRequest({
     required String conversationId,
     required String title,
@@ -156,6 +176,7 @@ class CaseRepository {
       title: row['title'] as String? ?? 'Caso jurídico',
       clientName: row['client_name'] as String? ?? 'Cliente',
       clientInitials: row['client_initials'] as String? ?? 'CL',
+      assignedLawyerId: row['assigned_lawyer_id']?.toString(),
       assignedLawyer:
           row['assigned_lawyer'] as String? ?? 'Sem advogado definido',
       area: row['area'] as String? ?? 'Atendimento jurídico',

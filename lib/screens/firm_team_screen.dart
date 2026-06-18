@@ -13,6 +13,7 @@ class FirmTeamScreen extends StatelessWidget {
     this.workspace,
     this.teamMembers,
     this.onInviteLawyer,
+    this.onUpdateMemberRoles,
   });
 
   final FirmWorkspace? workspace;
@@ -22,14 +23,18 @@ class FirmTeamScreen extends StatelessWidget {
     required String oabNumber,
   })?
   onInviteLawyer;
+  final Future<void> Function({
+    required String memberProfileId,
+    required List<FirmRole> roles,
+  })?
+  onUpdateMemberRoles;
 
   @override
   Widget build(BuildContext context) {
     final members = teamMembers ?? mockFirmTeamMembers;
-    final canInvite =
-        workspace?.fromSupabase == true &&
-        (workspace?.currentUserRole == FirmRole.owner ||
-            workspace?.currentUserRole == FirmRole.admin);
+    final canManageMembers =
+        workspace?.fromSupabase == true && workspace?.canManageMembers == true;
+    final canInvite = canManageMembers;
 
     return SafeArea(
       child: ListView(
@@ -73,7 +78,16 @@ class FirmTeamScreen extends StatelessWidget {
           ),
           const SizedBox(height: 20),
           for (var index = 0; index < members.length; index++) ...[
-            _TeamMemberCard(member: members[index]),
+            _TeamMemberCard(
+              member: members[index],
+              onEditRoles:
+                  canManageMembers &&
+                      onUpdateMemberRoles != null &&
+                      (workspace?.isOwner == true ||
+                          !members[index].effectiveRoles.hasOwner)
+                  ? () => _openRolesDialog(context, members[index])
+                  : null,
+            ),
             if (index < members.length - 1) const SizedBox(height: 12),
           ],
         ],
@@ -112,6 +126,217 @@ class FirmTeamScreen extends StatelessWidget {
         const SnackBar(content: Text('Convite enviado ao advogado.')),
       );
     }
+  }
+
+  Future<void> _openRolesDialog(
+    BuildContext context,
+    FirmTeamMember member,
+  ) async {
+    if (workspace?.fromSupabase != true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Sincronize o escritorio antes de editar cargos.'),
+        ),
+      );
+      return;
+    }
+
+    if (workspace?.canManageMembers != true || onUpdateMemberRoles == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Apenas donos e admins podem editar cargos.'),
+        ),
+      );
+      return;
+    }
+
+    if (member.effectiveRoles.hasOwner && workspace?.isOwner != true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Apenas donos podem alterar outro dono.')),
+      );
+      return;
+    }
+
+    final updated = await showDialog<bool>(
+      context: context,
+      builder: (_) => _MemberRolesDialog(
+        member: member,
+        canEditOwnerRole: workspace?.isOwner == true,
+        onUpdateMemberRoles: onUpdateMemberRoles!,
+      ),
+    );
+
+    if (updated == true && context.mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Cargos atualizados.')));
+    }
+  }
+}
+
+class _MemberRolesDialog extends StatefulWidget {
+  const _MemberRolesDialog({
+    required this.member,
+    required this.canEditOwnerRole,
+    required this.onUpdateMemberRoles,
+  });
+
+  final FirmTeamMember member;
+  final bool canEditOwnerRole;
+  final Future<void> Function({
+    required String memberProfileId,
+    required List<FirmRole> roles,
+  })
+  onUpdateMemberRoles;
+
+  @override
+  State<_MemberRolesDialog> createState() => _MemberRolesDialogState();
+}
+
+class _MemberRolesDialogState extends State<_MemberRolesDialog> {
+  late final Set<FirmRole> _selectedRoles;
+  bool _isSubmitting = false;
+  String? _errorText;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedRoles = widget.member.effectiveRoles.toSet();
+  }
+
+  Future<void> _submit() async {
+    if (_selectedRoles.isEmpty) {
+      setState(() {
+        _errorText = 'Selecione pelo menos um cargo.';
+      });
+      return;
+    }
+
+    setState(() {
+      _isSubmitting = true;
+      _errorText = null;
+    });
+
+    try {
+      await widget.onUpdateMemberRoles(
+        memberProfileId: widget.member.id,
+        roles: FirmRole.normalize(_selectedRoles),
+      );
+      if (!mounted) return;
+      Navigator.of(context).pop(true);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _errorText = _friendlyError(error);
+        _isSubmitting = false;
+      });
+    }
+  }
+
+  String _friendlyError(Object error) {
+    final message = error.toString();
+    if (message.contains('Only active office owners and admins')) {
+      return 'Apenas donos e admins ativos podem editar cargos.';
+    }
+    if (message.contains('Only owners can grant or remove owner role')) {
+      return 'Apenas donos podem conceder ou remover o cargo de dono.';
+    }
+    if (message.contains('Office must keep at least one owner')) {
+      return 'O escritorio precisa manter pelo menos um dono ativo.';
+    }
+    if (message.contains('Invalid firm roles')) {
+      return 'A lista de cargos tem um valor invalido.';
+    }
+    if (message.contains('update_law_firm_member_roles') ||
+        message.contains('function') ||
+        message.contains('patch')) {
+      return 'Rode o patch de cargos no Supabase antes de editar.';
+    }
+    return 'Nao foi possivel atualizar os cargos.';
+  }
+
+  void _toggleRole(FirmRole role, bool? selected) {
+    if (role == FirmRole.owner && !widget.canEditOwnerRole) return;
+
+    setState(() {
+      if (selected == true) {
+        _selectedRoles.add(role);
+      } else {
+        _selectedRoles.remove(role);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text('Cargos de ${widget.member.name}'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final role in FirmRole.orderedValues)
+              CheckboxListTile(
+                value: _selectedRoles.contains(role),
+                onChanged:
+                    _isSubmitting ||
+                        (role == FirmRole.owner && !widget.canEditOwnerRole)
+                    ? null
+                    : (selected) => _toggleRole(role, selected),
+                title: Text(role.label),
+                subtitle: Text(
+                  _roleDescription(role),
+                  style: const TextStyle(color: AppTheme.textSecondary),
+                ),
+                controlAffinity: ListTileControlAffinity.leading,
+                contentPadding: EdgeInsets.zero,
+              ),
+            if (_errorText != null) ...[
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  _errorText!,
+                  style: const TextStyle(
+                    color: AppTheme.danger,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          onPressed: _isSubmitting ? null : _submit,
+          child: _isSubmitting
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: AppTheme.card,
+                  ),
+                )
+              : const Text('Salvar cargos'),
+        ),
+      ],
+    );
+  }
+
+  String _roleDescription(FirmRole role) {
+    return switch (role) {
+      FirmRole.owner => 'Controle total e pode atuar com outros cargos.',
+      FirmRole.admin => 'Gerencia equipe, convites e operacao.',
+      FirmRole.lawyer => 'Atende casos atribuidos.',
+      FirmRole.secretary => 'Cria solicitacoes e atribui casos.',
+      FirmRole.intern => 'Acesso limitado para apoio interno.',
+    };
   }
 }
 
@@ -162,6 +387,7 @@ class _InviteLawyerDialogState extends State<_InviteLawyerDialog> {
       if (!mounted) return;
       Navigator.of(context).pop(true);
     } catch (error) {
+      debugPrint('Firm lawyer invite failed: $error');
       if (!mounted) return;
       setState(() {
         _errorText = _friendlyError(error);
@@ -172,8 +398,10 @@ class _InviteLawyerDialogState extends State<_InviteLawyerDialog> {
 
   String _friendlyError(Object error) {
     final message = error.toString();
+    final normalizedMessage = message.toLowerCase();
+
     if (message.contains('Lawyer not found') ||
-        message.contains('not approved')) {
+        normalizedMessage.contains('not approved')) {
       return 'Não encontramos um advogado verificado com essa OAB.';
     }
 
@@ -189,13 +417,39 @@ class _InviteLawyerDialogState extends State<_InviteLawyerDialog> {
       return 'Já existe um convite pendente para esse advogado.';
     }
 
-    if (message.contains('invite_verified_lawyer_to_law_firm') ||
-        message.contains('function') ||
-        message.contains('patch')) {
-      return 'Rode o patch 007 no Supabase antes de enviar convites.';
+    if (normalizedMessage.contains('permission denied') &&
+        normalizedMessage.contains('invite_verified_lawyer_to_law_firm')) {
+      return 'Rode o patch 032 no Supabase para liberar a RPC de convites.';
     }
 
-    return 'Não foi possível enviar o convite. Tente novamente.';
+    if (normalizedMessage.contains('schema cache') ||
+        normalizedMessage.contains('could not find the function') ||
+        normalizedMessage.contains('pgrst202')) {
+      return 'A RPC de convites ainda não entrou no schema cache. Recarregue o schema cache do Supabase e tente de novo.';
+    }
+
+    return 'Não foi possível enviar o convite. Detalhe: ${_compactErrorMessage(message)}';
+  }
+
+  String _compactErrorMessage(String message) {
+    var detail = message.trim();
+
+    final postgrestMessage = RegExp(r'message:\s*([^,]+)').firstMatch(detail);
+    if (postgrestMessage != null) {
+      detail = postgrestMessage.group(1) ?? detail;
+    }
+
+    detail = detail
+        .replaceAll('PostgrestException(', '')
+        .replaceAll(RegExp(r',\s*code:\s*[^,)]+.*$'), '')
+        .replaceAll(RegExp(r',\s*details:\s*[^,)]+.*$'), '')
+        .trim();
+
+    if (detail.length > 160) {
+      return '${detail.substring(0, 157)}...';
+    }
+
+    return detail.isEmpty ? 'erro inesperado do Supabase' : detail;
   }
 
   @override
@@ -274,18 +528,17 @@ class _InviteLawyerDialogState extends State<_InviteLawyerDialog> {
 }
 
 class _TeamMemberCard extends StatelessWidget {
-  const _TeamMemberCard({required this.member});
+  const _TeamMemberCard({required this.member, this.onEditRoles});
 
   final FirmTeamMember member;
+  final VoidCallback? onEditRoles;
 
   @override
   Widget build(BuildContext context) {
-    final roleLabel = switch (member.role) {
-      FirmRole.owner => 'Líder',
-      FirmRole.admin => 'Admin',
-      FirmRole.secretary => 'Secretaria',
-      FirmRole.lawyer => 'Advogado',
-    };
+    final roleLabel = member.roleLabel;
+    final detailLabel = member.specialty == roleLabel
+        ? roleLabel
+        : '$roleLabel - ${member.specialty}';
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -332,7 +585,7 @@ class _TeamMemberCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '$roleLabel · ${member.specialty}',
+                  detailLabel,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -356,16 +609,20 @@ class _TeamMemberCard extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           IconButton(
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Perfil do membro em preparação.'),
-                ),
-              );
-            },
-            icon: const Icon(Icons.chevron_right),
+            onPressed:
+                onEditRoles ??
+                () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Perfil do membro em preparação.'),
+                    ),
+                  );
+                },
+            icon: Icon(
+              onEditRoles == null ? Icons.chevron_right : Icons.manage_accounts,
+            ),
             color: AppTheme.textSecondary,
-            tooltip: 'Abrir membro',
+            tooltip: onEditRoles == null ? 'Abrir membro' : 'Editar cargos',
           ),
         ],
       ),

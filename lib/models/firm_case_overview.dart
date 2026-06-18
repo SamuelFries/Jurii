@@ -3,6 +3,7 @@ class FirmCaseOverview {
   final String title;
   final String clientName;
   final String clientInitials;
+  final String? assignedLawyerId;
   final String assignedLawyer;
   final String area;
   final String statusLabel;
@@ -14,6 +15,7 @@ class FirmCaseOverview {
     required this.title,
     required this.clientName,
     required this.clientInitials,
+    this.assignedLawyerId,
     required this.assignedLawyer,
     required this.area,
     required this.statusLabel,
