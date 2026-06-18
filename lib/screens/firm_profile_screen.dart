@@ -16,6 +16,7 @@ class FirmProfileScreen extends StatelessWidget {
     required this.onSwitchToClient,
     this.onSwitchToLawyer,
     required this.onLogout,
+    this.onDeleteAccount,
   });
 
   final UserProfile user;
@@ -23,6 +24,74 @@ class FirmProfileScreen extends StatelessWidget {
   final VoidCallback onSwitchToClient;
   final VoidCallback? onSwitchToLawyer;
   final VoidCallback onLogout;
+  final Future<void> Function()? onDeleteAccount;
+
+  Future<void> _confirmDeleteAccount(BuildContext context) async {
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        var isDeleting = false;
+
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Excluir conta?'),
+              content: const Text(
+                'Essa ação desativa sua conta Jurii. Se você for responsável por um escritório, a gestão será transferida para o membro elegível de maior hierarquia.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isDeleting
+                      ? null
+                      : () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Cancelar'),
+                ),
+                ElevatedButton.icon(
+                  onPressed: isDeleting
+                      ? null
+                      : () async {
+                          setDialogState(() => isDeleting = true);
+                          try {
+                            await onDeleteAccount?.call();
+                            if (dialogContext.mounted) {
+                              Navigator.of(dialogContext).pop();
+                            }
+                          } catch (_) {
+                            if (!dialogContext.mounted) return;
+                            setDialogState(() => isDeleting = false);
+                            ScaffoldMessenger.of(dialogContext).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Não foi possível excluir a conta. Tente novamente.',
+                                ),
+                              ),
+                            );
+                          }
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.danger,
+                    foregroundColor: AppTheme.card,
+                  ),
+                  icon: isDeleting
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppTheme.card,
+                          ),
+                        )
+                      : const Icon(Icons.delete_outline),
+                  label: Text(isDeleting ? 'Excluindo...' : 'Excluir conta'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -122,6 +191,21 @@ class FirmProfileScreen extends StatelessWidget {
                 label: 'Horários de atendimento',
                 subtitle: 'Disponibilidade do escritório',
                 onTap: () {},
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          ProfileMenuSection(
+            title: 'SEGURANÇA',
+            items: [
+              ProfileMenuItem(
+                icon: Icons.delete_outline,
+                iconColor: AppTheme.danger,
+                label: 'Excluir conta',
+                subtitle: 'Desative seu acesso e remova dados privados',
+                onTap: onDeleteAccount == null
+                    ? null
+                    : () => _confirmDeleteAccount(context),
               ),
             ],
           ),

@@ -31,6 +31,7 @@ class ProfileScreen extends StatelessWidget {
   final VoidCallback? onOpenCases;
   final VoidCallback? onOpenAgenda;
   final VoidCallback? onLogout;
+  final Future<void> Function()? onDeleteAccount;
 
   const ProfileScreen({
     super.key,
@@ -49,7 +50,202 @@ class ProfileScreen extends StatelessWidget {
     this.onOpenCases,
     this.onOpenAgenda,
     this.onLogout,
+    this.onDeleteAccount,
   });
+
+  Future<void> _openSecuritySettings(BuildContext context) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (sheetContext) {
+        return SafeArea(
+          child: SingleChildScrollView(
+            child: Container(
+              margin: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: AppTheme.card,
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: const [
+                  BoxShadow(
+                    color: AppTheme.softShadow,
+                    blurRadius: 24,
+                    offset: Offset(0, 12),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: AppTheme.warningSurface,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: const Icon(
+                          Icons.lock_outline,
+                          color: AppTheme.warning,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Segurança',
+                              style: TextStyle(
+                                color: AppTheme.textPrimary,
+                                fontSize: 20,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                            SizedBox(height: 2),
+                            Text(
+                              'Gerencie ações sensíveis da sua conta.',
+                              style: TextStyle(
+                                color: AppTheme.textSecondary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: AppTheme.dangerSurface,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppTheme.dangerBorder),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Excluir conta',
+                          style: TextStyle(
+                            color: AppTheme.danger,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        const Text(
+                          'Seu acesso será encerrado e o perfil profissional será removido. Conversas, casos e documentos compartilhados continuam preservados para os demais participantes.',
+                          style: TextStyle(
+                            color: AppTheme.textSecondary,
+                            height: 1.35,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: onDeleteAccount == null
+                                ? null
+                                : () {
+                                    Navigator.of(sheetContext).pop();
+                                    _confirmDeleteAccount(context);
+                                  },
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppTheme.danger,
+                              side: const BorderSide(
+                                color: AppTheme.dangerBorder,
+                              ),
+                            ),
+                            icon: const Icon(Icons.delete_outline),
+                            label: const Text('Excluir minha conta'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _confirmDeleteAccount(BuildContext context) async {
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        var isDeleting = false;
+
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Excluir conta?'),
+              content: const Text(
+                'Essa ação desativa sua conta Jurii, remove seu acesso profissional e encerra sua sessão. O histórico compartilhado com outros usuários será mantido.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isDeleting
+                      ? null
+                      : () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Cancelar'),
+                ),
+                ElevatedButton.icon(
+                  onPressed: isDeleting
+                      ? null
+                      : () async {
+                          setDialogState(() => isDeleting = true);
+                          try {
+                            await onDeleteAccount?.call();
+                            if (dialogContext.mounted) {
+                              Navigator.of(dialogContext).pop();
+                            }
+                          } catch (_) {
+                            if (!dialogContext.mounted) return;
+                            setDialogState(() => isDeleting = false);
+                            ScaffoldMessenger.of(dialogContext).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Não foi possível excluir a conta. Tente novamente.',
+                                ),
+                              ),
+                            );
+                          }
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.danger,
+                    foregroundColor: AppTheme.card,
+                  ),
+                  icon: isDeleting
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppTheme.card,
+                          ),
+                        )
+                      : const Icon(Icons.delete_outline),
+                  label: Text(isDeleting ? 'Excluindo...' : 'Excluir conta'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -261,7 +457,7 @@ class ProfileScreen extends StatelessWidget {
                     iconColor: AppTheme.warning,
                     label: 'Segurança',
                     subtitle: 'Senha e configurações de acesso',
-                    onTap: () {},
+                    onTap: () => _openSecuritySettings(context),
                   ),
                   ProfileMenuItem(
                     icon: Icons.description_outlined,

@@ -435,6 +435,11 @@ class _LoginScreenState extends State<LoginScreen> {
     if (message.contains('email not confirmed')) {
       return 'Confirme seu e-mail antes de entrar.';
     }
+    if (message.contains('conta excluída') ||
+        message.contains('conta excluida') ||
+        message.contains('deleted account')) {
+      return 'Esta conta foi excluída e não pode mais acessar a Jurii.';
+    }
     return 'Não foi possível entrar. Tente novamente.';
   }
 

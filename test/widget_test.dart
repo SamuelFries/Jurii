@@ -524,6 +524,42 @@ void main() {
     expect(find.text('Área do Escritório'), findsNothing);
   });
 
+  testWidgets(
+    'profile security requires confirmation before account deletion',
+    (WidgetTester tester) async {
+      var deletionRequested = false;
+
+      await tester.pumpWidget(
+        _testApp(
+          Scaffold(
+            body: ProfileScreen(
+              user: clientUser,
+              onDeleteAccount: () async {
+                deletionRequested = true;
+              },
+            ),
+          ),
+        ),
+      );
+
+      await tester.ensureVisible(find.text('Segurança'));
+      await tester.tap(find.text('Segurança'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Excluir minha conta'), findsOneWidget);
+      expect(deletionRequested, isFalse);
+
+      await tester.tap(find.text('Excluir minha conta'));
+      await tester.pumpAndSettle();
+      expect(find.text('Excluir conta?'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Excluir conta'));
+      await tester.pumpAndSettle();
+
+      expect(deletionRequested, isTrue);
+    },
+  );
+
   testWidgets('lawyer home shows real client metrics from repositories', (
     WidgetTester tester,
   ) async {

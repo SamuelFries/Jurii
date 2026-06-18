@@ -131,15 +131,26 @@ class MessagingRepository {
   }
 
   Future<Conversation> fetchConversationById(String conversationId) async {
-    final row = await SupabaseConfig.client
-        .from('conversations')
-        .select(
-          'id, type, title, specialty, last_message, last_message_at, law_firm_id, client_id, lawyer_id',
-        )
-        .eq('id', conversationId)
-        .single();
+    try {
+      final row = await SupabaseConfig.client
+          .rpc(
+            'fetch_conversation_for_current_user',
+            params: {'conversation_id_value': conversationId},
+          )
+          .single();
 
-    return _conversationFromRow(row);
+      return _conversationFromRow(row);
+    } catch (_) {
+      final row = await SupabaseConfig.client
+          .from('conversations')
+          .select(
+            'id, type, title, specialty, last_message, last_message_at, law_firm_id, client_id, lawyer_id',
+          )
+          .eq('id', conversationId)
+          .single();
+
+      return _conversationFromRow(row);
+    }
   }
 
   Conversation _conversationFromRow(Map<String, dynamic> row) {
