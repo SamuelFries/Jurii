@@ -335,6 +335,41 @@ O patch cria a tabela `legal_search_intents`, instala a função
 patch é idempotente e pode ser executado novamente para atualizar o dicionário
 de termos.
 
+## 2.30. Patch para cargos múltiplos no escritório
+
+Rode `patch_030_firm_member_multi_roles.sql` depois do patch 029. Ele:
+
+- adiciona `roles text[]` em `law_firm_members` e faz backfill dos cargos atuais
+- mantém `role` e `member_role` sincronizados para compatibilidade
+- adiciona o papel `intern`/estagiário
+- cria permissões por conjunto de cargos para gerenciar equipe e atribuir casos
+- cria `update_law_firm_member_roles` para a UI de cargos da equipe
+- cria `assign_law_firm_case` para dono/admin/secretaria atribuir casos a advogados
+- restringe atualizações de caso ao advogado responsável/participante advogado
+- atualiza os fluxos de convite e solicitação de caso para usar `roles`
+
+## 2.31. Patch para reparar dono do escritório
+
+Rode `patch_031_repair_firm_owner_roles.sql` depois do patch 030 se o criador
+do escritório não conseguir convidar ou gerenciar membros. Ele corrige
+memberships de donos que ficaram com `roles = ['lawyer']`, cria o vínculo de
+dono caso esteja faltando e endurece as funções de permissão para reconhecer o
+criador aprovado do escritório como dono.
+
+## 2.32. Patch para liberar RPC de convites
+
+Rode `patch_032_firm_invite_rpc_grants.sql` depois do patch 031 se o convite
+de advogado ainda falhar com erro de função, permissão ou schema cache. Ele
+garante `execute` em `invite_verified_lawyer_to_law_firm` para usuários
+autenticados e força reload do schema da API.
+
+## 2.33. Patch para reparar normalizacao do convite
+
+Rode `patch_033_repair_invite_practice_area_normalizer.sql` depois do patch 032
+se o convite falhar com `function public.normalize_practice_areas(text[]) does
+not exist`. Ele cria a funcao usada pela RPC de convite e garante a tabela
+`notifications`, que tambem e usada por esse fluxo.
+
 ## 3. Status da integração
 
 A camada inicial de repositories já existe em `lib/repositories/`.

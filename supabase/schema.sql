@@ -41,6 +41,14 @@ begin
   if not exists (select 1 from pg_type where typname = 'appointment_status') then
     create type public.appointment_status as enum ('confirmed', 'pending', 'done', 'cancelled');
   end if;
+
+  if not exists (select 1 from pg_type where typname = 'law_firm_member_role') then
+    create type public.law_firm_member_role as enum ('owner', 'admin', 'secretary', 'lawyer', 'intern');
+  end if;
+
+  if not exists (select 1 from pg_type where typname = 'law_firm_member_status') then
+    create type public.law_firm_member_status as enum ('invited', 'active', 'disabled');
+  end if;
 end $$;
 
 create or replace function public.set_updated_at()
@@ -267,12 +275,36 @@ create table if not exists public.lawyer_profiles (
 create table if not exists public.law_firm_members (
   id uuid primary key default gen_random_uuid(),
   law_firm_id uuid not null references public.law_firms(id) on delete cascade,
-  lawyer_id uuid not null references public.lawyer_profiles(id) on delete cascade,
+  lawyer_id uuid references public.lawyer_profiles(id) on delete cascade,
+  profile_id uuid references public.profiles(id) on delete cascade,
   role text not null default 'lawyer',
+  member_role public.law_firm_member_role not null default 'lawyer',
+  roles text[] not null default array['lawyer']::text[],
+  status public.law_firm_member_status not null default 'active',
+  lawyer_invite_status public.law_firm_member_status,
+  pending_lawyer_id uuid references public.lawyer_profiles(id) on delete set null,
   joined_at timestamptz not null default now(),
   created_at timestamptz not null default now(),
-  unique (law_firm_id, lawyer_id)
+  unique (law_firm_id, lawyer_id),
+  check (
+    coalesce(array_length(roles, 1), 0) > 0
+    and roles <@ array['owner', 'admin', 'lawyer', 'secretary', 'intern']::text[]
+  )
 );
+
+create index if not exists law_firm_members_profile_idx
+on public.law_firm_members(profile_id);
+
+create unique index if not exists law_firm_members_firm_profile_unique
+on public.law_firm_members(law_firm_id, profile_id)
+where profile_id is not null;
+
+create index if not exists law_firm_members_roles_gin_idx
+on public.law_firm_members using gin (roles);
+
+create index if not exists law_firm_members_pending_lawyer_idx
+on public.law_firm_members(pending_lawyer_id)
+where pending_lawyer_id is not null;
 
 create table if not exists public.lawyer_verifications (
   id uuid primary key default gen_random_uuid(),
@@ -509,7 +541,8 @@ create policy "law_firm_members_read_related"
 on public.law_firm_members for select
 to authenticated
 using (
-  lawyer_id = auth.uid()
+  profile_id = auth.uid()
+  or lawyer_id = auth.uid()
   or exists (
     select 1 from public.law_firms lf
     where lf.id = law_firm_members.law_firm_id

@@ -29,17 +29,20 @@ class PracticeAreaSelector extends StatelessWidget {
       decoration: InputDecoration(
         labelText: label,
         errorText: hasError ? errorText : null,
-        contentPadding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
+        contentPadding: const EdgeInsets.fromLTRB(18, 20, 18, 18),
       ),
       child: Wrap(
-        spacing: 8,
-        runSpacing: 8,
+        spacing: 10,
+        runSpacing: 10,
         children: legalPracticeAreas.map((area) {
           final selected = selectedAreas.contains(area);
           return FilterChip(
             label: Text(area),
             selected: selected,
             showCheckmark: false,
+            labelPadding: const EdgeInsets.symmetric(horizontal: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+            visualDensity: VisualDensity.standard,
             selectedColor: selectedColor.withValues(alpha: 0.14),
             backgroundColor: AppTheme.card,
             side: BorderSide(

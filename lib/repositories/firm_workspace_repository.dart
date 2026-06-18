@@ -57,6 +57,7 @@ class FirmWorkspaceRepository {
         return FirmWorkspace(
           firm: firm,
           currentUserRole: FirmRole.owner,
+          currentUserRoles: const [FirmRole.owner],
           teamMembers: _teamWithCurrentOwner(user.id, verification),
           fromSupabase: true,
         );
@@ -67,14 +68,7 @@ class FirmWorkspaceRepository {
   }
 
   Future<FirmWorkspace?> _fetchWorkspaceFromMembership(String profileId) async {
-    final rows = await SupabaseConfig.client
-        .from('law_firm_members')
-        .select(
-          'law_firm_id, profile_id, member_role, role, status, law_firms(*)',
-        )
-        .eq('profile_id', profileId)
-        .eq('status', 'active')
-        .limit(1);
+    final rows = await _fetchActiveMembershipRows(profileId);
 
     if (rows.isEmpty) return null;
 
@@ -83,16 +77,47 @@ class FirmWorkspaceRepository {
     if (firmRow is! Map<String, dynamic>) return null;
 
     final firm = _firmFromRow(firmRow);
-    final role = _roleFromRow(
+    final roles = _rolesFromRow(
+      membership['roles'],
       membership['member_role'] as String? ?? membership['role'] as String?,
     );
+    final role = FirmRole.primaryFrom(roles);
 
     return FirmWorkspace(
       firm: firm,
       currentUserRole: role,
-      teamMembers: await _fetchTeamMembers(firm.id, profileId, role),
+      currentUserRoles: roles,
+      teamMembers: await _fetchTeamMembers(firm.id, profileId, roles),
       fromSupabase: true,
     );
+  }
+
+  Future<List<Map<String, dynamic>>> _fetchActiveMembershipRows(
+    String profileId,
+  ) async {
+    try {
+      final rows = await SupabaseConfig.client
+          .from('law_firm_members')
+          .select(
+            'law_firm_id, profile_id, roles, member_role, role, status, law_firms(*)',
+          )
+          .eq('profile_id', profileId)
+          .eq('status', 'active')
+          .limit(1);
+
+      return rows.cast<Map<String, dynamic>>();
+    } catch (_) {
+      final rows = await SupabaseConfig.client
+          .from('law_firm_members')
+          .select(
+            'law_firm_id, profile_id, member_role, role, status, law_firms(*)',
+          )
+          .eq('profile_id', profileId)
+          .eq('status', 'active')
+          .limit(1);
+
+      return rows.cast<Map<String, dynamic>>();
+    }
   }
 
   Future<LawFirm?> _fetchFirmById(String lawFirmId) async {
@@ -109,16 +134,10 @@ class FirmWorkspaceRepository {
   Future<List<FirmTeamMember>> _fetchTeamMembers(
     String lawFirmId,
     String currentProfileId,
-    FirmRole currentUserRole,
+    List<FirmRole> currentUserRoles,
   ) async {
     try {
-      final rows = await SupabaseConfig.client
-          .from('law_firm_members')
-          .select(
-            'profile_id, lawyer_id, member_role, role, status, profiles(full_name, initials)',
-          )
-          .eq('law_firm_id', lawFirmId)
-          .neq('status', 'disabled');
+      final rows = await _fetchTeamMemberRows(lawFirmId);
 
       if (rows.isEmpty) return mockFirmTeamMembers;
 
@@ -127,10 +146,13 @@ class FirmWorkspaceRepository {
         final lawyerId = row['lawyer_id'] as String?;
         final status = row['status'] as String? ?? 'active';
         final profileRow = row['profiles'];
-        final role = _roleFromRow(
+        final rowRoles = _rolesFromRow(
+          row['roles'],
           row['member_role'] as String? ?? row['role'] as String?,
         );
         final isCurrentUser = profileId == currentProfileId;
+        final effectiveRoles = isCurrentUser ? currentUserRoles : rowRoles;
+        final role = FirmRole.primaryFrom(effectiveRoles);
         final profileName = profileRow is Map<String, dynamic>
             ? profileRow['full_name'] as String?
             : null;
@@ -144,18 +166,45 @@ class FirmWorkspaceRepository {
           initials: isCurrentUser
               ? 'VC'
               : profileInitials ?? _roleInitials(role),
-          role: isCurrentUser ? currentUserRole : role,
+          role: role,
+          roles: effectiveRoles,
           specialty: status == 'invited'
               ? 'Convite pendente'
-              : _roleSpecialty(role, isAlsoLawyer: lawyerId != null),
-          activeCases: role == FirmRole.lawyer ? 3 : 0,
-          responseHours: role == FirmRole.secretary ? 0.8 : 1.6,
-          rating: role == FirmRole.lawyer ? 4.8 : 4.7,
+              : _rolesSpecialty(effectiveRoles, isAlsoLawyer: lawyerId != null),
+          activeCases: effectiveRoles.hasLawyer ? 3 : 0,
+          responseHours: effectiveRoles.hasSecretary ? 0.8 : 1.6,
+          rating: effectiveRoles.hasLawyer ? 4.8 : 4.7,
           available: status == 'active',
         );
       }).toList();
     } catch (_) {
       return mockFirmTeamMembers;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> _fetchTeamMemberRows(
+    String lawFirmId,
+  ) async {
+    try {
+      final rows = await SupabaseConfig.client
+          .from('law_firm_members')
+          .select(
+            'profile_id, lawyer_id, roles, member_role, role, status, profiles(full_name, initials)',
+          )
+          .eq('law_firm_id', lawFirmId)
+          .neq('status', 'disabled');
+
+      return rows.cast<Map<String, dynamic>>();
+    } catch (_) {
+      final rows = await SupabaseConfig.client
+          .from('law_firm_members')
+          .select(
+            'profile_id, lawyer_id, member_role, role, status, profiles(full_name, initials)',
+          )
+          .eq('law_firm_id', lawFirmId)
+          .neq('status', 'disabled');
+
+      return rows.cast<Map<String, dynamic>>();
     }
   }
 
@@ -178,6 +227,7 @@ class FirmWorkspaceRepository {
     return FirmWorkspace(
       firm: firm,
       currentUserRole: FirmRole.owner,
+      currentUserRoles: const [FirmRole.owner],
       teamMembers: _teamWithCurrentOwner(ownerProfileId, verification),
       fromSupabase: false,
     );
@@ -193,6 +243,7 @@ class FirmWorkspaceRepository {
         name: 'Você',
         initials: 'VC',
         role: FirmRole.owner,
+        roles: const [FirmRole.owner],
         specialty: 'Líder',
         activeCases: 0,
         responseHours: 0,
@@ -238,12 +289,46 @@ class FirmWorkspaceRepository {
         .toList();
   }
 
+  Future<void> updateMemberRoles({
+    required String lawFirmId,
+    required String memberProfileId,
+    required List<FirmRole> roles,
+  }) async {
+    if (!SupabaseConfig.isReady ||
+        SupabaseConfig.client.auth.currentUser == null) {
+      throw StateError('A conexao com o Supabase nao esta ativa.');
+    }
+
+    await SupabaseConfig.client.rpc(
+      'update_law_firm_member_roles',
+      params: {
+        'law_firm_id_value': lawFirmId,
+        'member_profile_id_value': memberProfileId,
+        'roles_value': FirmRole.normalize(roles).values,
+      },
+    );
+  }
+
+  List<FirmRole> _rolesFromRow(Object? value, String? fallbackRole) {
+    final rowRoles = value is List
+        ? value
+              .whereType<String>()
+              .map(FirmRole.fromValue)
+              .toList(growable: false)
+        : const <FirmRole>[];
+
+    if (rowRoles.isNotEmpty) return FirmRole.normalize(rowRoles);
+    return FirmRole.normalize([_roleFromRow(fallbackRole)]);
+  }
+
   FirmRole _roleFromRow(String? value) {
     return switch (value) {
+      'owner' => FirmRole.owner,
       'admin' => FirmRole.admin,
       'secretary' => FirmRole.secretary,
       'lawyer' => FirmRole.lawyer,
-      _ => FirmRole.owner,
+      'intern' => FirmRole.intern,
+      _ => FirmRole.lawyer,
     };
   }
 
@@ -253,6 +338,7 @@ class FirmWorkspaceRepository {
       FirmRole.admin => 'Administrador',
       FirmRole.secretary => 'Secretaria',
       FirmRole.lawyer => 'Advogado associado',
+      FirmRole.intern => 'Estagiário',
     };
   }
 
@@ -262,11 +348,20 @@ class FirmWorkspaceRepository {
       FirmRole.admin => 'AD',
       FirmRole.secretary => 'SE',
       FirmRole.lawyer => 'AA',
+      FirmRole.intern => 'EA',
     };
+  }
+
+  String _rolesSpecialty(List<FirmRole> roles, {bool isAlsoLawyer = false}) {
+    final normalizedRoles = FirmRole.normalize(roles);
+    if (normalizedRoles.length > 1) return normalizedRoles.labels;
+
+    return _roleSpecialty(normalizedRoles.first, isAlsoLawyer: isAlsoLawyer);
   }
 
   String _roleSpecialty(FirmRole role, {bool isAlsoLawyer = false}) {
     return switch (role) {
+      FirmRole.intern => 'Apoio limitado',
       FirmRole.owner => isAlsoLawyer ? 'Líder · Advogado' : 'Líder',
       FirmRole.admin => isAlsoLawyer ? 'Admin · Advogado' : 'Operações',
       FirmRole.secretary => 'Atendimento',

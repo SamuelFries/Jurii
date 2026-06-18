@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:jurii/data/legal_practice_areas.dart';
 import 'package:jurii/data/mock/mock_users.dart';
 import 'package:jurii/models/firm_role.dart';
+import 'package:jurii/models/firm_team_member.dart';
 import 'package:jurii/models/firm_workspace.dart';
 import 'package:jurii/models/law_firm.dart';
 import 'package:jurii/models/law_firm_verification.dart';
@@ -41,9 +42,20 @@ void main() {
       avatarType: 'purple',
     ),
     currentUserRole: FirmRole.owner,
+    currentUserRoles: [FirmRole.owner, FirmRole.lawyer],
     teamMembers: [],
     fromSupabase: true,
   );
+
+  FirmWorkspace workspaceWithRoles(List<FirmRole> roles) {
+    return FirmWorkspace(
+      firm: firmWorkspace.firm,
+      currentUserRole: FirmRole.primaryFrom(roles),
+      currentUserRoles: roles,
+      teamMembers: const [],
+      fromSupabase: true,
+    );
+  }
 
   Future<RegisterResult> registerStub({
     required String fullName,
@@ -87,6 +99,70 @@ void main() {
       ),
       isFalse,
     );
+  });
+
+  test('firm roles expose permission sets', () {
+    final secretaryWorkspace = workspaceWithRoles([FirmRole.secretary]);
+    final adminLawyerWorkspace = workspaceWithRoles([
+      FirmRole.admin,
+      FirmRole.lawyer,
+    ]);
+    final internWorkspace = workspaceWithRoles([FirmRole.intern]);
+
+    expect(secretaryWorkspace.canAssignCases, isTrue);
+    expect(secretaryWorkspace.canManageMembers, isFalse);
+    expect(secretaryWorkspace.canAttendAssignedCases, isFalse);
+
+    expect(adminLawyerWorkspace.canManageMembers, isTrue);
+    expect(adminLawyerWorkspace.canAssignCases, isTrue);
+    expect(adminLawyerWorkspace.canAttendAssignedCases, isTrue);
+
+    expect(internWorkspace.canManageMembers, isFalse);
+    expect(internWorkspace.canAssignCases, isFalse);
+    expect(internWorkspace.canAttendAssignedCases, isFalse);
+  });
+
+  test('case assignment targets active lawyer role only', () {
+    const adminLawyer = FirmTeamMember(
+      id: 'member_admin_lawyer',
+      name: 'Admin Lawyer',
+      initials: 'AL',
+      role: FirmRole.admin,
+      roles: [FirmRole.admin, FirmRole.lawyer],
+      specialty: 'Operacao',
+      activeCases: 0,
+      responseHours: 1,
+      rating: 5,
+      available: true,
+    );
+    const intern = FirmTeamMember(
+      id: 'member_intern',
+      name: 'Intern',
+      initials: 'IN',
+      role: FirmRole.intern,
+      roles: [FirmRole.intern],
+      specialty: 'Apoio',
+      activeCases: 0,
+      responseHours: 1,
+      rating: 5,
+      available: true,
+    );
+    const unavailableLawyer = FirmTeamMember(
+      id: 'member_unavailable_lawyer',
+      name: 'Unavailable Lawyer',
+      initials: 'UL',
+      role: FirmRole.lawyer,
+      roles: [FirmRole.lawyer],
+      specialty: 'Juridico',
+      activeCases: 0,
+      responseHours: 1,
+      rating: 5,
+      available: false,
+    );
+
+    expect(adminLawyer.canReceiveCaseAssignment, isTrue);
+    expect(intern.canReceiveCaseAssignment, isFalse);
+    expect(unavailableLawyer.canReceiveCaseAssignment, isFalse);
   });
 
   testWidgets('shows the register screen', (WidgetTester tester) async {

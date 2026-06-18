@@ -5,6 +5,7 @@ class FirmTeamMember {
   final String name;
   final String initials;
   final FirmRole role;
+  final List<FirmRole> roles;
   final String specialty;
   final int activeCases;
   final double responseHours;
@@ -16,10 +17,19 @@ class FirmTeamMember {
     required this.name,
     required this.initials,
     required this.role,
+    this.roles = const [],
     required this.specialty,
     required this.activeCases,
     required this.responseHours,
     required this.rating,
     required this.available,
   });
+
+  List<FirmRole> get effectiveRoles {
+    return roles.isEmpty ? [role] : FirmRole.normalize(roles);
+  }
+
+  String get roleLabel => effectiveRoles.labels;
+
+  bool get canReceiveCaseAssignment => available && effectiveRoles.hasLawyer;
 }

@@ -19,11 +19,13 @@ import 'lawyer_profile_screen.dart';
 class ChatScreen extends StatefulWidget {
   final Conversation conversation;
   final bool isLawyer;
+  final bool canRequestCase;
 
   const ChatScreen({
     super.key,
     required this.conversation,
     required this.isLawyer,
+    this.canRequestCase = true,
   });
 
   @override
@@ -361,6 +363,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   bool get _canRequestCase {
     return widget.isLawyer &&
+        widget.canRequestCase &&
         _usesSupabase &&
         widget.conversation.clientId != null;
   }

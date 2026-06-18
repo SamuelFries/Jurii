@@ -158,6 +158,8 @@ class _FirmMessagesScreenState extends State<FirmMessagesScreen> {
         builder: (_) => ChatScreen(
           conversation: conversation,
           isLawyer: selectedSegment == 0,
+          canRequestCase:
+              selectedSegment == 0 && widget.workspace?.canCreateCases == true,
         ),
       ),
     );
