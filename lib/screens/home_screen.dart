@@ -95,7 +95,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
               const SizedBox(height: 12),
 
-              const Text('Ex.: "Maria da Penha", "estupro" ou "pensão"'),
+              const Text('Ex.: "pensão"'),
 
               const SizedBox(height: 14),
 
