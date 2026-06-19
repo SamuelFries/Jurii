@@ -391,6 +391,21 @@ exclusão segura da conta como soft delete:
   maior hierarquia, usando a ordem dono, admin, advogado, secretária e estagiário
 - bloqueia o login da conta deletada no app
 
+## 2.36. Patch para vincular conversas de advogado ao escritorio
+
+Rode `patch_036_link_lawyer_conversations_to_firm.sql` depois do patch 035. Ele
+faz com que conversas iniciadas pelo perfil de um advogado ativo do escritorio
+tambem recebam `law_firm_id`, para aparecerem na caixa de mensagens e nas
+metricas da home do escritorio. O patch tambem faz backfill seguro das conversas
+criadas depois que o advogado entrou no escritorio.
+
+## 2.37. Patch para remover quantidade de advogados do cadastro
+
+Rode `patch_037_remove_law_firm_lawyers_count.sql` depois do patch 036. Ele
+remove a coluna legada `lawyers_count` de `law_firm_verifications`, porque o app
+nao pede mais esse numero no cadastro do escritorio. A equipe real deve ser
+medida pelos membros ativos em `law_firm_members`.
+
 ## 3. Status da integração
 
 A camada inicial de repositories já existe em `lib/repositories/`.
