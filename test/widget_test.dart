@@ -386,8 +386,8 @@ void main() {
       find.byType(TextField).at(4),
       'Avenida Paulista, 1000',
     );
-    await tester.enterText(find.byType(TextField).at(5), '4');
     await tester.pump();
+    expect(find.text('Quantidade de advogados'), findsNothing);
     await tester.ensureVisible(find.text('Direito Trabalhista'));
     await tester.tap(find.text('Direito Trabalhista'));
     await tester.pump();
@@ -417,7 +417,6 @@ void main() {
       phone: '11999999999',
       email: 'contato@friesadvogados.com',
       address: 'Avenida Paulista, 1000',
-      lawyersCount: 4,
       practiceAreas: ['Direito Trabalhista'],
       documents: [],
       status: LawFirmVerificationStatus.pending,
@@ -450,7 +449,6 @@ void main() {
       phone: '11999999999',
       email: 'contato@friesadvogados.com',
       address: 'Avenida Paulista, 1000',
-      lawyersCount: 4,
       practiceAreas: ['Direito Trabalhista'],
       documents: [],
       status: LawFirmVerificationStatus.approved,

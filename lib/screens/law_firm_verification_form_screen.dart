@@ -37,7 +37,6 @@ class _LawFirmVerificationFormScreenState
   final phoneController = TextEditingController();
   final emailController = TextEditingController();
   final addressController = TextEditingController();
-  final lawyersCountController = TextEditingController(text: '1');
   bool showErrors = false;
   bool isSubmitting = false;
   String? errorMessage;
@@ -50,7 +49,6 @@ class _LawFirmVerificationFormScreenState
         _isValidPhone(phoneController.text) &&
         emailController.text.trim().contains('@') &&
         addressController.text.trim().length >= 8 &&
-        int.tryParse(lawyersCountController.text.trim()) != null &&
         selectedAreas.isNotEmpty &&
         documents.every((document) => document.uploaded);
   }
@@ -70,7 +68,6 @@ class _LawFirmVerificationFormScreenState
     phoneController.dispose();
     emailController.dispose();
     addressController.dispose();
-    lawyersCountController.dispose();
     super.dispose();
   }
 
@@ -174,24 +171,6 @@ class _LawFirmVerificationFormScreenState
                   errorText:
                       showErrors && addressController.text.trim().length < 8
                       ? 'Informe o endereço do escritório'
-                      : null,
-                ),
-              ),
-              const SizedBox(height: 14),
-              TextField(
-                controller: lawyersCountController,
-                keyboardType: TextInputType.number,
-                inputFormatters: [
-                  FilteringTextInputFormatter.digitsOnly,
-                  LengthLimitingTextInputFormatter(4),
-                ],
-                decoration: InputDecoration(
-                  hintText: 'Quantidade de advogados',
-                  errorText:
-                      showErrors &&
-                          int.tryParse(lawyersCountController.text.trim()) ==
-                              null
-                      ? 'Informe a quantidade de advogados'
                       : null,
                 ),
               ),
@@ -377,7 +356,6 @@ class _LawFirmVerificationFormScreenState
               phone: phoneController.text.trim(),
               email: emailController.text.trim(),
               address: addressController.text.trim(),
-              lawyersCount: int.parse(lawyersCountController.text.trim()),
               practiceAreas: selectedAreas,
               documents: documents,
             )
@@ -388,7 +366,6 @@ class _LawFirmVerificationFormScreenState
               phone: phoneController.text.trim(),
               email: emailController.text.trim(),
               address: addressController.text.trim(),
-              lawyersCount: int.parse(lawyersCountController.text.trim()),
               practiceAreas: selectedAreas,
               documents: documents,
               status: LawFirmVerificationStatus.pending,

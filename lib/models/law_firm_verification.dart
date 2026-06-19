@@ -10,7 +10,6 @@ class LawFirmVerification {
   final String phone;
   final String email;
   final String address;
-  final int lawyersCount;
   final List<String> practiceAreas;
   final List<LawFirmVerificationDocument> documents;
   final LawFirmVerificationStatus status;
@@ -27,7 +26,6 @@ class LawFirmVerification {
     required this.phone,
     required this.email,
     required this.address,
-    required this.lawyersCount,
     required this.practiceAreas,
     required this.documents,
     required this.status,
@@ -45,7 +43,6 @@ class LawFirmVerification {
     String? phone,
     String? email,
     String? address,
-    int? lawyersCount,
     List<String>? practiceAreas,
     List<LawFirmVerificationDocument>? documents,
     LawFirmVerificationStatus? status,
@@ -62,7 +59,6 @@ class LawFirmVerification {
       phone: phone ?? this.phone,
       email: email ?? this.email,
       address: address ?? this.address,
-      lawyersCount: lawyersCount ?? this.lawyersCount,
       practiceAreas: practiceAreas ?? this.practiceAreas,
       documents: documents ?? this.documents,
       status: status ?? this.status,

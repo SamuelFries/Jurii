@@ -55,7 +55,6 @@ create table if not exists public.law_firm_verifications (
   phone text,
   email text,
   address text,
-  lawyers_count int not null default 1 check (lawyers_count >= 0),
   status public.verification_status not null default 'pending',
   submitted_at timestamptz not null default now(),
   reviewed_at timestamptz,
