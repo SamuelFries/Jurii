@@ -1,3 +1,8 @@
+import 'dart:typed_data';
+
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../models/chat_attachment.dart';
 import '../models/chat_message.dart';
 import '../models/conversation.dart';
 import '../models/law_firm.dart';
@@ -8,6 +13,10 @@ enum ConversationScope { client, lawyer, firmClient, firmTeam }
 
 class MessagingRepository {
   const MessagingRepository();
+
+  static const _chatAttachmentsBucket = 'chat-attachments';
+  static const _attachmentSelectColumns =
+      'id, message_id, conversation_id, file_name, mime_type, file_size_bytes, storage_path, kind, created_at';
 
   Future<List<Conversation>> fetchConversations({
     required ConversationScope scope,
@@ -51,11 +60,13 @@ class MessagingRepository {
 
     final currentUserId = SupabaseConfig.client.auth.currentUser?.id;
 
-    return rows
+    final messages = rows
         .map<ChatMessage>(
           (row) => messageFromRow(row, currentUserId: currentUserId),
         )
         .toList();
+
+    return _messagesWithAttachments(messages);
   }
 
   Future<ChatMessage> sendMessage({
@@ -80,6 +91,88 @@ class MessagingRepository {
         .single();
 
     return messageFromRow(row, currentUserId: user.id);
+  }
+
+  Future<ChatMessage> sendAttachment({
+    required String conversationId,
+    required String fileName,
+    required String mimeType,
+    required int fileSizeBytes,
+    required Uint8List bytes,
+    required ChatAttachmentKind kind,
+    required String senderType,
+  }) async {
+    final user = SupabaseConfig.client.auth.currentUser;
+    if (user == null) throw StateError('User must be authenticated.');
+
+    final storagePath = _storagePathFor(
+      userId: user.id,
+      conversationId: conversationId,
+      fileName: fileName,
+    );
+
+    await SupabaseConfig.client.storage
+        .from(_chatAttachmentsBucket)
+        .uploadBinary(
+          storagePath,
+          bytes,
+          fileOptions: FileOptions(contentType: mimeType, upsert: false),
+        );
+
+    try {
+      final rows = await SupabaseConfig.client.rpc(
+        'send_chat_attachment',
+        params: {
+          'conversation_id_value': conversationId,
+          'file_name_value': fileName,
+          'mime_type_value': mimeType,
+          'file_size_bytes_value': fileSizeBytes,
+          'storage_path_value': storagePath,
+          'kind_value': kind.value,
+          'sender_type_value': senderType,
+        },
+      );
+
+      final row = (rows as List<dynamic>).cast<Map<String, dynamic>>().first;
+      return _messageWithAttachmentFromRpc(row, currentUserId: user.id);
+    } catch (_) {
+      await SupabaseConfig.client.storage.from(_chatAttachmentsBucket).remove([
+        storagePath,
+      ]);
+      rethrow;
+    }
+  }
+
+  Future<ChatMessage> messageFromRowWithAttachment(
+    Map<String, dynamic> row, {
+    required String? currentUserId,
+  }) async {
+    final message = messageFromRow(row, currentUserId: currentUserId);
+    final attachment = await fetchAttachmentForMessage(message.id);
+    return attachment == null
+        ? message
+        : message.copyWith(attachment: attachment);
+  }
+
+  Future<ChatAttachment?> fetchAttachmentForMessage(String messageId) async {
+    try {
+      final row = await SupabaseConfig.client
+          .from('message_attachments')
+          .select(_attachmentSelectColumns)
+          .eq('message_id', messageId)
+          .maybeSingle();
+
+      if (row == null) return null;
+      return ChatAttachment.fromRow(row);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<String> createSignedAttachmentUrl(ChatAttachment attachment) {
+    return SupabaseConfig.client.storage
+        .from(_chatAttachmentsBucket)
+        .createSignedUrl(attachment.storagePath, 300);
   }
 
   Future<Conversation> startLawFirmConversation({
@@ -191,6 +284,79 @@ class MessagingRepository {
       read: row['read_at'] != null,
       metadata: _metadataFromRow(row['metadata']),
     );
+  }
+
+  Future<List<ChatMessage>> _messagesWithAttachments(
+    List<ChatMessage> messages,
+  ) async {
+    if (messages.isEmpty) return messages;
+
+    try {
+      final rows = await SupabaseConfig.client
+          .from('message_attachments')
+          .select(_attachmentSelectColumns)
+          .inFilter(
+            'message_id',
+            messages.map((message) => message.id).toList(),
+          );
+
+      final attachmentsByMessageId = {
+        for (final row in rows)
+          (row['message_id'] as String): ChatAttachment.fromRow(row),
+      };
+
+      return messages
+          .map(
+            (message) => message.copyWith(
+              attachment: attachmentsByMessageId[message.id],
+            ),
+          )
+          .toList();
+    } catch (_) {
+      return messages;
+    }
+  }
+
+  ChatMessage _messageWithAttachmentFromRpc(
+    Map<String, dynamic> row, {
+    required String currentUserId,
+  }) {
+    final message = messageFromRow(row, currentUserId: currentUserId);
+    final attachment = ChatAttachment.fromRow({
+      'id': row['attachment_id'],
+      'message_id': row['id'],
+      'conversation_id': row['conversation_id'],
+      'file_name': row['file_name'],
+      'mime_type': row['mime_type'],
+      'file_size_bytes': row['file_size_bytes'],
+      'storage_path': row['storage_path'],
+      'kind': row['kind'],
+    });
+
+    return message.copyWith(attachment: attachment);
+  }
+
+  String _storagePathFor({
+    required String userId,
+    required String conversationId,
+    required String fileName,
+  }) {
+    final timestamp = DateTime.now().toUtc().microsecondsSinceEpoch;
+    final safeName = _safeFileName(fileName);
+    return '$userId/$conversationId/$timestamp-$safeName';
+  }
+
+  String _safeFileName(String fileName) {
+    final name = fileName
+        .split(RegExp(r'[\\/]'))
+        .where((part) => part.trim().isNotEmpty)
+        .lastOrNull;
+    final sanitized = (name ?? 'arquivo')
+        .replaceAll(RegExp(r'[^A-Za-z0-9._-]+'), '_')
+        .replaceAll(RegExp(r'_+'), '_')
+        .trim();
+
+    return sanitized.isEmpty ? 'arquivo' : sanitized;
   }
 
   Map<String, dynamic> _metadataFromRow(Object? value) {

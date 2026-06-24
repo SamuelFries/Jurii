@@ -1,8 +1,14 @@
+import 'dart:async';
+import 'dart:typed_data';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../data/mock/mock_chat_messages.dart';
 import '../models/case_request.dart';
+import '../models/chat_attachment.dart';
 import '../models/chat_message.dart';
 import '../models/conversation.dart';
 import '../repositories/case_repository.dart';
@@ -45,6 +51,7 @@ class _ChatScreenState extends State<ChatScreen> {
   List<ChatMessage> _messages = const [];
   bool _isLoading = true;
   bool _isSending = false;
+  bool _isUploadingAttachment = false;
   bool _isOpeningProfile = false;
   bool _isCreatingCaseRequest = false;
   String? _respondingCaseRequestId;
@@ -117,11 +124,7 @@ class _ChatScreenState extends State<ChatScreen> {
             value: conversationId,
           ),
           callback: (payload) {
-            final message = _repository.messageFromRow(
-              payload.newRecord,
-              currentUserId: SupabaseConfig.client.auth.currentUser?.id,
-            );
-            _appendMessage(message);
+            unawaited(_appendRealtimeMessage(payload.newRecord));
           },
         )
         .onPostgresChanges(
@@ -134,14 +137,26 @@ class _ChatScreenState extends State<ChatScreen> {
             value: conversationId,
           ),
           callback: (payload) {
-            final message = _repository.messageFromRow(
-              payload.newRecord,
-              currentUserId: SupabaseConfig.client.auth.currentUser?.id,
-            );
-            _upsertMessage(message);
+            unawaited(_upsertRealtimeMessage(payload.newRecord));
           },
         )
         .subscribe();
+  }
+
+  Future<void> _appendRealtimeMessage(Map<String, dynamic> row) async {
+    final message = await _repository.messageFromRowWithAttachment(
+      row,
+      currentUserId: SupabaseConfig.client.auth.currentUser?.id,
+    );
+    _appendMessage(message);
+  }
+
+  Future<void> _upsertRealtimeMessage(Map<String, dynamic> row) async {
+    final message = await _repository.messageFromRowWithAttachment(
+      row,
+      currentUserId: SupabaseConfig.client.auth.currentUser?.id,
+    );
+    _upsertMessage(message);
   }
 
   List<ChatMessage> _mockMessages() {
@@ -192,6 +207,166 @@ class _ChatScreenState extends State<ChatScreen> {
       );
       _messageController.text = text;
     }
+  }
+
+  Future<void> _sendAttachment() async {
+    if (_isUploadingAttachment) return;
+
+    if (!_usesSupabase || !SupabaseConfig.isReady) {
+      _showSnackBar('Anexos estao disponiveis apenas em conversas online.');
+      return;
+    }
+
+    final picked = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowMultiple: false,
+      withData: true,
+      allowedExtensions: const [
+        'jpg',
+        'jpeg',
+        'png',
+        'webp',
+        'pdf',
+        'doc',
+        'docx',
+      ],
+    );
+
+    final file = picked?.files.single;
+    if (file == null) return;
+
+    final mimeType = _mimeTypeForFile(file.name);
+    final kind = _attachmentKindForMime(mimeType);
+    final bytes = file.bytes;
+
+    if (mimeType == null || kind == null) {
+      _showSnackBar('Envie apenas fotos, PDF, DOC ou DOCX.');
+      return;
+    }
+
+    if (bytes == null || bytes.isEmpty) {
+      _showSnackBar('Nao foi possivel ler o arquivo selecionado.');
+      return;
+    }
+
+    final maxSize = kind == ChatAttachmentKind.image
+        ? 5 * 1024 * 1024
+        : 10 * 1024 * 1024;
+    if (file.size > maxSize) {
+      _showSnackBar(
+        kind == ChatAttachmentKind.image
+            ? 'Fotos podem ter no maximo 5 MB.'
+            : 'Documentos podem ter no maximo 10 MB.',
+      );
+      return;
+    }
+
+    setState(() => _isUploadingAttachment = true);
+    try {
+      final message = await _repository.sendAttachment(
+        conversationId: widget.conversation.id!,
+        fileName: file.name,
+        mimeType: mimeType,
+        fileSizeBytes: file.size,
+        bytes: Uint8List.fromList(bytes),
+        kind: kind,
+        senderType: widget.isLawyer ? 'lawyer' : 'client',
+      );
+      if (!mounted) return;
+      _appendMessage(message);
+    } catch (error) {
+      debugPrint('Supabase attachment send failed: $error');
+      if (!mounted) return;
+      _showSnackBar(_friendlyAttachmentError(error));
+    } finally {
+      if (mounted) setState(() => _isUploadingAttachment = false);
+    }
+  }
+
+  Future<void> _openAttachment(ChatAttachment attachment) async {
+    if (!SupabaseConfig.isReady) return;
+
+    try {
+      final signedUrl = await _repository.createSignedAttachmentUrl(attachment);
+      if (!mounted) return;
+
+      if (attachment.isImage) {
+        await showDialog<void>(
+          context: context,
+          builder: (_) => _ImageAttachmentDialog(
+            attachment: attachment,
+            signedUrl: signedUrl,
+          ),
+        );
+        return;
+      }
+
+      final uri = Uri.parse(signedUrl);
+      final launched = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (!launched && mounted) {
+        _showSnackBar('Nao foi possivel abrir o arquivo.');
+      }
+    } catch (error) {
+      debugPrint('Supabase attachment open failed: $error');
+      if (!mounted) return;
+      _showSnackBar('Nao foi possivel abrir o anexo.');
+    }
+  }
+
+  String _friendlyAttachmentError(Object error) {
+    final message = error.toString().toLowerCase();
+    if ((message.contains('metadata') && message.contains('ambiguous')) ||
+        message.contains('42702')) {
+      return 'Rode o patch 040 no Supabase e tente novamente.';
+    }
+    if (message.contains('send_chat_attachment') ||
+        message.contains('chat-attachments') ||
+        message.contains('message_attachments') ||
+        message.contains('pgrst202') ||
+        message.contains('schema cache')) {
+      return 'Rode o patch 039 no Supabase e recarregue o schema cache.';
+    }
+    if (message.contains('row-level security') ||
+        message.contains('permission denied')) {
+      return 'Voce nao tem permissao para enviar anexos nesta conversa.';
+    }
+    return 'Nao foi possivel enviar o anexo.';
+  }
+
+  String? _mimeTypeForFile(String fileName) {
+    final extension = fileName.split('.').last.toLowerCase();
+    return switch (extension) {
+      'jpg' || 'jpeg' => 'image/jpeg',
+      'png' => 'image/png',
+      'webp' => 'image/webp',
+      'pdf' => 'application/pdf',
+      'doc' => 'application/msword',
+      'docx' =>
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      _ => null,
+    };
+  }
+
+  ChatAttachmentKind? _attachmentKindForMime(String? mimeType) {
+    if (mimeType == null) return null;
+    if (mimeType.startsWith('image/')) return ChatAttachmentKind.image;
+    if (mimeType == 'application/pdf' ||
+        mimeType == 'application/msword' ||
+        mimeType ==
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+      return ChatAttachmentKind.document;
+    }
+    return null;
+  }
+
+  void _showSnackBar(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   void _appendMessage(ChatMessage message) {
@@ -555,6 +730,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                 message,
                                 accepted: false,
                               ),
+                          onOpenAttachment: _openAttachment,
                         );
                       },
                     ),
@@ -563,7 +739,9 @@ class _ChatScreenState extends State<ChatScreen> {
               controller: _messageController,
               isLawyer: widget.isLawyer,
               isSending: _isSending,
+              isUploadingAttachment: _isUploadingAttachment,
               onSend: _sendMessage,
+              onAttach: _sendAttachment,
             ),
           ],
         ),
@@ -721,6 +899,7 @@ class _MessageBubble extends StatelessWidget {
   final bool isRespondingCaseRequest;
   final VoidCallback onAcceptCaseRequest;
   final VoidCallback onDeclineCaseRequest;
+  final ValueChanged<ChatAttachment> onOpenAttachment;
 
   const _MessageBubble({
     required this.message,
@@ -730,6 +909,7 @@ class _MessageBubble extends StatelessWidget {
     required this.isRespondingCaseRequest,
     required this.onAcceptCaseRequest,
     required this.onDeclineCaseRequest,
+    required this.onOpenAttachment,
   });
 
   @override
@@ -780,10 +960,19 @@ class _MessageBubble extends StatelessWidget {
                 ? CrossAxisAlignment.end
                 : CrossAxisAlignment.start,
             children: [
-              Text(
-                message.text,
-                style: TextStyle(color: textColor, height: 1.35),
-              ),
+              if (message.attachment != null) ...[
+                _AttachmentTile(
+                  attachment: message.attachment!,
+                  isMine: isMine,
+                  onTap: () => onOpenAttachment(message.attachment!),
+                ),
+                if (message.text.trim().isNotEmpty) const SizedBox(height: 8),
+              ],
+              if (message.text.trim().isNotEmpty)
+                Text(
+                  message.text,
+                  style: TextStyle(color: textColor, height: 1.35),
+                ),
               const SizedBox(height: 6),
               Row(
                 mainAxisSize: MainAxisSize.min,
@@ -810,6 +999,182 @@ class _MessageBubble extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AttachmentTile extends StatelessWidget {
+  const _AttachmentTile({
+    required this.attachment,
+    required this.isMine,
+    required this.onTap,
+  });
+
+  final ChatAttachment attachment;
+  final bool isMine;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final icon = attachment.isImage
+        ? Icons.image_outlined
+        : attachment.mimeType == 'application/pdf'
+        ? Icons.picture_as_pdf_outlined
+        : Icons.description_outlined;
+    final surfaceColor = isMine
+        ? AppTheme.card.withValues(alpha: 0.14)
+        : AppTheme.lightBlue;
+    final foregroundColor = isMine ? AppTheme.card : AppTheme.textPrimary;
+    final secondaryColor = isMine
+        ? AppTheme.card.withValues(alpha: 0.72)
+        : AppTheme.textSecondary;
+
+    return Material(
+      color: surfaceColor,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          constraints: const BoxConstraints(minWidth: 210),
+          padding: const EdgeInsets.all(10),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: isMine
+                      ? AppTheme.card.withValues(alpha: 0.16)
+                      : AppTheme.card,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, color: foregroundColor, size: 20),
+              ),
+              const SizedBox(width: 10),
+              Flexible(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      attachment.fileName,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: foregroundColor,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      attachment.isImage
+                          ? 'Foto - ${attachment.sizeLabel}'
+                          : 'Documento - ${attachment.sizeLabel}',
+                      style: TextStyle(
+                        color: secondaryColor,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Icon(Icons.open_in_new, color: secondaryColor, size: 16),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ImageAttachmentDialog extends StatelessWidget {
+  const _ImageAttachmentDialog({
+    required this.attachment,
+    required this.signedUrl,
+  });
+
+  final ChatAttachment attachment;
+  final String signedUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      insetPadding: const EdgeInsets.all(18),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.82,
+          maxWidth: 720,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 8, 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      attachment.fileName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppTheme.textPrimary,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close),
+                    tooltip: 'Fechar',
+                  ),
+                ],
+              ),
+            ),
+            Flexible(
+              child: ClipRRect(
+                borderRadius: const BorderRadius.vertical(
+                  bottom: Radius.circular(18),
+                ),
+                child: InteractiveViewer(
+                  minScale: 0.8,
+                  maxScale: 4,
+                  child: Image.network(
+                    signedUrl,
+                    fit: BoxFit.contain,
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return const SizedBox(
+                        height: 320,
+                        child: Center(
+                          child: CircularProgressIndicator(
+                            color: AppTheme.primary,
+                          ),
+                        ),
+                      );
+                    },
+                    errorBuilder: (context, error, stackTrace) {
+                      return const SizedBox(
+                        height: 260,
+                        child: Center(
+                          child: Text(
+                            'Nao foi possivel carregar a imagem.',
+                            style: TextStyle(color: AppTheme.textSecondary),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -1020,13 +1385,17 @@ class _Composer extends StatelessWidget {
   final TextEditingController controller;
   final bool isLawyer;
   final bool isSending;
+  final bool isUploadingAttachment;
   final VoidCallback onSend;
+  final VoidCallback onAttach;
 
   const _Composer({
     required this.controller,
     required this.isLawyer,
     required this.isSending,
+    required this.isUploadingAttachment,
     required this.onSend,
+    required this.onAttach,
   });
 
   @override
@@ -1040,8 +1409,17 @@ class _Composer extends StatelessWidget {
       child: Row(
         children: [
           IconButton(
-            onPressed: () {},
-            icon: const Icon(Icons.attach_file),
+            onPressed: isUploadingAttachment || isSending ? null : onAttach,
+            icon: isUploadingAttachment
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      color: AppTheme.primary,
+                      strokeWidth: 2,
+                    ),
+                  )
+                : const Icon(Icons.attach_file),
             tooltip: 'Anexar',
           ),
           Expanded(
