@@ -414,6 +414,20 @@ no fluxo de mensagens do advogado atribuido, sem criar chat duplicado. Ao
 atribuir ou reatribuir o caso, a conversa recebe uma mensagem de sistema como
 `Caso atribuido a Nome do Advogado`.
 
+## 2.39. Patch para anexos no chat
+
+Rode `patch_039_chat_message_attachments.sql` depois do patch 038. Ele cria o
+bucket privado `chat-attachments`, a tabela `message_attachments`, policies de
+Storage/RLS e a RPC `send_chat_attachment`. O app usa esse fluxo para enviar
+fotos, PDFs e documentos Word em conversas existentes, sem criar um chat
+separado.
+
+## 2.40. Hotfix para anexos no chat
+
+Rode `patch_040_fix_chat_attachment_metadata_update.sql` depois do patch 039 se
+o envio de anexos falhar com erro de `metadata` ambiguo. Ele recria a RPC
+`send_chat_attachment` com a referencia correta e recarrega o schema cache.
+
 ## 3. Status da integração
 
 A camada inicial de repositories já existe em `lib/repositories/`.

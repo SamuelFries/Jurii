@@ -11,6 +11,8 @@ import 'package:jurii/models/law_firm_verification_status.dart';
 import 'package:jurii/models/lawyer_case.dart';
 import 'package:jurii/models/lawyer_status.dart';
 import 'package:jurii/models/lawyer_verification.dart';
+import 'package:jurii/models/chat_attachment.dart';
+import 'package:jurii/models/chat_message.dart';
 import 'package:jurii/models/conversation.dart';
 import 'package:jurii/models/social_auth_provider.dart';
 import 'package:jurii/repositories/case_repository.dart';
@@ -187,6 +189,34 @@ void main() {
     expect(adminLawyer.canReceiveCaseAssignment, isTrue);
     expect(intern.canReceiveCaseAssignment, isFalse);
     expect(unavailableLawyer.canReceiveCaseAssignment, isFalse);
+  });
+
+  test('chat attachments map from Supabase rows', () {
+    final attachment = ChatAttachment.fromRow({
+      'id': 'attachment_01',
+      'message_id': 'message_01',
+      'conversation_id': 'conversation_01',
+      'file_name': 'contrato.pdf',
+      'mime_type': 'application/pdf',
+      'file_size_bytes': 2048,
+      'storage_path': 'user/conversation/contrato.pdf',
+      'kind': 'document',
+    });
+
+    final message = ChatMessage(
+      id: 'message_01',
+      conversationKey: 'conversation_01',
+      author: MessageAuthor.me,
+      text: 'Documento enviado',
+      time: 'Agora',
+      metadata: const {'type': 'chat_attachment'},
+      attachment: attachment,
+    );
+
+    expect(attachment.kind, ChatAttachmentKind.document);
+    expect(attachment.isImage, isFalse);
+    expect(attachment.sizeLabel, '2 KB');
+    expect(message.hasAttachment, isTrue);
   });
 
   testWidgets('shows the register screen', (WidgetTester tester) async {
