@@ -406,6 +406,14 @@ remove a coluna legada `lawyers_count` de `law_firm_verifications`, porque o app
 nao pede mais esse numero no cadastro do escritorio. A equipe real deve ser
 medida pelos membros ativos em `law_firm_members`.
 
+## 2.38. Patch para chat do advogado apos atribuicao de caso
+
+Rode `patch_038_case_assignment_conversation_access.sql` depois do patch 037.
+Ele faz com que uma conversa de escritorio vinculada a um caso apareca tambem
+no fluxo de mensagens do advogado atribuido, sem criar chat duplicado. Ao
+atribuir ou reatribuir o caso, a conversa recebe uma mensagem de sistema como
+`Caso atribuido a Nome do Advogado`.
+
 ## 3. Status da integração
 
 A camada inicial de repositories já existe em `lib/repositories/`.
