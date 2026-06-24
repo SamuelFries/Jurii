@@ -37,6 +37,10 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>O Jurii usa a câmera para enviar fotos no chat.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>O Jurii acessa suas fotos para enviar imagens no chat.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

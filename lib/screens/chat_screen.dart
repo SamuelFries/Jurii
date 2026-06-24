@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -44,6 +45,7 @@ class _ChatScreenState extends State<ChatScreen> {
   final MessagingRepository _repository = const MessagingRepository();
   final CaseRepository _caseRepository = const CaseRepository();
   final ProfileRepository _profileRepository = const ProfileRepository();
+  final ImagePicker _imagePicker = ImagePicker();
   final LawyerProfileRepository _lawyerProfileRepository =
       const LawyerProfileRepository();
   final LawFirmRepository _lawFirmRepository = const LawFirmRepository();
@@ -217,19 +219,103 @@ class _ChatScreenState extends State<ChatScreen> {
       return;
     }
 
+    final source = await _showAttachmentSourceSheet();
+    if (source == null) return;
+
+    switch (source) {
+      case _AttachmentSource.photoLibrary:
+        await _pickPhotoAttachment(ImageSource.gallery);
+      case _AttachmentSource.camera:
+        await _pickPhotoAttachment(ImageSource.camera);
+      case _AttachmentSource.document:
+        await _pickDocumentAttachment();
+    }
+  }
+
+  Future<_AttachmentSource?> _showAttachmentSourceSheet() {
+    final canUseCamera = _imagePicker.supportsImageSource(ImageSource.camera);
+    return showModalBottomSheet<_AttachmentSource>(
+      context: context,
+      useSafeArea: true,
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 42,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppTheme.divider,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ListTile(
+                  leading: const Icon(Icons.photo_library_outlined),
+                  title: const Text('Foto da galeria'),
+                  onTap: () =>
+                      Navigator.of(context).pop(_AttachmentSource.photoLibrary),
+                ),
+                if (canUseCamera)
+                  ListTile(
+                    leading: const Icon(Icons.photo_camera_outlined),
+                    title: const Text('Tirar foto'),
+                    onTap: () =>
+                        Navigator.of(context).pop(_AttachmentSource.camera),
+                  ),
+                ListTile(
+                  leading: const Icon(Icons.description_outlined),
+                  title: const Text('PDF ou documento'),
+                  onTap: () =>
+                      Navigator.of(context).pop(_AttachmentSource.document),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _pickPhotoAttachment(ImageSource source) async {
+    try {
+      final image = await _imagePicker.pickImage(
+        source: source,
+        imageQuality: 88,
+        requestFullMetadata: false,
+      );
+      if (image == null) return;
+
+      final bytes = await image.readAsBytes();
+      final size = await image.length();
+      final mimeType = _mimeTypeForPickedImage(image);
+      final fileName = _fileNameForPickedImage(image, mimeType);
+
+      await _sendPickedAttachment(
+        _PickedAttachment(
+          fileName: fileName,
+          mimeType: mimeType,
+          fileSizeBytes: size,
+          bytes: bytes,
+          kind: ChatAttachmentKind.image,
+        ),
+      );
+    } catch (error) {
+      debugPrint('Photo attachment pick failed: $error');
+      if (!mounted) return;
+      _showSnackBar('Nao foi possivel ler a foto selecionada.');
+    }
+  }
+
+  Future<void> _pickDocumentAttachment() async {
     final picked = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowMultiple: false,
       withData: true,
-      allowedExtensions: const [
-        'jpg',
-        'jpeg',
-        'png',
-        'webp',
-        'pdf',
-        'doc',
-        'docx',
-      ],
+      allowedExtensions: const ['pdf', 'doc', 'docx'],
     );
 
     final file = picked?.files.single;
@@ -239,8 +325,8 @@ class _ChatScreenState extends State<ChatScreen> {
     final kind = _attachmentKindForMime(mimeType);
     final bytes = file.bytes;
 
-    if (mimeType == null || kind == null) {
-      _showSnackBar('Envie apenas fotos, PDF, DOC ou DOCX.');
+    if (mimeType == null || kind != ChatAttachmentKind.document) {
+      _showSnackBar('Envie apenas PDF, DOC ou DOCX como documento.');
       return;
     }
 
@@ -249,12 +335,29 @@ class _ChatScreenState extends State<ChatScreen> {
       return;
     }
 
-    final maxSize = kind == ChatAttachmentKind.image
+    await _sendPickedAttachment(
+      _PickedAttachment(
+        fileName: file.name,
+        mimeType: mimeType,
+        fileSizeBytes: file.size,
+        bytes: bytes,
+        kind: ChatAttachmentKind.document,
+      ),
+    );
+  }
+
+  Future<void> _sendPickedAttachment(_PickedAttachment attachment) async {
+    if (attachment.bytes.isEmpty) {
+      _showSnackBar('Nao foi possivel ler o arquivo selecionado.');
+      return;
+    }
+
+    final maxSize = attachment.kind == ChatAttachmentKind.image
         ? 5 * 1024 * 1024
         : 10 * 1024 * 1024;
-    if (file.size > maxSize) {
+    if (attachment.fileSizeBytes > maxSize) {
       _showSnackBar(
-        kind == ChatAttachmentKind.image
+        attachment.kind == ChatAttachmentKind.image
             ? 'Fotos podem ter no maximo 5 MB.'
             : 'Documentos podem ter no maximo 10 MB.',
       );
@@ -265,11 +368,11 @@ class _ChatScreenState extends State<ChatScreen> {
     try {
       final message = await _repository.sendAttachment(
         conversationId: widget.conversation.id!,
-        fileName: file.name,
-        mimeType: mimeType,
-        fileSizeBytes: file.size,
-        bytes: Uint8List.fromList(bytes),
-        kind: kind,
+        fileName: attachment.fileName,
+        mimeType: attachment.mimeType,
+        fileSizeBytes: attachment.fileSizeBytes,
+        bytes: attachment.bytes,
+        kind: attachment.kind,
         senderType: widget.isLawyer ? 'lawyer' : 'client',
       );
       if (!mounted) return;
@@ -281,6 +384,29 @@ class _ChatScreenState extends State<ChatScreen> {
     } finally {
       if (mounted) setState(() => _isUploadingAttachment = false);
     }
+  }
+
+  String _mimeTypeForPickedImage(XFile image) {
+    final mimeType = image.mimeType?.toLowerCase();
+    if (mimeType != null && mimeType.startsWith('image/')) return mimeType;
+    return _mimeTypeForFile(image.name) ?? 'image/jpeg';
+  }
+
+  String _fileNameForPickedImage(XFile image, String mimeType) {
+    final name = image.name.trim();
+    if (name.isNotEmpty && name.contains('.')) return name;
+    final timestamp = DateTime.now().toUtc().microsecondsSinceEpoch;
+    return 'foto_$timestamp${_extensionForMimeType(mimeType)}';
+  }
+
+  String _extensionForMimeType(String mimeType) {
+    return switch (mimeType.toLowerCase()) {
+      'image/png' => '.png',
+      'image/webp' => '.webp',
+      'image/heic' => '.heic',
+      'image/heif' => '.heif',
+      _ => '.jpg',
+    };
   }
 
   Future<void> _openAttachment(ChatAttachment attachment) async {
@@ -322,6 +448,11 @@ class _ChatScreenState extends State<ChatScreen> {
         message.contains('42702')) {
       return 'Rode o patch 040 no Supabase e tente novamente.';
     }
+    if (message.contains('unsupported image type') ||
+        message.contains('image/heic') ||
+        message.contains('image/heif')) {
+      return 'Rode o patch 042 no Supabase para enviar fotos do iPhone.';
+    }
     if (message.contains('send_chat_attachment') ||
         message.contains('chat-attachments') ||
         message.contains('message_attachments') ||
@@ -342,6 +473,8 @@ class _ChatScreenState extends State<ChatScreen> {
       'jpg' || 'jpeg' => 'image/jpeg',
       'png' => 'image/png',
       'webp' => 'image/webp',
+      'heic' => 'image/heic',
+      'heif' => 'image/heif',
       'pdf' => 'application/pdf',
       'doc' => 'application/msword',
       'docx' =>
@@ -1179,6 +1312,24 @@ class _ImageAttachmentDialog extends StatelessWidget {
       ),
     );
   }
+}
+
+enum _AttachmentSource { photoLibrary, camera, document }
+
+class _PickedAttachment {
+  final String fileName;
+  final String mimeType;
+  final int fileSizeBytes;
+  final Uint8List bytes;
+  final ChatAttachmentKind kind;
+
+  const _PickedAttachment({
+    required this.fileName,
+    required this.mimeType,
+    required this.fileSizeBytes,
+    required this.bytes,
+    required this.kind,
+  });
 }
 
 class _CaseRequestMessageCard extends StatelessWidget {

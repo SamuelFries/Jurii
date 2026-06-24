@@ -172,7 +172,13 @@ begin
   end if;
 
   if normalized_kind = 'image' then
-    if normalized_mime not in ('image/jpeg', 'image/png', 'image/webp') then
+    if normalized_mime not in (
+      'image/jpeg',
+      'image/png',
+      'image/webp',
+      'image/heic',
+      'image/heif'
+    ) then
       raise exception 'Unsupported image type';
     end if;
     if file_size_bytes_value > 5242880 then

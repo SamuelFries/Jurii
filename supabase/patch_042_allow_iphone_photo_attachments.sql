@@ -1,7 +1,7 @@
--- Hotfix for patch_039.
+-- Hotfix for iPhone photo attachments.
 --
--- Run after patch_039 if sending an attachment fails with:
--- column reference "metadata" is ambiguous.
+-- Run after patch_041. iPhone photos can be HEIC/HEIF, so this recreates
+-- send_chat_attachment with those image MIME types allowed.
 
 create or replace function public.send_chat_attachment(
   conversation_id_value uuid,

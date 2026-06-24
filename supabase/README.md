@@ -428,6 +428,18 @@ Rode `patch_040_fix_chat_attachment_metadata_update.sql` depois do patch 039 se
 o envio de anexos falhar com erro de `metadata` ambiguo. Ele recria a RPC
 `send_chat_attachment` com a referencia correta e recarrega o schema cache.
 
+## 2.41. Patch para titulo de conversa com advogado
+
+Rode `patch_041_client_lawyer_conversation_titles.sql` depois do patch 040. Ele
+faz o cliente ver o nome do advogado responsavel quando a conversa possui
+`lawyer_id`, mesmo que o advogado tambem esteja vinculado a um escritorio.
+
+## 2.42. Hotfix para fotos do iPhone no chat
+
+Rode `patch_042_allow_iphone_photo_attachments.sql` depois do patch 041. Ele
+recria a RPC `send_chat_attachment` aceitando imagens HEIC/HEIF, formatos comuns
+de fotos no iPhone.
+
 ## 3. Status da integração
 
 A camada inicial de repositories já existe em `lib/repositories/`.
