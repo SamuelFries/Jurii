@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../data/mock/mock_cases.dart';
+import '../data/mock/mock_messages.dart';
 import '../data/mock/mock_professional_profile.dart';
 import '../models/conversation.dart';
 import '../models/firm_workspace.dart';
@@ -72,7 +73,7 @@ class _LawyerHomeScreenState extends State<LawyerHomeScreen> {
       if (SupabaseConfig.isReady) return const [];
     }
 
-    return const [];
+    return mockLawyerCases;
   }
 
   Future<List<Conversation>> _loadNewContacts() async {
@@ -89,7 +90,7 @@ class _LawyerHomeScreenState extends State<LawyerHomeScreen> {
       if (SupabaseConfig.isReady) return const [];
     }
 
-    return const [];
+    return mockLawyerConversations;
   }
 
   @override

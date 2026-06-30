@@ -17,7 +17,7 @@ class FirmWorkspaceRepository {
   ) async {
     if (!SupabaseConfig.isReady ||
         SupabaseConfig.client.auth.currentUser == null) {
-      return const FirmOperationMetrics.empty();
+      return mockFirmOperationMetrics;
     }
 
     final rows = await SupabaseConfig.client.rpc(

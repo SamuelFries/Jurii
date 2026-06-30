@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart'
     show AuthChangeEvent, AuthState, User;
 
+import 'config/demo_mode.dart';
+import 'data/mock/mock_demo_state.dart';
+import 'data/mock/mock_firm_workspace.dart';
 import 'data/mock/mock_users.dart';
 import 'models/appointment.dart';
 import 'models/law_firm_verification.dart';
@@ -140,6 +143,20 @@ class _JuriiAppState extends State<JuriiApp> {
   }
 
   Future<void> _bootstrapSession() async {
+    if (DemoMode.enabled) {
+      setState(() {
+        _currentUser = mockCurrentUser;
+        _lawyerVerification = mockApprovedLawyerVerification;
+        _lawFirmVerification = mockApprovedLawFirmVerification;
+        _firmWorkspace = mockFirmWorkspace;
+        _isLoggedIn = true;
+        _isLawyerMode = false;
+        _isFirmMode = false;
+        _isBootstrapping = false;
+      });
+      return;
+    }
+
     if (!SupabaseConfig.isConfigured) {
       setState(() => _isBootstrapping = false);
       return;
@@ -427,6 +444,20 @@ class _JuriiAppState extends State<JuriiApp> {
   }
 
   Future<void> _handleLogout() async {
+    if (DemoMode.enabled) {
+      setState(() {
+        _currentUser = mockCurrentUser;
+        _lawyerVerification = mockApprovedLawyerVerification;
+        _lawFirmVerification = mockApprovedLawFirmVerification;
+        _firmWorkspace = mockFirmWorkspace;
+        _isLoggedIn = true;
+        _isLawyerMode = false;
+        _isFirmMode = false;
+        _isBootstrapping = false;
+      });
+      return;
+    }
+
     if (SupabaseConfig.isConfigured) {
       await _authRepository.signOut();
     }
@@ -536,6 +567,11 @@ class _JuriiAppState extends State<JuriiApp> {
   }
 
   Future<void> _refreshFirmWorkspace() async {
+    if (DemoMode.enabled) {
+      setState(() => _firmWorkspace = mockFirmWorkspace);
+      return;
+    }
+
     if (!SupabaseConfig.isReady) return;
 
     final workspace = await _fetchCurrentFirmWorkspace(_lawFirmVerification);
@@ -560,6 +596,8 @@ class _JuriiAppState extends State<JuriiApp> {
     required String oabState,
     required String oabNumber,
   }) async {
+    if (DemoMode.enabled) return;
+
     final workspace = _firmWorkspace;
     if (workspace == null || !workspace.fromSupabase) {
       throw StateError(
@@ -579,6 +617,8 @@ class _JuriiAppState extends State<JuriiApp> {
     required String memberProfileId,
     required List<FirmRole> roles,
   }) async {
+    if (DemoMode.enabled) return;
+
     final workspace = _firmWorkspace;
     if (workspace == null || !workspace.fromSupabase) {
       throw StateError(

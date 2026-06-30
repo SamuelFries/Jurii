@@ -1,4 +1,5 @@
 import '../data/legal_practice_areas.dart';
+import '../data/mock/mock_law_firms.dart';
 import '../models/law_firm.dart';
 import '../services/supabase_config.dart';
 
@@ -8,6 +9,11 @@ class LawFirmRepository {
   Future<List<LawFirm>> fetchRecommendedLawFirms({
     String searchQuery = '',
   }) async {
+    if (!SupabaseConfig.isReady ||
+        SupabaseConfig.client.auth.currentUser == null) {
+      return _filterLawFirms(mockLawFirms, searchQuery);
+    }
+
     try {
       final rows = await SupabaseConfig.client.rpc(
         'fetch_recommended_law_firms',
@@ -30,6 +36,13 @@ class LawFirmRepository {
   }
 
   Future<LawFirm?> fetchLawFirmById(String lawFirmId) async {
+    if (!SupabaseConfig.isReady ||
+        SupabaseConfig.client.auth.currentUser == null) {
+      return mockLawFirms
+          .where((lawFirm) => lawFirm.id == lawFirmId)
+          .firstOrNull;
+    }
+
     final row = await SupabaseConfig.client
         .from('law_firms')
         .select()

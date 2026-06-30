@@ -61,7 +61,9 @@ class LawyerProfileRepository {
   Future<LawyerProfileSummary?> fetchLawyerById(String lawyerId) async {
     if (!SupabaseConfig.isReady ||
         SupabaseConfig.client.auth.currentUser == null) {
-      return null;
+      return mockRecommendedLawyers
+          .where((lawyer) => lawyer.id == lawyerId)
+          .firstOrNull;
     }
 
     final row = await SupabaseConfig.client

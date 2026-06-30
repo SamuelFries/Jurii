@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../data/mock/mock_firm_workspace.dart';
 import '../models/firm_operation_metrics.dart';
 import '../models/firm_workspace.dart';
 import '../models/jurii_notification.dart';
@@ -54,7 +55,14 @@ class _FirmHomeScreenState extends State<FirmHomeScreen> {
         0;
 
     if (!SupabaseConfig.isReady || lawFirmId == null) {
-      return FirmOperationMetrics.empty(teamMembers: localTeamCount);
+      return localTeamCount > 0
+          ? FirmOperationMetrics(
+              clientMessages: mockFirmOperationMetrics.clientMessages,
+              teamMessages: mockFirmOperationMetrics.teamMessages,
+              activeCases: mockFirmOperationMetrics.activeCases,
+              teamMembers: localTeamCount,
+            )
+          : mockFirmOperationMetrics;
     }
 
     try {

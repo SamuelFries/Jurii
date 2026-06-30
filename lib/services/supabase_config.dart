@@ -1,5 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../config/demo_mode.dart';
+
 class SupabaseConfig {
   static const _projectUrl = 'https://rlgtgipxltucrtkyrmag.supabase.co';
   static const _projectPublishableKey =
@@ -27,7 +29,8 @@ class SupabaseConfig {
       ? _envOAuthRedirectUrl
       : 'jurii://login-callback';
 
-  static bool get isConfigured => url.isNotEmpty && key.isNotEmpty;
+  static bool get isConfigured =>
+      !DemoMode.enabled && url.isNotEmpty && key.isNotEmpty;
   static bool get isReady {
     if (!isConfigured) return false;
     if (_initialized) return true;

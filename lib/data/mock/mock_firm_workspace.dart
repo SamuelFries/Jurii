@@ -1,11 +1,51 @@
 import '../../models/conversation.dart';
 import '../../models/firm_case_overview.dart';
+import '../../models/firm_operation_metrics.dart';
 import '../../models/firm_role.dart';
 import '../../models/firm_team_member.dart';
+import '../../models/firm_workspace.dart';
+import '../../models/law_firm.dart';
 
 const mockFirmWorkspaceName = 'Fries Advogados';
 
+const mockFirmWorkspace = FirmWorkspace(
+  firm: LawFirm(
+    id: 'fries',
+    name: mockFirmWorkspaceName,
+    initials: 'FA',
+    rating: 4.9,
+    distance: '1,8 km',
+    specialty: 'Direito Trabalhista',
+    practiceAreas: [
+      'Direito Trabalhista',
+      'Direito de Família',
+      'Direito Imobiliário',
+      'Direito Empresarial',
+      'Direito Digital',
+    ],
+    reviews: 128,
+    avatarType: 'navy',
+    description:
+        'Escritorio full service com foco em atendimento digital, triagem rapida e acompanhamento transparente de casos.',
+    phone: '(11) 4002-8922',
+    email: 'contato@friesadvogados.com.br',
+    websiteUrl: 'https://friesadvogados.com.br',
+    address: 'Av. Paulista, 1374 - Bela Vista, Sao Paulo - SP',
+  ),
+  currentUserRole: FirmRole.owner,
+  currentUserRoles: [FirmRole.owner, FirmRole.admin, FirmRole.lawyer],
+  teamMembers: mockFirmTeamMembers,
+  fromSupabase: true,
+);
+
 const mockFirmMetrics = (
+  clientMessages: 7,
+  teamMessages: 4,
+  activeCases: 12,
+  teamMembers: 6,
+);
+
+const mockFirmOperationMetrics = FirmOperationMetrics(
   clientMessages: 7,
   teamMessages: 4,
   activeCases: 12,
@@ -135,6 +175,7 @@ const mockFirmCases = [
     title: 'Divórcio consensual',
     clientName: 'Ana Pereira',
     clientInitials: 'AP',
+    assignedLawyerId: 'member_marina',
     assignedLawyer: 'Dra. Marina Jardim',
     area: 'Família',
     statusLabel: 'Minuta em revisão',
@@ -146,6 +187,7 @@ const mockFirmCases = [
     title: 'Rescisão trabalhista',
     clientName: 'João Silva',
     clientInitials: 'JS',
+    assignedLawyerId: 'user_joao_silva',
     assignedLawyer: 'Dr. Rafael Lima',
     area: 'Trabalhista',
     statusLabel: 'Prazo crítico',
@@ -157,6 +199,7 @@ const mockFirmCases = [
     title: 'Revisão de contrato',
     clientName: 'Fernanda Lima',
     clientInitials: 'FL',
+    assignedLawyerId: 'member_marina',
     assignedLawyer: 'Dra. Marina Jardim',
     area: 'Imobiliário',
     statusLabel: 'Aguardando cliente',

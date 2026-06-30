@@ -34,7 +34,10 @@ class _CasesScreenState extends State<CasesScreen> {
 
   Future<_ClientCasesData> _loadCases() async {
     if (!SupabaseConfig.isReady) {
-      return const _ClientCasesData(cases: mockClientCases, requests: []);
+      return const _ClientCasesData(
+        cases: mockClientCases,
+        requests: mockClientCaseRequests,
+      );
     }
 
     try {

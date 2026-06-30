@@ -1,3 +1,5 @@
+import '../data/mock/mock_cases.dart';
+import '../data/mock/mock_firm_workspace.dart';
 import '../models/case_request.dart';
 import '../models/case_update.dart';
 import '../models/cases.dart';
@@ -11,7 +13,7 @@ class CaseRepository {
   Future<List<LegalCase>> fetchClientCases() async {
     if (!SupabaseConfig.isReady ||
         SupabaseConfig.client.auth.currentUser == null) {
-      return const [];
+      return mockClientCases;
     }
 
     final rows = await SupabaseConfig.client.rpc('fetch_client_cases');
@@ -25,7 +27,7 @@ class CaseRepository {
   Future<List<LawyerCase>> fetchLawyerCases() async {
     if (!SupabaseConfig.isReady ||
         SupabaseConfig.client.auth.currentUser == null) {
-      return const [];
+      return mockLawyerCases;
     }
 
     final rows = await SupabaseConfig.client.rpc('fetch_lawyer_cases');
@@ -39,7 +41,7 @@ class CaseRepository {
   Future<List<FirmCaseOverview>> fetchLawFirmCases(String lawFirmId) async {
     if (!SupabaseConfig.isReady ||
         SupabaseConfig.client.auth.currentUser == null) {
-      return const [];
+      return mockFirmCases;
     }
 
     final rows = await SupabaseConfig.client.rpc(
@@ -58,6 +60,8 @@ class CaseRepository {
     required String caseId,
     required String lawyerProfileId,
   }) async {
+    if (!SupabaseConfig.isReady) return;
+
     if (!SupabaseConfig.isReady ||
         SupabaseConfig.client.auth.currentUser == null) {
       throw StateError('A conexÃ£o com o Supabase nÃ£o estÃ¡ ativa.');
@@ -79,6 +83,8 @@ class CaseRepository {
     required String area,
     required String summary,
   }) async {
+    if (!SupabaseConfig.isReady) return;
+
     await SupabaseConfig.client.rpc(
       'create_case_request',
       params: {
@@ -93,7 +99,7 @@ class CaseRepository {
   Future<List<CaseRequest>> fetchClientCaseRequests() async {
     if (!SupabaseConfig.isReady ||
         SupabaseConfig.client.auth.currentUser == null) {
-      return const [];
+      return mockClientCaseRequests;
     }
 
     final rows = await SupabaseConfig.client.rpc(
@@ -110,6 +116,8 @@ class CaseRepository {
     required String requestId,
     required bool accepted,
   }) async {
+    if (!SupabaseConfig.isReady) return;
+
     await SupabaseConfig.client.rpc(
       'respond_to_case_request',
       params: {'request_id_value': requestId, 'accepted_value': accepted},
@@ -119,7 +127,7 @@ class CaseRepository {
   Future<List<CaseUpdate>> fetchCaseUpdates(String caseId) async {
     if (!SupabaseConfig.isReady ||
         SupabaseConfig.client.auth.currentUser == null) {
-      return const [];
+      return mockCaseUpdates;
     }
 
     final rows = await SupabaseConfig.client.rpc(
@@ -138,6 +146,8 @@ class CaseRepository {
     required String title,
     required String body,
   }) async {
+    if (!SupabaseConfig.isReady) return;
+
     await SupabaseConfig.client.rpc(
       'add_case_update',
       params: {

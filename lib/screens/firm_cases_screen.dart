@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../data/mock/mock_firm_workspace.dart';
+import '../data/mock/mock_users.dart';
 import '../models/firm_case_overview.dart';
 import '../models/firm_team_member.dart';
 import '../models/firm_workspace.dart';
@@ -54,7 +55,7 @@ class _FirmCasesScreenState extends State<FirmCasesScreen> {
   Future<void> _openCaseDetails(FirmCaseOverview overview) async {
     final currentUserId = SupabaseConfig.isReady
         ? SupabaseConfig.client.auth.currentUser?.id
-        : null;
+        : mockCurrentUser.id;
 
     await Navigator.of(context).push(
       MaterialPageRoute(
