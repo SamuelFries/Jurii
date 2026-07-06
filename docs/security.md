@@ -29,20 +29,28 @@ regex, senha mínima 8 unificada, mensagens de erro sem detalhes internos
 (patches/RPC/schema cache viraram `debugPrint`), validação de magic bytes nos
 anexos do chat.
 
+## Corrigido pelo patch_043 (rodar no SQL Editor)
+
+`supabase/patch_043_fix_firm_case_scope.sql` fecha a pendência crítica de
+escopo de casos do escritório: `fetch_law_firm_cases` e
+`assign_law_firm_case` agora tratam como caso do escritório apenas linhas em
+`legal_cases` com `law_firm_id = law_firm_id_value`. Um advogado poder ser
+membro de um escritório não basta mais para esse escritório enxergar ou
+reatribuir casos pessoais do advogado, nem casos vinculados a outro escritório.
+
 ## Pendências que dependem de decisão/infra (NÃO resolvidas)
 
 | # | Risco | Detalhe | Proposta |
 | --- | --- | --- | --- |
-| 1 | **Escopo de casos do escritório** (crítico) | `fetch_law_firm_cases`/`assign_law_firm_case` (patch_030) tratam como "do escritório" qualquer caso de advogado membro — escritório A vê/reatribui casos do escritório B ou pessoais do advogado | Restringir a `lc.law_firm_id = law_firm_id_value`; decidir o que o escritório pode ver dos casos dos seus advogados |
-| 2 | **Exclusão de conta incompleta (LGPD)** | Soft-delete não bane em `auth.users` (sessão/senha seguem válidas via API) e não apaga arquivos do Storage (identidade, OAB, foto) | Edge Function com service_role: `banned_until` + expurgo do Storage; definir política de retenção |
-| 3 | **PII entre contrapartes** | `can_select_profile` dá a linha inteira de `profiles` (CPF, telefone) ao advogado do caso e vice-versa | Segregar CPF/telefone em tabela própria ou trocar por RPC de campos mínimos |
-| 4 | **Roster de escritórios público** | Qualquer autenticado lê `law_firm_members` de qualquer escritório ativo | Restringir a membros; expor equipe pública via RPC com nome/área apenas |
-| 5 | **Sem papel admin** | Aprovação de OAB/escritório é manual via SQL Editor com service_role; sem trilha de revisão | Painel admin + role de revisor + RPCs auditadas (`reviewer_id` real) |
-| 6 | **Ex-dono retém poderes** | patch_031: quem consta como owner numa verificação aprovada segue gerente mesmo com membership desativado | Basear autoridade só em `law_firm_members` ativo |
-| 7 | **Conversas/agendas arbitrárias** | Cliente pode criar conversa apontando lawyer/caso alheio (spam de inbox) | Exigir criação via RPCs `start_or_get_*` e validar coerência na policy |
-| 8 | **Enumeração de OAB** | RPC de convite responde diferente p/ OAB existente e ainda promove `lawyer_status` no convite não aceito | Resposta genérica + mover upsert de `lawyer_profiles` para o aceite |
-| 9 | **Delete de anexo entregue** | Uploader pode apagar objeto do Storage já vinculado a mensagem (anexo pode ser prova) | Restringir delete a objetos sem linha em `message_attachments` |
-| 10 | **Verificação sem documentos** | Upload de documentos OAB/escritório é placebo (botão marca `uploaded=true`, nada sobe) | Implementar FilePicker + Storage + inserts; exigir docs na aprovação |
+| 1 | **Exclusão de conta incompleta (LGPD)** | Soft-delete não bane em `auth.users` (sessão/senha seguem válidas via API) e não apaga arquivos do Storage (identidade, OAB, foto) | Edge Function com service_role: `banned_until` + expurgo do Storage; definir política de retenção |
+| 2 | **PII entre contrapartes** | `can_select_profile` dá a linha inteira de `profiles` (CPF, telefone) ao advogado do caso e vice-versa | Segregar CPF/telefone em tabela própria ou trocar por RPC de campos mínimos |
+| 3 | **Roster de escritórios público** | Qualquer autenticado lê `law_firm_members` de qualquer escritório ativo | Restringir a membros; expor equipe pública via RPC com nome/área apenas |
+| 4 | **Sem papel admin** | Aprovação de OAB/escritório é manual via SQL Editor com service_role; sem trilha de revisão | Painel admin + role de revisor + RPCs auditadas (`reviewer_id` real) |
+| 5 | **Ex-dono retém poderes** | patch_031: quem consta como owner numa verificação aprovada segue gerente mesmo com membership desativado | Basear autoridade só em `law_firm_members` ativo |
+| 6 | **Conversas/agendas arbitrárias** | Cliente pode criar conversa apontando lawyer/caso alheio (spam de inbox) | Exigir criação via RPCs `start_or_get_*` e validar coerência na policy |
+| 7 | **Enumeração de OAB** | RPC de convite responde diferente p/ OAB existente e ainda promove `lawyer_status` no convite não aceito | Resposta genérica + mover upsert de `lawyer_profiles` para o aceite |
+| 8 | **Delete de anexo entregue** | Uploader pode apagar objeto do Storage já vinculado a mensagem (anexo pode ser prova) | Restringir delete a objetos sem linha em `message_attachments` |
+| 9 | **Verificação sem documentos** | Upload de documentos OAB/escritório é placebo (botão marca `uploaded=true`, nada sobe) | Implementar FilePicker + Storage + inserts; exigir docs na aprovação |
 
 ## LGPD — visão geral
 

@@ -428,6 +428,29 @@ Rode `patch_040_fix_chat_attachment_metadata_update.sql` depois do patch 039 se
 o envio de anexos falhar com erro de `metadata` ambiguo. Ele recria a RPC
 `send_chat_attachment` com a referencia correta e recarrega o schema cache.
 
+## 2.41. Patch de hardening de segurança
+
+Rode `patch_041_security_hardening.sql` depois do patch 040. Ele bloqueia
+auto-promocao a advogado, remove leitura publica ampla de `profiles`, endurece
+updates de verificacao, impede spoofing direto de `sender_type = system` e
+aplica limites de MIME/tamanho no bucket `chat-attachments`.
+
+## 2.42. Patch de precisao da busca juridica
+
+Rode `patch_042_search_word_boundary.sql` depois do patch 041 e depois de
+garantir que `patch_029_legal_search_intents.sql` ja populou
+`legal_search_intents`. Ele corrige o matching para respeitar limites de
+palavra, evitando falsos positivos como `iss` dentro de `demissao`, e remove o
+termo ambiguo `das` de Direito Tributario.
+
+## 2.43. Patch de escopo dos casos do escritorio
+
+Rode `patch_043_fix_firm_case_scope.sql` depois do patch 042. Ele recria
+`fetch_law_firm_cases` e `assign_law_firm_case` para que a area do escritorio
+so enxergue e reatribua casos com `legal_cases.law_firm_id` igual ao escritorio
+informado. Casos pessoais de advogados membros, ou casos de outro escritorio,
+nao entram mais nessa superficie apenas por membership.
+
 ## 3. Status da integração
 
 A camada inicial de repositories já existe em `lib/repositories/`.
