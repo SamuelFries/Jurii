@@ -451,6 +451,31 @@ so enxergue e reatribua casos com `legal_cases.law_firm_id` igual ao escritorio
 informado. Casos pessoais de advogados membros, ou casos de outro escritorio,
 nao entram mais nessa superficie apenas por membership.
 
+## 2.44. Patch e Edge Function para exclusao LGPD
+
+Rode `patch_044_account_deletion_lgpd.sql` depois do patch 043 e faca deploy da
+Edge Function `delete-account`:
+
+```bash
+supabase functions deploy delete-account
+```
+
+Confirme que a funcao tem acesso a `SUPABASE_SERVICE_ROLE_KEY` (secret padrao do
+projeto Supabase; se necessario, configure com `supabase secrets set`). O app
+passa a chamar essa funcao, nao mais a RPC diretamente.
+
+O fluxo da funcao e:
+
+1. valida o JWT do usuario;
+2. apaga arquivos sensiveis dos buckets `verification-documents` e
+   `profile-avatars`;
+3. chama `delete_current_account()` como o proprio usuario;
+4. bane o usuario em `auth.users`;
+5. registra o resultado em `account_deletion_audit`.
+
+Anexos de chat e documentos de caso nao sao apagados aqui porque podem ser
+prova/evidencia; precisam de uma politica de retencao propria.
+
 ## 3. Status da integração
 
 A camada inicial de repositories já existe em `lib/repositories/`.
