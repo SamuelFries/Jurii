@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 import '../models/lawyer_status.dart';
 import '../models/user_profile.dart';
 import '../services/supabase_config.dart';
@@ -56,7 +58,14 @@ class ProfileRepository {
   }
 
   Future<void> deleteCurrentAccount() async {
-    await SupabaseConfig.client.rpc('delete_current_account');
+    try {
+      await SupabaseConfig.client.functions.invoke('delete-account');
+    } catch (error) {
+      debugPrint('Supabase account deletion failed: $error');
+      throw StateError(
+        'Não foi possível excluir sua conta agora. Tente novamente.',
+      );
+    }
   }
 
   UserProfile _fromRow(Map<String, dynamic> row) {

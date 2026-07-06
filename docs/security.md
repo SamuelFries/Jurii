@@ -38,19 +38,30 @@ escopo de casos do escritório: `fetch_law_firm_cases` e
 membro de um escritório não basta mais para esse escritório enxergar ou
 reatribuir casos pessoais do advogado, nem casos vinculados a outro escritório.
 
+## Corrigido pelo patch_044 + Edge Function (rodar/deployar)
+
+`supabase/patch_044_account_deletion_lgpd.sql` e a Edge Function
+`supabase/functions/delete-account` fecham a exclusão de conta: a função roda
+com `service_role`, apaga Storage sensível de verificação/avatar, chama o
+soft-delete transacional existente, bane o usuário em `auth.users` e registra
+auditoria em `account_deletion_audit`.
+
+Anexos de chat e documentos de caso não são apagados nessa rotina porque podem
+ser prova/evidência; eles continuam dependendo de uma política de retenção
+própria.
+
 ## Pendências que dependem de decisão/infra (NÃO resolvidas)
 
 | # | Risco | Detalhe | Proposta |
 | --- | --- | --- | --- |
-| 1 | **Exclusão de conta incompleta (LGPD)** | Soft-delete não bane em `auth.users` (sessão/senha seguem válidas via API) e não apaga arquivos do Storage (identidade, OAB, foto) | Edge Function com service_role: `banned_until` + expurgo do Storage; definir política de retenção |
-| 2 | **PII entre contrapartes** | `can_select_profile` dá a linha inteira de `profiles` (CPF, telefone) ao advogado do caso e vice-versa | Segregar CPF/telefone em tabela própria ou trocar por RPC de campos mínimos |
-| 3 | **Roster de escritórios público** | Qualquer autenticado lê `law_firm_members` de qualquer escritório ativo | Restringir a membros; expor equipe pública via RPC com nome/área apenas |
-| 4 | **Sem papel admin** | Aprovação de OAB/escritório é manual via SQL Editor com service_role; sem trilha de revisão | Painel admin + role de revisor + RPCs auditadas (`reviewer_id` real) |
-| 5 | **Ex-dono retém poderes** | patch_031: quem consta como owner numa verificação aprovada segue gerente mesmo com membership desativado | Basear autoridade só em `law_firm_members` ativo |
-| 6 | **Conversas/agendas arbitrárias** | Cliente pode criar conversa apontando lawyer/caso alheio (spam de inbox) | Exigir criação via RPCs `start_or_get_*` e validar coerência na policy |
-| 7 | **Enumeração de OAB** | RPC de convite responde diferente p/ OAB existente e ainda promove `lawyer_status` no convite não aceito | Resposta genérica + mover upsert de `lawyer_profiles` para o aceite |
-| 8 | **Delete de anexo entregue** | Uploader pode apagar objeto do Storage já vinculado a mensagem (anexo pode ser prova) | Restringir delete a objetos sem linha em `message_attachments` |
-| 9 | **Verificação sem documentos** | Upload de documentos OAB/escritório é placebo (botão marca `uploaded=true`, nada sobe) | Implementar FilePicker + Storage + inserts; exigir docs na aprovação |
+| 1 | **PII entre contrapartes** | `can_select_profile` dá a linha inteira de `profiles` (CPF, telefone) ao advogado do caso e vice-versa | Segregar CPF/telefone em tabela própria ou trocar por RPC de campos mínimos |
+| 2 | **Roster de escritórios público** | Qualquer autenticado lê `law_firm_members` de qualquer escritório ativo | Restringir a membros; expor equipe pública via RPC com nome/área apenas |
+| 3 | **Sem papel admin** | Aprovação de OAB/escritório é manual via SQL Editor com service_role; sem trilha de revisão | Painel admin + role de revisor + RPCs auditadas (`reviewer_id` real) |
+| 4 | **Ex-dono retém poderes** | patch_031: quem consta como owner numa verificação aprovada segue gerente mesmo com membership desativado | Basear autoridade só em `law_firm_members` ativo |
+| 5 | **Conversas/agendas arbitrárias** | Cliente pode criar conversa apontando lawyer/caso alheio (spam de inbox) | Exigir criação via RPCs `start_or_get_*` e validar coerência na policy |
+| 6 | **Enumeração de OAB** | RPC de convite responde diferente p/ OAB existente e ainda promove `lawyer_status` no convite não aceito | Resposta genérica + mover upsert de `lawyer_profiles` para o aceite |
+| 7 | **Delete de anexo entregue** | Uploader pode apagar objeto do Storage já vinculado a mensagem (anexo pode ser prova) | Restringir delete a objetos sem linha em `message_attachments` |
+| 8 | **Verificação sem documentos** | Upload de documentos OAB/escritório é placebo (botão marca `uploaded=true`, nada sobe) | Implementar FilePicker + Storage + inserts; exigir docs na aprovação |
 
 ## LGPD — visão geral
 
