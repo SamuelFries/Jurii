@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart'
     show AuthChangeEvent, AuthState, User;
 
-import 'data/mock/mock_users.dart';
 import 'models/appointment.dart';
 import 'models/law_firm_verification.dart';
 import 'models/law_firm_verification_status.dart';
@@ -37,6 +36,7 @@ import 'screens/lawyer_messages_screen.dart';
 import 'screens/lawyer_cases_screen.dart';
 
 import 'theme/app_theme.dart';
+import 'theme/theme_controller.dart';
 import 'services/supabase_config.dart';
 import 'types/auth_callbacks.dart';
 import 'widgets/firm_bottom_nav.dart';
@@ -68,14 +68,24 @@ class _JuriiAppState extends State<JuriiApp> {
       const FirmInvitationRepository();
   StreamSubscription<AuthState>? _authSubscription;
 
+  static const UserProfile _guestUser = UserProfile(
+    id: '',
+    name: 'Usuário Jurii',
+    email: '',
+    initials: 'U',
+    memberSince: 'Cliente Jurii',
+    lawyerStatus: LawyerStatus.client,
+  );
+
   bool _isLoggedIn = false;
   bool _isLawyerMode = false;
   bool _isFirmMode = false;
   bool _isBootstrapping = true;
+  bool _bootstrapFailed = false;
   bool _isPasswordRecovery = false;
   bool _isPasswordRecoveryExpected = false;
-  bool _isCompletingAuthSession = false;
-  UserProfile _currentUser = mockCurrentUser;
+  Future<void>? _sessionCompletion;
+  UserProfile _currentUser = _guestUser;
   LawyerVerification? _lawyerVerification;
   LawFirmVerification? _lawFirmVerification;
   FirmWorkspace? _firmWorkspace;
@@ -153,16 +163,30 @@ class _JuriiAppState extends State<JuriiApp> {
 
     try {
       await _completeAuthenticatedSession(authUser: session.user);
-      if (mounted && !_isLoggedIn && !_isCompletingAuthSession) {
+      if (mounted && !_isLoggedIn) {
         setState(() => _isBootstrapping = false);
       }
+    } on DeletedAccountException {
+      // Sessão já encerrada em _completeAuthenticatedSession.
     } catch (error) {
       debugPrint('Supabase bootstrap failed: $error');
+      if (!mounted) return;
+      // Sessão válida, mas o perfil não pôde ser carregado (ex.: sem rede).
+      // Mantém a sessão e oferece nova tentativa em vez de exibir dados falsos.
       setState(() {
         _isLoggedIn = false;
         _isBootstrapping = false;
+        _bootstrapFailed = true;
       });
     }
+  }
+
+  Future<void> _retryBootstrap() async {
+    setState(() {
+      _bootstrapFailed = false;
+      _isBootstrapping = true;
+    });
+    await _bootstrapSession();
   }
 
   Future<void> _handleLogin(String email, String password) async {
@@ -223,70 +247,92 @@ class _JuriiAppState extends State<JuriiApp> {
     setState(_clearSessionState);
   }
 
+  /// Conclui a sessão autenticada. Chamadas concorrentes (login aguardado +
+  /// evento do stream de auth) compartilham o mesmo Future, para que erros
+  /// cheguem a quem estiver aguardando em vez de serem engolidos.
   Future<void> _completeAuthenticatedSession({
     User? authUser,
     String? fallbackEmail,
+  }) {
+    final inFlight = _sessionCompletion;
+    if (inFlight != null) return inFlight;
+
+    final completion = _runAuthenticatedSessionCompletion(
+      authUser: authUser,
+      fallbackEmail: fallbackEmail,
+    ).whenComplete(() => _sessionCompletion = null);
+    _sessionCompletion = completion;
+    return completion;
+  }
+
+  Future<void> _runAuthenticatedSessionCompletion({
+    User? authUser,
+    String? fallbackEmail,
   }) async {
-    if (!SupabaseConfig.isReady || _isCompletingAuthSession) return;
+    if (!SupabaseConfig.isReady) return;
 
-    _isCompletingAuthSession = true;
+    final user = authUser ?? SupabaseConfig.client.auth.currentUser;
+    if (user == null) return;
+
+    final typedEmail = fallbackEmail ?? user.email ?? '';
+    final fallbackProfile = _localProfileFromAuthUser(user, typedEmail);
+
+    UserProfile? profile;
     try {
-      final user = authUser ?? SupabaseConfig.client.auth.currentUser;
-      if (user == null) return;
+      profile = await _fetchProfileWithRetry();
+    } on DeletedAccountException {
+      await _authRepository.signOut();
+      if (mounted) {
+        setState(_clearSessionState);
+      }
+      rethrow;
+    }
 
-      final typedEmail = fallbackEmail ?? user.email ?? '';
-      final fallbackProfile = _localProfileFromAuthUser(user, typedEmail);
-
-      UserProfile? profile;
-      var profileFetchFailed = false;
+    if (profile == null) {
       try {
-        profile = await _profileRepository.fetchCurrentProfile();
-      } on DeletedAccountException {
-        await _authRepository.signOut();
-        if (mounted) {
-          setState(_clearSessionState);
-        }
-        rethrow;
-      } catch (error) {
-        profileFetchFailed = true;
-        debugPrint('Supabase profile fetch after login failed: $error');
-      }
-
-      if (profile == null && !profileFetchFailed) {
-        try {
-          await _profileRepository.upsertProfile(
-            id: user.id,
-            fullName: fallbackProfile.name,
-            email: fallbackProfile.email,
-            cpf: user.userMetadata?['cpf'] as String?,
-          );
-          profile = await _profileRepository.fetchCurrentProfile();
-        } catch (error) {
-          debugPrint('Supabase profile recovery after login failed: $error');
-        }
-      }
-
-      final lawyerVerification = await _fetchLatestLawyerVerification();
-      final lawFirmVerification = await _fetchLatestLawFirmVerification();
-      final firmWorkspace = await _fetchCurrentFirmWorkspace(
-        lawFirmVerification,
-      );
-
-      if (!mounted) return;
-      setState(() {
-        _lawyerVerification = lawyerVerification;
-        _currentUser = _userWithLawyerVerification(
-          profile ?? fallbackProfile,
-          lawyerVerification,
+        await _profileRepository.upsertProfile(
+          id: user.id,
+          fullName: fallbackProfile.name,
+          email: fallbackProfile.email,
+          cpf: user.userMetadata?['cpf'] as String?,
         );
-        _lawFirmVerification = lawFirmVerification;
-        _firmWorkspace = firmWorkspace;
-        _isLoggedIn = true;
-        _isPasswordRecovery = false;
-        _isBootstrapping = false;
-      });
-    } finally {
-      _isCompletingAuthSession = false;
+        profile = await _profileRepository.fetchCurrentProfile();
+      } catch (error) {
+        debugPrint('Supabase profile recovery after login failed: $error');
+      }
+    }
+
+    final lawyerVerification = await _fetchLatestLawyerVerification();
+    final lawFirmVerification = await _fetchLatestLawFirmVerification();
+    final firmWorkspace = await _fetchCurrentFirmWorkspace(lawFirmVerification);
+
+    if (!mounted) return;
+    setState(() {
+      _lawyerVerification = lawyerVerification;
+      _currentUser = _userWithLawyerVerification(
+        profile ?? fallbackProfile,
+        lawyerVerification,
+      );
+      _lawFirmVerification = lawFirmVerification;
+      _firmWorkspace = firmWorkspace;
+      _isLoggedIn = true;
+      _bootstrapFailed = false;
+      _isPasswordRecovery = false;
+      _isBootstrapping = false;
+    });
+  }
+
+  /// Uma nova tentativa cobre falhas transitórias de rede; se ambas falharem,
+  /// o erro sobe para o chamador (login mostra o erro, bootstrap mostra a
+  /// tela de nova tentativa) em vez de concluir a sessão com dados falsos.
+  Future<UserProfile?> _fetchProfileWithRetry() async {
+    try {
+      return await _profileRepository.fetchCurrentProfile();
+    } on DeletedAccountException {
+      rethrow;
+    } catch (error) {
+      debugPrint('Supabase profile fetch failed, retrying: $error');
+      return _profileRepository.fetchCurrentProfile();
     }
   }
 
@@ -307,9 +353,10 @@ class _JuriiAppState extends State<JuriiApp> {
     _isLawyerMode = false;
     _isFirmMode = false;
     _isBootstrapping = false;
+    _bootstrapFailed = false;
     _isPasswordRecovery = false;
     _isPasswordRecoveryExpected = false;
-    _currentUser = mockCurrentUser;
+    _currentUser = _guestUser;
     _lawyerVerification = null;
     _lawFirmVerification = null;
     _firmWorkspace = null;
@@ -321,6 +368,7 @@ class _JuriiAppState extends State<JuriiApp> {
     required String cpf,
     required String password,
   }) async {
+    _isPasswordRecoveryExpected = false;
     if (!SupabaseConfig.isConfigured) {
       setState(() {
         _currentUser = _localProfileForRegistration(
@@ -391,13 +439,13 @@ class _JuriiAppState extends State<JuriiApp> {
         ? '${parts.first[0]}${parts.last[0]}'.toUpperCase()
         : parts.first.substring(0, 1).toUpperCase();
 
-    return mockCurrentUser.copyWith(
-      id: id ?? mockCurrentUser.id,
+    return UserProfile(
+      id: id ?? '',
       name: name,
       email: email,
       initials: initials,
+      memberSince: 'Cliente Jurii',
       lawyerStatus: LawyerStatus.client,
-      oabNumber: null,
     );
   }
 
@@ -427,11 +475,19 @@ class _JuriiAppState extends State<JuriiApp> {
   }
 
   Future<void> _handleLogout() async {
-    if (SupabaseConfig.isConfigured) {
-      await _authRepository.signOut();
+    try {
+      if (SupabaseConfig.isConfigured) {
+        await _authRepository.signOut();
+      }
+    } catch (error) {
+      // Sem rede o endpoint de logout falha; a sessão local é limpa
+      // mesmo assim para o usuário nunca ficar preso dentro do app.
+      debugPrint('Supabase sign out failed: $error');
+    } finally {
+      if (mounted) {
+        setState(_clearSessionState);
+      }
     }
-
-    setState(_clearSessionState);
   }
 
   void _switchToLawyer() {
@@ -582,7 +638,7 @@ class _JuriiAppState extends State<JuriiApp> {
     final workspace = _firmWorkspace;
     if (workspace == null || !workspace.fromSupabase) {
       throw StateError(
-        'A Ã¡rea do escritÃ³rio precisa estar aprovada e sincronizada.',
+        'A área do escritório precisa estar aprovada e sincronizada.',
       );
     }
 
@@ -596,63 +652,75 @@ class _JuriiAppState extends State<JuriiApp> {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Jurii',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
-      home: _isBootstrapping
-          ? const _BootstrapScreen()
-          : _isPasswordRecovery
-          ? PasswordResetScreen(
-              onUpdatePassword: _handlePasswordUpdate,
-              onCancel: _handleLogout,
-            )
-          : !_isLoggedIn
-          ? LoginScreen(
-              onLogin: _handleLogin,
-              onSocialLogin: _handleSocialLogin,
-              onPasswordResetRequested: _handlePasswordResetRequested,
-              onRegister: _handleRegister,
-            )
-          : _isFirmMode
-          ? FirmNavigation(
-              user: _currentUser,
-              workspace: _firmWorkspace,
-              onInviteLawyer: _inviteLawyerToFirm,
-              onUpdateMemberRoles: _updateFirmMemberRoles,
-              onSwitchToClient: _switchToClient,
-              onSwitchToLawyer:
-                  _currentUser.lawyerStatus == LawyerStatus.approved
-                  ? _switchToLawyer
-                  : null,
-              onLogout: _handleLogout,
-              onDeleteAccount: _handleDeleteAccount,
-            )
-          : _isLawyerMode
-          ? LawyerNavigation(
-              user: _currentUser,
-              workspace: _firmWorkspace,
-              onRefreshFirmWorkspace: _refreshFirmWorkspace,
-              onSwitchToFirm: _switchToFirm,
-              onSwitchToClient: _switchToClient,
-              onLogout: _handleLogout,
-              onDeleteAccount: _handleDeleteAccount,
-            )
-          : MainNavigation(
-              user: _currentUser,
-              lawyerVerification: _lawyerVerification,
-              lawFirmVerification: _lawFirmVerification,
-              onSwitchToLawyer: _switchToLawyer,
-              onSwitchToFirm: _switchToFirm,
-              onVerificationSubmitted: _handleVerificationSubmitted,
-              onRefreshLawyerVerification: _refreshLawyerVerification,
-              onLawFirmVerificationSubmitted:
-                  _handleLawFirmVerificationSubmitted,
-              onRefreshLawFirmVerification: _refreshLawFirmVerification,
-              onLogout: _handleLogout,
-              onDeleteAccount: _handleDeleteAccount,
-            ),
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: ThemeController.instance,
+      builder: (context, themeMode, _) => MaterialApp(
+        title: 'Jurii',
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.lightTheme,
+        darkTheme: AppTheme.darkTheme,
+        themeMode: themeMode,
+        home: _buildHome(),
+      ),
     );
+  }
+
+  Widget _buildHome() {
+    return _isBootstrapping
+        ? const _BootstrapScreen()
+        : _bootstrapFailed
+        ? _BootstrapErrorScreen(
+            onRetry: _retryBootstrap,
+            onLogout: _handleLogout,
+          )
+        : _isPasswordRecovery
+        ? PasswordResetScreen(
+            onUpdatePassword: _handlePasswordUpdate,
+            onCancel: _handleLogout,
+          )
+        : !_isLoggedIn
+        ? LoginScreen(
+            onLogin: _handleLogin,
+            onSocialLogin: _handleSocialLogin,
+            onPasswordResetRequested: _handlePasswordResetRequested,
+            onRegister: _handleRegister,
+          )
+        : _isFirmMode
+        ? FirmNavigation(
+            user: _currentUser,
+            workspace: _firmWorkspace,
+            onInviteLawyer: _inviteLawyerToFirm,
+            onUpdateMemberRoles: _updateFirmMemberRoles,
+            onSwitchToClient: _switchToClient,
+            onSwitchToLawyer: _currentUser.lawyerStatus == LawyerStatus.approved
+                ? _switchToLawyer
+                : null,
+            onLogout: _handleLogout,
+            onDeleteAccount: _handleDeleteAccount,
+          )
+        : _isLawyerMode
+        ? LawyerNavigation(
+            user: _currentUser,
+            workspace: _firmWorkspace,
+            onRefreshFirmWorkspace: _refreshFirmWorkspace,
+            onSwitchToFirm: _switchToFirm,
+            onSwitchToClient: _switchToClient,
+            onLogout: _handleLogout,
+            onDeleteAccount: _handleDeleteAccount,
+          )
+        : MainNavigation(
+            user: _currentUser,
+            lawyerVerification: _lawyerVerification,
+            lawFirmVerification: _lawFirmVerification,
+            onSwitchToLawyer: _switchToLawyer,
+            onSwitchToFirm: _switchToFirm,
+            onVerificationSubmitted: _handleVerificationSubmitted,
+            onRefreshLawyerVerification: _refreshLawyerVerification,
+            onLawFirmVerificationSubmitted: _handleLawFirmVerificationSubmitted,
+            onRefreshLawFirmVerification: _refreshLawFirmVerification,
+            onLogout: _handleLogout,
+            onDeleteAccount: _handleDeleteAccount,
+          );
   }
 }
 
@@ -664,6 +732,58 @@ class _BootstrapScreen extends StatelessWidget {
     return const Scaffold(
       backgroundColor: AppTheme.background,
       body: Center(child: CircularProgressIndicator(color: AppTheme.primary)),
+    );
+  }
+}
+
+class _BootstrapErrorScreen extends StatelessWidget {
+  const _BootstrapErrorScreen({required this.onRetry, required this.onLogout});
+
+  final Future<void> Function() onRetry;
+  final VoidCallback onLogout;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppTheme.background,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Icon(
+                Icons.wifi_off_rounded,
+                size: 56,
+                color: AppTheme.textSecondary,
+              ),
+              const SizedBox(height: 20),
+              Text(
+                'Não foi possível carregar sua conta',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Verifique sua conexão com a internet e tente novamente.',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 28),
+              ElevatedButton(
+                onPressed: onRetry,
+                child: const Text('Tentar novamente'),
+              ),
+              const SizedBox(height: 12),
+              TextButton(
+                onPressed: onLogout,
+                child: const Text('Sair da conta'),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

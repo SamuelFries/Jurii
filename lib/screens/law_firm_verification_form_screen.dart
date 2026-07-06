@@ -419,16 +419,22 @@ class _LawFirmVerificationFormScreenState
     final message = error.toString().toLowerCase();
     final code = error is PostgrestException ? error.code : null;
     if (code == '42P01' || message.contains('does not exist')) {
-      return 'A tabela de verificação do escritório ainda não está pronta. Rode o patch 004 no Supabase.';
+      debugPrint('Law firm verification table missing: $message');
+      return 'O cadastro de escritórios está temporariamente indisponível.';
     }
     if (code == 'PGRST204' || message.contains('schema cache')) {
-      return 'O Supabase ainda não atualizou o schema da tabela. Recarregue o schema cache ou rode o patch 004 novamente.';
+      debugPrint('Law firm verification schema cache stale: $message');
+      return 'O cadastro de escritórios está temporariamente indisponível. Tente novamente em instantes.';
+    }
+    if (message.contains('já existe uma verificação')) {
+      return 'Já existe uma verificação em andamento para este escritório.';
     }
     if (code == '23503' || message.contains('foreign key')) {
-      return 'Seu perfil ainda não foi encontrado no banco. Saia e entre novamente antes de enviar.';
+      return 'Seu perfil ainda não foi encontrado. Saia e entre novamente antes de enviar.';
     }
     if (message.contains('row-level security') || message.contains('rls')) {
-      return 'Não foi possível enviar por permissão do banco. Verifique as policies no Supabase.';
+      debugPrint('Law firm verification RLS denied: $message');
+      return 'Não foi possível enviar o cadastro. Tente novamente mais tarde.';
     }
     if (message.contains('authenticated') || message.contains('auth')) {
       return 'Faça login novamente para enviar o cadastro do escritório.';

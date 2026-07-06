@@ -53,7 +53,9 @@ class _FirmHomeScreenState extends State<FirmHomeScreen> {
             .length ??
         0;
 
-    if (!SupabaseConfig.isReady || lawFirmId == null) {
+    if (!SupabaseConfig.isReady ||
+        lawFirmId == null ||
+        widget.workspace?.fromSupabase != true) {
       return FirmOperationMetrics.empty(teamMembers: localTeamCount);
     }
 

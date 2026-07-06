@@ -600,7 +600,9 @@ const legalSearchIntentRules = [
       'pis',
       'cofins',
       'darf',
-      'das',
+      // 'das' (guia do MEI) removido: colide com a contração "das" ("fotos das
+      // agressões"), gerando falso positivo de Tributário. Cobertura de MEI
+      // fica por 'mei imposto' / 'simples nacional'.
       'parcelamento fiscal',
       'multa fiscal',
       'autuação fiscal',
@@ -813,38 +815,112 @@ List<String> expandPracticeAreaSearchTerms(String query) {
   return {query, ...inferPracticeAreasForSearch(query)}.toList(growable: false);
 }
 
-List<String> inferPracticeAreasForSearch(String query) {
+/// Área do direito inferida com a força do casamento (quantos termos da regra
+/// bateram no texto). Usado para ranquear e para a IA medir confiança.
+class InferredPracticeArea {
+  const InferredPracticeArea({required this.area, required this.matchCount});
+
+  final String area;
+  final int matchCount;
+}
+
+/// Infere as áreas de um texto livre, ordenadas da mais forte para a mais
+/// fraca, com a contagem de termos que casaram em cada uma.
+///
+/// A força permite que a busca ranqueie melhor e que a triagem da IA descarte
+/// áreas secundárias fracas (antes a ordem vinha só da posição estática da
+/// regra, então Criminal sempre saía na frente).
+List<InferredPracticeArea> scorePracticeAreasForSearch(String query) {
   final normalizedQuery = normalizePracticeAreaQuery(query);
   if (normalizedQuery.length < 3) return const [];
 
-  final inferredAreas = <String>{};
-  for (final rule in legalSearchIntentRules) {
-    final matchesRule = rule.terms.any((term) {
-      final normalizedTerm = normalizePracticeAreaQuery(term);
-      return _searchIntentTermMatches(normalizedQuery, normalizedTerm);
-    });
-
-    if (matchesRule) inferredAreas.addAll(rule.practiceAreas);
+  final scoreByArea = <String, int>{};
+  final firstRuleByArea = <String, int>{};
+  for (var ruleIndex = 0;
+      ruleIndex < legalSearchIntentRules.length;
+      ruleIndex++) {
+    final rule = legalSearchIntentRules[ruleIndex];
+    var matches = 0;
+    for (final term in rule.terms) {
+      if (_searchIntentTermMatches(
+        normalizedQuery,
+        normalizePracticeAreaQuery(term),
+      )) {
+        matches++;
+      }
+    }
+    if (matches == 0) continue;
+    for (final area in rule.practiceAreas) {
+      scoreByArea[area] = (scoreByArea[area] ?? 0) + matches;
+      firstRuleByArea.putIfAbsent(area, () => ruleIndex);
+    }
   }
 
-  return inferredAreas.toList(growable: false);
+  final orderedAreas = scoreByArea.keys.toList(growable: false)
+    ..sort((a, b) {
+      final byScore = scoreByArea[b]!.compareTo(scoreByArea[a]!);
+      if (byScore != 0) return byScore;
+      // Empate: mantém a ordem original das regras (determinístico).
+      return firstRuleByArea[a]!.compareTo(firstRuleByArea[b]!);
+    });
+  return [
+    for (final area in orderedAreas)
+      InferredPracticeArea(area: area, matchCount: scoreByArea[area]!),
+  ];
 }
+
+List<String> inferPracticeAreasForSearch(String query) =>
+    scorePracticeAreasForSearch(
+      query,
+    ).map((inferred) => inferred.area).toList(growable: false);
 
 bool _searchIntentTermMatches(String normalizedQuery, String normalizedTerm) {
   if (normalizedQuery.isEmpty || normalizedTerm.isEmpty) return false;
-  if (normalizedQuery.contains(normalizedTerm) ||
-      normalizedTerm.contains(normalizedQuery)) {
-    return true;
+
+  // 1) Termo presente na query respeitando limites de palavra. Cobre termo de
+  //    uma palavra ("fgts") e frase inteira ("marido me bateu"), sem deixar
+  //    "iss" (imposto) casar dentro de "demissao".
+  if (_containsAtWordBoundary(normalizedQuery, normalizedTerm)) return true;
+
+  // 2) Query de palavra única que é o começo de alguma palavra do termo
+  //    ("aposenta" -> "aposentadoria"). Restrito a query de uma palavra para
+  //    não reintroduzir ruído em frases longas (relato da triagem).
+  if (!normalizedQuery.contains(' ') && normalizedQuery.length >= 4) {
+    final matchesPrefix = normalizedTerm
+        .split(' ')
+        .any((token) => token.startsWith(normalizedQuery));
+    if (matchesPrefix) return true;
   }
 
+  // 3) Frase cujos tokens significativos (>= 4 letras) aparecem todos como
+  //    palavras da query, mesmo fora de ordem ("plano ... negou ... cirurgia").
+  //    O piso de 4 letras evita que palavras comuns e curtas ("nao", "com",
+  //    "sem") virem sinal — antes "nao ... pagaram" casava o termo cível
+  //    "nao me pagaram" num relato puramente trabalhista.
   final queryTokens = normalizedQuery.split(' ').toSet();
-  final termTokens = normalizedTerm
+  final significantTermTokens = normalizedTerm
       .split(' ')
-      .where((token) => token.length >= 3)
+      .where((token) => token.length >= 4)
       .toList(growable: false);
 
-  return termTokens.length >= 2 &&
-      termTokens.every((token) => queryTokens.contains(token));
+  return significantTermTokens.length >= 2 &&
+      significantTermTokens.every((token) => queryTokens.contains(token));
+}
+
+/// `true` se [needle] aparece em [haystack] delimitado por espaços (ou pelas
+/// bordas da string) — casamento por palavra inteira, não por substring solta.
+bool _containsAtWordBoundary(String haystack, String needle) {
+  var start = 0;
+  while (start <= haystack.length) {
+    final index = haystack.indexOf(needle, start);
+    if (index < 0) return false;
+    final beforeOk = index == 0 || haystack[index - 1] == ' ';
+    final end = index + needle.length;
+    final afterOk = end == haystack.length || haystack[end] == ' ';
+    if (beforeOk && afterOk) return true;
+    start = index + 1;
+  }
+  return false;
 }
 
 String normalizePracticeAreaQuery(String value) {

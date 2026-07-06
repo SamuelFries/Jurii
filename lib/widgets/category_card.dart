@@ -5,6 +5,7 @@ class CategoryCard extends StatelessWidget {
   final String title;
   final bool isGold;
   final bool selected;
+  final String? iconName;
   final VoidCallback? onTap;
 
   const CategoryCard({
@@ -12,8 +13,28 @@ class CategoryCard extends StatelessWidget {
     required this.title,
     required this.isGold,
     this.selected = false,
+    this.iconName,
     this.onTap,
   });
+
+  /// Ícones suportados por legal_categories.icon_name. Categorias novas
+  /// cadastradas no banco caem aqui sem precisar de release do app.
+  static const Map<String, IconData> _iconsByName = {
+    'family_restroom': Icons.family_restroom,
+    'child_care_outlined': Icons.child_care_outlined,
+    'work_outline': Icons.work_outline,
+    'home_outlined': Icons.home_outlined,
+    'directions_car_outlined': Icons.directions_car_outlined,
+    'shopping_bag_outlined': Icons.shopping_bag_outlined,
+    'gavel': Icons.gavel,
+    'balance_outlined': Icons.balance_outlined,
+    'account_balance_outlined': Icons.account_balance_outlined,
+    'shield_outlined': Icons.shield_outlined,
+    'computer_outlined': Icons.computer_outlined,
+    'receipt_long_outlined': Icons.receipt_long_outlined,
+    'business_center_outlined': Icons.business_center_outlined,
+    'elderly_outlined': Icons.elderly_outlined,
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -56,6 +77,9 @@ class CategoryCard extends StatelessWidget {
   }
 
   IconData get _categoryIcon {
+    final fromName = iconName == null ? null : _iconsByName[iconName];
+    if (fromName != null) return fromName;
+
     final normalizedTitle = title.replaceAll('\n', ' ').toLowerCase();
 
     if (normalizedTitle.contains('divórcio')) {

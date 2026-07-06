@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show CountOption;
 
 import '../data/mock/mock_notifications.dart';
 import '../models/jurii_notification.dart';
@@ -36,11 +37,10 @@ class NotificationRepository {
 
       return rows.map<JuriiNotification>(_fromRow).toList();
     } catch (error) {
+      // Nunca cair para mocks com usuário real: as notificações mock têm
+      // ações reais (aceitar convite) com ids inválidos.
       debugPrint('Supabase notifications fetch failed: $error');
-      return mockNotifications
-          .where((notification) => notification.scope == scope)
-          .take(limit)
-          .toList();
+      return const [];
     }
   }
 
@@ -69,17 +69,12 @@ class NotificationRepository {
         query = query.eq('law_firm_id', lawFirmId);
       }
 
-      final rows = await query;
-
-      return rows.length;
+      // Contagem no servidor — evita materializar todas as linhas não lidas.
+      final response = await query.count(CountOption.exact);
+      return response.count;
     } catch (error) {
       debugPrint('Supabase notifications count failed: $error');
-      return mockNotifications
-          .where(
-            (notification) =>
-                notification.scope == scope && notification.isUnread,
-          )
-          .length;
+      return 0;
     }
   }
 
@@ -95,7 +90,7 @@ class NotificationRepository {
     try {
       var query = SupabaseConfig.client
           .from('notifications')
-          .update({'read_at': DateTime.now().toIso8601String()})
+          .update({'read_at': DateTime.now().toUtc().toIso8601String()})
           .eq('scope', scope.databaseValue)
           .filter('read_at', 'is', null);
 

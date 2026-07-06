@@ -50,17 +50,20 @@ class MessagingRepository {
       return const [];
     }
 
+    // Teto de 100 mensagens mais recentes para não carregar conversas longas
+    // inteiras em memória. TODO: paginação incremental ao rolar para cima.
     final rows = await SupabaseConfig.client
         .from('messages')
         .select(
           'id, conversation_id, sender_id, sender_type, body, metadata, read_at, created_at',
         )
         .eq('conversation_id', conversationId)
-        .order('created_at', ascending: true);
+        .order('created_at', ascending: false)
+        .limit(100);
 
     final currentUserId = SupabaseConfig.client.auth.currentUser?.id;
 
-    final messages = rows
+    final messages = rows.reversed
         .map<ChatMessage>(
           (row) => messageFromRow(row, currentUserId: currentUserId),
         )
@@ -148,6 +151,9 @@ class MessagingRepository {
     required String? currentUserId,
   }) async {
     final message = messageFromRow(row, currentUserId: currentUserId);
+    // Só consulta o anexo quando o metadata indica que existe um — evita uma
+    // query extra para cada mensagem de texto recebida via realtime.
+    if (message.metadata['type'] != 'chat_attachment') return message;
     final attachment = await fetchAttachmentForMessage(message.id);
     return attachment == null
         ? message

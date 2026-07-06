@@ -41,9 +41,14 @@ class _AgendaScreenState extends State<AgendaScreen> {
 
     try {
       return await widget.repository.fetchAppointments(widget.role);
-    } catch (_) {
-      return const [];
+    } catch (error) {
+      debugPrint('Supabase appointments fetch failed: $error');
+      rethrow;
     }
+  }
+
+  void _retry() {
+    setState(() => _appointmentsFuture = _loadAppointments());
   }
 
   @override
@@ -80,6 +85,27 @@ class _AgendaScreenState extends State<AgendaScreen> {
                     padding: EdgeInsets.only(top: 32),
                     child: Center(
                       child: CircularProgressIndicator(color: AppTheme.primary),
+                    ),
+                  )
+                else if (snapshot.hasError && appointments == null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 16),
+                    child: Column(
+                      children: [
+                        const Text(
+                          'Não foi possível carregar seus compromissos.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: AppTheme.textSecondary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        OutlinedButton(
+                          onPressed: _retry,
+                          child: const Text('Tentar novamente'),
+                        ),
+                      ],
                     ),
                   )
                 else if (appointments == null || appointments.isEmpty)

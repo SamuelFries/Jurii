@@ -4,6 +4,8 @@ import '../data/mock/mock_law_firms.dart';
 import '../models/law_firm.dart';
 import '../repositories/law_firm_repository.dart';
 import '../screens/law_firm_profile_screen.dart';
+import '../services/supabase_config.dart';
+import '../theme/app_theme.dart';
 import 'office_card.dart';
 
 class OfficesSection extends StatefulWidget {
@@ -23,6 +25,11 @@ class OfficesSection extends StatefulWidget {
 class _OfficesSectionState extends State<OfficesSection> {
   late Future<List<LawFirm>> _lawFirmsFuture;
 
+  bool get _shouldUseMock {
+    if (!SupabaseConfig.isReady) return true;
+    return SupabaseConfig.client.auth.currentUser == null;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -37,18 +44,19 @@ class _OfficesSectionState extends State<OfficesSection> {
     }
   }
 
-  Future<List<LawFirm>> _loadLawFirms() async {
-    try {
-      final lawFirms = await widget.repository.fetchRecommendedLawFirms(
-        searchQuery: widget.searchQuery,
-      );
-      if (lawFirms.isNotEmpty || widget.searchQuery.trim().isNotEmpty) {
-        return lawFirms;
-      }
-    } catch (error) {
-      debugPrint('Supabase law firms fetch failed: $error');
+  Future<List<LawFirm>> _loadLawFirms() {
+    if (_shouldUseMock) {
+      return Future.value(_filterMockLawFirms());
     }
-    return _filterMockLawFirms();
+    return widget.repository.fetchRecommendedLawFirms(
+      searchQuery: widget.searchQuery,
+    );
+  }
+
+  void _retry() {
+    setState(() {
+      _lawFirmsFuture = _loadLawFirms();
+    });
   }
 
   List<LawFirm> _filterMockLawFirms() {
@@ -69,15 +77,37 @@ class _OfficesSectionState extends State<OfficesSection> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Escritórios Recomendados',
+          'Escritórios recomendados',
           style: Theme.of(context).textTheme.titleLarge,
         ),
         const SizedBox(height: 16),
         FutureBuilder<List<LawFirm>>(
           future: _lawFirmsFuture,
-          initialData: _filterMockLawFirms(),
           builder: (context, snapshot) {
-            final lawFirms = snapshot.data ?? _filterMockLawFirms();
+            final shouldUseMock = _shouldUseMock;
+
+            if (snapshot.connectionState == ConnectionState.waiting &&
+                !shouldUseMock) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(vertical: 16),
+                child: Center(
+                  child: CircularProgressIndicator(color: AppTheme.primary),
+                ),
+              );
+            }
+
+            if (snapshot.hasError && !shouldUseMock) {
+              return _OfficesErrorState(onRetry: _retry);
+            }
+
+            final lawFirms =
+                snapshot.data ??
+                (shouldUseMock ? _filterMockLawFirms() : const <LawFirm>[]);
+
+            if (lawFirms.isEmpty) {
+              return const _EmptyOfficesState();
+            }
+
             return ListView.separated(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
@@ -106,6 +136,66 @@ class _OfficesSectionState extends State<OfficesSection> {
           },
         ),
       ],
+    );
+  }
+}
+
+class _EmptyOfficesState extends StatelessWidget {
+  const _EmptyOfficesState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.card,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.lightBlueBorder),
+      ),
+      child: const Text(
+        'Nenhum escritório encontrado',
+        style: TextStyle(
+          color: AppTheme.textSecondary,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
+class _OfficesErrorState extends StatelessWidget {
+  const _OfficesErrorState({required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.card,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.lightBlueBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Não foi possível carregar os escritórios.',
+            style: TextStyle(
+              color: AppTheme.textSecondary,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton(
+            onPressed: onRetry,
+            child: const Text('Tentar novamente'),
+          ),
+        ],
+      ),
     );
   }
 }

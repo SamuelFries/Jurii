@@ -8,8 +8,13 @@ import '../widgets/register_social_buttons.dart';
 
 class RegisterScreen extends StatelessWidget {
   final RegisterSubmit onRegister;
+  final SocialLoginSubmit? onSocialLogin;
 
-  const RegisterScreen({super.key, required this.onRegister});
+  const RegisterScreen({
+    super.key,
+    required this.onRegister,
+    this.onSocialLogin,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -28,7 +33,7 @@ class RegisterScreen extends StatelessWidget {
               const SizedBox(height: 40),
               RegisterForm(onRegister: onRegister),
               const SizedBox(height: 28),
-              const RegisterSocialButtons(),
+              RegisterSocialButtons(onSocialLogin: onSocialLogin),
               const SizedBox(height: 32),
             ],
           ),

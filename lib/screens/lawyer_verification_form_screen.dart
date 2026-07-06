@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
 
-import '../data/mock/mock_documents.dart';
-import '../data/mock/mock_professional_profile.dart';
+import '../data/brazilian_states.dart';
+import '../data/verification_document_catalog.dart';
 import '../models/lawyer_status.dart';
 import '../models/lawyer_verification.dart';
 import '../models/user_profile.dart';
@@ -51,7 +51,7 @@ class _LawyerVerificationFormScreenState
   @override
   void initState() {
     super.initState();
-    documents = mockRequiredVerificationDocuments
+    documents = requiredVerificationDocuments
         .map((document) => document.copyWith())
         .toList();
 
@@ -135,7 +135,7 @@ class _LawyerVerificationFormScreenState
                       ? 'Selecione o estado'
                       : null,
                 ),
-                items: mockBrazilianStates
+                items: brazilianStates
                     .map(
                       (state) =>
                           DropdownMenuItem(value: state, child: Text(state)),

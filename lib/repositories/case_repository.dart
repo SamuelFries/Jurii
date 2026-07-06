@@ -60,7 +60,7 @@ class CaseRepository {
   }) async {
     if (!SupabaseConfig.isReady ||
         SupabaseConfig.client.auth.currentUser == null) {
-      throw StateError('A conexÃ£o com o Supabase nÃ£o estÃ¡ ativa.');
+      throw StateError('A conexão com o Supabase não está ativa.');
     }
 
     await SupabaseConfig.client.rpc(

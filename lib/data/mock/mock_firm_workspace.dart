@@ -1,16 +1,5 @@
 import '../../models/conversation.dart';
 import '../../models/firm_case_overview.dart';
-import '../../models/firm_role.dart';
-import '../../models/firm_team_member.dart';
-
-const mockFirmWorkspaceName = 'Fries Advogados';
-
-const mockFirmMetrics = (
-  clientMessages: 7,
-  teamMessages: 4,
-  activeCases: 12,
-  teamMembers: 6,
-);
 
 const mockFirmClientConversations = [
   Conversation(
@@ -63,69 +52,6 @@ const mockFirmTeamConversations = [
     lastMessage: 'As reuniões da tarde foram remarcadas.',
     time: 'Ontem',
     unreadCount: 0,
-  ),
-];
-
-const mockFirmTeamMembers = [
-  FirmTeamMember(
-    id: 'member_marina',
-    name: 'Dra. Marina Jardim',
-    initials: 'MJ',
-    role: FirmRole.lawyer,
-    roles: [FirmRole.lawyer],
-    specialty: 'Família',
-    activeCases: 5,
-    responseHours: 1.4,
-    rating: 4.9,
-    available: true,
-  ),
-  FirmTeamMember(
-    id: 'member_rafael',
-    name: 'Dr. Rafael Lima',
-    initials: 'RL',
-    role: FirmRole.lawyer,
-    roles: [FirmRole.admin, FirmRole.lawyer],
-    specialty: 'Trabalhista',
-    activeCases: 4,
-    responseHours: 2.1,
-    rating: 4.8,
-    available: true,
-  ),
-  FirmTeamMember(
-    id: 'member_carla',
-    name: 'Carla Souza',
-    initials: 'CS',
-    role: FirmRole.secretary,
-    roles: [FirmRole.secretary],
-    specialty: 'Atendimento',
-    activeCases: 0,
-    responseHours: 0.8,
-    rating: 4.7,
-    available: true,
-  ),
-  FirmTeamMember(
-    id: 'member_eduardo',
-    name: 'Eduardo Martins',
-    initials: 'EM',
-    role: FirmRole.admin,
-    roles: [FirmRole.admin],
-    specialty: 'Operações',
-    activeCases: 0,
-    responseHours: 1.0,
-    rating: 4.8,
-    available: false,
-  ),
-  FirmTeamMember(
-    id: 'member_luiza',
-    name: 'Luiza Campos',
-    initials: 'LC',
-    role: FirmRole.intern,
-    roles: [FirmRole.intern],
-    specialty: 'Apoio interno',
-    activeCases: 0,
-    responseHours: 2.6,
-    rating: 4.6,
-    available: true,
   ),
 ];
 

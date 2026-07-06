@@ -1,6 +1,8 @@
-import '../../models/verification_document.dart';
+import '../models/verification_document.dart';
 
-const mockRequiredVerificationDocuments = [
+/// Documentos exigidos na verificação profissional — dado real do fluxo
+/// (não é mock; morava em data/mock por engano).
+const requiredVerificationDocuments = [
   VerificationDocument(
     id: 'identity',
     type: VerificationDocumentType.identity,

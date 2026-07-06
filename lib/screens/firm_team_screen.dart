@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../data/mock/mock_firm_workspace.dart';
 import '../models/firm_role.dart';
 import '../models/firm_team_member.dart';
 import '../models/firm_workspace.dart';
@@ -31,7 +30,7 @@ class FirmTeamScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final members = teamMembers ?? mockFirmTeamMembers;
+    final members = teamMembers ?? const <FirmTeamMember>[];
     final canManageMembers =
         workspace?.fromSupabase == true && workspace?.canManageMembers == true;
     final canInvite = canManageMembers;
@@ -77,19 +76,52 @@ class FirmTeamScreen extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 20),
-          for (var index = 0; index < members.length; index++) ...[
-            _TeamMemberCard(
-              member: members[index],
-              onEditRoles:
-                  canManageMembers &&
-                      onUpdateMemberRoles != null &&
-                      (workspace?.isOwner == true ||
-                          !members[index].effectiveRoles.hasOwner)
-                  ? () => _openRolesDialog(context, members[index])
-                  : null,
-            ),
-            if (index < members.length - 1) const SizedBox(height: 12),
-          ],
+          if (members.isEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: AppTheme.card,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppTheme.officePurpleBorder),
+              ),
+              child: const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Sua equipe aparecerá aqui',
+                    style: TextStyle(
+                      color: AppTheme.textPrimary,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 16,
+                    ),
+                  ),
+                  SizedBox(height: 6),
+                  Text(
+                    'Convide advogados verificados pelo botão acima para '
+                    'montar o time do escritório.',
+                    style: TextStyle(
+                      color: AppTheme.textSecondary,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else
+            for (var index = 0; index < members.length; index++) ...[
+              _TeamMemberCard(
+                member: members[index],
+                onEditRoles:
+                    canManageMembers &&
+                        onUpdateMemberRoles != null &&
+                        (workspace?.isOwner == true ||
+                            !members[index].effectiveRoles.hasOwner)
+                    ? () => _openRolesDialog(context, members[index])
+                    : null,
+              ),
+              if (index < members.length - 1) const SizedBox(height: 12),
+            ],
         ],
       ),
     );
@@ -100,7 +132,7 @@ class FirmTeamScreen extends StatelessWidget {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'Aprove o escritório e rode o patch 006 antes de convidar.',
+            'O escritório precisa estar aprovado para convidar advogados.',
           ),
         ),
       );
@@ -242,17 +274,18 @@ class _MemberRolesDialogState extends State<_MemberRolesDialog> {
       return 'Apenas donos podem conceder ou remover o cargo de dono.';
     }
     if (message.contains('Office must keep at least one owner')) {
-      return 'O escritorio precisa manter pelo menos um dono ativo.';
+      return 'O escritório precisa manter pelo menos um dono ativo.';
     }
     if (message.contains('Invalid firm roles')) {
-      return 'A lista de cargos tem um valor invalido.';
+      return 'A lista de cargos tem um valor inválido.';
     }
     if (message.contains('update_law_firm_member_roles') ||
         message.contains('function') ||
         message.contains('patch')) {
-      return 'Rode o patch de cargos no Supabase antes de editar.';
+      debugPrint('Firm roles RPC unavailable: $message');
+      return 'Não foi possível atualizar os cargos. Tente novamente em instantes.';
     }
-    return 'Nao foi possivel atualizar os cargos.';
+    return 'Não foi possível atualizar os cargos.';
   }
 
   void _toggleRole(FirmRole role, bool? selected) {
@@ -419,37 +452,19 @@ class _InviteLawyerDialogState extends State<_InviteLawyerDialog> {
 
     if (normalizedMessage.contains('permission denied') &&
         normalizedMessage.contains('invite_verified_lawyer_to_law_firm')) {
-      return 'Rode o patch 032 no Supabase para liberar a RPC de convites.';
+      debugPrint('Invite RPC permission denied: $message');
+      return 'O envio de convites está temporariamente indisponível.';
     }
 
     if (normalizedMessage.contains('schema cache') ||
         normalizedMessage.contains('could not find the function') ||
         normalizedMessage.contains('pgrst202')) {
-      return 'A RPC de convites ainda não entrou no schema cache. Recarregue o schema cache do Supabase e tente de novo.';
+      debugPrint('Invite RPC missing from schema cache: $message');
+      return 'O envio de convites está temporariamente indisponível. Tente novamente em instantes.';
     }
 
-    return 'Não foi possível enviar o convite. Detalhe: ${_compactErrorMessage(message)}';
-  }
-
-  String _compactErrorMessage(String message) {
-    var detail = message.trim();
-
-    final postgrestMessage = RegExp(r'message:\s*([^,]+)').firstMatch(detail);
-    if (postgrestMessage != null) {
-      detail = postgrestMessage.group(1) ?? detail;
-    }
-
-    detail = detail
-        .replaceAll('PostgrestException(', '')
-        .replaceAll(RegExp(r',\s*code:\s*[^,)]+.*$'), '')
-        .replaceAll(RegExp(r',\s*details:\s*[^,)]+.*$'), '')
-        .trim();
-
-    if (detail.length > 160) {
-      return '${detail.substring(0, 157)}...';
-    }
-
-    return detail.isEmpty ? 'erro inesperado do Supabase' : detail;
+    debugPrint('Firm invite failed: $message');
+    return 'Não foi possível enviar o convite. Tente novamente.';
   }
 
   @override
@@ -594,16 +609,24 @@ class _TeamMemberCard extends StatelessWidget {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 6,
-                  children: [
-                    _MiniBadge('${member.activeCases} casos'),
-                    _MiniBadge('${member.responseHours}h resposta'),
-                    _MiniBadge('★ ${member.rating}'),
-                  ],
-                ),
+                // Badges só com dados reais — métricas por membro ainda não
+                // existem no banco, então valores 0 ficam ocultos.
+                if (member.activeCases > 0 ||
+                    member.responseHours > 0 ||
+                    member.rating > 0) ...[
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [
+                      if (member.activeCases > 0)
+                        _MiniBadge('${member.activeCases} casos'),
+                      if (member.responseHours > 0)
+                        _MiniBadge('${member.responseHours}h resposta'),
+                      if (member.rating > 0) _MiniBadge('★ ${member.rating}'),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),

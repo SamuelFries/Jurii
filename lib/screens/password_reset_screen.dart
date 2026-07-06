@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
 import '../types/auth_callbacks.dart';
+import '../utils/validators.dart';
 import '../widgets/login_logo.dart';
 
 class PasswordResetScreen extends StatefulWidget {
@@ -91,12 +92,7 @@ class _PasswordResetScreenState extends State<PasswordResetScreen> {
                       ),
                     ),
                     onChanged: (value) => setState(() => _password = value),
-                    validator: (value) {
-                      if (value == null || value.length < 8) {
-                        return 'Use pelo menos 8 caracteres';
-                      }
-                      return null;
-                    },
+                    validator: validatePasswordField,
                   ),
                 ),
                 if (_password.isNotEmpty) ...[

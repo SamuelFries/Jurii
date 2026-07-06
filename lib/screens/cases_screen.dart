@@ -47,8 +47,21 @@ class _CasesScreenState extends State<CasesScreen> {
         cases: results[0] as List<LegalCase>,
         requests: results[1] as List<CaseRequest>,
       );
+    } catch (error) {
+      // Erro sobe para o FutureBuilder: falha de rede não pode virar
+      // "Nenhum caso iniciado".
+      debugPrint('Supabase client cases fetch failed: $error');
+      rethrow;
+    }
+  }
+
+  Future<void> _refresh() async {
+    final future = _loadCases();
+    setState(() => _casesFuture = future);
+    try {
+      await future;
     } catch (_) {
-      return const _ClientCasesData(cases: [], requests: []);
+      // O FutureBuilder exibe o estado de erro.
     }
   }
 
@@ -117,13 +130,33 @@ class _CasesScreenState extends State<CasesScreen> {
             );
           }
 
-          if ((cases == null || cases.isEmpty) && requests.isEmpty) {
-            return _EmptyCasesState(onFindLawFirms: widget.onFindLawFirms);
+          if (snapshot.hasError && data == null) {
+            return _CasesErrorState(onRetry: _refresh);
           }
 
-          return ListView(
-            padding: const EdgeInsets.all(24),
-            children: [
+          if ((cases == null || cases.isEmpty) && requests.isEmpty) {
+            return RefreshIndicator(
+              onRefresh: _refresh,
+              child: LayoutBuilder(
+                builder: (context, constraints) => SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  child: SizedBox(
+                    height: constraints.maxHeight,
+                    child: _EmptyCasesState(
+                      onFindLawFirms: widget.onFindLawFirms,
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }
+
+          return RefreshIndicator(
+            onRefresh: _refresh,
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(24),
+              children: [
               const _CasesHeader(),
               if (requests.isNotEmpty) ...[
                 const SizedBox(height: 12),
@@ -152,9 +185,56 @@ class _CasesScreenState extends State<CasesScreen> {
                   if (index < cases.length - 1) const SizedBox(height: 12),
                 ],
               ],
-            ],
+              ],
+            ),
           );
         },
+      ),
+    );
+  }
+}
+
+class _CasesErrorState extends StatelessWidget {
+  const _CasesErrorState({required this.onRetry});
+
+  final Future<void> Function() onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.wifi_off_rounded,
+              size: 40,
+              color: AppTheme.textSecondary,
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Não foi possível carregar seus casos.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: AppTheme.textPrimary,
+                fontWeight: FontWeight.w700,
+                fontSize: 16,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Verifique sua conexão e tente novamente.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: AppTheme.textSecondary),
+            ),
+            const SizedBox(height: 16),
+            OutlinedButton(
+              onPressed: onRetry,
+              child: const Text('Tentar novamente'),
+            ),
+          ],
+        ),
       ),
     );
   }

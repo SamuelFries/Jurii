@@ -42,12 +42,25 @@ class LawFirmVerificationRepository {
       );
     }
 
-    await profileRepository.upsertProfile(
-      id: user.id,
-      fullName: _nameForUser(user.email, user.userMetadata),
-      email: user.email ?? email,
-      cpf: user.userMetadata?['cpf'] as String?,
-    );
+    // Evita duplicar verificações: só permite reenvio após decisão.
+    final latest = await fetchLatestForCurrentUser();
+    if (latest?.status == LawFirmVerificationStatus.pending) {
+      throw StateError(
+        'Já existe uma verificação em andamento para este escritório.',
+      );
+    }
+
+    // Cria o profile apenas se ainda não existir — o upsert cego sobrescrevia
+    // o nome curado do usuário e anulava cpf/phone já preenchidos.
+    final existingProfile = await profileRepository.fetchCurrentProfile();
+    if (existingProfile == null) {
+      await profileRepository.upsertProfile(
+        id: user.id,
+        fullName: _nameForUser(user.email, user.userMetadata),
+        email: user.email ?? email,
+        cpf: user.userMetadata?['cpf'] as String?,
+      );
+    }
 
     await SupabaseConfig.client.from('law_firm_verifications').insert({
       'owner_profile_id': user.id,

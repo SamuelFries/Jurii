@@ -42,37 +42,53 @@ Nosso objetivo é simplificar o acesso a serviços jurídicos, tornando a contra
 
 ```text
 lib/
-├── data/
-├── models/
-├── screens/
-├── services/
-├── theme/
-├── utils/
-└── widgets/
+├── data/           # dados estáticos reais (+ data/mock para modo demo)
+├── models/         # entidades imutáveis
+├── repositories/   # acesso a Supabase (tabelas + RPCs)
+├── screens/        # telas
+├── services/       # infraestrutura (SupabaseConfig, IntakeAIService)
+├── theme/          # AppTheme, AppColors (dark mode), ThemeController
+├── utils/          # helpers puros (validators)
+└── widgets/        # componentes reutilizáveis
 ```
 
-### Estrutura
-
-| Pasta | Responsabilidade |
-|---------|----------------|
-| models | Modelos de dados da aplicação |
-| screens | Telas do sistema |
-| widgets | Componentes reutilizáveis |
-| services | Comunicação com APIs e regras de negócio |
-| theme | Identidade visual e tema da aplicação |
-| data | Camada de dados e repositórios |
-| utils | Utilitários e helpers |
+Detalhes em [docs/architecture.md](docs/architecture.md).
 
 ---
 
 ## 📱 Tecnologias Utilizadas
 
-- Flutter
-- Dart
-- Firebase *(planejado)*
-- REST API *(planejado)*
-- Cloud Storage *(planejado)*
-- Push Notifications *(planejado)*
+- Flutter / Dart
+- Supabase (PostgreSQL, Auth, Storage, Realtime, RPCs)
+- RLS (Row Level Security) em todas as tabelas
+
+---
+
+## ▶️ Como rodar
+
+```bash
+flutter pub get
+flutter run
+```
+
+O app aponta para o projeto Supabase da Jurii por padrão. Para outro ambiente:
+
+```bash
+flutter run \
+  --dart-define=SUPABASE_URL=https://SEU-PROJETO.supabase.co \
+  --dart-define=SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
+```
+
+### Configurar o Supabase do zero
+
+1. Crie um projeto no Supabase e rode `supabase/schema.sql` no SQL Editor.
+2. Aplique os patches em ordem (`supabase/patch_001…` até o mais recente) —
+   instruções em `supabase/README.md`.
+3. **Importante:** rode `supabase/patch_041_security_hardening.sql`
+   (correções de segurança da auditoria de jul/2026 — ver
+   [docs/security.md](docs/security.md)).
+
+A `service_role key` **nunca** entra no app ou no repositório.
 
 ---
 
@@ -121,32 +137,34 @@ Após o envio, a documentação é analisada pela equipe da Jurii antes da liber
 
 ### Implementado
 
-- Sistema de autenticação
-- Navegação principal
-- Perfil do usuário
-- Fluxo de ativação profissional
-- Formulário de verificação de advogados
-- Área inicial do profissional
-- Componentes reutilizáveis
-- Design System inicial
+- Autenticação (e-mail/senha, Google/Apple OAuth, reset de senha)
+- Banco Supabase completo com RLS (schema + 41 patches)
+- Busca inteligente: termo leigo → área do direito (servidor + fallback local)
+- Mensagens em tempo real com anexos (bucket privado, URL assinada)
+- Casos: solicitação pelo advogado, aceite pelo cliente, atualizações
+- Fluxo de verificação de advogado (OAB) e de escritório
+- Workspace de escritório: equipe, convites com aceite, papéis, delegação
+- Notificações com realtime
+- IA de triagem (intake) rule-based local + arquitetura para LLM
+  ([docs/ai-intake.md](docs/ai-intake.md))
+- Tema escuro (infra pronta; ativação após migração das telas —
+  [docs/architecture.md](docs/architecture.md))
+- Testes (`flutter test`)
 
-### Em desenvolvimento
+### Em desenvolvimento / pendente
 
-- Backend
-- Banco de dados
-- Sistema de mensagens
-- Gestão de casos
-- Upload real de documentos
-- Notificações
-- Painel administrativo
+- Upload real de documentos de verificação (hoje o botão apenas marca enviado)
+- Painel administrativo (aprovação de OAB hoje é manual via SQL)
+- Estado `rejected` da verificação exibido ao advogado
+- Termos de Uso e Política de Privacidade (links do perfil ainda inativos)
+- Pendências de segurança/LGPD listadas em [docs/security.md](docs/security.md)
 
 ### Planejado
 
-- Integração com OAB
-- Videoconferência
-- Assinatura digital
-- Marketplace jurídico
-- Gestão completa de escritórios
+- Integração com OAB (CNA)
+- IA de triagem com LLM via Edge Function
+- Videoconferência, assinatura digital
+- Dashboards do escritório
 
 ---
 

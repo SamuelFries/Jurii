@@ -41,12 +41,20 @@ class _FirmCasesScreenState extends State<FirmCasesScreen> {
   }
 
   Future<List<FirmCaseOverview>> _loadCases() async {
+    // Mock apenas no modo demo (Supabase não configurado).
+    if (!SupabaseConfig.isReady) return mockFirmCases;
+
     final lawFirmId = widget.workspace?.firm.id;
-    if (!SupabaseConfig.isReady || lawFirmId == null) return mockFirmCases;
+    // Workspace local usa ids sintéticos ('approved_firm') que não são uuid —
+    // só chama o RPC quando o workspace veio do Supabase.
+    if (lawFirmId == null || widget.workspace?.fromSupabase != true) {
+      return const [];
+    }
 
     try {
       return await widget.repository.fetchLawFirmCases(lawFirmId);
-    } catch (_) {
+    } catch (error) {
+      debugPrint('Supabase firm cases fetch failed: $error');
       return const [];
     }
   }
@@ -146,7 +154,8 @@ class _FirmCasesScreenState extends State<FirmCasesScreen> {
     if (message.contains('assign_law_firm_case') ||
         message.contains('function') ||
         message.contains('patch')) {
-      return 'Rode o patch de cargos no Supabase antes de atribuir casos.';
+      debugPrint('Assign case RPC unavailable: $message');
+      return 'Não foi possível atribuir o caso. Tente novamente em instantes.';
     }
     return 'Não foi possível atribuir o caso.';
   }
@@ -269,7 +278,7 @@ class _FirmCaseCard extends StatelessWidget {
                 color: overview.urgent
                     ? AppTheme.danger.withValues(alpha: 0.10)
                     : AppTheme.officePurpleSurface,
-                borderRadius: BorderRadius.circular(13),
+                borderRadius: BorderRadius.circular(14),
               ),
               child: Center(
                 child: Text(

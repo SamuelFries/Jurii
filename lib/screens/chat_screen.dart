@@ -50,6 +50,8 @@ class _ChatScreenState extends State<ChatScreen> {
   RealtimeChannel? _messagesChannel;
   List<ChatMessage> _messages = const [];
   bool _isLoading = true;
+  bool _loadFailed = false;
+  bool _hasSubscribedOnce = false;
   bool _isSending = false;
   bool _isUploadingAttachment = false;
   bool _isOpeningProfile = false;
@@ -96,13 +98,17 @@ class _ChatScreenState extends State<ChatScreen> {
       setState(() {
         _messages = messages;
         _isLoading = false;
+        _loadFailed = false;
       });
       _scrollToBottom();
-    } catch (_) {
+    } catch (error) {
+      debugPrint('Supabase messages fetch failed: $error');
       if (!mounted) return;
       setState(() {
         _messages = _usesSupabase ? const [] : _mockMessages();
         _isLoading = false;
+        // Falha de rede não pode parecer conversa vazia: mostra erro + retry.
+        _loadFailed = _usesSupabase;
       });
       _scrollToBottom();
     }
@@ -140,7 +146,16 @@ class _ChatScreenState extends State<ChatScreen> {
             unawaited(_upsertRealtimeMessage(payload.newRecord));
           },
         )
-        .subscribe();
+        .subscribe((status, [error]) {
+          // O Supabase não reenvia eventos perdidos: ao reassinar depois de
+          // uma queda, refaz o fetch (o dedupe por id absorve repetidos).
+          if (status == RealtimeSubscribeStatus.subscribed) {
+            if (_hasSubscribedOnce) {
+              unawaited(_refreshMessagesSilently());
+            }
+            _hasSubscribedOnce = true;
+          }
+        });
   }
 
   Future<void> _appendRealtimeMessage(Map<String, dynamic> row) async {
@@ -205,7 +220,10 @@ class _ChatScreenState extends State<ChatScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Não foi possível enviar a mensagem.')),
       );
-      _messageController.text = text;
+      // Restaura o texto só se o usuário não começou outro rascunho.
+      if (_messageController.text.trim().isEmpty) {
+        _messageController.text = text;
+      }
     }
   }
 
@@ -213,7 +231,7 @@ class _ChatScreenState extends State<ChatScreen> {
     if (_isUploadingAttachment) return;
 
     if (!_usesSupabase || !SupabaseConfig.isReady) {
-      _showSnackBar('Anexos estao disponiveis apenas em conversas online.');
+      _showSnackBar('Anexos estão disponíveis apenas em conversas online.');
       return;
     }
 
@@ -239,13 +257,20 @@ class _ChatScreenState extends State<ChatScreen> {
     final kind = _attachmentKindForMime(mimeType);
     final bytes = file.bytes;
 
+    if (!mounted) return;
+
     if (mimeType == null || kind == null) {
       _showSnackBar('Envie apenas fotos, PDF, DOC ou DOCX.');
       return;
     }
 
     if (bytes == null || bytes.isEmpty) {
-      _showSnackBar('Nao foi possivel ler o arquivo selecionado.');
+      _showSnackBar('Não foi possível ler o arquivo selecionado.');
+      return;
+    }
+
+    if (!_bytesMatchMimeType(bytes, mimeType)) {
+      _showSnackBar('Arquivo inválido ou corrompido.');
       return;
     }
 
@@ -255,8 +280,8 @@ class _ChatScreenState extends State<ChatScreen> {
     if (file.size > maxSize) {
       _showSnackBar(
         kind == ChatAttachmentKind.image
-            ? 'Fotos podem ter no maximo 5 MB.'
-            : 'Documentos podem ter no maximo 10 MB.',
+            ? 'Fotos podem ter no máximo 5 MB.'
+            : 'Documentos podem ter no máximo 10 MB.',
       );
       return;
     }
@@ -307,33 +332,70 @@ class _ChatScreenState extends State<ChatScreen> {
         mode: LaunchMode.externalApplication,
       );
       if (!launched && mounted) {
-        _showSnackBar('Nao foi possivel abrir o arquivo.');
+        _showSnackBar('Não foi possível abrir o arquivo.');
       }
     } catch (error) {
       debugPrint('Supabase attachment open failed: $error');
       if (!mounted) return;
-      _showSnackBar('Nao foi possivel abrir o anexo.');
+      _showSnackBar('Não foi possível abrir o anexo.');
+    }
+  }
+
+  /// Confere a assinatura (magic bytes) do arquivo contra o MIME derivado da
+  /// extensão — impede binário arbitrário renomeado para .pdf/.jpg.
+  bool _bytesMatchMimeType(List<int> bytes, String mimeType) {
+    bool startsWith(List<int> signature) {
+      if (bytes.length < signature.length) return false;
+      for (var i = 0; i < signature.length; i++) {
+        if (bytes[i] != signature[i]) return false;
+      }
+      return true;
+    }
+
+    switch (mimeType) {
+      case 'application/pdf':
+        return startsWith(const [0x25, 0x50, 0x44, 0x46]); // %PDF
+      case 'image/jpeg':
+        return startsWith(const [0xFF, 0xD8, 0xFF]);
+      case 'image/png':
+        return startsWith(const [0x89, 0x50, 0x4E, 0x47]);
+      case 'image/webp':
+        return bytes.length >= 12 &&
+            startsWith(const [0x52, 0x49, 0x46, 0x46]) && // RIFF
+            bytes[8] == 0x57 &&
+            bytes[9] == 0x45 &&
+            bytes[10] == 0x42 &&
+            bytes[11] == 0x50; // WEBP
+      case 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
+        return startsWith(const [0x50, 0x4B]); // ZIP (PK)
+      case 'application/msword':
+        // .doc legado (OLE) ou salvo como zip por editores modernos.
+        return startsWith(const [0xD0, 0xCF, 0x11, 0xE0]) ||
+            startsWith(const [0x50, 0x4B]);
+      default:
+        return false;
     }
   }
 
   String _friendlyAttachmentError(Object error) {
     final message = error.toString().toLowerCase();
+    debugPrint('Chat attachment error: $error');
     if ((message.contains('metadata') && message.contains('ambiguous')) ||
         message.contains('42702')) {
-      return 'Rode o patch 040 no Supabase e tente novamente.';
+      return 'Não foi possível enviar o anexo. Tente novamente mais tarde.';
     }
     if (message.contains('send_chat_attachment') ||
         message.contains('chat-attachments') ||
         message.contains('message_attachments') ||
         message.contains('pgrst202') ||
         message.contains('schema cache')) {
-      return 'Rode o patch 039 no Supabase e recarregue o schema cache.';
+      return 'Não foi possível enviar o anexo. Tente novamente mais tarde.';
     }
     if (message.contains('row-level security') ||
         message.contains('permission denied')) {
-      return 'Voce nao tem permissao para enviar anexos nesta conversa.';
+      return 'Você não tem permissão para enviar anexos nesta conversa.';
     }
-    return 'Nao foi possivel enviar o anexo.';
+    return 'Não foi possível enviar o anexo.';
   }
 
   String? _mimeTypeForFile(String fileName) {
@@ -375,7 +437,9 @@ class _ChatScreenState extends State<ChatScreen> {
         _messages.any((item) => item.id == message.id)) {
       return;
     }
-    setState(() => _messages = [..._messages, message]);
+    setState(
+      () => _messages = [..._withoutDuplicateCaseRequest(message), message],
+    );
     _scrollToBottom();
   }
 
@@ -385,7 +449,9 @@ class _ChatScreenState extends State<ChatScreen> {
     final index = _messages.indexWhere((item) => item.id == message.id);
     if (index == -1) {
       if (_shouldHideCaseRequestStatusText(message)) return;
-      setState(() => _messages = [..._messages, message]);
+      setState(
+        () => _messages = [..._withoutDuplicateCaseRequest(message), message],
+      );
       _scrollToBottom();
       return;
     }
@@ -393,6 +459,19 @@ class _ChatScreenState extends State<ChatScreen> {
     final nextMessages = [..._messages];
     nextMessages[index] = message;
     setState(() => _messages = nextMessages);
+  }
+
+  /// Remove o card sintético de solicitação de caso (id `case_request_<id>`)
+  /// quando a mensagem real da mesma solicitação chega via realtime —
+  /// sem isso o cliente veria a solicitação duplicada com dois pares de botões.
+  List<ChatMessage> _withoutDuplicateCaseRequest(ChatMessage incoming) {
+    final requestId = incoming.caseRequestId;
+    if (requestId == null) return _messages;
+    return _messages
+        .where(
+          (item) => item.id == incoming.id || item.caseRequestId != requestId,
+        )
+        .toList(growable: false);
   }
 
   bool _shouldHideCaseRequestStatusText(ChatMessage message) {
@@ -554,7 +633,7 @@ class _ChatScreenState extends State<ChatScreen> {
           _CaseRequestSheet(initialTitle: widget.conversation.specialty),
     );
 
-    if (draft == null || widget.conversation.id == null) return;
+    if (!mounted || draft == null || widget.conversation.id == null) return;
     setState(() => _isCreatingCaseRequest = true);
 
     try {
@@ -704,6 +783,8 @@ class _ChatScreenState extends State<ChatScreen> {
                   ? const Center(
                       child: CircularProgressIndicator(color: AppTheme.primary),
                     )
+                  : _loadFailed && _messages.isEmpty
+                  ? _ChatLoadErrorState(onRetry: _loadMessages)
                   : _messages.isEmpty
                   ? const _EmptyChatState()
                   : ListView.builder(
@@ -868,6 +949,39 @@ class _CaseRequestDraft {
     required this.area,
     required this.summary,
   });
+}
+
+class _ChatLoadErrorState extends StatelessWidget {
+  const _ChatLoadErrorState({required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Não foi possível carregar as mensagens.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: AppTheme.textSecondary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton(
+              onPressed: onRetry,
+              child: const Text('Tentar novamente'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _EmptyChatState extends StatelessWidget {
@@ -1164,7 +1278,7 @@ class _ImageAttachmentDialog extends StatelessWidget {
                         height: 260,
                         child: Center(
                           child: Text(
-                            'Nao foi possivel carregar a imagem.',
+                            'Não foi possível carregar a imagem.',
                             style: TextStyle(color: AppTheme.textSecondary),
                           ),
                         ),

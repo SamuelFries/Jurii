@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import '../data/mock/mock_cases.dart';
-import '../data/mock/mock_professional_profile.dart';
+import '../models/appointment.dart';
 import '../models/conversation.dart';
 import '../models/firm_workspace.dart';
 import '../models/jurii_notification.dart';
 import '../models/lawyer_case.dart';
 import '../models/user_profile.dart';
+import '../repositories/appointment_repository.dart';
 import '../repositories/case_repository.dart';
 import '../repositories/messaging_repository.dart';
 import '../services/supabase_config.dart';
@@ -17,6 +17,7 @@ class LawyerHomeScreen extends StatefulWidget {
   final FirmWorkspace? workspace;
   final CaseRepository caseRepository;
   final MessagingRepository messagingRepository;
+  final AppointmentRepository appointmentRepository;
   final VoidCallback? onOpenMessages;
   final VoidCallback? onOpenCases;
   final VoidCallback? onOpenAgenda;
@@ -28,6 +29,7 @@ class LawyerHomeScreen extends StatefulWidget {
     this.workspace,
     this.caseRepository = const CaseRepository(),
     this.messagingRepository = const MessagingRepository(),
+    this.appointmentRepository = const AppointmentRepository(),
     this.onOpenMessages,
     this.onOpenCases,
     this.onOpenAgenda,
@@ -41,12 +43,14 @@ class LawyerHomeScreen extends StatefulWidget {
 class _LawyerHomeScreenState extends State<LawyerHomeScreen> {
   late Future<List<LawyerCase>> _activeCasesFuture;
   late Future<List<Conversation>> _newContactsFuture;
+  late Future<List<Appointment>> _todayAppointmentsFuture;
 
   @override
   void initState() {
     super.initState();
     _activeCasesFuture = _loadActiveCases();
     _newContactsFuture = _loadNewContacts();
+    _todayAppointmentsFuture = _loadTodayAppointments();
   }
 
   @override
@@ -57,6 +61,28 @@ class _LawyerHomeScreenState extends State<LawyerHomeScreen> {
     }
     if (oldWidget.messagingRepository != widget.messagingRepository) {
       _newContactsFuture = _loadNewContacts();
+    }
+    if (oldWidget.appointmentRepository != widget.appointmentRepository) {
+      _todayAppointmentsFuture = _loadTodayAppointments();
+    }
+  }
+
+  Future<List<Appointment>> _loadTodayAppointments() async {
+    if (!SupabaseConfig.isReady) return const [];
+
+    try {
+      final appointments = await widget.appointmentRepository
+          .fetchAppointments(AppointmentRole.lawyer);
+      return appointments
+          .where(
+            (appointment) =>
+                appointment.dateLabel == 'Hoje' &&
+                appointment.status != AppointmentStatus.done,
+          )
+          .toList(growable: false);
+    } catch (error) {
+      debugPrint('Supabase lawyer today appointments fetch failed: $error');
+      return const [];
     }
   }
 
@@ -123,9 +149,17 @@ class _LawyerHomeScreenState extends State<LawyerHomeScreen> {
                 newContactsFuture: _newContactsFuture,
               ),
               const SizedBox(height: 24),
-              const _TodayAgenda(),
+              _TodayAgenda(
+                appointmentsFuture: _todayAppointmentsFuture,
+                activeCasesFuture: _activeCasesFuture,
+                conversationsFuture: _newContactsFuture,
+                onOpenAgenda: widget.onOpenAgenda,
+              ),
               const SizedBox(height: 24),
-              _PriorityCases(onOpenCases: widget.onOpenCases),
+              _PriorityCases(
+                casesFuture: _activeCasesFuture,
+                onOpenCases: widget.onOpenCases,
+              ),
               const SizedBox(height: 24),
               _NewContacts(
                 conversationsFuture: _newContactsFuture,
@@ -237,7 +271,6 @@ class _ProfessionalHeader extends StatelessWidget {
                 icon: Icons.verified_outlined,
                 label: 'Perfil verificado',
               ),
-              const _StatusChip(icon: Icons.circle, label: 'Disponível hoje'),
               if (firmName != null && firmName!.trim().isNotEmpty)
                 _StatusChip(icon: Icons.apartment_outlined, label: firmName!),
             ],
@@ -506,16 +539,24 @@ class _MetricCard extends StatelessWidget {
 }
 
 class _TodayAgenda extends StatelessWidget {
-  const _TodayAgenda();
+  const _TodayAgenda({
+    required this.appointmentsFuture,
+    required this.activeCasesFuture,
+    required this.conversationsFuture,
+    this.onOpenAgenda,
+  });
+
+  final Future<List<Appointment>> appointmentsFuture;
+  final Future<List<LawyerCase>> activeCasesFuture;
+  final Future<List<Conversation>> conversationsFuture;
+  final VoidCallback? onOpenAgenda;
 
   @override
   Widget build(BuildContext context) {
-    final attention = mockAttentionSummary;
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _SectionHeader(title: 'Hoje'),
+        _SectionHeader(title: 'Hoje', onTap: onOpenAgenda),
         const SizedBox(height: 12),
         Container(
           padding: const EdgeInsets.all(16),
@@ -524,41 +565,83 @@ class _TodayAgenda extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: AppTheme.lightBlueBorder),
           ),
-          child: Column(
-            children: [
-              _AttentionRow(
-                icon: Icons.chat_bubble_outline,
-                label: 'Mensagens pendentes',
-                value: '${attention.pendingMessages}',
-                color: AppTheme.primary,
-              ),
-              const SizedBox(height: 12),
-              _AttentionRow(
-                icon: Icons.video_call_outlined,
-                label: 'Reuniões agendadas',
-                value: '${attention.meetingsToday}',
-                color: AppTheme.accent,
-              ),
-              const SizedBox(height: 12),
-              _AttentionRow(
-                icon: Icons.timer_outlined,
-                label: 'Prazo crítico',
-                value: '${attention.upcomingDeadlines}',
-                color: AppTheme.danger,
-              ),
-              const SizedBox(height: 16),
-              const Divider(height: 1, color: AppTheme.divider),
-              const SizedBox(height: 14),
-              for (
-                var index = 0;
-                index < mockTodaySchedule.length;
-                index++
-              ) ...[
-                _ScheduleItem(item: mockTodaySchedule[index]),
-                if (index < mockTodaySchedule.length - 1)
+          child: FutureBuilder<List<Object>>(
+            future: Future.wait<Object>([
+              appointmentsFuture,
+              activeCasesFuture,
+              conversationsFuture,
+            ]),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 20),
+                  child: Center(
+                    child: CircularProgressIndicator(color: AppTheme.primary),
+                  ),
+                );
+              }
+
+              final data = snapshot.data;
+              final appointments = data == null
+                  ? const <Appointment>[]
+                  : data[0] as List<Appointment>;
+              final cases = data == null
+                  ? const <LawyerCase>[]
+                  : data[1] as List<LawyerCase>;
+              final conversations = data == null
+                  ? const <Conversation>[]
+                  : data[2] as List<Conversation>;
+              final deadlineCases = cases
+                  .where(
+                    (item) => item.status == LawyerCaseStatus.deadline,
+                  )
+                  .length;
+
+              return Column(
+                children: [
+                  _AttentionRow(
+                    icon: Icons.chat_bubble_outline,
+                    label: 'Conversas ativas',
+                    value: '${conversations.length}',
+                    color: AppTheme.primary,
+                  ),
                   const SizedBox(height: 12),
-              ],
-            ],
+                  _AttentionRow(
+                    icon: Icons.video_call_outlined,
+                    label: 'Compromissos hoje',
+                    value: '${appointments.length}',
+                    color: AppTheme.accent,
+                  ),
+                  const SizedBox(height: 12),
+                  _AttentionRow(
+                    icon: Icons.timer_outlined,
+                    label: 'Casos com prazo',
+                    value: '$deadlineCases',
+                    color: AppTheme.danger,
+                  ),
+                  const SizedBox(height: 16),
+                  const Divider(height: 1, color: AppTheme.divider),
+                  const SizedBox(height: 14),
+                  if (appointments.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 4),
+                      child: Text(
+                        'Nenhum compromisso para hoje.',
+                        style: TextStyle(
+                          color: AppTheme.textSecondary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    )
+                  else
+                    for (var index = 0; index < appointments.length; index++) ...[
+                      _ScheduleItem(appointment: appointments[index]),
+                      if (index < appointments.length - 1)
+                        const SizedBox(height: 12),
+                    ],
+                ],
+              );
+            },
           ),
         ),
       ],
@@ -613,17 +696,15 @@ class _AttentionRow extends StatelessWidget {
 }
 
 class _ScheduleItem extends StatelessWidget {
-  final ({String time, String title, String subtitle, String type}) item;
+  final Appointment appointment;
 
-  const _ScheduleItem({required this.item});
+  const _ScheduleItem({required this.appointment});
 
   @override
   Widget build(BuildContext context) {
-    final icon = switch (item.type) {
-      'video' => Icons.video_call_outlined,
-      'deadline' => Icons.assignment_late_outlined,
-      _ => Icons.forum_outlined,
-    };
+    final icon = appointment.status == AppointmentStatus.confirmed
+        ? Icons.video_call_outlined
+        : Icons.schedule_outlined;
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -631,7 +712,7 @@ class _ScheduleItem extends StatelessWidget {
         SizedBox(
           width: 46,
           child: Text(
-            item.time,
+            appointment.timeLabel,
             style: const TextStyle(
               color: AppTheme.textSecondary,
               fontSize: 12,
@@ -654,7 +735,7 @@ class _ScheduleItem extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                item.title,
+                appointment.title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
@@ -664,7 +745,7 @@ class _ScheduleItem extends StatelessWidget {
               ),
               const SizedBox(height: 2),
               Text(
-                item.subtitle,
+                '${appointment.counterpartName} · ${appointment.area}',
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
@@ -682,24 +763,71 @@ class _ScheduleItem extends StatelessWidget {
 }
 
 class _PriorityCases extends StatelessWidget {
+  final Future<List<LawyerCase>> casesFuture;
   final VoidCallback? onOpenCases;
 
-  const _PriorityCases({this.onOpenCases});
+  const _PriorityCases({required this.casesFuture, this.onOpenCases});
+
+  /// Prioriza prazos, depois casos com mensagem nova, depois os demais.
+  static int _priorityRank(LawyerCaseStatus status) => switch (status) {
+    LawyerCaseStatus.deadline => 0,
+    LawyerCaseStatus.newMessage => 1,
+    LawyerCaseStatus.updated => 2,
+  };
 
   @override
   Widget build(BuildContext context) {
-    final cases = mockLawyerCases.take(3).toList();
+    return FutureBuilder<List<LawyerCase>>(
+      future: casesFuture,
+      builder: (context, snapshot) {
+        final allCases = snapshot.data ?? const <LawyerCase>[];
+        final cases = [...allCases]
+          ..sort(
+            (a, b) => _priorityRank(a.status).compareTo(_priorityRank(b.status)),
+          );
+        final topCases = cases.take(3).toList(growable: false);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _SectionHeader(title: 'Casos prioritários', onTap: onOpenCases),
-        const SizedBox(height: 12),
-        for (var index = 0; index < cases.length; index++) ...[
-          _PriorityCaseCard(lawyerCase: cases[index], onTap: onOpenCases),
-          if (index < cases.length - 1) const SizedBox(height: 10),
-        ],
-      ],
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _SectionHeader(title: 'Casos prioritários', onTap: onOpenCases),
+            const SizedBox(height: 12),
+            if (snapshot.connectionState == ConnectionState.waiting)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 16),
+                child: Center(
+                  child: CircularProgressIndicator(color: AppTheme.primary),
+                ),
+              )
+            else if (topCases.isEmpty)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppTheme.card,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppTheme.lightBlueBorder),
+                ),
+                child: const Text(
+                  'Nenhum caso ativo no momento. Novos casos aceitos pelos '
+                  'clientes aparecem aqui.',
+                  style: TextStyle(
+                    color: AppTheme.textSecondary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              )
+            else
+              for (var index = 0; index < topCases.length; index++) ...[
+                _PriorityCaseCard(
+                  lawyerCase: topCases[index],
+                  onTap: onOpenCases,
+                ),
+                if (index < topCases.length - 1) const SizedBox(height: 10),
+              ],
+          ],
+        );
+      },
     );
   }
 }

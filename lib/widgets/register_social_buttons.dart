@@ -1,9 +1,22 @@
 import 'package:flutter/material.dart';
 
+import '../models/social_auth_provider.dart';
 import '../theme/app_theme.dart';
+import '../types/auth_callbacks.dart';
 
-class RegisterSocialButtons extends StatelessWidget {
-  const RegisterSocialButtons({super.key});
+/// Botões sociais do cadastro. No Supabase, OAuth de cadastro e de login são
+/// o mesmo fluxo — recebe o mesmo callback usado na tela de login.
+class RegisterSocialButtons extends StatefulWidget {
+  const RegisterSocialButtons({super.key, this.onSocialLogin});
+
+  final SocialLoginSubmit? onSocialLogin;
+
+  @override
+  State<RegisterSocialButtons> createState() => _RegisterSocialButtonsState();
+}
+
+class _RegisterSocialButtonsState extends State<RegisterSocialButtons> {
+  SocialAuthProvider? _loadingProvider;
 
   @override
   Widget build(BuildContext context) {
@@ -32,7 +45,8 @@ class RegisterSocialButtons extends StatelessWidget {
         _socialButton(
           icon: Icons.apple,
           text: 'Continuar com Apple',
-          onPressed: () => _showSocialUnavailable(context),
+          loading: _loadingProvider == SocialAuthProvider.apple,
+          onPressed: () => _submitSocial(SocialAuthProvider.apple),
         ),
 
         const SizedBox(height: 32),
@@ -79,6 +93,8 @@ class RegisterSocialButtons extends StatelessWidget {
   }
 
   Widget _googleButton(BuildContext context) {
+    final loading = _loadingProvider == SocialAuthProvider.google;
+
     return Container(
       height: 52,
       decoration: BoxDecoration(
@@ -93,17 +109,31 @@ class RegisterSocialButtons extends StatelessWidget {
         ],
       ),
       child: OutlinedButton(
-        onPressed: () => _showSocialUnavailable(context),
+        onPressed: _loadingProvider != null
+            ? null
+            : () => _submitSocial(SocialAuthProvider.google),
         style: OutlinedButton.styleFrom(
           side: const BorderSide(color: AppTheme.softBorder),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Image.asset('assets/images/google_logo.png', width: 20, height: 20),
+            if (loading)
+              const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: AppTheme.primary,
+                ),
+              )
+            else
+              Image.asset(
+                'assets/images/google_logo.png',
+                width: 20,
+                height: 20,
+              ),
             const SizedBox(width: 12),
             const Text(
               'Continuar com Google',
@@ -121,6 +151,7 @@ class RegisterSocialButtons extends StatelessWidget {
   Widget _socialButton({
     required IconData icon,
     required String text,
+    required bool loading,
     required VoidCallback onPressed,
   }) {
     return Container(
@@ -137,8 +168,17 @@ class RegisterSocialButtons extends StatelessWidget {
         ],
       ),
       child: OutlinedButton.icon(
-        onPressed: onPressed,
-        icon: Icon(icon, color: AppTheme.textPrimary),
+        onPressed: _loadingProvider != null ? null : onPressed,
+        icon: loading
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: AppTheme.primary,
+                ),
+              )
+            : Icon(icon, color: AppTheme.textPrimary),
         label: Text(
           text,
           style: const TextStyle(
@@ -148,12 +188,43 @@ class RegisterSocialButtons extends StatelessWidget {
         ),
         style: OutlinedButton.styleFrom(
           side: const BorderSide(color: AppTheme.softBorder),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         ),
       ),
     );
+  }
+
+  Future<void> _submitSocial(SocialAuthProvider provider) async {
+    final onSocialLogin = widget.onSocialLogin;
+    if (onSocialLogin == null) {
+      _showSocialUnavailable(context);
+      return;
+    }
+
+    setState(() => _loadingProvider = provider);
+    try {
+      await onSocialLogin(provider);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Conclua o cadastro com ${provider.label} para continuar.'),
+        ),
+      );
+    } catch (error) {
+      debugPrint('Social sign-up failed: $error');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Não foi possível iniciar o cadastro social. Tente novamente.',
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _loadingProvider = null);
+      }
+    }
   }
 
   void _showSocialUnavailable(BuildContext context) {

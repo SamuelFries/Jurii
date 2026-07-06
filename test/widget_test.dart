@@ -109,6 +109,30 @@ void main() {
       ),
       isFalse,
     );
+
+    // Precisão: siglas/termos curtos não podem casar dentro de outra palavra.
+    final trabalhista = inferPracticeAreasForSearch(
+      'Minha demissão foi sem justa causa e não recebi as verbas.',
+    );
+    expect(trabalhista, contains('Direito Trabalhista'));
+    expect(
+      trabalhista,
+      isNot(contains('Direito Tributário')),
+      reason: '"demissão" não pode casar o imposto ISS',
+    );
+    expect(
+      inferPracticeAreasForSearch('guardei as fotos das conversas'),
+      isNot(contains('Direito Tributário')),
+      reason: 'a contração "das" não pode casar a guia DAS',
+    );
+
+    // Ranqueamento: a área mais forte (mais termos) vem primeiro.
+    expect(
+      inferPracticeAreasForSearch(
+        'fui demitido, não pagaram as verbas rescisórias nem o FGTS',
+      ).first,
+      'Direito Trabalhista',
+    );
   });
 
   test('read team invite notifications remain actionable while pending', () {

@@ -1,5 +1,6 @@
+import 'package:flutter/foundation.dart';
+
 import '../data/legal_practice_areas.dart';
-import '../data/mock/mock_firm_workspace.dart';
 import '../models/firm_operation_metrics.dart';
 import '../models/firm_role.dart';
 import '../models/firm_team_member.dart';
@@ -103,6 +104,9 @@ class FirmWorkspaceRepository {
           )
           .eq('profile_id', profileId)
           .eq('status', 'active')
+          // Ordenação estável: membro de 2+ escritórios sempre entra no mais
+          // antigo (até existir um seletor de escritório).
+          .order('joined_at', ascending: true)
           .limit(1);
 
       return rows.cast<Map<String, dynamic>>();
@@ -114,6 +118,7 @@ class FirmWorkspaceRepository {
           )
           .eq('profile_id', profileId)
           .eq('status', 'active')
+          .order('joined_at', ascending: true)
           .limit(1);
 
       return rows.cast<Map<String, dynamic>>();
@@ -139,7 +144,7 @@ class FirmWorkspaceRepository {
     try {
       final rows = await _fetchTeamMemberRows(lawFirmId);
 
-      if (rows.isEmpty) return mockFirmTeamMembers;
+      if (rows.isEmpty) return const [];
 
       return rows.map<FirmTeamMember>((row) {
         final profileId = row['profile_id'] as String? ?? '';
@@ -171,14 +176,18 @@ class FirmWorkspaceRepository {
           specialty: status == 'invited'
               ? 'Convite pendente'
               : _rolesSpecialty(effectiveRoles, isAlsoLawyer: lawyerId != null),
-          activeCases: effectiveRoles.hasLawyer ? 3 : 0,
-          responseHours: effectiveRoles.hasSecretary ? 0.8 : 1.6,
-          rating: effectiveRoles.hasLawyer ? 4.8 : 4.7,
+          // Métricas por membro ainda não existem no banco; zero = a UI
+          // esconde o badge em vez de exibir número inventado.
+          activeCases: 0,
+          responseHours: 0,
+          rating: 0,
           available: status == 'active',
         );
       }).toList();
-    } catch (_) {
-      return mockFirmTeamMembers;
+    } catch (error) {
+      // Falha real não pode virar equipe fake — lista vazia e log.
+      debugPrint('Supabase firm team members fetch failed: $error');
+      return const [];
     }
   }
 
@@ -250,7 +259,6 @@ class FirmWorkspaceRepository {
         rating: 0,
         available: true,
       ),
-      ...mockFirmTeamMembers,
     ];
   }
 

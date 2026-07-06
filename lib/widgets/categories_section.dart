@@ -46,7 +46,7 @@ class _CategoriesSectionState extends State<CategoriesSection> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Categorias Populares',
+          'Categorias populares',
           style: Theme.of(context).textTheme.titleLarge,
         ),
         const SizedBox(height: 16),
@@ -79,6 +79,7 @@ class _CategoriesSectionState extends State<CategoriesSection> {
                   title: category.title,
                   isGold: category.isGold,
                   selected: selected,
+                  iconName: category.iconName,
                   onTap: () => widget.onCategorySelected?.call(practiceArea),
                 );
               },

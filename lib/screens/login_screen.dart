@@ -4,6 +4,7 @@ import 'register_screen.dart';
 import '../models/social_auth_provider.dart';
 import '../theme/app_theme.dart';
 import '../types/auth_callbacks.dart';
+import '../utils/validators.dart';
 import '../widgets/login_logo.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -322,8 +323,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   onPressed: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (_) =>
-                            RegisterScreen(onRegister: widget.onRegister),
+                        builder: (_) => RegisterScreen(
+                          onRegister: widget.onRegister,
+                          onSocialLogin: widget.onSocialLogin,
+                        ),
                       ),
                     );
                   },
@@ -364,17 +367,26 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _submit() async {
+    final email = emailController.text.trim();
+    final password = passwordController.text;
+    if (email.isEmpty || password.isEmpty) {
+      setState(() => errorMessage = 'Informe seu e-mail e sua senha.');
+      return;
+    }
+    if (!isValidEmail(email)) {
+      setState(() => errorMessage = 'Informe um e-mail válido.');
+      return;
+    }
+
     setState(() {
       isLoading = true;
       errorMessage = null;
     });
 
     try {
-      await widget.onLogin(
-        emailController.text.trim(),
-        passwordController.text,
-      );
+      await widget.onLogin(email, password);
     } catch (error) {
+      if (!mounted) return;
       setState(() {
         errorMessage = _friendlyError(error);
       });
@@ -448,8 +460,9 @@ class _LoginScreenState extends State<LoginScreen> {
     if (message.contains('cancel')) {
       return 'Login social cancelado.';
     }
-    if (message.contains('not configured') || message.contains('supabase')) {
-      return 'Login social indisponível. Verifique a configuração do Supabase.';
+    if (message.contains('not configured') ||
+        message.contains('could not launch')) {
+      return 'Login social indisponível no momento. Tente novamente.';
     }
     return 'Não foi possível iniciar o login social. Tente novamente.';
   }
@@ -559,13 +572,7 @@ class _PasswordResetRequestSheetState
                       filled: true,
                       fillColor: AppTheme.card,
                     ),
-                    validator: (value) {
-                      final email = value?.trim() ?? '';
-                      if (!email.contains('@') || !email.contains('.')) {
-                        return 'Informe um e-mail válido';
-                      }
-                      return null;
-                    },
+                    validator: validateEmailField,
                     onFieldSubmitted: (_) => _submit(),
                   ),
                 ),

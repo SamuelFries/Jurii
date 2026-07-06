@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../data/mock/mock_firm_workspace.dart';
 import '../models/firm_workspace.dart';
 import '../models/lawyer_status.dart';
 import '../models/user_profile.dart';
@@ -93,9 +92,15 @@ class FirmProfileScreen extends StatelessWidget {
     );
   }
 
+  void _showComingSoon(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Em preparação — disponível em breve.')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final workspaceName = workspace?.firm.name ?? mockFirmWorkspaceName;
+    final workspaceName = workspace?.firm.name ?? 'Escritório';
 
     return SafeArea(
       child: ListView(
@@ -176,21 +181,21 @@ class FirmProfileScreen extends StatelessWidget {
                 iconColor: AppTheme.officePurple,
                 label: 'Dados do escritório',
                 subtitle: 'CNPJ, endereço e áreas atendidas',
-                onTap: () {},
+                onTap: () => _showComingSoon(context),
               ),
               ProfileMenuItem(
                 icon: Icons.group_outlined,
                 iconColor: AppTheme.officePurple,
                 label: 'Permissões da equipe',
                 subtitle: 'Dono, admins, secretárias e advogados',
-                onTap: () {},
+                onTap: () => _showComingSoon(context),
               ),
               ProfileMenuItem(
                 icon: Icons.schedule_outlined,
                 iconColor: AppTheme.officePurple,
                 label: 'Horários de atendimento',
                 subtitle: 'Disponibilidade do escritório',
-                onTap: () {},
+                onTap: () => _showComingSoon(context),
               ),
             ],
           ),

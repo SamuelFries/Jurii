@@ -57,30 +57,55 @@ class _MessagesScreenState extends State<MessagesScreen> {
           }
 
           if (conversations == null || conversations.isEmpty) {
-            return _EmptyMessagesState(onFindLawFirms: widget.onFindLawFirms);
+            return RefreshIndicator(
+              onRefresh: _refresh,
+              child: LayoutBuilder(
+                builder: (context, constraints) => SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  child: SizedBox(
+                    // Altura fixa do viewport: os Spacer() do empty state
+                    // precisam de altura limitada para funcionar.
+                    height: constraints.maxHeight,
+                    child: _EmptyMessagesState(
+                      onFindLawFirms: widget.onFindLawFirms,
+                    ),
+                  ),
+                ),
+              ),
+            );
           }
 
-          return ListView(
-            padding: const EdgeInsets.all(24),
-            children: [
-              const _MessagesHeader(
-                title: 'Conversas',
-                subtitle: 'Acompanhe seus atendimentos jurídicos.',
-              ),
-              const SizedBox(height: 20),
-              for (var index = 0; index < conversations.length; index++) ...[
-                ConversationCard(
-                  conversation: conversations[index],
-                  onTap: () => _openChat(conversations[index]),
+          return RefreshIndicator(
+            onRefresh: _refresh,
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(24),
+              children: [
+                const _MessagesHeader(
+                  title: 'Conversas',
+                  subtitle: 'Acompanhe seus atendimentos jurídicos.',
                 ),
-                if (index < conversations.length - 1)
-                  const SizedBox(height: 12),
+                const SizedBox(height: 20),
+                for (var index = 0; index < conversations.length; index++) ...[
+                  ConversationCard(
+                    conversation: conversations[index],
+                    onTap: () => _openChat(conversations[index]),
+                  ),
+                  if (index < conversations.length - 1)
+                    const SizedBox(height: 12),
+                ],
               ],
-            ],
+            ),
           );
         },
       ),
     );
+  }
+
+  Future<void> _refresh() async {
+    final future = _loadConversations();
+    setState(() => _conversationsFuture = future);
+    await future;
   }
 
   Future<void> _openChat(Conversation conversation) async {

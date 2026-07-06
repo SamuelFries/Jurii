@@ -184,6 +184,22 @@ class _LawFirmProfileScreenState extends State<LawFirmProfileScreen> {
                     icon: Icons.mail_outline,
                     label: widget.lawFirm.email ?? 'Contato pela Jurii',
                   ),
+                  if (widget.lawFirm.phone != null &&
+                      widget.lawFirm.phone!.trim().isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    _ContactRow(
+                      icon: Icons.phone_outlined,
+                      label: widget.lawFirm.phone!,
+                    ),
+                  ],
+                  if (widget.lawFirm.websiteUrl != null &&
+                      widget.lawFirm.websiteUrl!.trim().isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    _ContactRow(
+                      icon: Icons.language_outlined,
+                      label: widget.lawFirm.websiteUrl!,
+                    ),
+                  ],
                   const SizedBox(height: 10),
                   _ContactRow(
                     icon: Icons.location_city_outlined,

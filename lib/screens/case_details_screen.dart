@@ -121,6 +121,14 @@ class _CaseDetailsScreenState extends State<CaseDetailsScreen> {
                       child: CircularProgressIndicator(color: AppTheme.primary),
                     ),
                   )
+                else if (snapshot.hasError)
+                  _UpdatesErrorState(
+                    onRetry: () => setState(() {
+                      _updatesFuture = widget.repository.fetchCaseUpdates(
+                        widget.caseId,
+                      );
+                    }),
+                  )
                 else if (updates == null || updates.isEmpty)
                   const _EmptyUpdatesState()
                 else
@@ -271,6 +279,42 @@ class _CaseUpdateCard extends StatelessWidget {
                 ],
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _UpdatesErrorState extends StatelessWidget {
+  const _UpdatesErrorState({required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppTheme.card,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppTheme.lightBlueBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Não foi possível carregar as atualizações.',
+            style: TextStyle(
+              color: AppTheme.textSecondary,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton(
+            onPressed: onRetry,
+            child: const Text('Tentar novamente'),
           ),
         ],
       ),

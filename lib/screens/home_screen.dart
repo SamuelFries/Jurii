@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'package:jurii/data/legal_practice_areas.dart';
@@ -18,15 +20,35 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+  Timer? _searchDebounce;
+  int _refreshTick = 0;
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _searchController.dispose();
     super.dispose();
   }
 
   void _setSearchQuery(String value) {
     setState(() => _searchQuery = value.trim());
+  }
+
+  /// Debounce de 350ms: cada mudança de query dispara 2 RPCs (advogados e
+  /// escritórios); sem isso, digitar "pensão alimentícia" gera ~36 round-trips.
+  void _onSearchChanged(String value) {
+    _searchDebounce?.cancel();
+    // Atualiza já o botão de limpar, sem refazer as buscas.
+    setState(() {});
+    _searchDebounce = Timer(
+      const Duration(milliseconds: 350),
+      () => _setSearchQuery(value),
+    );
+  }
+
+  Future<void> _refresh() async {
+    // Troca a key das seções para recriá-las e refazer os fetches.
+    setState(() => _refreshTick++);
   }
 
   void _toggleArea(String area) {
@@ -42,117 +64,130 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return SafeArea(
-      child: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Como podemos ajudar hoje?',
-                      style: TextStyle(
-                        color: AppTheme.textPrimary,
-                        fontSize: 34,
-                        fontWeight: FontWeight.bold,
+      child: RefreshIndicator(
+        onRefresh: _refresh,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Como podemos ajudar hoje?',
+                        style: TextStyle(
+                          color: AppTheme.textPrimary,
+                          fontSize: 34,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
-                  ),
-                  SizedBox(width: 12),
-                  NotificationBell(
-                    scope: NotificationScope.client,
-                    iconColor: AppTheme.accent,
-                    backgroundColor: AppTheme.card,
-                    borderColor: AppTheme.lightGoldBorder,
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 24),
-
-              TextField(
-                controller: _searchController,
-                textInputAction: TextInputAction.search,
-                onChanged: _setSearchQuery,
-                decoration: InputDecoration(
-                  hintText: 'Descreva seu problema jurídico',
-                  prefixIcon: const Icon(Icons.search),
-                  suffixIcon: _searchQuery.isEmpty
-                      ? null
-                      : IconButton(
-                          onPressed: () {
-                            _searchController.clear();
-                            _setSearchQuery('');
-                          },
-                          icon: const Icon(Icons.close),
-                          tooltip: 'Limpar busca',
-                        ),
-                ),
-              ),
-
-              const SizedBox(height: 12),
-
-              const Text('Ex.: "pensão"'),
-
-              const SizedBox(height: 14),
-
-              SizedBox(
-                height: 38,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: legalPracticeAreas.length,
-                  separatorBuilder: (context, index) =>
-                      const SizedBox(width: 8),
-                  itemBuilder: (context, index) {
-                    final area = legalPracticeAreas[index];
-                    final selected = isPracticeAreaSelectedForQuery(
-                      area: area,
-                      query: _searchQuery,
-                    );
-                    return FilterChip(
-                      label: Text(area),
-                      selected: selected,
-                      showCheckmark: false,
-                      selectedColor: AppTheme.lightGold,
+                    SizedBox(width: 12),
+                    NotificationBell(
+                      scope: NotificationScope.client,
+                      iconColor: AppTheme.accent,
                       backgroundColor: AppTheme.card,
-                      side: BorderSide(
-                        color: selected
-                            ? AppTheme.accent
-                            : AppTheme.lightBlueBorder,
-                      ),
-                      labelStyle: TextStyle(
-                        color: selected
-                            ? AppTheme.accent
-                            : AppTheme.textSecondary,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w800,
-                      ),
-                      onSelected: (_) => _toggleArea(area),
-                    );
-                  },
+                      borderColor: AppTheme.lightGoldBorder,
+                    ),
+                  ],
                 ),
-              ),
 
-              const SizedBox(height: 40),
+                const SizedBox(height: 24),
 
-              CategoriesSection(
-                searchQuery: _searchQuery,
-                onCategorySelected: _toggleArea,
-              ),
+                TextField(
+                  controller: _searchController,
+                  textInputAction: TextInputAction.search,
+                  onChanged: _onSearchChanged,
+                  onSubmitted: _setSearchQuery,
+                  decoration: InputDecoration(
+                    hintText: 'Descreva seu problema jurídico',
+                    prefixIcon: const Icon(Icons.search),
+                    suffixIcon: _searchController.text.isEmpty
+                        ? null
+                        : IconButton(
+                            onPressed: () {
+                              _searchDebounce?.cancel();
+                              _searchController.clear();
+                              _setSearchQuery('');
+                            },
+                            icon: const Icon(Icons.close),
+                            tooltip: 'Limpar busca',
+                          ),
+                  ),
+                ),
 
-              const SizedBox(height: 40),
+                const SizedBox(height: 12),
 
-              RecommendedLawyersSection(searchQuery: _searchQuery),
+                const Text('Ex.: "pensão"'),
 
-              const SizedBox(height: 40),
+                const SizedBox(height: 14),
 
-              OfficesSection(searchQuery: _searchQuery),
+                SizedBox(
+                  height: 38,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: legalPracticeAreas.length,
+                    separatorBuilder: (context, index) =>
+                        const SizedBox(width: 8),
+                    itemBuilder: (context, index) {
+                      final area = legalPracticeAreas[index];
+                      final selected = isPracticeAreaSelectedForQuery(
+                        area: area,
+                        query: _searchQuery,
+                      );
+                      return FilterChip(
+                        label: Text(area),
+                        selected: selected,
+                        showCheckmark: false,
+                        selectedColor: AppTheme.lightGold,
+                        backgroundColor: AppTheme.card,
+                        side: BorderSide(
+                          color: selected
+                              ? AppTheme.accent
+                              : AppTheme.lightBlueBorder,
+                        ),
+                        labelStyle: TextStyle(
+                          color: selected
+                              ? AppTheme.accent
+                              : AppTheme.textSecondary,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                        ),
+                        onSelected: (_) => _toggleArea(area),
+                      );
+                    },
+                  ),
+                ),
 
-              const SizedBox(height: 40),
-            ],
+                const SizedBox(height: 40),
+
+                CategoriesSection(
+                  key: ValueKey('categories_$_refreshTick'),
+                  searchQuery: _searchQuery,
+                  onCategorySelected: _toggleArea,
+                ),
+
+                const SizedBox(height: 40),
+
+                RecommendedLawyersSection(
+                  key: ValueKey('lawyers_$_refreshTick'),
+                  searchQuery: _searchQuery,
+                ),
+
+                const SizedBox(height: 40),
+
+                OfficesSection(
+                  key: ValueKey('offices_$_refreshTick'),
+                  searchQuery: _searchQuery,
+                ),
+
+                const SizedBox(height: 40),
+              ],
+            ),
           ),
         ),
       ),

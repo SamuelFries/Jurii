@@ -23,76 +23,85 @@ class FirmBottomNav extends StatelessWidget {
     ];
 
     return Container(
-      height: 90,
       decoration: const BoxDecoration(
         color: AppTheme.card,
         border: Border(top: BorderSide(color: AppTheme.officePurpleBorder)),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: List.generate(items.length, (index) {
-          final selected = currentIndex == index;
+      // Scaffold não aplica safe area ao bottomNavigationBar: sem isto o
+      // home indicator do iPhone sobrepõe os labels.
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 84,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: List.generate(items.length, (index) {
+              final selected = currentIndex == index;
 
-          return GestureDetector(
-            onTap: () => onTap(index),
-            child: SizedBox(
-              width: 70,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  SizedBox(
-                    height: 6,
-                    child: selected
-                        ? Container(
-                            width: 36,
-                            height: 4,
-                            decoration: BoxDecoration(
-                              color: AppTheme.officePurple,
-                              borderRadius: BorderRadius.circular(99),
-                            ),
-                          )
-                        : null,
-                  ),
-                  const SizedBox(height: 6),
-                  Stack(
-                    clipBehavior: Clip.none,
+              return GestureDetector(
+                onTap: () => onTap(index),
+                child: SizedBox(
+                  width: 70,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(
-                        selected ? items[index].$2 : items[index].$1,
-                        color: selected
-                            ? AppTheme.officePurple
-                            : AppTheme.textSecondary,
-                        size: 26,
+                      SizedBox(
+                        height: 6,
+                        child: selected
+                            ? Container(
+                                width: 36,
+                                height: 4,
+                                decoration: BoxDecoration(
+                                  color: AppTheme.officePurple,
+                                  borderRadius: BorderRadius.circular(99),
+                                ),
+                              )
+                            : null,
                       ),
-                      if (selected)
-                        Positioned(
-                          top: -2,
-                          right: -2,
-                          child: CircleAvatar(
-                            radius: 4,
-                            backgroundColor: AppTheme.accent,
+                      const SizedBox(height: 6),
+                      Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          Icon(
+                            selected ? items[index].$2 : items[index].$1,
+                            color: selected
+                                ? AppTheme.officePurple
+                                : AppTheme.textSecondary,
+                            size: 26,
                           ),
+                          if (selected)
+                            Positioned(
+                              top: -2,
+                              right: -2,
+                              child: CircleAvatar(
+                                radius: 4,
+                                backgroundColor: AppTheme.accent,
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        items[index].$3,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: selected
+                              ? AppTheme.officePurple
+                              : AppTheme.textSecondary,
+                          fontWeight: selected
+                              ? FontWeight.w700
+                              : FontWeight.w500,
+                          fontSize: 11,
                         ),
+                      ),
                     ],
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    items[index].$3,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: selected
-                          ? AppTheme.officePurple
-                          : AppTheme.textSecondary,
-                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                      fontSize: 11,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        }),
+                ),
+              );
+            }),
+          ),
+        ),
       ),
     );
   }

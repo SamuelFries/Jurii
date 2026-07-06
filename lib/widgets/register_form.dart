@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../theme/app_theme.dart';
 import '../types/auth_callbacks.dart';
+import '../utils/validators.dart';
 
 class RegisterForm extends StatefulWidget {
   final RegisterSubmit onRegister;
@@ -72,13 +73,7 @@ class _RegisterFormState extends State<RegisterForm> {
                 hintText: 'Seu e-mail',
                 prefixIcon: Icon(Icons.mail_outline),
               ),
-              validator: (value) {
-                final email = value?.trim() ?? '';
-                if (!email.contains('@') || !email.contains('.')) {
-                  return 'Informe um e-mail válido';
-                }
-                return null;
-              },
+              validator: validateEmailField,
             ),
           ),
 
@@ -97,13 +92,7 @@ class _RegisterFormState extends State<RegisterForm> {
                 hintText: 'Seu CPF',
                 prefixIcon: Icon(Icons.badge_outlined),
               ),
-              validator: (value) {
-                final cpf = value?.replaceAll(RegExp(r'\D'), '') ?? '';
-                if (cpf.length != 11) {
-                  return 'Informe um CPF válido';
-                }
-                return null;
-              },
+              validator: validateCpfField,
             ),
           ),
 
@@ -129,12 +118,7 @@ class _RegisterFormState extends State<RegisterForm> {
                 ),
               ),
               onChanged: (value) => setState(() => _password = value),
-              validator: (value) {
-                if (value == null || value.length < 6) {
-                  return 'Use pelo menos 6 caracteres';
-                }
-                return null;
-              },
+              validator: validatePasswordField,
             ),
           ),
 
@@ -238,7 +222,9 @@ class _RegisterFormState extends State<RegisterForm> {
       final result = await widget.onRegister(
         fullName: _nameController.text.trim(),
         email: _emailController.text.trim(),
-        cpf: _cpfController.text.trim(),
+        // Só os 11 dígitos: o trigger copia o valor cru para profiles.cpf,
+        // e CPF mascarado quebraria deduplicação/consulta futura.
+        cpf: digitsOnly(_cpfController.text),
         password: _passwordController.text,
       );
       if (!mounted) return;

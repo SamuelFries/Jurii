@@ -38,16 +38,21 @@ class _FirmMessagesScreenState extends State<FirmMessagesScreen> {
   }
 
   Future<List<Conversation>> _loadConversations() async {
-    final fallback = selectedSegment == 0
-        ? mockFirmClientConversations
-        : mockFirmTeamConversations;
-    final lawFirmId = SupabaseConfig.isReady
-        ? widget.workspace?.firm.id
-        : widget.workspace?.fromSupabase == true
+    // Mock apenas no modo demo (Supabase não configurado); usuário real com
+    // workspace ainda não sincronizado vê o empty state, não dados fake.
+    if (!SupabaseConfig.isReady) {
+      return selectedSegment == 0
+          ? mockFirmClientConversations
+          : mockFirmTeamConversations;
+    }
+
+    // Só consulta o Supabase quando o workspace é real (ids locais como
+    // 'approved_firm' não são uuid e quebrariam a query).
+    final lawFirmId = widget.workspace?.fromSupabase == true
         ? widget.workspace?.firm.id
         : null;
 
-    if (lawFirmId == null) return fallback;
+    if (lawFirmId == null) return const [];
 
     try {
       return await _repository.fetchConversations(
@@ -56,8 +61,9 @@ class _FirmMessagesScreenState extends State<FirmMessagesScreen> {
             : ConversationScope.firmTeam,
         lawFirmId: lawFirmId,
       );
-    } catch (_) {
-      return SupabaseConfig.isReady ? const [] : fallback;
+    } catch (error) {
+      debugPrint('Supabase firm conversations fetch failed: $error');
+      return const [];
     }
   }
 
