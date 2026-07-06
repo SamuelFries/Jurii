@@ -5,8 +5,10 @@ import '../models/law_firm_verification.dart';
 import '../models/law_firm_verification_status.dart';
 import '../models/lawyer_verification.dart';
 import '../models/user_profile.dart';
+import '../data/legal_documents.dart';
 import 'law_firm_verification_screen.dart';
 import 'lawyer_verification_screen.dart';
+import 'legal_document_screen.dart';
 import '../theme/app_theme.dart';
 import '../widgets/law_firm_mode_card.dart';
 import '../widgets/profile_header_card.dart';
@@ -178,6 +180,12 @@ class ProfileScreen extends StatelessWidget {
         );
       },
     );
+  }
+
+  void _openLegalDocument(BuildContext context, LegalDocumentType type) {
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => LegalDocumentScreen(type: type)));
   }
 
   Future<void> _confirmDeleteAccount(BuildContext context) async {
@@ -553,13 +561,19 @@ class ProfileScreen extends StatelessWidget {
                     icon: Icons.article_outlined,
                     iconColor: AppTheme.accent,
                     label: 'Termos de Uso',
-                    onTap: () {},
+                    onTap: () => _openLegalDocument(
+                      context,
+                      LegalDocumentType.termsOfUse,
+                    ),
                   ),
                   ProfileMenuItem(
                     icon: Icons.lock_outline,
                     iconColor: AppTheme.accent,
                     label: 'Política de Privacidade',
-                    onTap: () {},
+                    onTap: () => _openLegalDocument(
+                      context,
+                      LegalDocumentType.privacyPolicy,
+                    ),
                   ),
                 ],
               ),
