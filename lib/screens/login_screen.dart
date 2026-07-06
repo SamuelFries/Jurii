@@ -5,6 +5,7 @@ import '../models/social_auth_provider.dart';
 import '../theme/app_theme.dart';
 import '../types/auth_callbacks.dart';
 import '../utils/validators.dart';
+import '../widgets/legal_agreement_notice.dart';
 import '../widgets/login_logo.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -348,14 +349,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
               const SizedBox(height: 20),
 
-              const Text(
-                'Ao continuar você concorda com nossos\nTermos de Uso e Política de Privacidade.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: AppTheme.muted,
-                  height: 1.6,
-                ),
+              const LegalAgreementNotice(
+                prefix: 'Ao continuar você concorda com nossos',
               ),
 
               const SizedBox(height: 24),

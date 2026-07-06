@@ -50,6 +50,13 @@ Anexos de chat e documentos de caso não são apagados nessa rotina porque podem
 ser prova/evidência; eles continuam dependendo de uma política de retenção
 própria.
 
+## Corrigido no app — Política e Termos acessíveis
+
+O app agora tem telas internas para `Política de Privacidade` e `Termos de Uso`,
+acessíveis pelo perfil e pelos textos de concordância em login/cadastro. O
+conteúdo é uma versão inicial de transparência e ainda deve passar por revisão
+jurídica antes da publicação nas lojas.
+
 ## Pendências que dependem de decisão/infra (NÃO resolvidas)
 
 | # | Risco | Detalhe | Proposta |
@@ -69,9 +76,9 @@ própria.
   CPF, mensagens cliente‑advogado, fotos.
 - Buckets privados com URL assinada (300s) para anexos ✅; avatares públicos
   (aceitável, mas informar na política de privacidade).
-- **Faltam no produto**: Política de Privacidade e Termos acessíveis (itens do
-  perfil hoje são links mortos — obrigatório antes das lojas), registro de
-  consentimento, DPO/canal do titular, política de retenção documentada.
+- **Faltam no produto**: revisão jurídica final dos textos legais, registro de
+  consentimento, DPO/canal oficial do titular e política de retenção
+  documentada.
 - IA de triagem: ver requisitos de consentimento em `docs/ai-intake.md`.
 
 ## Chaves

@@ -261,6 +261,35 @@ void main() {
     expect(find.text('Criar conta'), findsOneWidget);
   });
 
+  testWidgets('register legal links open terms and privacy screens', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(_testApp(RegisterScreen(onRegister: registerStub)));
+
+    await tester.ensureVisible(find.text('Termos de Uso'));
+    await tester.tap(find.text('Termos de Uso'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Termos de Uso'), findsWidgets);
+    expect(
+      find.textContaining('Estes termos definem as regras básicas'),
+      findsOneWidget,
+    );
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('Política de Privacidade'));
+    await tester.tap(find.text('Política de Privacidade'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Política de Privacidade'), findsWidgets);
+    expect(
+      find.textContaining('Esta política explica como a Jurii trata'),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('updates password strength while typing', (
     WidgetTester tester,
   ) async {
@@ -611,6 +640,37 @@ void main() {
       expect(deletionRequested, isTrue);
     },
   );
+
+  testWidgets('profile platform legal items open legal documents', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      _testApp(Scaffold(body: ProfileScreen(user: clientUser))),
+    );
+
+    await tester.ensureVisible(find.text('Termos de Uso'));
+    await tester.tap(find.text('Termos de Uso'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Termos de Uso'), findsWidgets);
+    expect(
+      find.textContaining('Estes termos definem as regras básicas'),
+      findsOneWidget,
+    );
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('Política de Privacidade'));
+    await tester.tap(find.text('Política de Privacidade'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Política de Privacidade'), findsWidgets);
+    expect(
+      find.textContaining('Esta política explica como a Jurii trata'),
+      findsOneWidget,
+    );
+  });
 
   testWidgets('lawyer home shows real client metrics from repositories', (
     WidgetTester tester,

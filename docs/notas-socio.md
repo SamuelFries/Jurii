@@ -219,6 +219,27 @@ executar `POST /functions/v1/delete-account` nela e conferir:
 - Reescrevemos a Function sem dependencias externas para reduzir risco de deploy
   no bundler remoto.
 
+## Frente seguinte - Politica de Privacidade e Termos no app
+
+Depois do patch 044, avancei na pendencia de deixar Politica de Privacidade e
+Termos de Uso acessiveis dentro do produto.
+
+O que foi feito:
+
+- criei conteudo versionado em `lib/data/legal_documents.dart`;
+- criei a tela reutilizavel `lib/screens/legal_document_screen.dart`;
+- criei `lib/widgets/legal_agreement_notice.dart` para transformar os textos de
+  concordancia do login/cadastro em links reais;
+- liguei os itens `Termos de Uso` e `Política de Privacidade` do perfil às novas
+  telas;
+- atualizei `docs/security.md` para marcar essa parte como resolvida no app,
+  mantendo como pendencias a revisao juridica final, canal oficial do titular,
+  DPO/encarregado, consentimento e retencao documental.
+
+Observacao: o texto dentro do app e uma versao inicial de transparencia para
+produto. Antes de publicar nas lojas, ainda precisa de revisao juridica e da
+definicao do canal oficial de privacidade.
+
 ## Pendencias depois desta rodada
 
 As maiores pendencias restantes em seguranca/LGPD estao documentadas em
@@ -232,8 +253,9 @@ As maiores pendencias restantes em seguranca/LGPD estao documentadas em
 - evitar enumeracao de OAB em convite;
 - impedir delete de anexo ja entregue;
 - implementar upload real de documentos de verificacao;
-- criar Politica de Privacidade, Termos, canal do titular/DPO, consentimento e
-  politica de retencao documentada.
+- revisar juridicamente a Politica de Privacidade/Termos agora acessiveis no
+  app, criar canal oficial do titular/DPO, registro de consentimento e politica
+  de retencao documentada.
 
 ## Como revisar esta branch
 

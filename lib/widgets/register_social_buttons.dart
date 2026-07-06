@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/social_auth_provider.dart';
 import '../theme/app_theme.dart';
 import '../types/auth_callbacks.dart';
+import 'legal_agreement_notice.dart';
 
 /// Botões sociais do cadastro. No Supabase, OAuth de cadastro e de login são
 /// o mesmo fluxo — recebe o mesmo callback usado na tela de login.
@@ -83,10 +84,8 @@ class _RegisterSocialButtonsState extends State<RegisterSocialButtons> {
 
         const SizedBox(height: 28),
 
-        const Text(
-          'Ao criar sua conta você concorda com nossos\nTermos de Uso e Política de Privacidade.',
-          textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 12, color: AppTheme.muted, height: 1.6),
+        const LegalAgreementNotice(
+          prefix: 'Ao criar sua conta você concorda com nossos',
         ),
       ],
     );
@@ -114,7 +113,9 @@ class _RegisterSocialButtonsState extends State<RegisterSocialButtons> {
             : () => _submitSocial(SocialAuthProvider.google),
         style: OutlinedButton.styleFrom(
           side: const BorderSide(color: AppTheme.softBorder),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -188,7 +189,9 @@ class _RegisterSocialButtonsState extends State<RegisterSocialButtons> {
         ),
         style: OutlinedButton.styleFrom(
           side: const BorderSide(color: AppTheme.softBorder),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
         ),
       ),
     );
@@ -207,7 +210,9 @@ class _RegisterSocialButtonsState extends State<RegisterSocialButtons> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Conclua o cadastro com ${provider.label} para continuar.'),
+          content: Text(
+            'Conclua o cadastro com ${provider.label} para continuar.',
+          ),
         ),
       );
     } catch (error) {
