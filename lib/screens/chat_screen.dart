@@ -20,6 +20,8 @@ import '../services/intake_ai_service.dart';
 import '../services/supabase_config.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
+import '../widgets/jurii_empty_state.dart';
+import '../widgets/jurii_motion.dart';
 import 'client_profile_screen.dart';
 import 'intake_screen.dart';
 import 'law_firm_profile_screen.dart';
@@ -226,7 +228,10 @@ class _ChatScreenState extends State<ChatScreen>
     await _sendText(text);
   }
 
-  Future<void> _sendText(String text, {bool countsAsBannerIgnored = true}) async {
+  Future<void> _sendText(
+    String text, {
+    bool countsAsBannerIgnored = true,
+  }) async {
     if (text.isEmpty || _isSending) return;
 
     // O banner some com a primeira mensagem; se ele estava visível e o cliente
@@ -317,11 +322,30 @@ class _ChatScreenState extends State<ChatScreen>
     _closePlusMenu();
 
     final result = await Navigator.of(context).push<IntakeChatResult>(
-      MaterialPageRoute(
-        builder: (_) => IntakeScreen(
+      PageRouteBuilder<IntakeChatResult>(
+        transitionDuration: JuriiMotion.standard,
+        reverseTransitionDuration: JuriiMotion.fast,
+        pageBuilder: (_, _, _) => IntakeScreen(
           service: widget.intakeService,
           counterpartLabel: _triageCounterpartLabel,
         ),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          final curved = CurvedAnimation(
+            parent: animation,
+            curve: JuriiMotion.ease,
+            reverseCurve: JuriiMotion.exitEase,
+          );
+          return FadeTransition(
+            opacity: curved,
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0, 0.04),
+                end: Offset.zero,
+              ).animate(curved),
+              child: child,
+            ),
+          );
+        },
       ),
     );
 
@@ -898,8 +922,13 @@ class _ChatScreenState extends State<ChatScreen>
             ),
             Expanded(
               child: _isLoading
-                  ? const Center(
-                      child: CircularProgressIndicator(color: AppTheme.primary),
+                  ? const Padding(
+                      padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+                      child: JuriiSkeletonList(
+                        itemCount: 6,
+                        itemHeight: 72,
+                        gap: 10,
+                      ),
                     )
                   : _loadFailed && _messages.isEmpty
                   ? _ChatLoadErrorState(onRetry: _loadMessages)
@@ -911,25 +940,33 @@ class _ChatScreenState extends State<ChatScreen>
                       itemCount: _messages.length,
                       itemBuilder: (context, index) {
                         final message = _messages[index];
-                        return _MessageBubble(
-                          message: message,
-                          counterpartName: widget.conversation.officeName,
-                          counterpartInitials: widget.conversation.initials,
-                          canRespondToCaseRequest:
-                              !widget.isLawyer && message.isPendingCaseRequest,
-                          isRespondingCaseRequest:
-                              _respondingCaseRequestId == message.caseRequestId,
-                          onAcceptCaseRequest: () =>
-                              _respondToCaseRequestFromChat(
-                                message,
-                                accepted: true,
-                              ),
-                          onDeclineCaseRequest: () =>
-                              _respondToCaseRequestFromChat(
-                                message,
-                                accepted: false,
-                              ),
-                          onOpenAttachment: _openAttachment,
+                        final fromRight = message.author == MessageAuthor.me;
+                        return JuriiStaggeredItem(
+                          key: ValueKey('chat_message_${message.id}'),
+                          index: index,
+                          beginOffset: Offset(fromRight ? 18 : -18, 8),
+                          child: _MessageBubble(
+                            message: message,
+                            counterpartName: widget.conversation.officeName,
+                            counterpartInitials: widget.conversation.initials,
+                            canRespondToCaseRequest:
+                                !widget.isLawyer &&
+                                message.isPendingCaseRequest,
+                            isRespondingCaseRequest:
+                                _respondingCaseRequestId ==
+                                message.caseRequestId,
+                            onAcceptCaseRequest: () =>
+                                _respondToCaseRequestFromChat(
+                                  message,
+                                  accepted: true,
+                                ),
+                            onDeclineCaseRequest: () =>
+                                _respondToCaseRequestFromChat(
+                                  message,
+                                  accepted: false,
+                                ),
+                            onOpenAttachment: _openAttachment,
+                          ),
                         );
                       },
                     ),
@@ -1149,17 +1186,15 @@ class _EmptyChatState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
-      child: Padding(
-        padding: EdgeInsets.all(24),
-        child: Text(
-          'Nenhuma mensagem nesta conversa.',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: AppTheme.textSecondary,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
+    return const Padding(
+      padding: EdgeInsets.all(16),
+      child: JuriiEmptyState(
+        icon: Icons.chat_bubble_outline,
+        title: 'Nenhuma mensagem nesta conversa',
+        message: 'Envie uma mensagem ou use + para anexar e iniciar a triagem.',
+        accentColor: AppTheme.primary,
+        surfaceColor: AppTheme.lightBlue,
+        borderColor: AppTheme.lightBlueBorder,
       ),
     );
   }
@@ -1305,62 +1340,64 @@ class _AttachmentTile extends StatelessWidget {
         ? AppTheme.card.withValues(alpha: 0.72)
         : AppTheme.textSecondary;
 
-    return Material(
-      color: surfaceColor,
+    return JuriiPressable(
+      onTap: onTap,
       borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          constraints: const BoxConstraints(minWidth: 210),
-          padding: const EdgeInsets.all(10),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  color: isMine
-                      ? AppTheme.card.withValues(alpha: 0.16)
-                      : AppTheme.card,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(icon, color: foregroundColor, size: 20),
+      pressedScale: 0.97,
+      semanticLabel: 'Abrir anexo ${attachment.fileName}',
+      child: Container(
+        constraints: const BoxConstraints(minWidth: 210),
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: surfaceColor,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: isMine
+                    ? AppTheme.card.withValues(alpha: 0.16)
+                    : AppTheme.card,
+                borderRadius: BorderRadius.circular(10),
               ),
-              const SizedBox(width: 10),
-              Flexible(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      attachment.fileName,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: foregroundColor,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 13,
-                      ),
+              child: Icon(icon, color: foregroundColor, size: 20),
+            ),
+            const SizedBox(width: 10),
+            Flexible(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    attachment.fileName,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: foregroundColor,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 13,
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      attachment.isImage
-                          ? 'Foto - ${attachment.sizeLabel}'
-                          : 'Documento - ${attachment.sizeLabel}',
-                      style: TextStyle(
-                        color: secondaryColor,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 11,
-                      ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    attachment.isImage
+                        ? 'Foto - ${attachment.sizeLabel}'
+                        : 'Documento - ${attachment.sizeLabel}',
+                    style: TextStyle(
+                      color: secondaryColor,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 11,
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 8),
-              Icon(Icons.open_in_new, color: secondaryColor, size: 16),
-            ],
-          ),
+            ),
+            const SizedBox(width: 8),
+            Icon(Icons.open_in_new, color: secondaryColor, size: 16),
+          ],
         ),
       ),
     );
@@ -1655,7 +1692,7 @@ class _CaseRequestStatusChip extends StatelessWidget {
   }
 }
 
-class _Composer extends StatelessWidget {
+class _Composer extends StatefulWidget {
   final TextEditingController controller;
   final bool isLawyer;
   final bool isSending;
@@ -1677,70 +1714,149 @@ class _Composer extends StatelessWidget {
   });
 
   @override
+  State<_Composer> createState() => _ComposerState();
+}
+
+class _ComposerState extends State<_Composer> {
+  final FocusNode _focusNode = FocusNode();
+  bool _isFocused = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode.addListener(_handleFocusChanged);
+  }
+
+  @override
+  void dispose() {
+    _focusNode
+      ..removeListener(_handleFocusChanged)
+      ..dispose();
+    super.dispose();
+  }
+
+  void _handleFocusChanged() {
+    if (_isFocused == _focusNode.hasFocus) return;
+    setState(() => _isFocused = _focusNode.hasFocus);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Container(
+    return AnimatedContainer(
+      duration: JuriiMotion.fast,
+      curve: JuriiMotion.ease,
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppTheme.card,
-        border: Border(top: BorderSide(color: AppTheme.divider)),
-      ),
-      child: Row(
-        children: [
-          _PlusMenuButton(
-            isOpen: isPlusMenuOpen,
-            showDot: showTriageDot,
-            isBusy: isUploadingAttachment,
-            enabled: !isSending,
-            onPressed: onTogglePlusMenu,
+        border: Border(
+          top: BorderSide(
+            color: widget.isPlusMenuOpen
+                ? AppTheme.lightBlueBorder
+                : AppTheme.divider,
           ),
-          Expanded(
-            child: TextField(
-              controller: controller,
-              minLines: 1,
-              maxLines: 4,
-              decoration: InputDecoration(
-                hintText: isLawyer
-                    ? 'Responder ao cliente'
-                    : 'Mensagem para o escritório',
-                filled: true,
-                fillColor: AppTheme.background,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 12,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(18),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-              onSubmitted: (_) => onSend(),
+        ),
+        boxShadow: [
+          if (_isFocused || widget.isPlusMenuOpen)
+            BoxShadow(
+              color: AppTheme.primary.withValues(alpha: 0.08),
+              blurRadius: 20,
+              offset: const Offset(0, -8),
             ),
-          ),
-          const SizedBox(width: 8),
-          SizedBox(
-            width: 44,
-            height: 44,
-            child: ElevatedButton(
-              onPressed: isSending ? null : onSend,
-              style: ElevatedButton.styleFrom(
-                padding: EdgeInsets.zero,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-              ),
-              child: isSending
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                        color: AppTheme.card,
-                        strokeWidth: 2,
-                      ),
-                    )
-                  : const Icon(Icons.send, size: 18),
-            ),
-          ),
         ],
+      ),
+      child: ValueListenableBuilder<TextEditingValue>(
+        valueListenable: widget.controller,
+        builder: (context, value, _) {
+          final hasText = value.text.trim().isNotEmpty;
+          final canSend = hasText && !widget.isSending;
+
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              _PlusMenuButton(
+                isOpen: widget.isPlusMenuOpen,
+                showDot: widget.showTriageDot,
+                isBusy: widget.isUploadingAttachment,
+                enabled: !widget.isSending,
+                onPressed: widget.onTogglePlusMenu,
+              ),
+              Expanded(
+                child: AnimatedContainer(
+                  duration: JuriiMotion.fast,
+                  curve: JuriiMotion.ease,
+                  decoration: BoxDecoration(
+                    color: AppTheme.background,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(
+                      color: _isFocused
+                          ? AppTheme.primary
+                          : AppTheme.background,
+                      width: _isFocused ? 1.3 : 1,
+                    ),
+                  ),
+                  child: TextField(
+                    focusNode: _focusNode,
+                    controller: widget.controller,
+                    minLines: 1,
+                    maxLines: 4,
+                    decoration: InputDecoration(
+                      hintText: widget.isLawyer
+                          ? 'Responder ao cliente'
+                          : 'Mensagem para o escritório',
+                      filled: false,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
+                      ),
+                      border: InputBorder.none,
+                    ),
+                    onSubmitted: (_) => widget.onSend(),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              AnimatedOpacity(
+                duration: JuriiMotion.fast,
+                curve: JuriiMotion.ease,
+                opacity: canSend || widget.isSending ? 1 : 0.56,
+                child: JuriiPressable(
+                  onTap: widget.isSending ? null : widget.onSend,
+                  borderRadius: BorderRadius.circular(14),
+                  pressedScale: 0.95,
+                  semanticLabel: 'Enviar mensagem',
+                  child: AnimatedContainer(
+                    duration: JuriiMotion.fast,
+                    curve: JuriiMotion.ease,
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: canSend || widget.isSending
+                          ? AppTheme.primary
+                          : AppTheme.lightBlueBorder,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Center(
+                      child: widget.isSending
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                color: AppTheme.card,
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Icon(
+                              Icons.send,
+                              color: AppTheme.card,
+                              size: 18,
+                            ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -1894,19 +2010,27 @@ class _PlusMenuSheet extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: _PlusMenuOption(
-              icon: Icons.attach_file,
-              label: 'Anexar arquivo',
-              onTap: onAttach,
+            child: JuriiStaggeredItem(
+              index: 0,
+              beginOffset: const Offset(0, 8),
+              child: _PlusMenuOption(
+                icon: Icons.attach_file,
+                label: 'Anexar arquivo',
+                onTap: onAttach,
+              ),
             ),
           ),
           if (showTriage) ...[
             const SizedBox(width: 10),
             Expanded(
-              child: _PlusMenuOption(
-                icon: Icons.auto_awesome,
-                label: 'Triagem com IA',
-                onTap: onTriage,
+              child: JuriiStaggeredItem(
+                index: 1,
+                beginOffset: const Offset(0, 8),
+                child: _PlusMenuOption(
+                  icon: Icons.auto_awesome,
+                  label: 'Triagem com IA',
+                  onTap: onTriage,
+                ),
               ),
             ),
           ],
@@ -1931,12 +2055,19 @@ class _PlusMenuOption extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.jColors;
 
-    return Material(
-      color: colors.background,
+    return JuriiPressable(
+      onTap: onTap,
       borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
+      pressedScale: 0.97,
+      semanticLabel: label,
+      child: AnimatedContainer(
+        duration: JuriiMotion.fast,
+        curve: JuriiMotion.ease,
+        decoration: BoxDecoration(
+          color: colors.background,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: colors.lightBlueBorder),
+        ),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 12),
           child: Column(
@@ -1988,42 +2119,63 @@ class _PlusMenuButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.jColors;
+    final canTap = enabled && !isBusy;
 
     return Stack(
+      clipBehavior: Clip.none,
       children: [
-        IconButton(
-          onPressed: enabled && !isBusy ? onPressed : null,
-          tooltip: isOpen ? 'Fechar opções' : 'Mais opções',
-          icon: isBusy
-              ? SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(
-                    color: colors.primary,
-                    strokeWidth: 2,
+        AnimatedContainer(
+          duration: JuriiMotion.fast,
+          curve: JuriiMotion.ease,
+          decoration: BoxDecoration(
+            color: isOpen ? colors.lightGold : Colors.transparent,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: IconButton(
+            onPressed: canTap ? onPressed : null,
+            tooltip: isOpen ? 'Fechar opções' : 'Mais opções',
+            icon: isBusy
+                ? SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      color: colors.primary,
+                      strokeWidth: 2,
+                    ),
+                  )
+                : AnimatedRotation(
+                    // 45°: o "+" vira "×" (fechar). Um quarto de volta literal
+                    // deixaria o ícone idêntico ao estado inicial.
+                    turns: isOpen ? 0.125 : 0,
+                    duration: JuriiMotion.fast,
+                    curve: JuriiMotion.ease,
+                    child: Icon(
+                      Icons.add,
+                      color: isOpen ? colors.accent : colors.primary,
+                    ),
                   ),
-                )
-              : AnimatedRotation(
-                  // 45°: o "+" vira "×" (fechar). Um quarto de volta literal
-                  // deixaria o ícone idêntico ao estado inicial.
-                  turns: isOpen ? 0.125 : 0,
-                  duration: const Duration(milliseconds: 220),
-                  curve: Curves.easeOutCubic,
-                  child: const Icon(Icons.add),
-                ),
+          ),
         ),
         if (showDot && !isBusy)
           Positioned(
-            top: 9,
-            right: 9,
+            top: 8,
+            right: 8,
             child: IgnorePointer(
-              child: Container(
-                width: 9,
-                height: 9,
-                decoration: BoxDecoration(
-                  color: colors.accent,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: colors.card, width: 1.5),
+              child: JuriiPulse(
+                child: Container(
+                  width: 9,
+                  height: 9,
+                  decoration: BoxDecoration(
+                    color: colors.accent,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: colors.card, width: 1.5),
+                    boxShadow: [
+                      BoxShadow(
+                        color: colors.accent.withValues(alpha: 0.28),
+                        blurRadius: 10,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),

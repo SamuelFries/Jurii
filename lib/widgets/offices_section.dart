@@ -6,6 +6,7 @@ import '../repositories/law_firm_repository.dart';
 import '../screens/law_firm_profile_screen.dart';
 import '../services/supabase_config.dart';
 import '../theme/app_theme.dart';
+import 'jurii_empty_state.dart';
 import 'jurii_motion.dart';
 import 'office_card.dart';
 
@@ -170,20 +171,12 @@ class _EmptyOfficesState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppTheme.card,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.lightBlueBorder),
-      ),
-      child: const Text(
-        'Nenhum escritório encontrado',
-        style: TextStyle(
-          color: AppTheme.textSecondary,
-          fontWeight: FontWeight.w700,
-        ),
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 8),
+      child: JuriiEmptyState(
+        icon: Icons.apartment_outlined,
+        title: 'Nenhum escritório encontrado',
+        message: 'Ajuste a busca ou tente novamente em alguns instantes.',
       ),
     );
   }

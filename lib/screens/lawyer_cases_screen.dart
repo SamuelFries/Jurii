@@ -4,6 +4,7 @@ import '../models/lawyer_case.dart';
 import '../repositories/case_repository.dart';
 import '../services/supabase_config.dart';
 import '../theme/app_theme.dart';
+import '../widgets/jurii_empty_state.dart';
 import '../widgets/jurii_motion.dart';
 import '../widgets/lawyer_case_card.dart';
 import 'case_details_screen.dart';
@@ -161,43 +162,12 @@ class _EmptyCasesState extends StatelessWidget {
 
           const Spacer(),
 
-          Center(
-            child: Column(
-              children: [
-                Container(
-                  width: 96,
-                  height: 96,
-                  decoration: BoxDecoration(
-                    color: AppTheme.lightBlue,
-                    borderRadius: BorderRadius.circular(48),
-                  ),
-                  child: const Icon(
-                    Icons.folder_open_outlined,
-                    size: 42,
-                    color: AppTheme.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                const Text(
-                  'Nenhum caso ativo',
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.textPrimary,
-                    decoration: TextDecoration.none,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                const Text(
+          const Center(
+            child: JuriiEmptyState(
+              icon: Icons.folder_open_outlined,
+              title: 'Nenhum caso ativo',
+              message:
                   'Quando você aceitar um cliente, os casos aparecerão aqui.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: AppTheme.textSecondary,
-                    fontSize: 15,
-                    decoration: TextDecoration.none,
-                  ),
-                ),
-              ],
             ),
           ),
 

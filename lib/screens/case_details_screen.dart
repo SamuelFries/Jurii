@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../models/case_update.dart';
 import '../repositories/case_repository.dart';
 import '../theme/app_theme.dart';
+import '../widgets/jurii_empty_state.dart';
+import '../widgets/jurii_motion.dart';
 
 class CaseDetailsScreen extends StatefulWidget {
   const CaseDetailsScreen({
@@ -116,10 +118,8 @@ class _CaseDetailsScreenState extends State<CaseDetailsScreen> {
                 if (snapshot.connectionState == ConnectionState.waiting &&
                     updates == null)
                   const Padding(
-                    padding: EdgeInsets.only(top: 32),
-                    child: Center(
-                      child: CircularProgressIndicator(color: AppTheme.primary),
-                    ),
+                    padding: EdgeInsets.only(top: 8),
+                    child: JuriiSkeletonList(itemCount: 3, itemHeight: 96),
                   )
                 else if (snapshot.hasError)
                   _UpdatesErrorState(
@@ -133,8 +133,14 @@ class _CaseDetailsScreenState extends State<CaseDetailsScreen> {
                   const _EmptyUpdatesState()
                 else
                   for (var index = 0; index < updates.length; index++) ...[
-                    _CaseUpdateCard(update: updates[index]),
-                    if (index < updates.length - 1) const SizedBox(height: 12),
+                    JuriiStaggeredItem(
+                      key: ValueKey('case_update_${updates[index].id}'),
+                      index: index,
+                      child: _CaseUpdateTimelineItem(
+                        update: updates[index],
+                        isLast: index == updates.length - 1,
+                      ),
+                    ),
                   ],
               ],
             );
@@ -188,6 +194,56 @@ class _CaseHeader extends StatelessWidget {
             style: const TextStyle(
               color: AppTheme.textSecondary,
               fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CaseUpdateTimelineItem extends StatelessWidget {
+  const _CaseUpdateTimelineItem({required this.update, required this.isLast});
+
+  final CaseUpdate update;
+  final bool isLast;
+
+  @override
+  Widget build(BuildContext context) {
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Column(
+            children: [
+              Container(
+                width: 12,
+                height: 12,
+                margin: const EdgeInsets.only(top: 18),
+                decoration: BoxDecoration(
+                  color: AppTheme.accent,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppTheme.lightGoldBorder, width: 2),
+                ),
+              ),
+              if (!isLast)
+                Expanded(
+                  child: Container(
+                    width: 2,
+                    margin: const EdgeInsets.symmetric(vertical: 6),
+                    decoration: BoxDecoration(
+                      color: AppTheme.lightBlueBorder,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.only(bottom: isLast ? 0 : 12),
+              child: _CaseUpdateCard(update: update),
             ),
           ),
         ],
@@ -327,20 +383,12 @@ class _EmptyUpdatesState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: AppTheme.card,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.lightBlueBorder),
-      ),
-      child: const Text(
-        'Nenhuma atualização registrada neste caso.',
-        style: TextStyle(
-          color: AppTheme.textSecondary,
-          fontWeight: FontWeight.w700,
-        ),
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 16),
+      child: JuriiEmptyState(
+        icon: Icons.timeline_outlined,
+        title: 'Nenhuma atualização registrada',
+        message: 'As movimentações importantes deste caso aparecerão aqui.',
       ),
     );
   }

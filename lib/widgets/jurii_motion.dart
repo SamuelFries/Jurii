@@ -174,6 +174,96 @@ class JuriiStaggeredItem extends StatelessWidget {
   }
 }
 
+class JuriiPulse extends StatefulWidget {
+  const JuriiPulse({
+    super.key,
+    required this.child,
+    this.enabled = true,
+    this.minScale = 0.94,
+    this.maxScale = 1.08,
+    this.duration = const Duration(milliseconds: 1300),
+  });
+
+  final Widget child;
+  final bool enabled;
+  final double minScale;
+  final double maxScale;
+  final Duration duration;
+
+  @override
+  State<JuriiPulse> createState() => _JuriiPulseState();
+}
+
+class _JuriiPulseState extends State<JuriiPulse>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: widget.duration,
+  );
+  late Animation<double> _animation = _createAnimation();
+
+  @override
+  void initState() {
+    super.initState();
+    _syncController();
+  }
+
+  @override
+  void didUpdateWidget(covariant JuriiPulse oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.duration != widget.duration) {
+      _controller.duration = widget.duration;
+    }
+    if (oldWidget.minScale != widget.minScale ||
+        oldWidget.maxScale != widget.maxScale) {
+      _animation = _createAnimation();
+    }
+    _syncController();
+  }
+
+  void _syncController() {
+    if (widget.enabled) {
+      if (!_controller.isAnimating) _controller.forward(from: 0);
+    } else {
+      _controller
+        ..stop()
+        ..value = 0;
+    }
+  }
+
+  Animation<double> _createAnimation() {
+    return TweenSequence<double>([
+      TweenSequenceItem(
+        tween: Tween(
+          begin: widget.minScale,
+          end: widget.maxScale,
+        ).chain(CurveTween(curve: JuriiMotion.ease)),
+        weight: 46,
+      ),
+      TweenSequenceItem(
+        tween: Tween(
+          begin: widget.maxScale,
+          end: 1.0,
+        ).chain(CurveTween(curve: JuriiMotion.ease)),
+        weight: 54,
+      ),
+    ]).animate(_controller);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!widget.enabled || JuriiMotion.disabled(context)) return widget.child;
+
+    return ScaleTransition(scale: _animation, child: widget.child);
+  }
+}
+
 class JuriiAnimatedCounter extends StatefulWidget {
   const JuriiAnimatedCounter({
     super.key,

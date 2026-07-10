@@ -6,6 +6,7 @@ import '../models/cases.dart';
 import '../repositories/case_repository.dart';
 import '../services/supabase_config.dart';
 import '../theme/app_theme.dart';
+import '../widgets/jurii_empty_state.dart';
 import '../widgets/jurii_motion.dart';
 import 'case_details_screen.dart';
 
@@ -487,48 +488,13 @@ class _EmptyCasesState extends StatelessWidget {
           const Spacer(),
 
           Center(
-            child: Column(
-              children: [
-                Container(
-                  width: 96,
-                  height: 96,
-                  decoration: BoxDecoration(
-                    color: AppTheme.lightBlue,
-                    borderRadius: BorderRadius.circular(48),
-                  ),
-                  child: const Icon(
-                    Icons.folder_open_outlined,
-                    size: 42,
-                    color: AppTheme.textSecondary,
-                  ),
-                ),
-
-                const SizedBox(height: 24),
-
-                const Text(
-                  'Nenhum caso iniciado',
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.textPrimary,
-                  ),
-                ),
-
-                const SizedBox(height: 12),
-
-                const Text(
+            child: JuriiEmptyState(
+              icon: Icons.folder_open_outlined,
+              title: 'Nenhum caso iniciado',
+              message:
                   'Quando você solicitar atendimento a um escritório, seus casos aparecerão aqui.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: AppTheme.textSecondary, fontSize: 15),
-                ),
-
-                const SizedBox(height: 24),
-
-                ElevatedButton(
-                  onPressed: onFindLawFirms,
-                  child: const Text('Encontrar Escritórios'),
-                ),
-              ],
+              actionLabel: 'Encontrar Escritórios',
+              onAction: onFindLawFirms,
             ),
           ),
 

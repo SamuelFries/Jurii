@@ -7,6 +7,7 @@ import '../models/firm_workspace.dart';
 import '../repositories/case_repository.dart';
 import '../services/supabase_config.dart';
 import '../theme/app_theme.dart';
+import '../widgets/jurii_empty_state.dart';
 import '../widgets/jurii_motion.dart';
 import 'case_details_screen.dart';
 
@@ -222,20 +223,16 @@ class _EmptyFirmCasesState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: AppTheme.card,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.officePurpleBorder),
-      ),
-      child: const Text(
-        'Nenhum caso encontrado para este escritório.',
-        style: TextStyle(
-          color: AppTheme.textSecondary,
-          fontWeight: FontWeight.w700,
-        ),
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 20),
+      child: JuriiEmptyState(
+        icon: Icons.business_center_outlined,
+        title: 'Nenhum caso encontrado',
+        message:
+            'Quando o escritório iniciar atendimentos, eles aparecerão aqui.',
+        accentColor: AppTheme.officePurple,
+        surfaceColor: AppTheme.officePurpleSurface,
+        borderColor: AppTheme.officePurpleBorder,
       ),
     );
   }

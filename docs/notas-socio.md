@@ -274,6 +274,26 @@ proximos melhores alvos sao: animar bolhas novas do chat, melhorar a transicao
 conversa -> resumo da triagem IA, animar badge/sheet de notificacoes e trocar
 spinners restantes por skeletons.
 
+Continuidade da frente de design em 10/07/2026:
+
+- criei `lib/widgets/jurii_empty_state.dart` com um empty state reutilizavel e
+  apliquei em mensagens, casos, agenda, recomendacoes, chat vazio, notificacoes
+  vazias e updates vazios;
+- adicionei `JuriiPulse` em `lib/widgets/jurii_motion.dart`;
+- melhorei o `ChatScreen`: skeleton no carregamento, entrada animada de bolhas,
+  composer com foco animado, botao de envio responsivo, `+` com pulso/rotacao e
+  menu de opcoes em cascata;
+- a transicao conversa -> triagem IA agora usa fade/slide curto;
+- tiles de anexo dentro do chat ganharam press feedback;
+- `NotificationBell` ganhou badge animado/pulsante e itens da sheet em cascata;
+- `CaseDetailsScreen` ganhou skeleton no loading de updates e timeline visual
+  com linha/ponto de progresso.
+
+Com isso, os itens de maior impacto visual listados para chat, notificacoes,
+empty states e timeline de caso foram enderecados. O restante da frente ficou
+mais ligado a formularios/login/cadastro, consolidacao de wrappers e ajustes de
+responsividade.
+
 ## Pendencias depois desta rodada
 
 As maiores pendencias restantes em seguranca/LGPD estao documentadas em

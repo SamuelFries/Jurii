@@ -7,6 +7,7 @@ import '../repositories/messaging_repository.dart';
 import '../services/supabase_config.dart';
 import '../theme/app_theme.dart';
 import '../widgets/conversation_card.dart';
+import '../widgets/jurii_empty_state.dart';
 import '../widgets/jurii_motion.dart';
 import 'chat_screen.dart';
 
@@ -189,20 +190,16 @@ class _EmptyFirmMessagesState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: AppTheme.card,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.officePurpleBorder),
-      ),
-      child: const Text(
-        'Nenhuma conversa encontrada para este escritório.',
-        style: TextStyle(
-          color: AppTheme.textSecondary,
-          fontWeight: FontWeight.w700,
-        ),
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 20),
+      child: JuriiEmptyState(
+        icon: Icons.mark_chat_unread_outlined,
+        title: 'Nenhuma conversa encontrada',
+        message:
+            'As conversas do escritório com clientes e equipe aparecerão aqui.',
+        accentColor: AppTheme.officePurple,
+        surfaceColor: AppTheme.officePurpleSurface,
+        borderColor: AppTheme.officePurpleBorder,
       ),
     );
   }
