@@ -278,3 +278,85 @@ supabase functions deploy delete-account --project-ref rlgtgipxltucrtkyrmag --us
 ```
 
 3. testar com uma conta descartavel confirmada antes de usar em conta real.
+
+## Revisao da branch e correcao do grant de id (patch 045)
+
+Atualizado em: 06/07/2026
+Branch revisada: `feat/AI` (= `feat/auditoriaLLM` + patch_043 + LGPD/exclusao + politica/termos).
+
+Fiz uma revisao completa da branch, como code review de terceiro. Validacoes
+locais: `flutter analyze` limpo e `flutter test` com 37 testes passando. Li os
+arquivos de maior risco (patches 041 a 044, `main.dart`, repositorios de
+mensagens/notificacao/escritorio, `intake_ai_service.dart`, a Edge Function
+`delete-account` e as telas de politica/termos). Avaliacao geral positiva.
+
+### Bug confirmado em runtime: upsert de profiles bloqueado (403)
+
+Suspeitei de uma interacao entre o hardening do patch_041 e o upsert do app.
+O patch_041 revogou UPDATE amplo em `public.profiles` e concedeu UPDATE apenas
+em `(full_name, email, initials, cpf, phone, avatar_url)` — `id` ficou com grant
+de INSERT mas nao de UPDATE. Como o app faz `.upsert()` em profiles enviando
+`id` (`profile_repository.dart`), o PostgREST gera
+`INSERT ... ON CONFLICT (id) DO UPDATE SET ..., id = EXCLUDED.id`, e o ramo de
+UPDATE toca `id` sem privilegio.
+
+Testei de verdade contra o `jurii-prod` (nao dava para provar so aplicando o
+patch: rodar SQL pela CLI e superuser e nao passa pelos grants). Criei um usuario
+confirmado via Admin API, loguei para pegar o JWT e repeti o mesmo upsert como
+role `authenticated`:
+
+- Antes: `POST /rest/v1/profiles` (Prefer: resolution=merge-duplicates)
+  retornou `403` / `42501 permission denied for table profiles`; cpf/phone nao
+  persistiram.
+
+Severidade real e BAIXA hoje: a trigger `handle_new_auth_user` (patch_003,
+SECURITY DEFINER) grava full_name/email/initials/cpf no cadastro sem passar por
+grants, e o `signUp` manda cpf no metadata — entao o CPF persiste pela trigger,
+nao pelo upsert. Nao ha outra tela do app que escreva em profiles. O caminho de
+upsert fica morto: uma futura tela de editar perfil (telefone/avatar/nome)
+falharia em silencio, porque o app engole o erro em try/catch.
+
+### Correcao aplicada: patch_045
+
+Criei e apliquei `supabase/patch_045_profiles_id_update_grant.sql`:
+
+```sql
+grant update (id) on public.profiles to authenticated;
+```
+
+E seguro porque a policy `profiles_update_own` ja e
+`using (id = auth.uid()) with check (id = auth.uid())` — conceder UPDATE em `id`
+nao permite repontar a linha para outro usuario; o `SET id = EXCLUDED.id` vira
+no-op.
+
+Aplicado em 06/07/2026 via:
+
+```bash
+supabase --output-format text db query --linked --file supabase/patch_045_profiles_id_update_grant.sql
+```
+
+Re-rodei o mesmo teste depois do patch:
+
+- Depois: o upsert retornou `200`, e a linha voltou com
+  `cpf = 52998224725` e `phone = 11999998888` persistidos.
+
+Os dois usuarios de teste foram removidos (profiles + auth) ao fim de cada
+execucao. O script de reproducao ficou no scratchpad da sessao
+(`test_grant_id.sh`).
+
+### Outras observacoes da revisao (nao bloqueantes)
+
+- Edge Function `delete-account`: identidade vem do JWT validado (nunca do body),
+  service_role so no ambiente, auditoria e fail-closed no Storage — bem feita.
+  Pendencias: (1) o caminho destrutivo (POST real) ainda nao rodou ponta a ponta;
+  (2) LGPD — `banUser` bane mas nao apaga `auth.users`, entao o e-mail original
+  persiste no Auth (so o `profiles.email` e anonimizado); decidir entre banir ou
+  deletar/limpar o e-mail; (3) a operacao nao e atomica (Storage -> soft-delete
+  -> ban), mitigada pelo guard de `deleted_at` no app + retry idempotente.
+- `lawyer_home_screen`: a secao "Hoje" filtra compromissos por
+  `dateLabel == 'Hoje'` (string), acoplada ao texto de `appointment_repository`;
+  melhor comparar data/`isToday`.
+- `firm_workspace_repository`: os fallbacks de compatibilidade de schema usam
+  `catch (_)` cego, que tambem engole erro de rede; ao menos logar.
+- Dark mode: `darkTheme` foi construido mas nunca e exercitado (sem toggle, nem
+  de dev) — risco de apodrecer sem ninguem notar quebras.

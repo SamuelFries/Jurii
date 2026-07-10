@@ -26,14 +26,32 @@ A implementação `RuleBasedIntakeAIService`:
 
 Isso permite demonstrar e validar o fluxo com usuários **sem chave de IA**.
 
-## Fluxo de produto proposto
+## Fluxo de produto (decidido em jul/2026, implementado)
 
-1. Cliente toca "Buscar ajuda" → abre chat de triagem com a assistente.
-2. Assistente coleta o relato (modelo acima ou LLM no futuro).
-3. Ao final, o app mostra o resumo ao cliente e pede **consentimento
-   explícito** para enviar ao advogado/escritório escolhido (LGPD).
-4. O `LawyerOverview` chega ao advogado como primeira mensagem da conversa
-   (sender_type `system`, via RPC) ou como card na solicitação de caso.
+**A triagem acontece DEPOIS que o cliente escolheu o advogado/escritório**,
+dentro da conversa já iniciada. Decisão de negócio: a triagem não pode
+acontecer antes da escolha para não interferir na captação de clientes
+(advogados/escritórios pagarão para ser listados no topo). O papel da IA é
+ajudar o **profissional** a avaliar se o caso tem fundamento e se vale
+aceitar.
+
+Como funciona no app (`lib/screens/chat_screen.dart`):
+
+1. **Conversa nova (sem histórico)**: banner "Comece com uma triagem guiada"
+   no topo do chat (somente para o cliente).
+2. **Conversa com histórico ou banner ignorado**: a triagem vive no botão
+   **"+"** do composer (que substituiu o clipes). O "+" gira ao abrir e sobe
+   um menu em slide com "Anexar arquivo" e "Triagem com IA".
+3. Se o cliente ignora o banner e envia a primeira mensagem, aparece uma
+   dica transitória ("A triagem com a assistente está no botão +") e um
+   ponto dourado sutil no "+" até ele abrir o menu.
+4. A triagem roda localmente (`IntakeScreen`, rule-based) e, ao final, o
+   cliente revisa o resumo e decide **enviá-lo como mensagem na conversa**
+   ("Enviar resumo ao advogado/escritório"). O envio é a única saída do
+   relato e só ocorre por ação explícita — nada é persistido pela triagem
+   em si.
+5. O advogado recebe o `LawyerOverview` formatado como mensagem do cliente
+   e usa isso para avaliar o caso.
 
 ## Integração futura com LLM (sem chave no app)
 
