@@ -16,9 +16,12 @@ import '../repositories/law_firm_repository.dart';
 import '../repositories/lawyer_profile_repository.dart';
 import '../repositories/messaging_repository.dart';
 import '../repositories/profile_repository.dart';
+import '../services/intake_ai_service.dart';
 import '../services/supabase_config.dart';
+import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import 'client_profile_screen.dart';
+import 'intake_screen.dart';
 import 'law_firm_profile_screen.dart';
 import 'lawyer_profile_screen.dart';
 
@@ -27,18 +30,23 @@ class ChatScreen extends StatefulWidget {
   final bool isLawyer;
   final bool canRequestCase;
 
+  /// Serviço da triagem IA (injetável para testes; default via factory).
+  final IntakeAIService? intakeService;
+
   const ChatScreen({
     super.key,
     required this.conversation,
     required this.isLawyer,
     this.canRequestCase = true,
+    this.intakeService,
   });
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends State<ChatScreen> {
+class _ChatScreenState extends State<ChatScreen>
+    with SingleTickerProviderStateMixin {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final MessagingRepository _repository = const MessagingRepository();
@@ -58,7 +66,31 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _isCreatingCaseRequest = false;
   String? _respondingCaseRequestId;
 
+  // Menu do botão "+" (anexo/triagem) e dica sutil da triagem.
+  late final AnimationController _plusMenuController = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 220),
+  );
+  late final CurvedAnimation _plusMenuAnimation = CurvedAnimation(
+    parent: _plusMenuController,
+    curve: Curves.easeOutCubic,
+    reverseCurve: Curves.easeInCubic,
+  );
+  bool _isPlusMenuOpen = false;
+  bool _showTriageHint = false;
+  bool _triageHintShown = false;
+  bool _triageDotVisible = false;
+  Timer? _triageHintTimer;
+
   bool get _usesSupabase => widget.conversation.id != null;
+
+  /// Banner de triagem: só para o cliente, apenas em conversa nova
+  /// (sem nenhum histórico) — depois disso a triagem vive no botão "+".
+  bool get _showTriageBanner =>
+      !widget.isLawyer && !_isLoading && !_loadFailed && _messages.isEmpty;
+
+  String get _triageCounterpartLabel =>
+      widget.conversation.type == 'client_lawyer' ? 'advogado' : 'escritório';
 
   @override
   void initState() {
@@ -73,6 +105,9 @@ class _ChatScreenState extends State<ChatScreen> {
     if (channel != null && SupabaseConfig.isReady) {
       SupabaseConfig.client.removeChannel(channel);
     }
+    _triageHintTimer?.cancel();
+    _plusMenuAnimation.dispose();
+    _plusMenuController.dispose();
     _scrollController.dispose();
     _messageController.dispose();
     super.dispose();
@@ -188,6 +223,15 @@ class _ChatScreenState extends State<ChatScreen> {
     if (text.isEmpty || _isSending) return;
 
     _messageController.clear();
+    await _sendText(text);
+  }
+
+  Future<void> _sendText(String text, {bool countsAsBannerIgnored = true}) async {
+    if (text.isEmpty || _isSending) return;
+
+    // O banner some com a primeira mensagem; se ele estava visível e o cliente
+    // preferiu escrever direto, mostramos a dica de que a triagem mora no "+".
+    final ignoredTriageBanner = countsAsBannerIgnored && _showTriageBanner;
 
     if (!_usesSupabase) {
       _appendMessage(
@@ -200,6 +244,7 @@ class _ChatScreenState extends State<ChatScreen> {
           read: false,
         ),
       );
+      _maybeShowTriageHint(ignoredTriageBanner);
       return;
     }
 
@@ -213,6 +258,7 @@ class _ChatScreenState extends State<ChatScreen> {
       if (!mounted) return;
       _appendMessage(message);
       setState(() => _isSending = false);
+      _maybeShowTriageHint(ignoredTriageBanner);
     } catch (error) {
       debugPrint('Supabase message send failed: $error');
       if (!mounted) return;
@@ -225,6 +271,66 @@ class _ChatScreenState extends State<ChatScreen> {
         _messageController.text = text;
       }
     }
+  }
+
+  void _togglePlusMenu() {
+    setState(() {
+      _isPlusMenuOpen = !_isPlusMenuOpen;
+      if (_isPlusMenuOpen) {
+        // Abriu o menu: a triagem foi "descoberta", dica e ponto saem de cena.
+        _triageDotVisible = false;
+        _showTriageHint = false;
+        _triageHintTimer?.cancel();
+        _plusMenuController.forward();
+      } else {
+        _plusMenuController.reverse();
+      }
+    });
+  }
+
+  void _closePlusMenu() {
+    if (_isPlusMenuOpen) _togglePlusMenu();
+  }
+
+  void _maybeShowTriageHint(bool ignoredTriageBanner) {
+    if (!ignoredTriageBanner ||
+        _triageHintShown ||
+        widget.isLawyer ||
+        !mounted) {
+      return;
+    }
+    _triageHintShown = true;
+    setState(() {
+      _showTriageHint = true;
+      _triageDotVisible = true;
+    });
+    _triageHintTimer?.cancel();
+    _triageHintTimer = Timer(const Duration(seconds: 6), () {
+      if (mounted) setState(() => _showTriageHint = false);
+    });
+  }
+
+  /// Abre a triagem com a assistente e, se o cliente confirmar no resumo,
+  /// envia a overview como mensagem nesta conversa — é assim que o
+  /// advogado/escritório recebe o caso organizado para avaliar.
+  Future<void> _startTriage() async {
+    _closePlusMenu();
+
+    final result = await Navigator.of(context).push<IntakeChatResult>(
+      MaterialPageRoute(
+        builder: (_) => IntakeScreen(
+          service: widget.intakeService,
+          counterpartLabel: _triageCounterpartLabel,
+        ),
+      ),
+    );
+
+    if (!mounted || result == null) return;
+    // Enviar o resumo é usar a triagem — não conta como "ignorou o banner".
+    await _sendText(
+      'Triagem da assistente Jurii\n\n${result.overviewText}',
+      countsAsBannerIgnored: false,
+    );
   }
 
   Future<void> _sendAttachment() async {
@@ -286,6 +392,7 @@ class _ChatScreenState extends State<ChatScreen> {
       return;
     }
 
+    final ignoredTriageBanner = _showTriageBanner;
     setState(() => _isUploadingAttachment = true);
     try {
       final message = await _repository.sendAttachment(
@@ -299,6 +406,7 @@ class _ChatScreenState extends State<ChatScreen> {
       );
       if (!mounted) return;
       _appendMessage(message);
+      _maybeShowTriageHint(ignoredTriageBanner);
     } catch (error) {
       debugPrint('Supabase attachment send failed: $error');
       if (!mounted) return;
@@ -778,6 +886,16 @@ class _ChatScreenState extends State<ChatScreen> {
       body: SafeArea(
         child: Column(
           children: [
+            AnimatedSize(
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeOutCubic,
+              child: _showTriageBanner
+                  ? _TriageBanner(
+                      counterpartLabel: _triageCounterpartLabel,
+                      onTap: _startTriage,
+                    )
+                  : const SizedBox(width: double.infinity),
+            ),
             Expanded(
               child: _isLoading
                   ? const Center(
@@ -816,13 +934,55 @@ class _ChatScreenState extends State<ChatScreen> {
                       },
                     ),
             ),
+            AnimatedSize(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOutCubic,
+              child: _showTriageHint
+                  ? const _TriageHintChip()
+                  : const SizedBox(width: double.infinity),
+            ),
+            // Menu do "+": abre deslizando para cima, junto do composer.
+            // Fora da árvore quando fechado (não fica "invisível" clicável).
+            AnimatedBuilder(
+              animation: _plusMenuController,
+              builder: (context, _) {
+                if (_plusMenuController.isDismissed) {
+                  return const SizedBox(width: double.infinity);
+                }
+                return ClipRect(
+                  child: SizeTransition(
+                    sizeFactor: _plusMenuAnimation,
+                    alignment: Alignment.bottomCenter,
+                    child: SlideTransition(
+                      position: Tween<Offset>(
+                        begin: const Offset(0, 0.35),
+                        end: Offset.zero,
+                      ).animate(_plusMenuAnimation),
+                      child: FadeTransition(
+                        opacity: _plusMenuAnimation,
+                        child: _PlusMenuSheet(
+                          showTriage: !widget.isLawyer,
+                          onAttach: () {
+                            _closePlusMenu();
+                            _sendAttachment();
+                          },
+                          onTriage: _startTriage,
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
             _Composer(
               controller: _messageController,
               isLawyer: widget.isLawyer,
               isSending: _isSending,
               isUploadingAttachment: _isUploadingAttachment,
+              isPlusMenuOpen: _isPlusMenuOpen,
+              showTriageDot: _triageDotVisible,
               onSend: _sendMessage,
-              onAttach: _sendAttachment,
+              onTogglePlusMenu: _togglePlusMenu,
             ),
           ],
         ),
@@ -1500,16 +1660,20 @@ class _Composer extends StatelessWidget {
   final bool isLawyer;
   final bool isSending;
   final bool isUploadingAttachment;
+  final bool isPlusMenuOpen;
+  final bool showTriageDot;
   final VoidCallback onSend;
-  final VoidCallback onAttach;
+  final VoidCallback onTogglePlusMenu;
 
   const _Composer({
     required this.controller,
     required this.isLawyer,
     required this.isSending,
     required this.isUploadingAttachment,
+    required this.isPlusMenuOpen,
+    required this.showTriageDot,
     required this.onSend,
-    required this.onAttach,
+    required this.onTogglePlusMenu,
   });
 
   @override
@@ -1522,19 +1686,12 @@ class _Composer extends StatelessWidget {
       ),
       child: Row(
         children: [
-          IconButton(
-            onPressed: isUploadingAttachment || isSending ? null : onAttach,
-            icon: isUploadingAttachment
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                      color: AppTheme.primary,
-                      strokeWidth: 2,
-                    ),
-                  )
-                : const Icon(Icons.attach_file),
-            tooltip: 'Anexar',
+          _PlusMenuButton(
+            isOpen: isPlusMenuOpen,
+            showDot: showTriageDot,
+            isBusy: isUploadingAttachment,
+            enabled: !isSending,
+            onPressed: onTogglePlusMenu,
           ),
           Expanded(
             child: TextField(
@@ -1585,6 +1742,293 @@ class _Composer extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Banner exibido no topo de uma conversa nova (sem histórico), convidando o
+/// cliente a fazer a triagem guiada antes da primeira mensagem.
+class _TriageBanner extends StatelessWidget {
+  const _TriageBanner({required this.counterpartLabel, required this.onTap});
+
+  final String counterpartLabel;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.jColors;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      child: Material(
+        color: colors.lightGold,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: colors.lightGoldBorder),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: colors.card,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    Icons.auto_awesome,
+                    color: colors.accent,
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Comece com uma triagem guiada',
+                        style: TextStyle(
+                          color: colors.textPrimary,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        'A assistente organiza seu relato para o '
+                        '$counterpartLabel avaliar seu caso mais rápido.',
+                        style: TextStyle(
+                          color: colors.textSecondary,
+                          fontSize: 12,
+                          height: 1.3,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Icon(Icons.chevron_right, color: colors.textSecondary),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Dica transitória mostrada quando o cliente ignora o banner e envia a
+/// primeira mensagem: a triagem continua disponível no botão "+".
+class _TriageHintChip extends StatelessWidget {
+  const _TriageHintChip();
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.jColors;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: colors.lightGold,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: colors.lightGoldBorder),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.auto_awesome, size: 14, color: colors.accent),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  'A triagem com a assistente está no botão +',
+                  style: TextStyle(
+                    color: colors.textPrimary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Opções do botão "+" do composer: anexar arquivo e (para o cliente) a
+/// triagem com IA. Sobe em slide/fade junto do composer.
+class _PlusMenuSheet extends StatelessWidget {
+  const _PlusMenuSheet({
+    required this.showTriage,
+    required this.onAttach,
+    required this.onTriage,
+  });
+
+  final bool showTriage;
+  final VoidCallback onAttach;
+  final VoidCallback onTriage;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.jColors;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      decoration: BoxDecoration(
+        color: colors.card,
+        border: Border(top: BorderSide(color: colors.divider)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _PlusMenuOption(
+              icon: Icons.attach_file,
+              label: 'Anexar arquivo',
+              onTap: onAttach,
+            ),
+          ),
+          if (showTriage) ...[
+            const SizedBox(width: 10),
+            Expanded(
+              child: _PlusMenuOption(
+                icon: Icons.auto_awesome,
+                label: 'Triagem com IA',
+                onTap: onTriage,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _PlusMenuOption extends StatelessWidget {
+  const _PlusMenuOption({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.jColors;
+
+    return Material(
+      color: colors.background,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: colors.lightBlue,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: colors.primary, size: 20),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  color: colors.textPrimary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Botão "+" do composer: gira (vira "×") quando o menu abre e exibe um ponto
+/// dourado sutil enquanto a triagem ainda não foi descoberta pelo cliente.
+class _PlusMenuButton extends StatelessWidget {
+  const _PlusMenuButton({
+    required this.isOpen,
+    required this.showDot,
+    required this.isBusy,
+    required this.enabled,
+    required this.onPressed,
+  });
+
+  final bool isOpen;
+  final bool showDot;
+  final bool isBusy;
+  final bool enabled;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.jColors;
+
+    return Stack(
+      children: [
+        IconButton(
+          onPressed: enabled && !isBusy ? onPressed : null,
+          tooltip: isOpen ? 'Fechar opções' : 'Mais opções',
+          icon: isBusy
+              ? SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    color: colors.primary,
+                    strokeWidth: 2,
+                  ),
+                )
+              : AnimatedRotation(
+                  // 45°: o "+" vira "×" (fechar). Um quarto de volta literal
+                  // deixaria o ícone idêntico ao estado inicial.
+                  turns: isOpen ? 0.125 : 0,
+                  duration: const Duration(milliseconds: 220),
+                  curve: Curves.easeOutCubic,
+                  child: const Icon(Icons.add),
+                ),
+        ),
+        if (showDot && !isBusy)
+          Positioned(
+            top: 9,
+            right: 9,
+            child: IgnorePointer(
+              child: Container(
+                width: 9,
+                height: 9,
+                decoration: BoxDecoration(
+                  color: colors.accent,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: colors.card, width: 1.5),
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
