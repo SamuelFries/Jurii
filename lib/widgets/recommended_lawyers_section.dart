@@ -7,6 +7,7 @@ import '../repositories/lawyer_profile_repository.dart';
 import '../screens/lawyer_profile_screen.dart';
 import '../services/supabase_config.dart';
 import '../theme/app_theme.dart';
+import 'jurii_motion.dart';
 import 'lawyer_profile_card.dart';
 
 class RecommendedLawyersSection extends StatefulWidget {
@@ -72,36 +73,54 @@ class _RecommendedLawyersSectionState extends State<RecommendedLawyersSection> {
 
             if (snapshot.connectionState == ConnectionState.waiting &&
                 !shouldUseMock) {
-              return const Padding(
-                padding: EdgeInsets.symmetric(vertical: 16),
-                child: Center(
-                  child: CircularProgressIndicator(color: AppTheme.primary),
+              return const JuriiFadeThroughSwitcher(
+                child: KeyedSubtree(
+                  key: ValueKey('recommended_lawyers_loading'),
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 4),
+                    child: JuriiSkeletonList(itemCount: 2, itemHeight: 88),
+                  ),
                 ),
               );
             }
 
             if (lawyers.isEmpty) {
-              return const _EmptyRecommendedLawyersState();
+              return const JuriiFadeThroughSwitcher(
+                child: KeyedSubtree(
+                  key: ValueKey('recommended_lawyers_empty'),
+                  child: _EmptyRecommendedLawyersState(),
+                ),
+              );
             }
 
-            return ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: lawyers.length,
-              separatorBuilder: (context, index) => const SizedBox(height: 12),
-              itemBuilder: (context, index) {
-                final lawyer = lawyers[index];
-                return LawyerProfileCard(
-                  lawyer: lawyer,
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => LawyerProfileScreen(lawyer: lawyer),
-                      ),
-                    );
-                  },
-                );
-              },
+            return JuriiFadeThroughSwitcher(
+              child: ListView.separated(
+                key: ValueKey(
+                  'recommended_lawyers_${widget.searchQuery}_${lawyers.map((lawyer) => lawyer.id).join('|')}',
+                ),
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: lawyers.length,
+                separatorBuilder: (context, index) =>
+                    const SizedBox(height: 12),
+                itemBuilder: (context, index) {
+                  final lawyer = lawyers[index];
+                  return JuriiStaggeredItem(
+                    key: ValueKey('recommended_lawyer_${lawyer.id}'),
+                    index: index,
+                    child: LawyerProfileCard(
+                      lawyer: lawyer,
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => LawyerProfileScreen(lawyer: lawyer),
+                          ),
+                        );
+                      },
+                    ),
+                  );
+                },
+              ),
             );
           },
         ),

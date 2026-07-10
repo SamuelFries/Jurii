@@ -11,6 +11,7 @@ import '../models/verification_document.dart';
 import '../repositories/lawyer_verification_repository.dart';
 import '../services/supabase_config.dart';
 import '../theme/app_theme.dart';
+import '../widgets/jurii_motion.dart';
 import '../widgets/practice_area_selector.dart';
 import 'lawyer_verification_success_screen.dart';
 
@@ -240,15 +241,20 @@ class _LawyerVerificationFormScreenState
     required bool hasError,
     required VoidCallback onTap,
   }) {
-    return Container(
+    final borderColor = document.uploaded
+        ? AppTheme.success
+        : hasError
+        ? AppTheme.danger
+        : AppTheme.lightBlueBorder;
+
+    return AnimatedContainer(
+      duration: JuriiMotion.fast,
+      curve: JuriiMotion.ease,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: AppTheme.card,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: hasError ? AppTheme.danger : AppTheme.lightBlueBorder,
-          width: 1.5,
-        ),
+        border: Border.all(color: borderColor, width: 1.5),
         boxShadow: const [
           BoxShadow(
             color: AppTheme.softShadow,
@@ -300,16 +306,34 @@ class _LawyerVerificationFormScreenState
                 ),
               ),
               onPressed: onTap,
-              child: Text(
-                document.uploaded ? 'Anexado' : 'Selecionar',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: document.uploaded
-                      ? AppTheme.success
-                      : AppTheme.textPrimary,
-                ),
-              ),
+              child: document.uploaded
+                  ? const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.check_circle,
+                          color: AppTheme.success,
+                          size: 16,
+                        ),
+                        SizedBox(width: 5),
+                        Text(
+                          'Anexado',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.success,
+                          ),
+                        ),
+                      ],
+                    )
+                  : const Text(
+                      'Selecionar',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
             ),
           ),
         ],

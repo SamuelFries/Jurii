@@ -4,6 +4,7 @@ import '../data/mock/mock_categories.dart';
 import '../models/legal_category.dart';
 import '../repositories/category_repository.dart';
 import 'category_card.dart';
+import 'jurii_motion.dart';
 
 class CategoriesSection extends StatefulWidget {
   const CategoriesSection({
@@ -55,34 +56,44 @@ class _CategoriesSectionState extends State<CategoriesSection> {
           initialData: mockCategories,
           builder: (context, snapshot) {
             final categories = snapshot.data ?? mockCategories;
-            return GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: categories.length,
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 3,
-                crossAxisSpacing: 10,
-                mainAxisSpacing: 10,
-                childAspectRatio: 0.9,
+            return JuriiFadeThroughSwitcher(
+              child: GridView.builder(
+                key: ValueKey(
+                  'categories_${categories.map((category) => category.id).join('|')}',
+                ),
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: categories.length,
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 3,
+                  crossAxisSpacing: 10,
+                  mainAxisSpacing: 10,
+                  childAspectRatio: 0.9,
+                ),
+                itemBuilder: (context, index) {
+                  final category = categories[index];
+                  final practiceArea = practiceAreaForCategory(
+                    id: category.id,
+                    title: category.title,
+                  );
+                  final selected = isPracticeAreaSelectedForQuery(
+                    area: practiceArea,
+                    query: widget.searchQuery,
+                  );
+                  return JuriiStaggeredItem(
+                    key: ValueKey('category_${category.id}'),
+                    index: index,
+                    child: CategoryCard(
+                      title: category.title,
+                      isGold: category.isGold,
+                      selected: selected,
+                      iconName: category.iconName,
+                      onTap: () =>
+                          widget.onCategorySelected?.call(practiceArea),
+                    ),
+                  );
+                },
               ),
-              itemBuilder: (context, index) {
-                final category = categories[index];
-                final practiceArea = practiceAreaForCategory(
-                  id: category.id,
-                  title: category.title,
-                );
-                final selected = isPracticeAreaSelectedForQuery(
-                  area: practiceArea,
-                  query: widget.searchQuery,
-                );
-                return CategoryCard(
-                  title: category.title,
-                  isGold: category.isGold,
-                  selected: selected,
-                  iconName: category.iconName,
-                  onTap: () => widget.onCategorySelected?.call(practiceArea),
-                );
-              },
             );
           },
         ),

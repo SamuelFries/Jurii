@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import 'jurii_motion.dart';
 
 class OfficeCard extends StatelessWidget {
   final String initials;
@@ -36,8 +37,10 @@ class OfficeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return JuriiPressable(
       onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      semanticLabel: officeName,
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(

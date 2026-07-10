@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../data/legal_practice_areas.dart';
 import '../models/lawyer_profile_summary.dart';
 import '../theme/app_theme.dart';
+import 'jurii_motion.dart';
 
 class LawyerProfileCard extends StatelessWidget {
   const LawyerProfileCard({super.key, required this.lawyer, this.onTap});
@@ -23,11 +24,12 @@ class LawyerProfileCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: AppTheme.card,
+    return JuriiPressable(
+      onTap: onTap,
       borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        onTap: onTap,
+      semanticLabel: lawyer.name,
+      child: Material(
+        color: AppTheme.card,
         borderRadius: BorderRadius.circular(16),
         child: Container(
           padding: const EdgeInsets.all(16),

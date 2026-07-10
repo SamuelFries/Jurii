@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/conversation.dart';
 import '../theme/app_theme.dart';
+import 'jurii_motion.dart';
 
 class ConversationCard extends StatelessWidget {
   final Conversation conversation;
@@ -14,10 +15,11 @@ class ConversationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: InkWell(
-        borderRadius: BorderRadius.circular(20),
-        onTap: onTap,
+    return JuriiPressable(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      semanticLabel: conversation.officeName,
+      child: Card(
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Row(

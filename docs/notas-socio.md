@@ -1,7 +1,7 @@
-# Notas para troca com o socio - auditoria, busca, casos e LGPD
+# Notas para troca com o socio - auditoria, busca, casos, LGPD e design
 
-Atualizado em: 06/07/2026  
-Branch atual: `fix/exclusao`  
+Atualizado em: 10/07/2026
+Branch atual: `fix/design`
 Base atual: `main`/`origin/main` no commit `3ee49f2`
 (`Adiciona patch de escopo dos casos do escritorio`)
 
@@ -239,6 +239,40 @@ O que foi feito:
 Observacao: o texto dentro do app e uma versao inicial de transparencia para
 produto. Antes de publicar nas lojas, ainda precisa de revisao juridica e da
 definicao do canal oficial de privacidade.
+
+## Frente atual - Design premium e motion
+
+Em 10/07/2026 comecei a frente de polimento visual e animacoes do app. Criei um
+documento especifico em `docs/design-motion.md` para registrar o que foi feito,
+o que falta fazer e os cuidados de implementacao.
+
+O que foi implementado nesta primeira leva:
+
+- criei `lib/widgets/jurii_motion.dart` com helpers reutilizaveis:
+  `JuriiPressable`, `JuriiFadeThroughSwitcher`, `JuriiStaggeredItem`,
+  `JuriiAnimatedCounter`, `JuriiSkeletonCard` e `JuriiSkeletonList`;
+- adicionei transicao leve entre abas em `MainNavigation`, `LawyerNavigation` e
+  `FirmNavigation`;
+- animei os bottom navs (`JuriiBottomNav` e `FirmBottomNav`) com indicador,
+  escala de icone, troca outlined/filled e texto animado;
+- apliquei press feedback nos cards principais de advogados, escritorios,
+  conversas, categorias e casos;
+- adicionei entrada em cascata em listas/grids de descoberta, mensagens e casos;
+- troquei alguns spinners por skeletons nas listas de recomendacoes/casos;
+- animei contadores dos dashboards de advogado/escritorio;
+- melhorei a confirmacao visual de documentos anexados nas verificacoes de
+  advogado e escritorio.
+
+Validacao feita:
+
+- `dart format` nos arquivos alterados;
+- `flutter analyze` limpo;
+- `flutter test` com 47 testes passando.
+
+O que ainda falta nessa frente esta listado em `docs/design-motion.md`. Os
+proximos melhores alvos sao: animar bolhas novas do chat, melhorar a transicao
+conversa -> resumo da triagem IA, animar badge/sheet de notificacoes e trocar
+spinners restantes por skeletons.
 
 ## Pendencias depois desta rodada
 

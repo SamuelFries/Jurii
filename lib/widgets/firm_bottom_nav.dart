@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
+import 'jurii_motion.dart';
 
 class FirmBottomNav extends StatelessWidget {
   const FirmBottomNav({
@@ -38,8 +39,10 @@ class FirmBottomNav extends StatelessWidget {
             children: List.generate(items.length, (index) {
               final selected = currentIndex == index;
 
-              return GestureDetector(
+              return JuriiPressable(
                 onTap: () => onTap(index),
+                borderRadius: BorderRadius.circular(18),
+                semanticLabel: items[index].$3,
                 child: SizedBox(
                   width: 70,
                   child: Column(
@@ -47,27 +50,40 @@ class FirmBottomNav extends StatelessWidget {
                     children: [
                       SizedBox(
                         height: 6,
-                        child: selected
-                            ? Container(
-                                width: 36,
-                                height: 4,
-                                decoration: BoxDecoration(
-                                  color: AppTheme.officePurple,
-                                  borderRadius: BorderRadius.circular(99),
-                                ),
-                              )
-                            : null,
+                        child: Center(
+                          child: AnimatedContainer(
+                            duration: JuriiMotion.fast,
+                            curve: JuriiMotion.ease,
+                            width: selected ? 36 : 0,
+                            height: 4,
+                            decoration: BoxDecoration(
+                              color: AppTheme.officePurple,
+                              borderRadius: BorderRadius.circular(99),
+                            ),
+                          ),
+                        ),
                       ),
                       const SizedBox(height: 6),
                       Stack(
                         clipBehavior: Clip.none,
                         children: [
-                          Icon(
-                            selected ? items[index].$2 : items[index].$1,
-                            color: selected
-                                ? AppTheme.officePurple
-                                : AppTheme.textSecondary,
-                            size: 26,
+                          AnimatedScale(
+                            duration: JuriiMotion.fast,
+                            curve: JuriiMotion.ease,
+                            scale: selected ? 1.08 : 1,
+                            child: AnimatedSwitcher(
+                              duration: JuriiMotion.fast,
+                              switchInCurve: JuriiMotion.ease,
+                              switchOutCurve: JuriiMotion.exitEase,
+                              child: Icon(
+                                selected ? items[index].$2 : items[index].$1,
+                                key: ValueKey('firm_nav_${index}_$selected'),
+                                color: selected
+                                    ? AppTheme.officePurple
+                                    : AppTheme.textSecondary,
+                                size: 26,
+                              ),
+                            ),
                           ),
                           if (selected)
                             Positioned(
@@ -81,10 +97,9 @@ class FirmBottomNav extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: 4),
-                      Text(
-                        items[index].$3,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                      AnimatedDefaultTextStyle(
+                        duration: JuriiMotion.fast,
+                        curve: JuriiMotion.ease,
                         style: TextStyle(
                           color: selected
                               ? AppTheme.officePurple
@@ -93,6 +108,11 @@ class FirmBottomNav extends StatelessWidget {
                               ? FontWeight.w700
                               : FontWeight.w500,
                           fontSize: 11,
+                        ),
+                        child: Text(
+                          items[index].$3,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ],

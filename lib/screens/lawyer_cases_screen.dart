@@ -4,6 +4,7 @@ import '../models/lawyer_case.dart';
 import '../repositories/case_repository.dart';
 import '../services/supabase_config.dart';
 import '../theme/app_theme.dart';
+import '../widgets/jurii_motion.dart';
 import '../widgets/lawyer_case_card.dart';
 import 'case_details_screen.dart';
 
@@ -73,8 +74,9 @@ class _LawyerCasesScreenState extends State<LawyerCasesScreen> {
 
           if (snapshot.connectionState == ConnectionState.waiting &&
               cases == null) {
-            return const Center(
-              child: CircularProgressIndicator(color: AppTheme.primary),
+            return const Padding(
+              padding: EdgeInsets.all(24),
+              child: JuriiSkeletonList(itemCount: 4, itemHeight: 84),
             );
           }
 
@@ -252,10 +254,14 @@ class _CasesListState extends StatelessWidget {
                 separatorBuilder: (context, index) =>
                     const SizedBox(height: 12),
                 itemBuilder: (context, index) {
-                  return LawyerCaseCard(
-                    lawyerCase: cases[index],
-                    onTap: () => onOpenCase(cases[index]),
-                    onEdit: () => onOpenCase(cases[index]),
+                  return JuriiStaggeredItem(
+                    key: ValueKey('lawyer_case_${cases[index].id}'),
+                    index: index,
+                    child: LawyerCaseCard(
+                      lawyerCase: cases[index],
+                      onTap: () => onOpenCase(cases[index]),
+                      onEdit: () => onOpenCase(cases[index]),
+                    ),
                   );
                 },
               ),

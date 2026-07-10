@@ -6,6 +6,7 @@ import '../models/cases.dart';
 import '../repositories/case_repository.dart';
 import '../services/supabase_config.dart';
 import '../theme/app_theme.dart';
+import '../widgets/jurii_motion.dart';
 import 'case_details_screen.dart';
 
 class CasesScreen extends StatefulWidget {
@@ -157,34 +158,42 @@ class _CasesScreenState extends State<CasesScreen> {
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.all(24),
               children: [
-              const _CasesHeader(),
-              if (requests.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                const _SectionTitle('Solicitações pendentes'),
-                const SizedBox(height: 12),
-                for (var index = 0; index < requests.length; index++) ...[
-                  _CaseRequestCard(
-                    request: requests[index],
-                    onAccept: () =>
-                        _respondToRequest(requests[index], accepted: true),
-                    onDecline: () =>
-                        _respondToRequest(requests[index], accepted: false),
-                  ),
-                  if (index < requests.length - 1) const SizedBox(height: 12),
+                const _CasesHeader(),
+                if (requests.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  const _SectionTitle('Solicitações pendentes'),
+                  const SizedBox(height: 12),
+                  for (var index = 0; index < requests.length; index++) ...[
+                    JuriiStaggeredItem(
+                      key: ValueKey('case_request_${requests[index].id}'),
+                      index: index,
+                      child: _CaseRequestCard(
+                        request: requests[index],
+                        onAccept: () =>
+                            _respondToRequest(requests[index], accepted: true),
+                        onDecline: () =>
+                            _respondToRequest(requests[index], accepted: false),
+                      ),
+                    ),
+                    if (index < requests.length - 1) const SizedBox(height: 12),
+                  ],
+                  const SizedBox(height: 24),
                 ],
-                const SizedBox(height: 24),
-              ],
-              if (cases != null && cases.isNotEmpty) ...[
-                const _SectionTitle('Casos em andamento'),
-                const SizedBox(height: 12),
-                for (var index = 0; index < cases.length; index++) ...[
-                  _ClientCaseCard(
-                    legalCase: cases[index],
-                    onTap: () => _openCaseDetails(cases[index]),
-                  ),
-                  if (index < cases.length - 1) const SizedBox(height: 12),
+                if (cases != null && cases.isNotEmpty) ...[
+                  const _SectionTitle('Casos em andamento'),
+                  const SizedBox(height: 12),
+                  for (var index = 0; index < cases.length; index++) ...[
+                    JuriiStaggeredItem(
+                      key: ValueKey('client_case_${cases[index].id}'),
+                      index: index + requests.length,
+                      child: _ClientCaseCard(
+                        legalCase: cases[index],
+                        onTap: () => _openCaseDetails(cases[index]),
+                      ),
+                    ),
+                    if (index < cases.length - 1) const SizedBox(height: 12),
+                  ],
                 ],
-              ],
               ],
             ),
           );
@@ -400,40 +409,47 @@ class _ClientCaseCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
+    return JuriiPressable(
       onTap: onTap,
-      tileColor: AppTheme.card,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: AppTheme.lightBlueBorder),
-      ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      title: Text(
-        legalCase.title,
-        style: const TextStyle(
-          color: AppTheme.textPrimary,
-          fontWeight: FontWeight.w800,
+      borderRadius: BorderRadius.circular(16),
+      semanticLabel: legalCase.title,
+      child: ListTile(
+        tileColor: AppTheme.card,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: AppTheme.lightBlueBorder),
         ),
-      ),
-      subtitle: Padding(
-        padding: const EdgeInsets.only(top: 6),
-        child: Text('${legalCase.area} · ${legalCase.lastUpdate}'),
-      ),
-      leading: Container(
-        width: 44,
-        height: 44,
-        decoration: BoxDecoration(
-          color: AppTheme.lightBlue,
-          borderRadius: BorderRadius.circular(12),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 10,
         ),
-        child: const Icon(Icons.folder_outlined, color: AppTheme.primary),
-      ),
-      trailing: Text(
-        legalCase.status,
-        style: const TextStyle(
-          color: AppTheme.primary,
-          fontWeight: FontWeight.w800,
-          fontSize: 12,
+        title: Text(
+          legalCase.title,
+          style: const TextStyle(
+            color: AppTheme.textPrimary,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: Text('${legalCase.area} · ${legalCase.lastUpdate}'),
+        ),
+        leading: Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: AppTheme.lightBlue,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: const Icon(Icons.folder_outlined, color: AppTheme.primary),
+        ),
+        trailing: Text(
+          legalCase.status,
+          style: const TextStyle(
+            color: AppTheme.primary,
+            fontWeight: FontWeight.w800,
+            fontSize: 12,
+          ),
         ),
       ),
     );

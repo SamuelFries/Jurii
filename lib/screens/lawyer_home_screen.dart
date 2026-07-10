@@ -10,6 +10,7 @@ import '../repositories/case_repository.dart';
 import '../repositories/messaging_repository.dart';
 import '../services/supabase_config.dart';
 import '../theme/app_theme.dart';
+import '../widgets/jurii_motion.dart';
 import '../widgets/notification_bell.dart';
 
 class LawyerHomeScreen extends StatefulWidget {
@@ -71,8 +72,9 @@ class _LawyerHomeScreenState extends State<LawyerHomeScreen> {
     if (!SupabaseConfig.isReady) return const [];
 
     try {
-      final appointments = await widget.appointmentRepository
-          .fetchAppointments(AppointmentRole.lawyer);
+      final appointments = await widget.appointmentRepository.fetchAppointments(
+        AppointmentRole.lawyer,
+      );
       return appointments
           .where(
             (appointment) =>
@@ -367,36 +369,34 @@ class _ActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: AppTheme.card,
+    return JuriiPressable(
+      onTap: onTap,
       borderRadius: BorderRadius.circular(8),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          height: 82,
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: AppTheme.lightBlueBorder),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, color: AppTheme.primary, size: 24),
-              const SizedBox(height: 8),
-              Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: AppTheme.textPrimary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                ),
+      semanticLabel: label,
+      child: Container(
+        height: 82,
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+        decoration: BoxDecoration(
+          color: AppTheme.card,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: AppTheme.lightBlueBorder),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: AppTheme.primary, size: 24),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: AppTheme.textPrimary,
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -482,6 +482,13 @@ class _MetricCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final parsedValue = int.tryParse(value);
+    const valueStyle = TextStyle(
+      color: AppTheme.textPrimary,
+      fontSize: 20,
+      fontWeight: FontWeight.w900,
+    );
+
     return SizedBox(
       width: width,
       child: Container(
@@ -507,16 +514,17 @@ class _MetricCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    value,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: AppTheme.textPrimary,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
+                  parsedValue == null
+                      ? Text(
+                          value,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: valueStyle,
+                        )
+                      : JuriiAnimatedCounter(
+                          value: parsedValue,
+                          style: valueStyle,
+                        ),
                   const SizedBox(height: 2),
                   Text(
                     label,
@@ -592,9 +600,7 @@ class _TodayAgenda extends StatelessWidget {
                   ? const <Conversation>[]
                   : data[2] as List<Conversation>;
               final deadlineCases = cases
-                  .where(
-                    (item) => item.status == LawyerCaseStatus.deadline,
-                  )
+                  .where((item) => item.status == LawyerCaseStatus.deadline)
                   .length;
 
               return Column(
@@ -634,7 +640,11 @@ class _TodayAgenda extends StatelessWidget {
                       ),
                     )
                   else
-                    for (var index = 0; index < appointments.length; index++) ...[
+                    for (
+                      var index = 0;
+                      index < appointments.length;
+                      index++
+                    ) ...[
                       _ScheduleItem(appointment: appointments[index]),
                       if (index < appointments.length - 1)
                         const SizedBox(height: 12),
@@ -664,6 +674,8 @@ class _AttentionRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final parsedValue = int.tryParse(value);
+
     return Row(
       children: [
         Icon(icon, color: color, size: 20),
@@ -684,11 +696,16 @@ class _AttentionRow extends StatelessWidget {
             color: color.withValues(alpha: 0.10),
             borderRadius: BorderRadius.circular(8),
           ),
-          child: Text(
-            value,
-            textAlign: TextAlign.center,
-            style: TextStyle(color: color, fontWeight: FontWeight.w900),
-          ),
+          child: parsedValue == null
+              ? Text(
+                  value,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: color, fontWeight: FontWeight.w900),
+                )
+              : JuriiAnimatedCounter(
+                  value: parsedValue,
+                  style: TextStyle(color: color, fontWeight: FontWeight.w900),
+                ),
         ),
       ],
     );
@@ -783,7 +800,8 @@ class _PriorityCases extends StatelessWidget {
         final allCases = snapshot.data ?? const <LawyerCase>[];
         final cases = [...allCases]
           ..sort(
-            (a, b) => _priorityRank(a.status).compareTo(_priorityRank(b.status)),
+            (a, b) =>
+                _priorityRank(a.status).compareTo(_priorityRank(b.status)),
           );
         final topCases = cases.take(3).toList(growable: false);
 

@@ -7,6 +7,7 @@ import '../repositories/messaging_repository.dart';
 import '../services/supabase_config.dart';
 import '../theme/app_theme.dart';
 import '../widgets/conversation_card.dart';
+import '../widgets/jurii_motion.dart';
 import 'chat_screen.dart';
 
 class FirmMessagesScreen extends StatefulWidget {
@@ -133,9 +134,15 @@ class _FirmMessagesScreenState extends State<FirmMessagesScreen> {
                 const _EmptyFirmMessagesState()
               else
                 for (var index = 0; index < conversations.length; index++) ...[
-                  ConversationCard(
-                    conversation: conversations[index],
-                    onTap: () => _openChat(context, conversations[index]),
+                  JuriiStaggeredItem(
+                    key: ValueKey(
+                      'firm_conversation_${selectedSegment}_${conversations[index].id ?? conversations[index].officeName}',
+                    ),
+                    index: index,
+                    child: ConversationCard(
+                      conversation: conversations[index],
+                      onTap: () => _openChat(context, conversations[index]),
+                    ),
                   ),
                   if (index < conversations.length - 1)
                     const SizedBox(height: 12),
@@ -214,23 +221,30 @@ class _SegmentButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: selected ? AppTheme.card : Colors.transparent,
+    return JuriiPressable(
+      onTap: onTap,
       borderRadius: BorderRadius.circular(10),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(10),
+      semanticLabel: label,
+      child: AnimatedContainer(
+        duration: JuriiMotion.fast,
+        curve: JuriiMotion.ease,
+        decoration: BoxDecoration(
+          color: selected ? AppTheme.card : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+        ),
         child: SizedBox(
           height: 42,
           child: Center(
-            child: Text(
-              label,
+            child: AnimatedDefaultTextStyle(
+              duration: JuriiMotion.fast,
+              curve: JuriiMotion.ease,
               style: TextStyle(
                 color: selected
                     ? AppTheme.officePurple
                     : AppTheme.textSecondary,
                 fontWeight: FontWeight.w800,
               ),
+              child: Text(label),
             ),
           ),
         ),

@@ -7,6 +7,7 @@ import '../models/firm_workspace.dart';
 import '../repositories/case_repository.dart';
 import '../services/supabase_config.dart';
 import '../theme/app_theme.dart';
+import '../widgets/jurii_motion.dart';
 import 'case_details_screen.dart';
 
 class FirmCasesScreen extends StatefulWidget {
@@ -188,23 +189,23 @@ class _FirmCasesScreenState extends State<FirmCasesScreen> {
               if (snapshot.connectionState == ConnectionState.waiting &&
                   cases == null)
                 const Padding(
-                  padding: EdgeInsets.only(top: 32),
-                  child: Center(
-                    child: CircularProgressIndicator(
-                      color: AppTheme.officePurple,
-                    ),
-                  ),
+                  padding: EdgeInsets.only(top: 12),
+                  child: JuriiSkeletonList(itemCount: 4, itemHeight: 88),
                 )
               else if (cases == null || cases.isEmpty)
                 const _EmptyFirmCasesState()
               else
                 for (var index = 0; index < cases.length; index++) ...[
-                  _FirmCaseCard(
-                    overview: cases[index],
-                    onTap: () => _openCaseDetails(cases[index]),
-                    onAssign: widget.workspace?.canAssignCases == true
-                        ? () => _openAssignCaseSheet(cases[index])
-                        : null,
+                  JuriiStaggeredItem(
+                    key: ValueKey('firm_case_${cases[index].id}'),
+                    index: index,
+                    child: _FirmCaseCard(
+                      overview: cases[index],
+                      onTap: () => _openCaseDetails(cases[index]),
+                      onAssign: widget.workspace?.canAssignCases == true
+                          ? () => _openAssignCaseSheet(cases[index])
+                          : null,
+                    ),
                   ),
                   if (index < cases.length - 1) const SizedBox(height: 12),
                 ],
@@ -255,9 +256,10 @@ class _FirmCaseCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final statusColor = overview.urgent ? AppTheme.danger : AppTheme.primary;
 
-    return InkWell(
+    return JuriiPressable(
       onTap: onTap,
       borderRadius: BorderRadius.circular(14),
+      semanticLabel: overview.title,
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(

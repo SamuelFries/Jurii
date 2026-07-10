@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/lawyer_case.dart';
 import '../theme/app_theme.dart';
+import 'jurii_motion.dart';
 
 class LawyerCaseCard extends StatelessWidget {
   final LawyerCase lawyerCase;
@@ -28,8 +29,10 @@ class LawyerCaseCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return JuriiPressable(
       onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      semanticLabel: lawyerCase.title,
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(

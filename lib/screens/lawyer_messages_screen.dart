@@ -6,6 +6,7 @@ import '../repositories/messaging_repository.dart';
 import '../services/supabase_config.dart';
 import '../theme/app_theme.dart';
 import '../widgets/conversation_card.dart';
+import '../widgets/jurii_motion.dart';
 import 'chat_screen.dart';
 
 class LawyerMessagesScreen extends StatefulWidget {
@@ -67,9 +68,15 @@ class _LawyerMessagesScreenState extends State<LawyerMessagesScreen> {
               ),
               const SizedBox(height: 20),
               for (var index = 0; index < conversations.length; index++) ...[
-                ConversationCard(
-                  conversation: conversations[index],
-                  onTap: () => _openChat(conversations[index]),
+                JuriiStaggeredItem(
+                  key: ValueKey(
+                    'lawyer_conversation_${conversations[index].id ?? conversations[index].officeName}',
+                  ),
+                  index: index,
+                  child: ConversationCard(
+                    conversation: conversations[index],
+                    onTap: () => _openChat(conversations[index]),
+                  ),
                 ),
                 if (index < conversations.length - 1)
                   const SizedBox(height: 12),
