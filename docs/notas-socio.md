@@ -536,3 +536,48 @@ supabase migration repair --linked --status applied 20260711190000
 
 Daqui para frente, a regra passa a ser: nada de `patch_046`. Toda mudança nova
 de banco deve entrar como migration timestampada em `supabase/migrations/`.
+
+## Preparacao do Supabase local com Docker
+
+Atualizado em: 11/07/2026
+Branch de trabalho: `fix/DB`
+
+Depois que o Docker Desktop ficou disponivel, preparei o repositório para rodar
+o Supabase localmente via CLI, sem depender do projeto remoto para validar
+migrations.
+
+O que foi feito:
+
+- rodei `supabase init` na branch `fix/DB`;
+- adicionei `supabase/config.toml` ao projeto;
+- ajustei `project_id = "jurii"` para manter um ambiente local estavel;
+- desativei o seed da CLI em `[db.seed]`, porque a baseline consolidada ja
+  contem os dados/seeds necessarios;
+- mantive `supabase/.gitignore` gerado pela CLI para ignorar `.temp`,
+  `.branches` e envs locais;
+- criei `docs/supabase-local.md` com o fluxo local, comandos e smoke tests;
+- atualizei `supabase/README.md` apontando para esse novo fluxo.
+
+Tentei executar `supabase start` para baixar/subir a stack local. O processo
+comecou a puxar as imagens do Supabase, mas falhou no Docker com:
+
+```text
+write /var/lib/desktop-containerd/daemon/io.containerd.metadata.v1.bolt/meta.db: input/output error
+```
+
+Diagnostico: o macOS estava com o disco praticamente cheio, entre ~106Mi e
+~120Mi livres em `/`/`/Users/samuelfries`, e o Docker Desktop ocupando cerca de
+13G. Com esse espaco livre, o Docker nao consegue concluir o pull das imagens
+nem estabilizar o containerd.
+
+Por seguranca, nao rodei `docker system prune` nem limpezas destrutivas amplas.
+Tambem nao foi possivel rodar `supabase db reset`, porque a stack local nao
+chegou a subir.
+
+Proximo passo para finalizar essa validacao:
+
+1. liberar alguns GB de disco ou aumentar o limite de disco do Docker Desktop;
+2. reiniciar o Docker Desktop;
+3. rodar `supabase start`;
+4. rodar `supabase db reset`;
+5. executar os smoke tests SQL documentados em `docs/supabase-local.md`.

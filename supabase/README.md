@@ -32,6 +32,20 @@ flutter run \
 Os `dart-define` são opcionais para o projeto padrão da Jurii, mas devem ser
 usados quando você quiser apontar para outro ambiente.
 
+## Ambiente local com Docker
+
+O projeto tambem tem `supabase/config.toml` para rodar a stack local da CLI:
+
+```bash
+supabase start
+supabase db reset
+supabase status
+```
+
+O seed da CLI esta desativado porque a baseline ja inclui os dados/seeds
+necessarios. Para detalhes, pre-requisitos e smoke tests SQL, veja
+`docs/supabase-local.md`.
+
 ## Projeto remoto atual
 
 O projeto remoto da Jurii já recebeu manualmente o conteúdo que foi consolidado
