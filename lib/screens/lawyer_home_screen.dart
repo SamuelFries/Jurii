@@ -10,6 +10,7 @@ import '../repositories/case_repository.dart';
 import '../repositories/messaging_repository.dart';
 import '../services/supabase_config.dart';
 import '../theme/app_theme.dart';
+import '../widgets/jurii_list_card.dart';
 import '../widgets/jurii_motion.dart';
 import '../widgets/notification_bell.dart';
 
@@ -860,88 +861,79 @@ class _PriorityCaseCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final status = _caseStatus(lawyerCase.status);
 
-    return Material(
-      color: AppTheme.card,
-      borderRadius: BorderRadius.circular(8),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: AppTheme.lightBlueBorder),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  color: status.color.withValues(alpha: 0.10),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Center(
-                  child: Text(
-                    lawyerCase.clientInitials,
-                    style: TextStyle(
-                      color: status.color,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
+    return JuriiListCard(
+      onTap: onTap,
+      semanticLabel: lawyerCase.title,
+      borderRadius: 8,
+      padding: const EdgeInsets.all(14),
+      child: Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: status.color.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Center(
+              child: Text(
+                lawyerCase.clientInitials,
+                style: TextStyle(
+                  color: status.color,
+                  fontWeight: FontWeight.w900,
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  lawyerCase.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppTheme.textPrimary,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${lawyerCase.clientName} · ${lawyerCase.area}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppTheme.textSecondary,
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(height: 7),
+                Row(
                   children: [
-                    Text(
-                      lawyerCase.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppTheme.textPrimary,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${lawyerCase.clientName} · ${lawyerCase.area}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppTheme.textSecondary,
-                        fontSize: 12,
-                      ),
-                    ),
-                    const SizedBox(height: 7),
-                    Row(
-                      children: [
-                        Icon(status.icon, color: status.color, size: 14),
-                        const SizedBox(width: 5),
-                        Expanded(
-                          child: Text(
-                            lawyerCase.lastUpdate,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: status.color,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
+                    Icon(status.icon, color: status.color, size: 14),
+                    const SizedBox(width: 5),
+                    Expanded(
+                      child: Text(
+                        lawyerCase.lastUpdate,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: status.color,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
                         ),
-                      ],
+                      ),
                     ),
                   ],
                 ),
-              ),
-              const SizedBox(width: 8),
-              const Icon(Icons.chevron_right, color: AppTheme.textSecondary),
-            ],
+              ],
+            ),
           ),
-        ),
+          const SizedBox(width: 8),
+          const Icon(Icons.chevron_right, color: AppTheme.textSecondary),
+        ],
       ),
     );
   }

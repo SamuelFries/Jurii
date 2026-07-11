@@ -24,6 +24,7 @@ class JuriiPressable extends StatefulWidget {
     this.borderRadius = const BorderRadius.all(Radius.circular(16)),
     this.pressedScale = 0.985,
     this.semanticLabel,
+    this.clipBehavior = Clip.hardEdge,
   });
 
   final Widget child;
@@ -31,6 +32,7 @@ class JuriiPressable extends StatefulWidget {
   final BorderRadius borderRadius;
   final double pressedScale;
   final String? semanticLabel;
+  final Clip clipBehavior;
 
   @override
   State<JuriiPressable> createState() => _JuriiPressableState();
@@ -67,10 +69,13 @@ class _JuriiPressableState extends State<JuriiPressable> {
             scale: scale,
             duration: disabled ? Duration.zero : JuriiMotion.press,
             curve: JuriiMotion.ease,
-            child: ClipRRect(
-              borderRadius: widget.borderRadius,
-              child: widget.child,
-            ),
+            child: widget.clipBehavior == Clip.none
+                ? widget.child
+                : ClipRRect(
+                    borderRadius: widget.borderRadius,
+                    clipBehavior: widget.clipBehavior,
+                    child: widget.child,
+                  ),
           ),
         ),
       ),

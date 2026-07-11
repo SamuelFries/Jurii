@@ -334,6 +334,30 @@ O proximo passo de design passa a ser menos "tela isolada" e mais
 consolidacao: wrapper unico para cards de listagem e migracao gradual de bottom
 sheets restantes.
 
+Ainda em 11/07/2026, avancei na quinta leva de design, focada em consolidar
+cards de listagem:
+
+- criei `lib/widgets/jurii_list_card.dart`, um wrapper reutilizavel para cards
+  de lista com padding, borda, radius, sombra sutil e press feedback;
+- ajustei `JuriiPressable` para permitir preservar sombra externa quando o card
+  precisa desse efeito, sem mudar o comportamento default dos usos antigos;
+- migrei para esse wrapper os cards de conversa, advogado, escritorio, caso do
+  advogado, caso do cliente, caso do escritorio, prioridade do dashboard do
+  advogado e membro de equipe do escritorio;
+- a mudanca manteve conteudo e callbacks existentes, mas reduziu duplicacao e
+  deixou as superficies de listagem mais consistentes/premium.
+
+Validacao da quinta leva:
+
+- `dart format` nos arquivos alterados;
+- `flutter analyze` limpo;
+- `flutter test` com 47 testes passando.
+
+Com isso, a pendencia do wrapper unico para cards de listagem foi enderecada. O
+proximo passo de design fica entre mapear spinners restantes em fluxos menos
+acessados, expandir o scaffold padronizado para bottom sheets de equipe/
+escritorio e revisar responsividade dos dashboards.
+
 ## Pendencias depois desta rodada
 
 As maiores pendencias restantes em seguranca/LGPD estao documentadas em

@@ -166,6 +166,22 @@ Criei `lib/widgets/jurii_motion.dart` com:
   escritorio e casos do cliente passaram de spinner solto para skeleton list com
   contexto de tela.
 
+## Feito nesta quinta leva
+
+### Cards de listagem
+
+- Criei `lib/widgets/jurii_list_card.dart` com superficie reutilizavel para
+  cards de lista: padding, radius, borda, sombra sutil, press feedback e respeito
+  a `MediaQuery.disableAnimations`.
+- Ajustei `JuriiPressable` para permitir `clipBehavior: Clip.none` quando o
+  componente precisa preservar sombra externa, mantendo o comportamento antigo
+  como default.
+- Apliquei `JuriiListCard` em cards de conversa, advogado, escritorio, caso do
+  advogado, caso do cliente, caso do escritorio, prioridade do dashboard do
+  advogado e membro de equipe do escritorio.
+- Mantive o conteudo interno dos cards e callbacks existentes; a mudanca foi de
+  superficie, consistencia visual e reducao de duplicacao.
+
 ## Validacao
 
 Rodado em 10/07/2026:
@@ -184,18 +200,21 @@ Rodado em 11/07/2026:
 - `dart format` nos arquivos alterados da quarta leva;
 - `flutter analyze` sem issues.
 - `flutter test` com 47 testes passando.
+- `dart format` nos arquivos alterados da quinta leva;
+- `flutter analyze` sem issues.
+- `flutter test` com 47 testes passando.
 
 ## Falta fazer
 
 Prioridade alta:
 
-- Criar um wrapper unico para cards de listagem, reduzindo duplicacao entre
-  advogado/escritorio/casos.
 - Mapear spinners restantes em fluxos menos acessados e decidir caso a caso se
   skeleton ou botao carregando melhora clareza.
 
 Prioridade media:
 
+- Expandir `JuriiListCard` para cards privados restantes quando houver ganho
+  claro, especialmente agenda, detalhes de caso e telas de perfil.
 - Expandir `JuriiModalSheetScaffold` para bottom sheets de equipe/escritorio.
 - Refinar formularios de verificacao com agrupamento visual por etapa
   (`Dados`, `Areas`, `Documentos`) se a tela crescer.

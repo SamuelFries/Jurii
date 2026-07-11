@@ -7,6 +7,7 @@ import '../repositories/case_repository.dart';
 import '../services/supabase_config.dart';
 import '../theme/app_theme.dart';
 import '../widgets/jurii_empty_state.dart';
+import '../widgets/jurii_list_card.dart';
 import '../widgets/jurii_motion.dart';
 import 'case_details_screen.dart';
 
@@ -418,48 +419,55 @@ class _ClientCaseCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return JuriiPressable(
+    return JuriiListCard(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
       semanticLabel: legalCase.title,
-      child: ListTile(
-        tileColor: AppTheme.card,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: AppTheme.lightBlueBorder),
-        ),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 10,
-        ),
-        title: Text(
-          legalCase.title,
-          style: const TextStyle(
-            color: AppTheme.textPrimary,
-            fontWeight: FontWeight.w800,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: AppTheme.lightBlue,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(Icons.folder_outlined, color: AppTheme.primary),
           ),
-        ),
-        subtitle: Padding(
-          padding: const EdgeInsets.only(top: 6),
-          child: Text('${legalCase.area} · ${legalCase.lastUpdate}'),
-        ),
-        leading: Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: AppTheme.lightBlue,
-            borderRadius: BorderRadius.circular(12),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  legalCase.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppTheme.textPrimary,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  '${legalCase.area} · ${legalCase.lastUpdate}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: AppTheme.textSecondary),
+                ),
+              ],
+            ),
           ),
-          child: const Icon(Icons.folder_outlined, color: AppTheme.primary),
-        ),
-        trailing: Text(
-          legalCase.status,
-          style: const TextStyle(
-            color: AppTheme.primary,
-            fontWeight: FontWeight.w800,
-            fontSize: 12,
+          const SizedBox(width: 12),
+          Text(
+            legalCase.status,
+            style: const TextStyle(
+              color: AppTheme.primary,
+              fontWeight: FontWeight.w800,
+              fontSize: 12,
+            ),
           ),
-        ),
+        ],
       ),
     );
   }

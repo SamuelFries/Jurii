@@ -5,6 +5,7 @@ import '../models/firm_role.dart';
 import '../models/firm_team_member.dart';
 import '../models/firm_workspace.dart';
 import '../theme/app_theme.dart';
+import '../widgets/jurii_list_card.dart';
 
 class FirmTeamScreen extends StatelessWidget {
   const FirmTeamScreen({
@@ -555,13 +556,9 @@ class _TeamMemberCard extends StatelessWidget {
         ? roleLabel
         : '$roleLabel - ${member.specialty}';
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppTheme.card,
-        border: Border.all(color: AppTheme.officePurpleBorder),
-        borderRadius: BorderRadius.circular(14),
-      ),
+    return JuriiListCard(
+      borderRadius: 14,
+      borderColor: AppTheme.officePurpleBorder,
       child: Row(
         children: [
           Container(
