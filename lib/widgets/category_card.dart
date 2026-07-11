@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import 'jurii_motion.dart';
 
 class CategoryCard extends StatelessWidget {
   final String title;
@@ -40,10 +41,13 @@ class CategoryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final accentColor = isGold ? AppTheme.accent : AppTheme.primary;
 
-    return InkWell(
-      borderRadius: BorderRadius.circular(16),
+    return JuriiPressable(
       onTap: onTap,
-      child: Container(
+      borderRadius: BorderRadius.circular(16),
+      semanticLabel: title,
+      child: AnimatedContainer(
+        duration: JuriiMotion.fast,
+        curve: JuriiMotion.ease,
         decoration: BoxDecoration(
           color: isGold ? AppTheme.lightGold : AppTheme.lightBlue,
           border: Border.all(

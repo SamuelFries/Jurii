@@ -7,6 +7,10 @@ import '../models/firm_workspace.dart';
 import '../repositories/case_repository.dart';
 import '../services/supabase_config.dart';
 import '../theme/app_theme.dart';
+import '../widgets/jurii_empty_state.dart';
+import '../widgets/jurii_form_motion.dart';
+import '../widgets/jurii_list_card.dart';
+import '../widgets/jurii_motion.dart';
 import 'case_details_screen.dart';
 
 class FirmCasesScreen extends StatefulWidget {
@@ -113,6 +117,8 @@ class _FirmCasesScreenState extends State<FirmCasesScreen> {
 
     final selectedLawyer = await showModalBottomSheet<FirmTeamMember>(
       context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
       useSafeArea: true,
       builder: (_) => _AssignLawyerSheet(
         lawyers: lawyers,
@@ -188,23 +194,23 @@ class _FirmCasesScreenState extends State<FirmCasesScreen> {
               if (snapshot.connectionState == ConnectionState.waiting &&
                   cases == null)
                 const Padding(
-                  padding: EdgeInsets.only(top: 32),
-                  child: Center(
-                    child: CircularProgressIndicator(
-                      color: AppTheme.officePurple,
-                    ),
-                  ),
+                  padding: EdgeInsets.only(top: 12),
+                  child: JuriiSkeletonList(itemCount: 4, itemHeight: 88),
                 )
               else if (cases == null || cases.isEmpty)
                 const _EmptyFirmCasesState()
               else
                 for (var index = 0; index < cases.length; index++) ...[
-                  _FirmCaseCard(
-                    overview: cases[index],
-                    onTap: () => _openCaseDetails(cases[index]),
-                    onAssign: widget.workspace?.canAssignCases == true
-                        ? () => _openAssignCaseSheet(cases[index])
-                        : null,
+                  JuriiStaggeredItem(
+                    key: ValueKey('firm_case_${cases[index].id}'),
+                    index: index,
+                    child: _FirmCaseCard(
+                      overview: cases[index],
+                      onTap: () => _openCaseDetails(cases[index]),
+                      onAssign: widget.workspace?.canAssignCases == true
+                          ? () => _openAssignCaseSheet(cases[index])
+                          : null,
+                    ),
                   ),
                   if (index < cases.length - 1) const SizedBox(height: 12),
                 ],
@@ -221,20 +227,16 @@ class _EmptyFirmCasesState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: AppTheme.card,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.officePurpleBorder),
-      ),
-      child: const Text(
-        'Nenhum caso encontrado para este escritório.',
-        style: TextStyle(
-          color: AppTheme.textSecondary,
-          fontWeight: FontWeight.w700,
-        ),
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 20),
+      child: JuriiEmptyState(
+        icon: Icons.business_center_outlined,
+        title: 'Nenhum caso encontrado',
+        message:
+            'Quando o escritório iniciar atendimentos, eles aparecerão aqui.',
+        accentColor: AppTheme.officePurple,
+        surfaceColor: AppTheme.officePurpleSurface,
+        borderColor: AppTheme.officePurpleBorder,
       ),
     );
   }
@@ -255,129 +257,121 @@ class _FirmCaseCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final statusColor = overview.urgent ? AppTheme.danger : AppTheme.primary;
 
-    return InkWell(
+    return JuriiListCard(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: AppTheme.card,
-          border: Border.all(
-            color: overview.urgent
-                ? AppTheme.danger.withValues(alpha: 0.35)
-                : AppTheme.officePurpleBorder,
-          ),
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 46,
-              height: 46,
-              decoration: BoxDecoration(
-                color: overview.urgent
-                    ? AppTheme.danger.withValues(alpha: 0.10)
-                    : AppTheme.officePurpleSurface,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Center(
-                child: Text(
-                  overview.clientInitials,
-                  style: TextStyle(
-                    color: overview.urgent
-                        ? AppTheme.danger
-                        : AppTheme.officePurple,
-                    fontWeight: FontWeight.w900,
-                  ),
+      semanticLabel: overview.title,
+      borderRadius: 14,
+      borderColor: overview.urgent
+          ? AppTheme.danger.withValues(alpha: 0.35)
+          : AppTheme.officePurpleBorder,
+      child: Row(
+        children: [
+          Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              color: overview.urgent
+                  ? AppTheme.danger.withValues(alpha: 0.10)
+                  : AppTheme.officePurpleSurface,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Center(
+              child: Text(
+                overview.clientInitials,
+                style: TextStyle(
+                  color: overview.urgent
+                      ? AppTheme.danger
+                      : AppTheme.officePurple,
+                  fontWeight: FontWeight.w900,
                 ),
               ),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          overview.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: AppTheme.textPrimary,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w800,
-                          ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        overview.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: AppTheme.textPrimary,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 3,
-                        ),
-                        decoration: BoxDecoration(
-                          color: statusColor.withValues(alpha: 0.10),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          overview.area,
-                          style: TextStyle(
-                            color: statusColor,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${overview.clientName} · ${overview.assignedLawyer}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: AppTheme.textSecondary,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Icon(
-                        overview.urgent
-                            ? Icons.warning_amber_outlined
-                            : Icons.task_alt_outlined,
-                        color: statusColor,
-                        size: 14,
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
                       ),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          '${overview.statusLabel}: ${overview.nextStep}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(color: statusColor, fontSize: 12),
+                      decoration: BoxDecoration(
+                        color: statusColor.withValues(alpha: 0.10),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        overview.area,
+                        style: TextStyle(
+                          color: statusColor,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
-                    ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${overview.clientName} · ${overview.assignedLawyer}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppTheme.textSecondary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Icon(
+                      overview.urgent
+                          ? Icons.warning_amber_outlined
+                          : Icons.task_alt_outlined,
+                      color: statusColor,
+                      size: 14,
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        '${overview.statusLabel}: ${overview.nextStep}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: statusColor, fontSize: 12),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
-            const SizedBox(width: 8),
-            if (onAssign != null)
-              IconButton(
-                onPressed: onAssign,
-                icon: const Icon(Icons.assignment_ind_outlined),
-                color: AppTheme.officePurple,
-                tooltip: 'Atribuir caso',
-              ),
-            const Icon(Icons.chevron_right, color: AppTheme.textSecondary),
-          ],
-        ),
+          ),
+          const SizedBox(width: 8),
+          if (onAssign != null)
+            IconButton(
+              onPressed: onAssign,
+              icon: const Icon(Icons.assignment_ind_outlined),
+              color: AppTheme.officePurple,
+              tooltip: 'Atribuir caso',
+            ),
+          const Icon(Icons.chevron_right, color: AppTheme.textSecondary),
+        ],
       ),
     );
   }
@@ -394,8 +388,7 @@ class _AssignLawyerSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
+    return JuriiModalSheetScaffold(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -408,7 +401,16 @@ class _AssignLawyerSheet extends StatelessWidget {
               fontWeight: FontWeight.w900,
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 6),
+          const Text(
+            'Escolha o advogado responsável pelo próximo acompanhamento.',
+            style: TextStyle(
+              color: AppTheme.textSecondary,
+              height: 1.35,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 18),
           ConstrainedBox(
             constraints: BoxConstraints(
               maxHeight: MediaQuery.sizeOf(context).height * 0.55,
@@ -421,41 +423,86 @@ class _AssignLawyerSheet extends StatelessWidget {
                 final lawyer = lawyers[index];
                 final selected = lawyer.id == selectedLawyerId;
 
-                return ListTile(
+                return JuriiListCard(
                   onTap: () => Navigator.of(context).pop(lawyer),
-                  tileColor: AppTheme.card,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    side: BorderSide(
-                      color: selected
-                          ? AppTheme.officePurple
-                          : AppTheme.officePurpleBorder,
-                    ),
-                  ),
-                  leading: CircleAvatar(
-                    backgroundColor: AppTheme.officePurpleSurface,
-                    child: Text(
-                      lawyer.initials,
-                      style: const TextStyle(
-                        color: AppTheme.officePurple,
-                        fontWeight: FontWeight.w900,
+                  semanticLabel: lawyer.name,
+                  borderRadius: 14,
+                  padding: const EdgeInsets.all(12),
+                  borderColor: selected
+                      ? AppTheme.officePurple
+                      : AppTheme.officePurpleBorder,
+                  backgroundColor: selected
+                      ? AppTheme.officePurpleSurface
+                      : AppTheme.card,
+                  shadowBlur: 8,
+                  shadowOffset: const Offset(0, 4),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: selected
+                              ? AppTheme.officePurple
+                              : AppTheme.officePurpleSurface,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Center(
+                          child: Text(
+                            lawyer.initials,
+                            style: TextStyle(
+                              color: selected
+                                  ? AppTheme.card
+                                  : AppTheme.officePurple,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              lawyer.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: AppTheme.textPrimary,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              lawyer.specialty,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: AppTheme.textSecondary,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      AnimatedSwitcher(
+                        duration: JuriiMotion.fast,
+                        child: selected
+                            ? const Icon(
+                                Icons.check_circle,
+                                key: ValueKey('selected'),
+                                color: AppTheme.officePurple,
+                              )
+                            : const Icon(
+                                Icons.chevron_right,
+                                key: ValueKey('available'),
+                                color: AppTheme.textSecondary,
+                              ),
+                      ),
+                    ],
                   ),
-                  title: Text(
-                    lawyer.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w800),
-                  ),
-                  subtitle: Text(
-                    lawyer.specialty,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  trailing: selected
-                      ? const Icon(Icons.check_circle, color: AppTheme.primary)
-                      : const Icon(Icons.chevron_right),
                 );
               },
             ),

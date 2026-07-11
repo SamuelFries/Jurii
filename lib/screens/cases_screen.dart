@@ -6,6 +6,9 @@ import '../models/cases.dart';
 import '../repositories/case_repository.dart';
 import '../services/supabase_config.dart';
 import '../theme/app_theme.dart';
+import '../widgets/jurii_empty_state.dart';
+import '../widgets/jurii_list_card.dart';
+import '../widgets/jurii_motion.dart';
 import 'case_details_screen.dart';
 
 class CasesScreen extends StatefulWidget {
@@ -125,8 +128,16 @@ class _CasesScreenState extends State<CasesScreen> {
 
           if (snapshot.connectionState == ConnectionState.waiting &&
               data == null) {
-            return const Center(
-              child: CircularProgressIndicator(color: AppTheme.primary),
+            return const Padding(
+              padding: EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _CasesHeader(),
+                  SizedBox(height: 20),
+                  JuriiSkeletonList(itemCount: 4, itemHeight: 92),
+                ],
+              ),
             );
           }
 
@@ -157,34 +168,42 @@ class _CasesScreenState extends State<CasesScreen> {
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.all(24),
               children: [
-              const _CasesHeader(),
-              if (requests.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                const _SectionTitle('Solicitações pendentes'),
-                const SizedBox(height: 12),
-                for (var index = 0; index < requests.length; index++) ...[
-                  _CaseRequestCard(
-                    request: requests[index],
-                    onAccept: () =>
-                        _respondToRequest(requests[index], accepted: true),
-                    onDecline: () =>
-                        _respondToRequest(requests[index], accepted: false),
-                  ),
-                  if (index < requests.length - 1) const SizedBox(height: 12),
+                const _CasesHeader(),
+                if (requests.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  const _SectionTitle('Solicitações pendentes'),
+                  const SizedBox(height: 12),
+                  for (var index = 0; index < requests.length; index++) ...[
+                    JuriiStaggeredItem(
+                      key: ValueKey('case_request_${requests[index].id}'),
+                      index: index,
+                      child: _CaseRequestCard(
+                        request: requests[index],
+                        onAccept: () =>
+                            _respondToRequest(requests[index], accepted: true),
+                        onDecline: () =>
+                            _respondToRequest(requests[index], accepted: false),
+                      ),
+                    ),
+                    if (index < requests.length - 1) const SizedBox(height: 12),
+                  ],
+                  const SizedBox(height: 24),
                 ],
-                const SizedBox(height: 24),
-              ],
-              if (cases != null && cases.isNotEmpty) ...[
-                const _SectionTitle('Casos em andamento'),
-                const SizedBox(height: 12),
-                for (var index = 0; index < cases.length; index++) ...[
-                  _ClientCaseCard(
-                    legalCase: cases[index],
-                    onTap: () => _openCaseDetails(cases[index]),
-                  ),
-                  if (index < cases.length - 1) const SizedBox(height: 12),
+                if (cases != null && cases.isNotEmpty) ...[
+                  const _SectionTitle('Casos em andamento'),
+                  const SizedBox(height: 12),
+                  for (var index = 0; index < cases.length; index++) ...[
+                    JuriiStaggeredItem(
+                      key: ValueKey('client_case_${cases[index].id}'),
+                      index: index + requests.length,
+                      child: _ClientCaseCard(
+                        legalCase: cases[index],
+                        onTap: () => _openCaseDetails(cases[index]),
+                      ),
+                    ),
+                    if (index < cases.length - 1) const SizedBox(height: 12),
+                  ],
                 ],
-              ],
               ],
             ),
           );
@@ -400,41 +419,55 @@ class _ClientCaseCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
+    return JuriiListCard(
       onTap: onTap,
-      tileColor: AppTheme.card,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: AppTheme.lightBlueBorder),
-      ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      title: Text(
-        legalCase.title,
-        style: const TextStyle(
-          color: AppTheme.textPrimary,
-          fontWeight: FontWeight.w800,
-        ),
-      ),
-      subtitle: Padding(
-        padding: const EdgeInsets.only(top: 6),
-        child: Text('${legalCase.area} · ${legalCase.lastUpdate}'),
-      ),
-      leading: Container(
-        width: 44,
-        height: 44,
-        decoration: BoxDecoration(
-          color: AppTheme.lightBlue,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: const Icon(Icons.folder_outlined, color: AppTheme.primary),
-      ),
-      trailing: Text(
-        legalCase.status,
-        style: const TextStyle(
-          color: AppTheme.primary,
-          fontWeight: FontWeight.w800,
-          fontSize: 12,
-        ),
+      semanticLabel: legalCase.title,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: AppTheme.lightBlue,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(Icons.folder_outlined, color: AppTheme.primary),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  legalCase.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppTheme.textPrimary,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  '${legalCase.area} · ${legalCase.lastUpdate}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: AppTheme.textSecondary),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            legalCase.status,
+            style: const TextStyle(
+              color: AppTheme.primary,
+              fontWeight: FontWeight.w800,
+              fontSize: 12,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -471,48 +504,13 @@ class _EmptyCasesState extends StatelessWidget {
           const Spacer(),
 
           Center(
-            child: Column(
-              children: [
-                Container(
-                  width: 96,
-                  height: 96,
-                  decoration: BoxDecoration(
-                    color: AppTheme.lightBlue,
-                    borderRadius: BorderRadius.circular(48),
-                  ),
-                  child: const Icon(
-                    Icons.folder_open_outlined,
-                    size: 42,
-                    color: AppTheme.textSecondary,
-                  ),
-                ),
-
-                const SizedBox(height: 24),
-
-                const Text(
-                  'Nenhum caso iniciado',
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.textPrimary,
-                  ),
-                ),
-
-                const SizedBox(height: 12),
-
-                const Text(
+            child: JuriiEmptyState(
+              icon: Icons.folder_open_outlined,
+              title: 'Nenhum caso iniciado',
+              message:
                   'Quando você solicitar atendimento a um escritório, seus casos aparecerão aqui.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: AppTheme.textSecondary, fontSize: 15),
-                ),
-
-                const SizedBox(height: 24),
-
-                ElevatedButton(
-                  onPressed: onFindLawFirms,
-                  child: const Text('Encontrar Escritórios'),
-                ),
-              ],
+              actionLabel: 'Encontrar Escritórios',
+              onAction: onFindLawFirms,
             ),
           ),
 

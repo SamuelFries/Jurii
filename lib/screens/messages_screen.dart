@@ -6,6 +6,8 @@ import '../repositories/messaging_repository.dart';
 import '../services/supabase_config.dart';
 import '../theme/app_theme.dart';
 import '../widgets/conversation_card.dart';
+import '../widgets/jurii_empty_state.dart';
+import '../widgets/jurii_motion.dart';
 import 'chat_screen.dart';
 
 class MessagesScreen extends StatefulWidget {
@@ -51,8 +53,19 @@ class _MessagesScreenState extends State<MessagesScreen> {
 
           if (snapshot.connectionState == ConnectionState.waiting &&
               conversations == null) {
-            return const Center(
-              child: CircularProgressIndicator(color: AppTheme.primary),
+            return const Padding(
+              padding: EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _MessagesHeader(
+                    title: 'Conversas',
+                    subtitle: 'Acompanhe seus atendimentos jurídicos.',
+                  ),
+                  SizedBox(height: 20),
+                  JuriiSkeletonList(itemCount: 4, itemHeight: 86),
+                ],
+              ),
             );
           }
 
@@ -87,9 +100,15 @@ class _MessagesScreenState extends State<MessagesScreen> {
                 ),
                 const SizedBox(height: 20),
                 for (var index = 0; index < conversations.length; index++) ...[
-                  ConversationCard(
-                    conversation: conversations[index],
-                    onTap: () => _openChat(conversations[index]),
+                  JuriiStaggeredItem(
+                    key: ValueKey(
+                      'client_conversation_${conversations[index].id ?? conversations[index].officeName}',
+                    ),
+                    index: index,
+                    child: ConversationCard(
+                      conversation: conversations[index],
+                      onTap: () => _openChat(conversations[index]),
+                    ),
                   ),
                   if (index < conversations.length - 1)
                     const SizedBox(height: 12),
@@ -178,42 +197,13 @@ class _EmptyMessagesState extends StatelessWidget {
           ),
           const Spacer(),
           Center(
-            child: Column(
-              children: [
-                Container(
-                  width: 96,
-                  height: 96,
-                  decoration: BoxDecoration(
-                    color: AppTheme.lightBlue,
-                    borderRadius: BorderRadius.circular(48),
-                  ),
-                  child: const Icon(
-                    Icons.chat_bubble_outline,
-                    size: 42,
-                    color: AppTheme.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                const Text(
-                  'Nenhuma conversa iniciada',
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                const Text(
+            child: JuriiEmptyState(
+              icon: Icons.chat_bubble_outline,
+              title: 'Nenhuma conversa iniciada',
+              message:
                   'Quando você solicitar atendimento a um escritório, suas conversas aparecerão aqui.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: AppTheme.textSecondary, fontSize: 15),
-                ),
-                const SizedBox(height: 24),
-                ElevatedButton(
-                  onPressed: onFindLawFirms,
-                  child: const Text('Encontrar Escritórios'),
-                ),
-              ],
+              actionLabel: 'Encontrar Escritórios',
+              onAction: onFindLawFirms,
             ),
           ),
           const Spacer(),

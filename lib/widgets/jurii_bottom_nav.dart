@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import 'jurii_motion.dart';
 
 class JuriiBottomNav extends StatelessWidget {
   final int currentIndex;
@@ -36,8 +37,10 @@ class JuriiBottomNav extends StatelessWidget {
             children: List.generate(items.length, (index) {
               final selected = currentIndex == index;
 
-              return GestureDetector(
+              return JuriiPressable(
                 onTap: () => onTap(index),
+                borderRadius: BorderRadius.circular(18),
+                semanticLabel: items[index].$3,
                 child: SizedBox(
                   width: 80,
                   child: Column(
@@ -45,16 +48,18 @@ class JuriiBottomNav extends StatelessWidget {
                     children: [
                       SizedBox(
                         height: 6,
-                        child: selected
-                            ? Container(
-                                width: 40,
-                                height: 4,
-                                decoration: BoxDecoration(
-                                  color: AppTheme.accent,
-                                  borderRadius: BorderRadius.circular(99),
-                                ),
-                              )
-                            : null,
+                        child: Center(
+                          child: AnimatedContainer(
+                            duration: JuriiMotion.fast,
+                            curve: JuriiMotion.ease,
+                            width: selected ? 40 : 0,
+                            height: 4,
+                            decoration: BoxDecoration(
+                              color: AppTheme.accent,
+                              borderRadius: BorderRadius.circular(99),
+                            ),
+                          ),
+                        ),
                       ),
 
                       const SizedBox(height: 6),
@@ -62,12 +67,23 @@ class JuriiBottomNav extends StatelessWidget {
                       Stack(
                         clipBehavior: Clip.none,
                         children: [
-                          Icon(
-                            selected ? items[index].$2 : items[index].$1,
-                            color: selected
-                                ? AppTheme.primary
-                                : AppTheme.textSecondary,
-                            size: 28,
+                          AnimatedScale(
+                            duration: JuriiMotion.fast,
+                            curve: JuriiMotion.ease,
+                            scale: selected ? 1.08 : 1,
+                            child: AnimatedSwitcher(
+                              duration: JuriiMotion.fast,
+                              switchInCurve: JuriiMotion.ease,
+                              switchOutCurve: JuriiMotion.exitEase,
+                              child: Icon(
+                                selected ? items[index].$2 : items[index].$1,
+                                key: ValueKey('client_nav_${index}_$selected'),
+                                color: selected
+                                    ? AppTheme.primary
+                                    : AppTheme.textSecondary,
+                                size: 28,
+                              ),
+                            ),
                           ),
                           if (selected)
                             Positioned(
@@ -83,10 +99,9 @@ class JuriiBottomNav extends StatelessWidget {
 
                       const SizedBox(height: 4),
 
-                      Text(
-                        items[index].$3,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                      AnimatedDefaultTextStyle(
+                        duration: JuriiMotion.fast,
+                        curve: JuriiMotion.ease,
                         style: TextStyle(
                           color: selected
                               ? AppTheme.primary
@@ -95,6 +110,11 @@ class JuriiBottomNav extends StatelessWidget {
                               ? FontWeight.w700
                               : FontWeight.w500,
                           fontSize: 12,
+                        ),
+                        child: Text(
+                          items[index].$3,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ],

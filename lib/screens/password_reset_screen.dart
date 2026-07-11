@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../types/auth_callbacks.dart';
 import '../utils/validators.dart';
+import '../widgets/jurii_form_motion.dart';
+import '../widgets/jurii_motion.dart';
 import '../widgets/login_logo.dart';
 
 class PasswordResetScreen extends StatefulWidget {
@@ -49,118 +51,113 @@ class _PasswordResetScreenState extends State<PasswordResetScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const SizedBox(height: 24),
-                const LoginLogo(),
+                const JuriiStaggeredItem(index: 0, child: LoginLogo()),
                 const SizedBox(height: 36),
-                const Text(
-                  'Defina sua nova senha',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: AppTheme.textPrimary,
-                    fontSize: 26,
-                    fontWeight: FontWeight.w800,
+                const JuriiStaggeredItem(
+                  index: 1,
+                  child: Text(
+                    'Defina sua nova senha',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: AppTheme.textPrimary,
+                      fontSize: 26,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 10),
-                const Text(
-                  'Escolha uma senha segura para voltar a acessar sua conta.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: AppTheme.textSecondary,
-                    fontSize: 15,
-                    height: 1.45,
+                const JuriiStaggeredItem(
+                  index: 2,
+                  child: Text(
+                    'Escolha uma senha segura para voltar a acessar sua conta.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: AppTheme.textSecondary,
+                      fontSize: 15,
+                      height: 1.45,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 32),
-                _shadowedField(
-                  child: TextFormField(
-                    controller: _passwordController,
-                    obscureText: _obscurePassword,
-                    textInputAction: TextInputAction.next,
-                    autofillHints: const [AutofillHints.newPassword],
-                    decoration: InputDecoration(
-                      hintText: 'Nova senha',
-                      prefixIcon: const Icon(Icons.lock_outline),
-                      suffixIcon: IconButton(
-                        onPressed: () => setState(
-                          () => _obscurePassword = !_obscurePassword,
-                        ),
-                        icon: Icon(
-                          _obscurePassword
-                              ? Icons.visibility_outlined
-                              : Icons.visibility_off_outlined,
+                JuriiStaggeredItem(
+                  index: 3,
+                  child: _shadowedField(
+                    child: TextFormField(
+                      controller: _passwordController,
+                      obscureText: _obscurePassword,
+                      textInputAction: TextInputAction.next,
+                      autofillHints: const [AutofillHints.newPassword],
+                      decoration: InputDecoration(
+                        hintText: 'Nova senha',
+                        prefixIcon: const Icon(Icons.lock_outline),
+                        suffixIcon: IconButton(
+                          onPressed: () => setState(
+                            () => _obscurePassword = !_obscurePassword,
+                          ),
+                          icon: Icon(
+                            _obscurePassword
+                                ? Icons.visibility_outlined
+                                : Icons.visibility_off_outlined,
+                          ),
                         ),
                       ),
+                      onChanged: (value) => setState(() => _password = value),
+                      validator: validatePasswordField,
                     ),
-                    onChanged: (value) => setState(() => _password = value),
-                    validator: validatePasswordField,
                   ),
                 ),
-                if (_password.isNotEmpty) ...[
-                  const SizedBox(height: 10),
-                  _PasswordHint(strength: _passwordStrength),
-                ],
+                AnimatedSize(
+                  duration: JuriiMotion.fast,
+                  curve: JuriiMotion.ease,
+                  alignment: Alignment.topCenter,
+                  child: _password.isNotEmpty
+                      ? Padding(
+                          padding: const EdgeInsets.only(top: 10),
+                          child: _PasswordHint(strength: _passwordStrength),
+                        )
+                      : const SizedBox(width: double.infinity),
+                ),
                 const SizedBox(height: 14),
-                _shadowedField(
-                  child: TextFormField(
-                    controller: _confirmPasswordController,
-                    obscureText: _obscureConfirmPassword,
-                    textInputAction: TextInputAction.done,
-                    autofillHints: const [AutofillHints.newPassword],
-                    decoration: InputDecoration(
-                      hintText: 'Confirmar nova senha',
-                      prefixIcon: const Icon(Icons.lock_reset_outlined),
-                      suffixIcon: IconButton(
-                        onPressed: () => setState(
-                          () => _obscureConfirmPassword =
-                              !_obscureConfirmPassword,
-                        ),
-                        icon: Icon(
-                          _obscureConfirmPassword
-                              ? Icons.visibility_outlined
-                              : Icons.visibility_off_outlined,
+                JuriiStaggeredItem(
+                  index: 4,
+                  child: _shadowedField(
+                    child: TextFormField(
+                      controller: _confirmPasswordController,
+                      obscureText: _obscureConfirmPassword,
+                      textInputAction: TextInputAction.done,
+                      autofillHints: const [AutofillHints.newPassword],
+                      decoration: InputDecoration(
+                        hintText: 'Confirmar nova senha',
+                        prefixIcon: const Icon(Icons.lock_reset_outlined),
+                        suffixIcon: IconButton(
+                          onPressed: () => setState(
+                            () => _obscureConfirmPassword =
+                                !_obscureConfirmPassword,
+                          ),
+                          icon: Icon(
+                            _obscureConfirmPassword
+                                ? Icons.visibility_outlined
+                                : Icons.visibility_off_outlined,
+                          ),
                         ),
                       ),
+                      validator: (value) {
+                        if (value != _passwordController.text) {
+                          return 'As senhas precisam ser iguais';
+                        }
+                        return null;
+                      },
+                      onFieldSubmitted: (_) => _submit(),
                     ),
-                    validator: (value) {
-                      if (value != _passwordController.text) {
-                        return 'As senhas precisam ser iguais';
-                      }
-                      return null;
-                    },
-                    onFieldSubmitted: (_) => _submit(),
                   ),
                 ),
                 const SizedBox(height: 22),
-                Container(
-                  height: 56,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppTheme.primary.withValues(alpha: 0.20),
-                        blurRadius: 20,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
-                  ),
-                  child: ElevatedButton(
+                JuriiStaggeredItem(
+                  index: 5,
+                  child: JuriiLoadingButton(
+                    label: 'Confirmar nova senha',
+                    isLoading: _isLoading,
                     onPressed: _isLoading ? null : _submit,
-                    child: _isLoading
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: AppTheme.card,
-                            ),
-                          )
-                        : const Text(
-                            'Confirmar nova senha',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -174,17 +171,7 @@ class _PasswordResetScreenState extends State<PasswordResetScreen> {
                     ),
                   ),
                 ),
-                if (_errorMessage != null) ...[
-                  const SizedBox(height: 10),
-                  Text(
-                    _errorMessage!,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: AppTheme.danger,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
+                JuriiFormErrorBanner(message: _errorMessage),
               ],
             ),
           ),
@@ -300,7 +287,9 @@ class _PasswordHint extends StatelessWidget {
   }
 
   Widget _bar({required bool active, required Color color}) {
-    return Container(
+    return AnimatedContainer(
+      duration: JuriiMotion.fast,
+      curve: JuriiMotion.ease,
       height: 5,
       decoration: BoxDecoration(
         color: active ? color : AppTheme.divider,

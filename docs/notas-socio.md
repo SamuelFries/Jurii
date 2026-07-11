@@ -1,7 +1,7 @@
-# Notas para troca com o socio - auditoria, busca, casos e LGPD
+# Notas para troca com o socio - auditoria, busca, casos, LGPD e design
 
-Atualizado em: 06/07/2026  
-Branch atual: `fix/exclusao`  
+Atualizado em: 11/07/2026
+Branch atual: `fix/design`
 Base atual: `main`/`origin/main` no commit `3ee49f2`
 (`Adiciona patch de escopo dos casos do escritorio`)
 
@@ -239,6 +239,147 @@ O que foi feito:
 Observacao: o texto dentro do app e uma versao inicial de transparencia para
 produto. Antes de publicar nas lojas, ainda precisa de revisao juridica e da
 definicao do canal oficial de privacidade.
+
+## Frente atual - Design premium e motion
+
+Em 10/07/2026 comecei a frente de polimento visual e animacoes do app. Criei um
+documento especifico em `docs/design-motion.md` para registrar o que foi feito,
+o que falta fazer e os cuidados de implementacao.
+
+O que foi implementado nesta primeira leva:
+
+- criei `lib/widgets/jurii_motion.dart` com helpers reutilizaveis:
+  `JuriiPressable`, `JuriiFadeThroughSwitcher`, `JuriiStaggeredItem`,
+  `JuriiAnimatedCounter`, `JuriiSkeletonCard` e `JuriiSkeletonList`;
+- adicionei transicao leve entre abas em `MainNavigation`, `LawyerNavigation` e
+  `FirmNavigation`;
+- animei os bottom navs (`JuriiBottomNav` e `FirmBottomNav`) com indicador,
+  escala de icone, troca outlined/filled e texto animado;
+- apliquei press feedback nos cards principais de advogados, escritorios,
+  conversas, categorias e casos;
+- adicionei entrada em cascata em listas/grids de descoberta, mensagens e casos;
+- troquei alguns spinners por skeletons nas listas de recomendacoes/casos;
+- animei contadores dos dashboards de advogado/escritorio;
+- melhorei a confirmacao visual de documentos anexados nas verificacoes de
+  advogado e escritorio.
+
+Validacao feita:
+
+- `dart format` nos arquivos alterados;
+- `flutter analyze` limpo;
+- `flutter test` com 47 testes passando.
+
+O que ainda falta nessa frente esta listado em `docs/design-motion.md`. Os
+proximos melhores alvos sao: animar bolhas novas do chat, melhorar a transicao
+conversa -> resumo da triagem IA, animar badge/sheet de notificacoes e trocar
+spinners restantes por skeletons.
+
+Continuidade da frente de design em 10/07/2026:
+
+- criei `lib/widgets/jurii_empty_state.dart` com um empty state reutilizavel e
+  apliquei em mensagens, casos, agenda, recomendacoes, chat vazio, notificacoes
+  vazias e updates vazios;
+- adicionei `JuriiPulse` em `lib/widgets/jurii_motion.dart`;
+- melhorei o `ChatScreen`: skeleton no carregamento, entrada animada de bolhas,
+  composer com foco animado, botao de envio responsivo, `+` com pulso/rotacao e
+  menu de opcoes em cascata;
+- a transicao conversa -> triagem IA agora usa fade/slide curto;
+- tiles de anexo dentro do chat ganharam press feedback;
+- `NotificationBell` ganhou badge animado/pulsante e itens da sheet em cascata;
+- `CaseDetailsScreen` ganhou skeleton no loading de updates e timeline visual
+  com linha/ponto de progresso.
+
+Com isso, os itens de maior impacto visual listados para chat, notificacoes,
+empty states e timeline de caso foram enderecados. O restante da frente ficou
+mais ligado a formularios/login/cadastro, consolidacao de wrappers e ajustes de
+responsividade.
+
+Continuidade da frente de design em 11/07/2026:
+
+- criei `lib/widgets/jurii_form_motion.dart` com `JuriiFormErrorBanner` e
+  `JuriiFormProgressCard`;
+- apliquei entrada em cascata nos fluxos de login, cadastro, cadastro social e
+  redefinicao de senha;
+- padronizei erros de login, cadastro, recuperacao de senha, reset e verificacao
+  com banner animado em vez de texto solto;
+- a rota login -> cadastro agora usa fade/slide curto;
+- indicadores de forca de senha no cadastro e no reset agora animam a entrada e
+  a mudanca das barras;
+- `PracticeAreaSelector` agora usa chips Jurii customizados, com press feedback,
+  borda/cor/sombra animadas e check animado;
+- formularios de verificacao de advogado e escritorio ganharam card de progresso
+  em tempo real conforme campos, areas e documentos sao preenchidos.
+
+Com isso, tambem foram enderecados os itens pendentes de motion em
+login/cadastro, selecao de areas e progresso visual de verificacao. O que fica
+para a proxima rodada de design e mais estrutural: consolidar wrapper unico para
+cards de listagem, revisar bottom sheets restantes e padronizar transicao
+label/spinner em botoes.
+
+Ainda em 11/07/2026, continuei a consolidacao de design system:
+
+- adicionei `JuriiLoadingButton` para padronizar CTAs com loading e transicao
+  label -> spinner;
+- adicionei `JuriiModalSheetScaffold` para bottom sheets com handle, radius,
+  safe area e comportamento de teclado consistentes;
+- apliquei `JuriiLoadingButton` em login, cadastro, reset de senha e
+  verificacoes de advogado/escritorio;
+- os botoes sociais de login/cadastro agora animam logo/icone -> spinner;
+- bottom sheets de recuperacao de senha, solicitacao de caso no chat e adicionar
+  atualizacao no caso usam o scaffold padronizado;
+- troquei spinners soltos por skeletons em mensagens do cliente, mensagens do
+  advogado, mensagens do escritorio e casos do cliente.
+
+O proximo passo de design passa a ser menos "tela isolada" e mais
+consolidacao: wrapper unico para cards de listagem e migracao gradual de bottom
+sheets restantes.
+
+Ainda em 11/07/2026, avancei na quinta leva de design, focada em consolidar
+cards de listagem:
+
+- criei `lib/widgets/jurii_list_card.dart`, um wrapper reutilizavel para cards
+  de lista com padding, borda, radius, sombra sutil e press feedback;
+- ajustei `JuriiPressable` para permitir preservar sombra externa quando o card
+  precisa desse efeito, sem mudar o comportamento default dos usos antigos;
+- migrei para esse wrapper os cards de conversa, advogado, escritorio, caso do
+  advogado, caso do cliente, caso do escritorio, prioridade do dashboard do
+  advogado e membro de equipe do escritorio;
+- a mudanca manteve conteudo e callbacks existentes, mas reduziu duplicacao e
+  deixou as superficies de listagem mais consistentes/premium.
+
+Validacao da quinta leva:
+
+- `dart format` nos arquivos alterados;
+- `flutter analyze` limpo;
+- `flutter test` com 47 testes passando.
+
+Com isso, a pendencia do wrapper unico para cards de listagem foi enderecada. O
+proximo passo de design fica entre mapear spinners restantes em fluxos menos
+acessados, expandir o scaffold padronizado para bottom sheets de equipe/
+escritorio e revisar responsividade dos dashboards.
+
+Ainda em 11/07/2026, avancei na sexta leva de design, focada nos fluxos de
+equipe/escritorio:
+
+- troquei os dialogs antigos de convidar advogado e editar cargos da equipe por
+  bottom sheets com `JuriiModalSheetScaffold`;
+- o convite de advogado agora usa layout compacto de OAB, banner de erro
+  animado e `JuriiLoadingButton`;
+- a edicao de cargos ganhou tiles selecionaveis animados em vez de checkbox
+  list dentro de `AlertDialog`;
+- padronizei tambem o bottom sheet de atribuir caso do escritorio, usando
+  `JuriiModalSheetScaffold` e `JuriiListCard` para a lista de advogados.
+
+Validacao da sexta leva:
+
+- `dart format` nos arquivos alterados;
+- `flutter analyze` limpo;
+- `flutter test` com 47 testes passando.
+
+Com isso, a pendencia de expandir o scaffold padronizado para bottom sheets de
+equipe/escritorio foi enderecada. O proximo alvo de design mais logico e mapear
+spinners restantes em fluxos menos acessados e decidir caso a caso entre
+skeleton, botao carregando ou manter spinner pequeno contextual.
 
 ## Pendencias depois desta rodada
 

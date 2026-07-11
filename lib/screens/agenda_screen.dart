@@ -5,6 +5,7 @@ import '../models/appointment.dart';
 import '../repositories/appointment_repository.dart';
 import '../services/supabase_config.dart';
 import '../theme/app_theme.dart';
+import '../widgets/jurii_empty_state.dart';
 
 class AgendaScreen extends StatefulWidget {
   final AppointmentRole role;
@@ -417,23 +418,12 @@ class _EmptyAgendaState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppTheme.card,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppTheme.lightBlueBorder),
-      ),
-      child: Text(
-        isLawyer
-            ? 'Nenhum compromisso profissional encontrado.'
-            : 'Nenhum compromisso agendado no momento.',
-        style: const TextStyle(
-          color: AppTheme.textSecondary,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
+    return JuriiEmptyState(
+      icon: Icons.calendar_today_outlined,
+      title: isLawyer ? 'Agenda profissional livre' : 'Nenhum compromisso',
+      message: isLawyer
+          ? 'Quando houver compromissos profissionais, eles aparecerão aqui.'
+          : 'Quando um atendimento for agendado, ele aparecerá aqui.',
     );
   }
 }

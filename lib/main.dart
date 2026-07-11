@@ -41,6 +41,7 @@ import 'services/supabase_config.dart';
 import 'types/auth_callbacks.dart';
 import 'widgets/firm_bottom_nav.dart';
 import 'widgets/jurii_bottom_nav.dart';
+import 'widgets/jurii_motion.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -848,7 +849,12 @@ class _MainNavigationState extends State<MainNavigation> {
     ];
 
     return Scaffold(
-      body: pages[currentIndex],
+      body: JuriiFadeThroughSwitcher(
+        child: KeyedSubtree(
+          key: ValueKey('client_page_$currentIndex'),
+          child: pages[currentIndex],
+        ),
+      ),
       bottomNavigationBar: JuriiBottomNav(
         currentIndex: currentIndex,
         onTap: (index) {
@@ -934,7 +940,12 @@ class _FirmNavigationState extends State<FirmNavigation> {
     ];
 
     return Scaffold(
-      body: pages[currentIndex],
+      body: JuriiFadeThroughSwitcher(
+        child: KeyedSubtree(
+          key: ValueKey('firm_page_$currentIndex'),
+          child: pages[currentIndex],
+        ),
+      ),
       bottomNavigationBar: FirmBottomNav(
         currentIndex: currentIndex,
         onTap: (index) => setState(() => currentIndex = index),
@@ -997,7 +1008,12 @@ class _LawyerNavigationState extends State<LawyerNavigation> {
     ];
 
     return Scaffold(
-      body: pages[currentIndex],
+      body: JuriiFadeThroughSwitcher(
+        child: KeyedSubtree(
+          key: ValueKey('lawyer_page_$currentIndex'),
+          child: pages[currentIndex],
+        ),
+      ),
       bottomNavigationBar: JuriiBottomNav(
         currentIndex: currentIndex,
         onTap: (index) => setState(() => currentIndex = index),

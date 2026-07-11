@@ -5,6 +5,8 @@ import '../models/jurii_notification.dart';
 import '../repositories/notification_repository.dart';
 import '../services/supabase_config.dart';
 import '../theme/app_theme.dart';
+import 'jurii_empty_state.dart';
+import 'jurii_motion.dart';
 
 class NotificationBell extends StatefulWidget {
   const NotificationBell({
@@ -173,30 +175,50 @@ class _NotificationBellState extends State<NotificationBell> {
             ),
           ),
         ),
-        if (_unreadCount > 0)
-          Positioned(
-            right: -3,
-            top: -3,
-            child: Container(
-              constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
-              padding: const EdgeInsets.symmetric(horizontal: 5),
-              decoration: BoxDecoration(
-                color: AppTheme.danger,
-                border: Border.all(color: AppTheme.card, width: 2),
-                borderRadius: BorderRadius.circular(99),
-              ),
-              child: Center(
-                child: Text(
-                  _unreadCount > 9 ? '9+' : '$_unreadCount',
-                  style: const TextStyle(
-                    color: AppTheme.card,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
-            ),
+        Positioned(
+          right: -3,
+          top: -3,
+          child: AnimatedSwitcher(
+            duration: JuriiMotion.fast,
+            switchInCurve: JuriiMotion.ease,
+            switchOutCurve: JuriiMotion.exitEase,
+            transitionBuilder: (child, animation) {
+              return FadeTransition(
+                opacity: animation,
+                child: ScaleTransition(scale: animation, child: child),
+              );
+            },
+            child: _unreadCount > 0
+                ? JuriiPulse(
+                    key: ValueKey('badge_$_unreadCount'),
+                    minScale: 0.96,
+                    maxScale: 1.08,
+                    child: Container(
+                      constraints: const BoxConstraints(
+                        minWidth: 18,
+                        minHeight: 18,
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 5),
+                      decoration: BoxDecoration(
+                        color: AppTheme.danger,
+                        border: Border.all(color: AppTheme.card, width: 2),
+                        borderRadius: BorderRadius.circular(99),
+                      ),
+                      child: Center(
+                        child: Text(
+                          _unreadCount > 9 ? '9+' : '$_unreadCount',
+                          style: const TextStyle(
+                            color: AppTheme.card,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                    ),
+                  )
+                : const SizedBox.shrink(key: ValueKey('badge_empty')),
           ),
+        ),
       ],
     );
   }
@@ -287,23 +309,27 @@ class _NotificationSheetState extends State<_NotificationSheet> {
                   separatorBuilder: (_, _) => const SizedBox(height: 10),
                   itemBuilder: (context, index) {
                     final notification = _notifications[index];
-                    return Dismissible(
-                      key: ValueKey('notification_${notification.id}'),
-                      direction: DismissDirection.endToStart,
-                      resizeDuration: const Duration(milliseconds: 180),
-                      movementDuration: const Duration(milliseconds: 260),
-                      dismissThresholds: const {
-                        DismissDirection.endToStart: 0.28,
-                      },
-                      background: const SizedBox.shrink(),
-                      secondaryBackground: _DismissNotificationBackground(
-                        scope: notification.scope,
-                      ),
-                      onDismissed: (_) => _dismissNotification(notification),
-                      child: _NotificationTile(
-                        notification: notification,
-                        repository: widget.repository,
-                        onChanged: _reload,
+                    return JuriiStaggeredItem(
+                      index: index,
+                      beginOffset: const Offset(0, 10),
+                      child: Dismissible(
+                        key: ValueKey('notification_${notification.id}'),
+                        direction: DismissDirection.endToStart,
+                        resizeDuration: const Duration(milliseconds: 180),
+                        movementDuration: const Duration(milliseconds: 260),
+                        dismissThresholds: const {
+                          DismissDirection.endToStart: 0.28,
+                        },
+                        background: const SizedBox.shrink(),
+                        secondaryBackground: _DismissNotificationBackground(
+                          scope: notification.scope,
+                        ),
+                        onDismissed: (_) => _dismissNotification(notification),
+                        child: _NotificationTile(
+                          notification: notification,
+                          repository: widget.repository,
+                          onChanged: _reload,
+                        ),
                       ),
                     );
                   },
@@ -371,39 +397,34 @@ class _EmptyNotifications extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = _emptyColorsForScope(scope);
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: colors.surface,
-        border: Border.all(color: colors.border),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: const Text(
-        'Nada novo por enquanto.',
-        style: TextStyle(
-          color: AppTheme.textSecondary,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
+    return JuriiEmptyState(
+      icon: Icons.notifications_none_outlined,
+      title: 'Nada novo por enquanto',
+      message: 'Quando houver novidades importantes, elas aparecerão aqui.',
+      accentColor: colors.accent,
+      surfaceColor: colors.surface,
+      borderColor: colors.border,
     );
   }
 
-  ({Color surface, Color border}) _emptyColorsForScope(
+  ({Color surface, Color border, Color accent}) _emptyColorsForScope(
     NotificationScope scope,
   ) {
     return switch (scope) {
       NotificationScope.client => (
         surface: AppTheme.lightGold,
         border: AppTheme.lightGoldBorder,
+        accent: AppTheme.accent,
       ),
       NotificationScope.lawyer => (
         surface: AppTheme.lightBlue,
         border: AppTheme.lightBlueBorder,
+        accent: AppTheme.primary,
       ),
       NotificationScope.firm => (
         surface: AppTheme.officePurpleSurface,
         border: AppTheme.officePurpleBorder,
+        accent: AppTheme.officePurple,
       ),
     };
   }

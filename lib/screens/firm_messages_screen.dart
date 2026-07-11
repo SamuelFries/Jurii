@@ -7,6 +7,8 @@ import '../repositories/messaging_repository.dart';
 import '../services/supabase_config.dart';
 import '../theme/app_theme.dart';
 import '../widgets/conversation_card.dart';
+import '../widgets/jurii_empty_state.dart';
+import '../widgets/jurii_motion.dart';
 import 'chat_screen.dart';
 
 class FirmMessagesScreen extends StatefulWidget {
@@ -122,20 +124,22 @@ class _FirmMessagesScreenState extends State<FirmMessagesScreen> {
               if (snapshot.connectionState == ConnectionState.waiting &&
                   conversations == null)
                 const Padding(
-                  padding: EdgeInsets.only(top: 32),
-                  child: Center(
-                    child: CircularProgressIndicator(
-                      color: AppTheme.officePurple,
-                    ),
-                  ),
+                  padding: EdgeInsets.only(top: 4),
+                  child: JuriiSkeletonList(itemCount: 4, itemHeight: 86),
                 )
               else if (conversations == null || conversations.isEmpty)
                 const _EmptyFirmMessagesState()
               else
                 for (var index = 0; index < conversations.length; index++) ...[
-                  ConversationCard(
-                    conversation: conversations[index],
-                    onTap: () => _openChat(context, conversations[index]),
+                  JuriiStaggeredItem(
+                    key: ValueKey(
+                      'firm_conversation_${selectedSegment}_${conversations[index].id ?? conversations[index].officeName}',
+                    ),
+                    index: index,
+                    child: ConversationCard(
+                      conversation: conversations[index],
+                      onTap: () => _openChat(context, conversations[index]),
+                    ),
                   ),
                   if (index < conversations.length - 1)
                     const SizedBox(height: 12),
@@ -182,20 +186,16 @@ class _EmptyFirmMessagesState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: AppTheme.card,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.officePurpleBorder),
-      ),
-      child: const Text(
-        'Nenhuma conversa encontrada para este escritório.',
-        style: TextStyle(
-          color: AppTheme.textSecondary,
-          fontWeight: FontWeight.w700,
-        ),
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 20),
+      child: JuriiEmptyState(
+        icon: Icons.mark_chat_unread_outlined,
+        title: 'Nenhuma conversa encontrada',
+        message:
+            'As conversas do escritório com clientes e equipe aparecerão aqui.',
+        accentColor: AppTheme.officePurple,
+        surfaceColor: AppTheme.officePurpleSurface,
+        borderColor: AppTheme.officePurpleBorder,
       ),
     );
   }
@@ -214,23 +214,30 @@ class _SegmentButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: selected ? AppTheme.card : Colors.transparent,
+    return JuriiPressable(
+      onTap: onTap,
       borderRadius: BorderRadius.circular(10),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(10),
+      semanticLabel: label,
+      child: AnimatedContainer(
+        duration: JuriiMotion.fast,
+        curve: JuriiMotion.ease,
+        decoration: BoxDecoration(
+          color: selected ? AppTheme.card : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+        ),
         child: SizedBox(
           height: 42,
           child: Center(
-            child: Text(
-              label,
+            child: AnimatedDefaultTextStyle(
+              duration: JuriiMotion.fast,
+              curve: JuriiMotion.ease,
               style: TextStyle(
                 color: selected
                     ? AppTheme.officePurple
                     : AppTheme.textSecondary,
                 fontWeight: FontWeight.w800,
               ),
+              child: Text(label),
             ),
           ),
         ),

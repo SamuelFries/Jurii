@@ -5,6 +5,9 @@ import '../models/firm_role.dart';
 import '../models/firm_team_member.dart';
 import '../models/firm_workspace.dart';
 import '../theme/app_theme.dart';
+import '../widgets/jurii_form_motion.dart';
+import '../widgets/jurii_list_card.dart';
+import '../widgets/jurii_motion.dart';
 
 class FirmTeamScreen extends StatelessWidget {
   const FirmTeamScreen({
@@ -65,7 +68,7 @@ class FirmTeamScreen extends StatelessWidget {
                 ),
               ),
               IconButton.filled(
-                onPressed: () => _openInviteDialog(context, canInvite),
+                onPressed: () => _openInviteSheet(context, canInvite),
                 style: IconButton.styleFrom(
                   backgroundColor: AppTheme.officePurple,
                   foregroundColor: AppTheme.card,
@@ -117,7 +120,7 @@ class FirmTeamScreen extends StatelessWidget {
                         onUpdateMemberRoles != null &&
                         (workspace?.isOwner == true ||
                             !members[index].effectiveRoles.hasOwner)
-                    ? () => _openRolesDialog(context, members[index])
+                    ? () => _openRolesSheet(context, members[index])
                     : null,
               ),
               if (index < members.length - 1) const SizedBox(height: 12),
@@ -127,7 +130,7 @@ class FirmTeamScreen extends StatelessWidget {
     );
   }
 
-  Future<void> _openInviteDialog(BuildContext context, bool canInvite) async {
+  Future<void> _openInviteSheet(BuildContext context, bool canInvite) async {
     if (workspace?.fromSupabase != true) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -148,9 +151,12 @@ class FirmTeamScreen extends StatelessWidget {
       return;
     }
 
-    final invited = await showDialog<bool>(
+    final invited = await showModalBottomSheet<bool>(
       context: context,
-      builder: (_) => _InviteLawyerDialog(onInviteLawyer: onInviteLawyer!),
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => _InviteLawyerSheet(onInviteLawyer: onInviteLawyer!),
     );
 
     if (invited == true && context.mounted) {
@@ -160,7 +166,7 @@ class FirmTeamScreen extends StatelessWidget {
     }
   }
 
-  Future<void> _openRolesDialog(
+  Future<void> _openRolesSheet(
     BuildContext context,
     FirmTeamMember member,
   ) async {
@@ -189,9 +195,12 @@ class FirmTeamScreen extends StatelessWidget {
       return;
     }
 
-    final updated = await showDialog<bool>(
+    final updated = await showModalBottomSheet<bool>(
       context: context,
-      builder: (_) => _MemberRolesDialog(
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => _MemberRolesSheet(
         member: member,
         canEditOwnerRole: workspace?.isOwner == true,
         onUpdateMemberRoles: onUpdateMemberRoles!,
@@ -206,8 +215,8 @@ class FirmTeamScreen extends StatelessWidget {
   }
 }
 
-class _MemberRolesDialog extends StatefulWidget {
-  const _MemberRolesDialog({
+class _MemberRolesSheet extends StatefulWidget {
+  const _MemberRolesSheet({
     required this.member,
     required this.canEditOwnerRole,
     required this.onUpdateMemberRoles,
@@ -222,10 +231,10 @@ class _MemberRolesDialog extends StatefulWidget {
   onUpdateMemberRoles;
 
   @override
-  State<_MemberRolesDialog> createState() => _MemberRolesDialogState();
+  State<_MemberRolesSheet> createState() => _MemberRolesSheetState();
 }
 
-class _MemberRolesDialogState extends State<_MemberRolesDialog> {
+class _MemberRolesSheetState extends State<_MemberRolesSheet> {
   late final Set<FirmRole> _selectedRoles;
   bool _isSubmitting = false;
   String? _errorText;
@@ -302,63 +311,79 @@ class _MemberRolesDialogState extends State<_MemberRolesDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text('Cargos de ${widget.member.name}'),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (final role in FirmRole.orderedValues)
-              CheckboxListTile(
-                value: _selectedRoles.contains(role),
-                onChanged:
-                    _isSubmitting ||
-                        (role == FirmRole.owner && !widget.canEditOwnerRole)
-                    ? null
-                    : (selected) => _toggleRole(role, selected),
-                title: Text(role.label),
-                subtitle: Text(
-                  _roleDescription(role),
-                  style: const TextStyle(color: AppTheme.textSecondary),
-                ),
-                controlAffinity: ListTileControlAffinity.leading,
-                contentPadding: EdgeInsets.zero,
+    return JuriiModalSheetScaffold(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Cargos de ${widget.member.name}',
+            style: const TextStyle(
+              color: AppTheme.textPrimary,
+              fontSize: 22,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Defina o que este membro pode fazer dentro do escritório.',
+            style: TextStyle(
+              color: AppTheme.textSecondary,
+              height: 1.35,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 18),
+          ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.sizeOf(context).height * 0.48,
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                children: [
+                  for (final role in FirmRole.orderedValues) ...[
+                    _RoleToggleTile(
+                      title: role.label,
+                      description: _roleDescription(role),
+                      selected: _selectedRoles.contains(role),
+                      enabled:
+                          !_isSubmitting &&
+                          (role != FirmRole.owner || widget.canEditOwnerRole),
+                      onChanged: (selected) => _toggleRole(role, selected),
+                    ),
+                    if (role != FirmRole.orderedValues.last)
+                      const SizedBox(height: 10),
+                  ],
+                ],
               ),
-            if (_errorText != null) ...[
-              const SizedBox(height: 8),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  _errorText!,
-                  style: const TextStyle(
-                    color: AppTheme.danger,
-                    fontWeight: FontWeight.w700,
-                  ),
+            ),
+          ),
+          JuriiFormErrorBanner(message: _errorText),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: _isSubmitting
+                      ? null
+                      : () => Navigator.of(context).pop(),
+                  child: const Text('Cancelar'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: JuriiLoadingButton(
+                  label: 'Salvar cargos',
+                  isLoading: _isSubmitting,
+                  onPressed: _submit,
+                  height: 52,
+                  backgroundColor: AppTheme.officePurple,
                 ),
               ),
             ],
-          ],
-        ),
+          ),
+        ],
       ),
-      actions: [
-        TextButton(
-          onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(),
-          child: const Text('Cancelar'),
-        ),
-        FilledButton(
-          onPressed: _isSubmitting ? null : _submit,
-          child: _isSubmitting
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: AppTheme.card,
-                  ),
-                )
-              : const Text('Salvar cargos'),
-        ),
-      ],
     );
   }
 
@@ -373,8 +398,106 @@ class _MemberRolesDialogState extends State<_MemberRolesDialog> {
   }
 }
 
-class _InviteLawyerDialog extends StatefulWidget {
-  const _InviteLawyerDialog({required this.onInviteLawyer});
+class _RoleToggleTile extends StatelessWidget {
+  const _RoleToggleTile({
+    required this.title,
+    required this.description,
+    required this.selected,
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  final String title;
+  final String description;
+  final bool selected;
+  final bool enabled;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final borderColor = selected
+        ? AppTheme.officePurple
+        : AppTheme.officePurpleBorder;
+    final backgroundColor = selected
+        ? AppTheme.officePurpleSurface
+        : AppTheme.card;
+    final iconColor = selected ? AppTheme.officePurple : AppTheme.textSecondary;
+
+    return JuriiPressable(
+      onTap: enabled ? () => onChanged(!selected) : null,
+      borderRadius: BorderRadius.circular(14),
+      semanticLabel: title,
+      child: AnimatedContainer(
+        duration: JuriiMotion.fast,
+        curve: JuriiMotion.ease,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: enabled
+              ? backgroundColor
+              : AppTheme.lightBlue.withValues(alpha: 0.55),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: borderColor),
+        ),
+        child: Row(
+          children: [
+            AnimatedContainer(
+              duration: JuriiMotion.fast,
+              curve: JuriiMotion.ease,
+              width: 26,
+              height: 26,
+              decoration: BoxDecoration(
+                color: selected ? AppTheme.officePurple : AppTheme.card,
+                shape: BoxShape.circle,
+                border: Border.all(color: iconColor, width: 1.4),
+              ),
+              child: AnimatedSwitcher(
+                duration: JuriiMotion.fast,
+                child: selected
+                    ? const Icon(
+                        Icons.check,
+                        key: ValueKey('selected'),
+                        color: AppTheme.card,
+                        size: 16,
+                      )
+                    : const SizedBox(key: ValueKey('empty')),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      color: enabled
+                          ? AppTheme.textPrimary
+                          : AppTheme.textSecondary,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    description,
+                    style: const TextStyle(
+                      color: AppTheme.textSecondary,
+                      fontSize: 12,
+                      height: 1.25,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _InviteLawyerSheet extends StatefulWidget {
+  const _InviteLawyerSheet({required this.onInviteLawyer});
 
   final Future<void> Function({
     required String oabState,
@@ -383,10 +506,10 @@ class _InviteLawyerDialog extends StatefulWidget {
   onInviteLawyer;
 
   @override
-  State<_InviteLawyerDialog> createState() => _InviteLawyerDialogState();
+  State<_InviteLawyerSheet> createState() => _InviteLawyerSheetState();
 }
 
-class _InviteLawyerDialogState extends State<_InviteLawyerDialog> {
+class _InviteLawyerSheetState extends State<_InviteLawyerSheet> {
   final TextEditingController _stateController = TextEditingController();
   final TextEditingController _numberController = TextEditingController();
   bool _isSubmitting = false;
@@ -469,75 +592,90 @@ class _InviteLawyerDialogState extends State<_InviteLawyerDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Convidar advogado'),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Informe a OAB de um advogado já verificado na Jurii.',
-              style: TextStyle(color: AppTheme.textSecondary),
+    return JuriiModalSheetScaffold(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Convidar advogado',
+            style: TextStyle(
+              color: AppTheme.textPrimary,
+              fontSize: 22,
+              fontWeight: FontWeight.w900,
             ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _stateController,
-              enabled: !_isSubmitting,
-              textCapitalization: TextCapitalization.characters,
-              maxLength: 2,
-              decoration: const InputDecoration(
-                labelText: 'UF da OAB',
-                hintText: 'SP',
-                counterText: '',
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Informe a OAB de um advogado já verificado na Jurii.',
+            style: TextStyle(
+              color: AppTheme.textSecondary,
+              height: 1.35,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 18),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: 92,
+                child: TextField(
+                  controller: _stateController,
+                  enabled: !_isSubmitting,
+                  textCapitalization: TextCapitalization.characters,
+                  maxLength: 2,
+                  decoration: const InputDecoration(
+                    labelText: 'UF',
+                    hintText: 'SP',
+                    counterText: '',
+                  ),
+                ),
               ),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: _numberController,
-              enabled: !_isSubmitting,
-              keyboardType: TextInputType.number,
-              inputFormatters: [
-                FilteringTextInputFormatter.digitsOnly,
-                LengthLimitingTextInputFormatter(8),
-              ],
-              decoration: const InputDecoration(
-                labelText: 'Número da OAB',
-                hintText: '123456',
-              ),
-            ),
-            if (_errorText != null) ...[
-              const SizedBox(height: 12),
-              Text(
-                _errorText!,
-                style: const TextStyle(
-                  color: AppTheme.danger,
-                  fontWeight: FontWeight.w700,
+              const SizedBox(width: 12),
+              Expanded(
+                child: TextField(
+                  controller: _numberController,
+                  enabled: !_isSubmitting,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(8),
+                  ],
+                  decoration: const InputDecoration(
+                    labelText: 'Número da OAB',
+                    hintText: '123456',
+                  ),
                 ),
               ),
             ],
-          ],
-        ),
+          ),
+          JuriiFormErrorBanner(message: _errorText),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: _isSubmitting
+                      ? null
+                      : () => Navigator.of(context).pop(),
+                  child: const Text('Cancelar'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: JuriiLoadingButton(
+                  label: 'Enviar convite',
+                  isLoading: _isSubmitting,
+                  onPressed: _submit,
+                  height: 52,
+                  backgroundColor: AppTheme.officePurple,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
-      actions: [
-        TextButton(
-          onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(),
-          child: const Text('Cancelar'),
-        ),
-        FilledButton(
-          onPressed: _isSubmitting ? null : _submit,
-          child: _isSubmitting
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: AppTheme.card,
-                  ),
-                )
-              : const Text('Enviar convite'),
-        ),
-      ],
     );
   }
 }
@@ -555,13 +693,9 @@ class _TeamMemberCard extends StatelessWidget {
         ? roleLabel
         : '$roleLabel - ${member.specialty}';
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppTheme.card,
-        border: Border.all(color: AppTheme.officePurpleBorder),
-        borderRadius: BorderRadius.circular(14),
-      ),
+    return JuriiListCard(
+      borderRadius: 14,
+      borderColor: AppTheme.officePurpleBorder,
       child: Row(
         children: [
           Container(

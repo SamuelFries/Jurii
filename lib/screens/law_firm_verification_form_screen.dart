@@ -10,6 +10,8 @@ import '../models/user_profile.dart';
 import '../repositories/law_firm_verification_repository.dart';
 import '../services/supabase_config.dart';
 import '../theme/app_theme.dart';
+import '../widgets/jurii_form_motion.dart';
+import '../widgets/jurii_motion.dart';
 import '../widgets/practice_area_selector.dart';
 import 'law_firm_verification_success_screen.dart';
 
@@ -53,16 +55,36 @@ class _LawFirmVerificationFormScreenState
         documents.every((document) => document.uploaded);
   }
 
+  int get _completedSteps {
+    var completed = 0;
+    if (firmNameController.text.trim().length >= 3) completed++;
+    if (_onlyDigits(cnpjController.text).length == 14) completed++;
+    if (_isValidPhone(phoneController.text)) completed++;
+    if (emailController.text.trim().contains('@')) completed++;
+    if (addressController.text.trim().length >= 8) completed++;
+    if (selectedAreas.isNotEmpty) completed++;
+    completed += documents.where((document) => document.uploaded).length;
+    return completed;
+  }
+
+  int get _totalSteps => 6 + documents.length;
+
   @override
   void initState() {
     super.initState();
     documents = mockRequiredLawFirmVerificationDocuments
         .map((document) => document.copyWith())
         .toList();
+    for (final controller in _textControllers) {
+      controller.addListener(_handleTextChanged);
+    }
   }
 
   @override
   void dispose() {
+    for (final controller in _textControllers) {
+      controller.removeListener(_handleTextChanged);
+    }
     firmNameController.dispose();
     cnpjController.dispose();
     phoneController.dispose();
@@ -70,6 +92,16 @@ class _LawFirmVerificationFormScreenState
     addressController.dispose();
     super.dispose();
   }
+
+  List<TextEditingController> get _textControllers => [
+    firmNameController,
+    cnpjController,
+    phoneController,
+    emailController,
+    addressController,
+  ];
+
+  void _handleTextChanged() => setState(() {});
 
   @override
   Widget build(BuildContext context) {
@@ -100,6 +132,19 @@ class _LawFirmVerificationFormScreenState
                   fontSize: 15,
                   height: 1.5,
                 ),
+              ),
+              const SizedBox(height: 20),
+              JuriiFormProgressCard(
+                completedSteps: _completedSteps,
+                totalSteps: _totalSteps,
+                title: formIsValid
+                    ? 'Tudo pronto para análise'
+                    : 'Complete o cadastro do escritório',
+                subtitle:
+                    'Dados da pessoa jurídica, áreas atendidas e documentos.',
+                accentColor: AppTheme.officePurple,
+                surfaceColor: AppTheme.officePurpleSurface,
+                borderColor: AppTheme.officePurpleBorder,
               ),
               const SizedBox(height: 32),
               const Text(
@@ -221,34 +266,14 @@ class _LawFirmVerificationFormScreenState
                 ),
               ),
               const SizedBox(height: 32),
-              SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: ElevatedButton(
-                  onPressed: isSubmitting ? null : _submit,
-                  child: isSubmitting
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: AppTheme.card,
-                          ),
-                        )
-                      : const Text('Enviar para análise'),
-                ),
+              JuriiLoadingButton(
+                label: 'Enviar para análise',
+                isLoading: isSubmitting,
+                onPressed: isSubmitting ? null : _submit,
+                backgroundColor: AppTheme.officePurple,
+                textStyle: const TextStyle(fontWeight: FontWeight.w700),
               ),
-              if (errorMessage != null) ...[
-                const SizedBox(height: 12),
-                Text(
-                  errorMessage!,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: AppTheme.danger,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
+              JuriiFormErrorBanner(message: errorMessage),
             ],
           ),
         ),
@@ -261,15 +286,20 @@ class _LawFirmVerificationFormScreenState
     required bool hasError,
     required VoidCallback onTap,
   }) {
-    return Container(
+    final borderColor = document.uploaded
+        ? AppTheme.success
+        : hasError
+        ? AppTheme.danger
+        : AppTheme.lightBlueBorder;
+
+    return AnimatedContainer(
+      duration: JuriiMotion.fast,
+      curve: JuriiMotion.ease,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: AppTheme.card,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: hasError ? AppTheme.danger : AppTheme.lightBlueBorder,
-          width: 1.5,
-        ),
+        border: Border.all(color: borderColor, width: 1.5),
         boxShadow: const [
           BoxShadow(
             color: AppTheme.softShadow,
@@ -317,16 +347,34 @@ class _LawFirmVerificationFormScreenState
                 ),
               ),
               onPressed: onTap,
-              child: Text(
-                document.uploaded ? 'Anexado' : 'Selecionar',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: document.uploaded
-                      ? AppTheme.success
-                      : AppTheme.textPrimary,
-                ),
-              ),
+              child: document.uploaded
+                  ? const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.check_circle,
+                          color: AppTheme.success,
+                          size: 16,
+                        ),
+                        SizedBox(width: 5),
+                        Text(
+                          'Anexado',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.success,
+                          ),
+                        ),
+                      ],
+                    )
+                  : const Text(
+                      'Selecionar',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
             ),
           ),
         ],

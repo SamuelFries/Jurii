@@ -11,6 +11,8 @@ import '../models/verification_document.dart';
 import '../repositories/lawyer_verification_repository.dart';
 import '../services/supabase_config.dart';
 import '../theme/app_theme.dart';
+import '../widgets/jurii_form_motion.dart';
+import '../widgets/jurii_motion.dart';
 import '../widgets/practice_area_selector.dart';
 import 'lawyer_verification_success_screen.dart';
 
@@ -47,6 +49,17 @@ class _LawyerVerificationFormScreenState
         selectedAreas.isNotEmpty &&
         documents.every((document) => document.uploaded);
   }
+
+  int get _completedSteps {
+    var completed = 0;
+    if (oabController.text.trim().isNotEmpty) completed++;
+    if (selectedState != null) completed++;
+    if (selectedAreas.isNotEmpty) completed++;
+    completed += documents.where((document) => document.uploaded).length;
+    return completed;
+  }
+
+  int get _totalSteps => 3 + documents.length;
 
   @override
   void initState() {
@@ -97,6 +110,21 @@ class _LawyerVerificationFormScreenState
                   fontSize: 15,
                   height: 1.5,
                 ),
+              ),
+
+              const SizedBox(height: 20),
+
+              JuriiFormProgressCard(
+                completedSteps: _completedSteps,
+                totalSteps: _totalSteps,
+                title: formularioValido
+                    ? 'Tudo pronto para análise'
+                    : 'Complete sua verificação',
+                subtitle:
+                    'Dados profissionais, áreas de atuação e documentos obrigatórios.',
+                accentColor: AppTheme.primary,
+                surfaceColor: AppTheme.lightBlue,
+                borderColor: AppTheme.lightBlueBorder,
               ),
 
               const SizedBox(height: 32),
@@ -199,35 +227,14 @@ class _LawyerVerificationFormScreenState
 
               const SizedBox(height: 32),
 
-              SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: ElevatedButton(
-                  onPressed: isSubmitting ? null : _submit,
-                  child: isSubmitting
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: AppTheme.card,
-                          ),
-                        )
-                      : const Text('Enviar para análise'),
-                ),
+              JuriiLoadingButton(
+                label: 'Enviar para análise',
+                isLoading: isSubmitting,
+                onPressed: isSubmitting ? null : _submit,
+                textStyle: const TextStyle(fontWeight: FontWeight.w700),
               ),
 
-              if (errorMessage != null) ...[
-                const SizedBox(height: 12),
-                Text(
-                  errorMessage!,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: AppTheme.danger,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
+              JuriiFormErrorBanner(message: errorMessage),
             ],
           ),
         ),
@@ -240,15 +247,20 @@ class _LawyerVerificationFormScreenState
     required bool hasError,
     required VoidCallback onTap,
   }) {
-    return Container(
+    final borderColor = document.uploaded
+        ? AppTheme.success
+        : hasError
+        ? AppTheme.danger
+        : AppTheme.lightBlueBorder;
+
+    return AnimatedContainer(
+      duration: JuriiMotion.fast,
+      curve: JuriiMotion.ease,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: AppTheme.card,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: hasError ? AppTheme.danger : AppTheme.lightBlueBorder,
-          width: 1.5,
-        ),
+        border: Border.all(color: borderColor, width: 1.5),
         boxShadow: const [
           BoxShadow(
             color: AppTheme.softShadow,
@@ -300,16 +312,34 @@ class _LawyerVerificationFormScreenState
                 ),
               ),
               onPressed: onTap,
-              child: Text(
-                document.uploaded ? 'Anexado' : 'Selecionar',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: document.uploaded
-                      ? AppTheme.success
-                      : AppTheme.textPrimary,
-                ),
-              ),
+              child: document.uploaded
+                  ? const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.check_circle,
+                          color: AppTheme.success,
+                          size: 16,
+                        ),
+                        SizedBox(width: 5),
+                        Text(
+                          'Anexado',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.success,
+                          ),
+                        ),
+                      ],
+                    )
+                  : const Text(
+                      'Selecionar',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
             ),
           ),
         ],
