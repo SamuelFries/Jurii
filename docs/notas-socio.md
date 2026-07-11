@@ -581,3 +581,39 @@ Proximo passo para finalizar essa validacao:
 3. rodar `supabase start`;
 4. rodar `supabase db reset`;
 5. executar os smoke tests SQL documentados em `docs/supabase-local.md`.
+
+### Nova tentativa apos limpeza do disco
+
+Depois da limpeza do computador, o espaco livre subiu para cerca de 45GiB. Isso
+removeu o bloqueio de disco do macOS, mas o Docker Desktop continuou sem subir
+o daemon.
+
+Resultado da nova tentativa:
+
+- `df -h` confirmou espaco livre suficiente;
+- `docker info` deixou de travar, mas passou a retornar
+  `Cannot connect to the Docker daemon`;
+- reiniciei o Docker Desktop por processo;
+- os logs do Docker mostram que, durante a tentativa anterior sem espaco, o
+  filesystem interno do Docker entrou em erro EXT4 e foi remontado como
+  read-only:
+
+```text
+EXT4-fs (vda1): Remounting filesystem read-only
+containerd ... garbage collection failed: input/output error
+```
+
+Diagnostico atualizado: a limpeza do macOS foi necessaria, mas agora o bloqueio
+parece estar no disco interno do Docker Desktop (`Docker.raw`), provavelmente
+corrompido/read-only depois do pull interrompido.
+
+Nao executei limpeza destrutiva do Docker via CLI. O proximo passo seguro e
+abrir Docker Desktop > Troubleshoot e usar Clean / Purge data ou Reset to
+factory defaults. Isso apaga imagens, containers e volumes locais do Docker,
+mas nao apaga o codigo do projeto. Depois disso, repetir:
+
+```bash
+docker info
+supabase start
+supabase db reset
+```

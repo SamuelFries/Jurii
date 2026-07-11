@@ -23,6 +23,38 @@ Se o disco estiver quase cheio, o Docker pode falhar durante o pull das imagens
 com erro de `input/output error` no banco interno do containerd. Nesse caso,
 libere espaco, reinicie o Docker Desktop e rode o fluxo de novo.
 
+## Quando o Docker fica corrompido
+
+Se, mesmo depois de liberar espaco, `docker info` ainda retornar:
+
+```text
+Cannot connect to the Docker daemon
+```
+
+e os logs do Docker tiverem linhas como:
+
+```text
+EXT4-fs ... Remounting filesystem read-only
+containerd ... garbage collection failed: input/output error
+```
+
+o problema provavelmente nao e mais falta de espaco no macOS. O disco interno
+do Docker Desktop (`Docker.raw`) ficou corrompido ou read-only depois da
+tentativa anterior.
+
+O caminho mais seguro e resolver pela UI do Docker Desktop:
+
+1. abrir Docker Desktop;
+2. ir em Troubleshoot;
+3. usar Clean / Purge data ou Reset to factory defaults;
+4. reiniciar o Docker Desktop;
+5. rodar `docker info`;
+6. repetir `supabase start`.
+
+Atencao: Clean / Purge data e Reset to factory defaults removem imagens,
+containers e volumes locais do Docker. Nao apagam o codigo do projeto, mas
+apagam bancos/volumes locais que existam dentro do Docker.
+
 ## Primeiro start local
 
 Na raiz do projeto:
