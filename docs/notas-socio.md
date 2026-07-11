@@ -358,6 +358,29 @@ proximo passo de design fica entre mapear spinners restantes em fluxos menos
 acessados, expandir o scaffold padronizado para bottom sheets de equipe/
 escritorio e revisar responsividade dos dashboards.
 
+Ainda em 11/07/2026, avancei na sexta leva de design, focada nos fluxos de
+equipe/escritorio:
+
+- troquei os dialogs antigos de convidar advogado e editar cargos da equipe por
+  bottom sheets com `JuriiModalSheetScaffold`;
+- o convite de advogado agora usa layout compacto de OAB, banner de erro
+  animado e `JuriiLoadingButton`;
+- a edicao de cargos ganhou tiles selecionaveis animados em vez de checkbox
+  list dentro de `AlertDialog`;
+- padronizei tambem o bottom sheet de atribuir caso do escritorio, usando
+  `JuriiModalSheetScaffold` e `JuriiListCard` para a lista de advogados.
+
+Validacao da sexta leva:
+
+- `dart format` nos arquivos alterados;
+- `flutter analyze` limpo;
+- `flutter test` com 47 testes passando.
+
+Com isso, a pendencia de expandir o scaffold padronizado para bottom sheets de
+equipe/escritorio foi enderecada. O proximo alvo de design mais logico e mapear
+spinners restantes em fluxos menos acessados e decidir caso a caso entre
+skeleton, botao carregando ou manter spinner pequeno contextual.
+
 ## Pendencias depois desta rodada
 
 As maiores pendencias restantes em seguranca/LGPD estao documentadas em

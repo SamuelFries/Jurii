@@ -182,6 +182,21 @@ Criei `lib/widgets/jurii_motion.dart` com:
 - Mantive o conteudo interno dos cards e callbacks existentes; a mudanca foi de
   superficie, consistencia visual e reducao de duplicacao.
 
+## Feito nesta sexta leva
+
+### Bottom sheets de equipe e escritorio
+
+- Troquei os dialogs antigos de convite de advogado e edicao de cargos da equipe
+  por `showModalBottomSheet` com `JuriiModalSheetScaffold`.
+- O convite de advogado agora usa layout compacto de OAB, `JuriiFormErrorBanner`
+  e `JuriiLoadingButton` em vez de spinner manual dentro de `FilledButton`.
+- A edicao de cargos agora usa tiles selecionaveis animados, com borda/cor
+  transicionando conforme selecao e estado desabilitado para cargo de dono
+  quando o usuario nao pode altera-lo.
+- Padronizei o bottom sheet de atribuicao de caso do escritorio com
+  `JuriiModalSheetScaffold` e `JuriiListCard`, deixando a escolha de advogado
+  com avatar, check animado e superficie consistente.
+
 ## Validacao
 
 Rodado em 10/07/2026:
@@ -203,6 +218,9 @@ Rodado em 11/07/2026:
 - `dart format` nos arquivos alterados da quinta leva;
 - `flutter analyze` sem issues.
 - `flutter test` com 47 testes passando.
+- `dart format` nos arquivos alterados da sexta leva;
+- `flutter analyze` sem issues.
+- `flutter test` com 47 testes passando.
 
 ## Falta fazer
 
@@ -215,7 +233,8 @@ Prioridade media:
 
 - Expandir `JuriiListCard` para cards privados restantes quando houver ganho
   claro, especialmente agenda, detalhes de caso e telas de perfil.
-- Expandir `JuriiModalSheetScaffold` para bottom sheets de equipe/escritorio.
+- Revisar bottom sheets restantes fora de equipe/escritorio quando algum fluxo
+  ainda destoar visualmente.
 - Refinar formularios de verificacao com agrupamento visual por etapa
   (`Dados`, `Areas`, `Documentos`) se a tela crescer.
 

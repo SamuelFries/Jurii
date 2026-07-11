@@ -8,6 +8,7 @@ import '../repositories/case_repository.dart';
 import '../services/supabase_config.dart';
 import '../theme/app_theme.dart';
 import '../widgets/jurii_empty_state.dart';
+import '../widgets/jurii_form_motion.dart';
 import '../widgets/jurii_list_card.dart';
 import '../widgets/jurii_motion.dart';
 import 'case_details_screen.dart';
@@ -116,6 +117,8 @@ class _FirmCasesScreenState extends State<FirmCasesScreen> {
 
     final selectedLawyer = await showModalBottomSheet<FirmTeamMember>(
       context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
       useSafeArea: true,
       builder: (_) => _AssignLawyerSheet(
         lawyers: lawyers,
@@ -385,8 +388,7 @@ class _AssignLawyerSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
+    return JuriiModalSheetScaffold(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -399,7 +401,16 @@ class _AssignLawyerSheet extends StatelessWidget {
               fontWeight: FontWeight.w900,
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 6),
+          const Text(
+            'Escolha o advogado responsável pelo próximo acompanhamento.',
+            style: TextStyle(
+              color: AppTheme.textSecondary,
+              height: 1.35,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 18),
           ConstrainedBox(
             constraints: BoxConstraints(
               maxHeight: MediaQuery.sizeOf(context).height * 0.55,
@@ -412,41 +423,86 @@ class _AssignLawyerSheet extends StatelessWidget {
                 final lawyer = lawyers[index];
                 final selected = lawyer.id == selectedLawyerId;
 
-                return ListTile(
+                return JuriiListCard(
                   onTap: () => Navigator.of(context).pop(lawyer),
-                  tileColor: AppTheme.card,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    side: BorderSide(
-                      color: selected
-                          ? AppTheme.officePurple
-                          : AppTheme.officePurpleBorder,
-                    ),
-                  ),
-                  leading: CircleAvatar(
-                    backgroundColor: AppTheme.officePurpleSurface,
-                    child: Text(
-                      lawyer.initials,
-                      style: const TextStyle(
-                        color: AppTheme.officePurple,
-                        fontWeight: FontWeight.w900,
+                  semanticLabel: lawyer.name,
+                  borderRadius: 14,
+                  padding: const EdgeInsets.all(12),
+                  borderColor: selected
+                      ? AppTheme.officePurple
+                      : AppTheme.officePurpleBorder,
+                  backgroundColor: selected
+                      ? AppTheme.officePurpleSurface
+                      : AppTheme.card,
+                  shadowBlur: 8,
+                  shadowOffset: const Offset(0, 4),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: selected
+                              ? AppTheme.officePurple
+                              : AppTheme.officePurpleSurface,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Center(
+                          child: Text(
+                            lawyer.initials,
+                            style: TextStyle(
+                              color: selected
+                                  ? AppTheme.card
+                                  : AppTheme.officePurple,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              lawyer.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: AppTheme.textPrimary,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              lawyer.specialty,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: AppTheme.textSecondary,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      AnimatedSwitcher(
+                        duration: JuriiMotion.fast,
+                        child: selected
+                            ? const Icon(
+                                Icons.check_circle,
+                                key: ValueKey('selected'),
+                                color: AppTheme.officePurple,
+                              )
+                            : const Icon(
+                                Icons.chevron_right,
+                                key: ValueKey('available'),
+                                color: AppTheme.textSecondary,
+                              ),
+                      ),
+                    ],
                   ),
-                  title: Text(
-                    lawyer.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w800),
-                  ),
-                  subtitle: Text(
-                    lawyer.specialty,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  trailing: selected
-                      ? const Icon(Icons.check_circle, color: AppTheme.primary)
-                      : const Icon(Icons.chevron_right),
                 );
               },
             ),
