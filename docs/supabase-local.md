@@ -96,8 +96,8 @@ psql postgresql://postgres:postgres@127.0.0.1:54322/postgres
 Consultas uteis:
 
 ```sql
-select to_regprocedure('public.approve_lawyer_verification(uuid)');
-select to_regprocedure('public.approve_law_firm_verification(uuid)');
+select to_regprocedure('public.approve_lawyer_verification(uuid,uuid)');
+select to_regprocedure('public.approve_law_firm_verification(uuid,uuid)');
 select to_regclass('public.account_deletion_audit');
 select count(*) > 0 as has_intents from public.legal_search_intents;
 select public.legal_search_term_matches('minha demissao foi sem justa causa', 'iss') as iss_false_positive;

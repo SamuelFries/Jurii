@@ -99,120 +99,6 @@ begin
 end;
 $$;
 
-create or replace function public.can_access_case(case_id_value uuid)
-returns boolean
-language sql
-stable
-security definer
-set search_path = public
-as $$
-  select
-    exists (
-      select 1
-      from public.legal_cases lc
-      where lc.id = case_id_value
-        and (
-          lc.client_id = auth.uid()
-          or lc.assigned_lawyer_id = auth.uid()
-        )
-    )
-    or exists (
-      select 1
-      from public.case_participants cp
-      where cp.case_id = case_id_value
-        and cp.profile_id = auth.uid()
-    );
-$$;
-
-create or replace function public.can_manage_case(case_id_value uuid)
-returns boolean
-language sql
-stable
-security definer
-set search_path = public
-as $$
-  select
-    exists (
-      select 1
-      from public.legal_cases lc
-      where lc.id = case_id_value
-        and (
-          lc.client_id = auth.uid()
-          or lc.assigned_lawyer_id = auth.uid()
-        )
-    )
-    or exists (
-      select 1
-      from public.case_participants cp
-      where cp.case_id = case_id_value
-        and cp.profile_id = auth.uid()
-        and cp.role in ('lawyer', 'firm_member')
-    );
-$$;
-
-create or replace function public.can_access_conversation(conversation_id_value uuid)
-returns boolean
-language sql
-stable
-security definer
-set search_path = public
-as $$
-  select exists (
-    select 1
-    from public.conversations c
-    where c.id = conversation_id_value
-      and (
-        c.client_id = auth.uid()
-        or c.lawyer_id = auth.uid()
-        or (
-          c.case_id is not null
-          and public.can_access_case(c.case_id)
-        )
-      )
-  );
-$$;
-
-create or replace function public.can_select_profile(profile_id_value uuid)
-returns boolean
-language sql
-stable
-security definer
-set search_path = public
-as $$
-  select
-    profile_id_value = auth.uid()
-    or exists (
-      select 1
-      from public.legal_cases lc
-      where (
-        lc.client_id = auth.uid()
-        and lc.assigned_lawyer_id = profile_id_value
-      )
-      or (
-        lc.assigned_lawyer_id = auth.uid()
-        and lc.client_id = profile_id_value
-      )
-    )
-    or exists (
-      select 1
-      from public.case_participants cp
-      where cp.profile_id = profile_id_value
-        and public.can_access_case(cp.case_id)
-    )
-    or exists (
-      select 1
-      from public.conversations c
-      where (
-        c.client_id = auth.uid()
-        and c.lawyer_id = profile_id_value
-      )
-      or (
-        c.lawyer_id = auth.uid()
-        and c.client_id = profile_id_value
-      )
-    );
-$$;
-
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   full_name text not null,
@@ -503,6 +389,121 @@ on public.profiles for update
 to authenticated
 using (id = auth.uid())
 with check (id = auth.uid());
+
+-- Helper functions must exist before policies reference them.
+create or replace function public.can_access_case(case_id_value uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    exists (
+      select 1
+      from public.legal_cases lc
+      where lc.id = case_id_value
+        and (
+          lc.client_id = auth.uid()
+          or lc.assigned_lawyer_id = auth.uid()
+        )
+    )
+    or exists (
+      select 1
+      from public.case_participants cp
+      where cp.case_id = case_id_value
+        and cp.profile_id = auth.uid()
+    );
+$$;
+
+create or replace function public.can_manage_case(case_id_value uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    exists (
+      select 1
+      from public.legal_cases lc
+      where lc.id = case_id_value
+        and (
+          lc.client_id = auth.uid()
+          or lc.assigned_lawyer_id = auth.uid()
+        )
+    )
+    or exists (
+      select 1
+      from public.case_participants cp
+      where cp.case_id = case_id_value
+        and cp.profile_id = auth.uid()
+        and cp.role in ('lawyer', 'firm_member')
+    );
+$$;
+
+create or replace function public.can_access_conversation(conversation_id_value uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.conversations c
+    where c.id = conversation_id_value
+      and (
+        c.client_id = auth.uid()
+        or c.lawyer_id = auth.uid()
+        or (
+          c.case_id is not null
+          and public.can_access_case(c.case_id)
+        )
+      )
+  );
+$$;
+
+create or replace function public.can_select_profile(profile_id_value uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    profile_id_value = auth.uid()
+    or exists (
+      select 1
+      from public.legal_cases lc
+      where (
+        lc.client_id = auth.uid()
+        and lc.assigned_lawyer_id = profile_id_value
+      )
+      or (
+        lc.assigned_lawyer_id = auth.uid()
+        and lc.client_id = profile_id_value
+      )
+    )
+    or exists (
+      select 1
+      from public.case_participants cp
+      where cp.profile_id = profile_id_value
+        and public.can_access_case(cp.case_id)
+    )
+    or exists (
+      select 1
+      from public.conversations c
+      where (
+        c.client_id = auth.uid()
+        and c.lawyer_id = profile_id_value
+      )
+      or (
+        c.lawyer_id = auth.uid()
+        and c.client_id = profile_id_value
+      )
+    );
+$$;
 
 create policy "profiles_select_related_case_or_conversation"
 on public.profiles for select

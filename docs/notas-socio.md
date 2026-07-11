@@ -617,3 +617,38 @@ docker info
 supabase start
 supabase db reset
 ```
+
+### Limpeza total do Docker e validacao local concluida
+
+Depois foi autorizado apagar tudo que existia no Docker local. Como nada era
+util para o projeto, parei o Docker Desktop, removi o storage operacional local
+do Docker e abri o Docker novamente. O diretório do Docker caiu de cerca de 13G
+para 36M antes de baixar novamente as imagens, e o daemon voltou a responder.
+
+Com o Docker limpo:
+
+- `docker info` voltou a funcionar;
+- `supabase start` baixou as imagens do zero;
+- corrigi a baseline para nao criar funcoes helper antes das tabelas/policies
+  que elas referenciam;
+- `supabase start` subiu a stack local;
+- `supabase db reset` recriou o banco local e aplicou a baseline
+  `20260711190000_squashed_legacy_baseline.sql`;
+- `supabase_migrations.schema_migrations` confirmou a versao `20260711190000`.
+
+Smoke tests locais executados com sucesso:
+
+- `public.approve_lawyer_verification(uuid, uuid)` existe;
+- `public.approve_law_firm_verification(uuid, uuid)` existe;
+- `public.account_deletion_audit` existe;
+- `public.legal_search_intents` tem 645 linhas;
+- `public.legal_search_term_matches('minha demissao foi sem justa causa', 'iss')`
+  retorna `false`;
+- `public.infer_legal_search_areas('inss negou meu auxilio')` retorna
+  `Direito Previdenciário`;
+- buckets locais esperados existem:
+  `case-documents`, `chat-attachments`, `profile-avatars` e
+  `verification-documents`.
+
+Com isso, a baseline consolidada passou a ser validada de verdade em ambiente
+Supabase local via Docker.
