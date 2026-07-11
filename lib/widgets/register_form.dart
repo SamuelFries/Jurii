@@ -4,6 +4,8 @@ import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
 import '../types/auth_callbacks.dart';
 import '../utils/validators.dart';
+import 'jurii_form_motion.dart';
+import 'jurii_motion.dart';
 
 class RegisterForm extends StatefulWidget {
   final RegisterSubmit onRegister;
@@ -43,168 +45,185 @@ class _RegisterFormState extends State<RegisterForm> {
       key: _formKey,
       child: Column(
         children: [
-          _shadowedField(
-            child: TextFormField(
-              controller: _nameController,
-              textInputAction: TextInputAction.next,
-              textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(
-                hintText: 'Nome completo',
-                prefixIcon: Icon(Icons.person_outline),
+          JuriiStaggeredItem(
+            index: 0,
+            child: _shadowedField(
+              child: TextFormField(
+                controller: _nameController,
+                textInputAction: TextInputAction.next,
+                textCapitalization: TextCapitalization.words,
+                decoration: const InputDecoration(
+                  hintText: 'Nome completo',
+                  prefixIcon: Icon(Icons.person_outline),
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().length < 3) {
+                    return 'Informe seu nome completo';
+                  }
+                  return null;
+                },
               ),
-              validator: (value) {
-                if (value == null || value.trim().length < 3) {
-                  return 'Informe seu nome completo';
-                }
-                return null;
-              },
             ),
           ),
 
           const SizedBox(height: 14),
 
-          _shadowedField(
-            child: TextFormField(
-              controller: _emailController,
-              keyboardType: TextInputType.emailAddress,
-              textInputAction: TextInputAction.next,
-              autofillHints: const [AutofillHints.email],
-              decoration: const InputDecoration(
-                hintText: 'Seu e-mail',
-                prefixIcon: Icon(Icons.mail_outline),
+          JuriiStaggeredItem(
+            index: 1,
+            child: _shadowedField(
+              child: TextFormField(
+                controller: _emailController,
+                keyboardType: TextInputType.emailAddress,
+                textInputAction: TextInputAction.next,
+                autofillHints: const [AutofillHints.email],
+                decoration: const InputDecoration(
+                  hintText: 'Seu e-mail',
+                  prefixIcon: Icon(Icons.mail_outline),
+                ),
+                validator: validateEmailField,
               ),
-              validator: validateEmailField,
             ),
           ),
 
           const SizedBox(height: 14),
 
-          _shadowedField(
-            child: TextFormField(
-              controller: _cpfController,
-              keyboardType: TextInputType.number,
-              textInputAction: TextInputAction.next,
-              inputFormatters: [
-                _CpfInputFormatter(),
-                LengthLimitingTextInputFormatter(14),
-              ],
-              decoration: const InputDecoration(
-                hintText: 'Seu CPF',
-                prefixIcon: Icon(Icons.badge_outlined),
+          JuriiStaggeredItem(
+            index: 2,
+            child: _shadowedField(
+              child: TextFormField(
+                controller: _cpfController,
+                keyboardType: TextInputType.number,
+                textInputAction: TextInputAction.next,
+                inputFormatters: [
+                  _CpfInputFormatter(),
+                  LengthLimitingTextInputFormatter(14),
+                ],
+                decoration: const InputDecoration(
+                  hintText: 'Seu CPF',
+                  prefixIcon: Icon(Icons.badge_outlined),
+                ),
+                validator: validateCpfField,
               ),
-              validator: validateCpfField,
             ),
           ),
 
           const SizedBox(height: 14),
 
-          _shadowedField(
-            child: TextFormField(
-              controller: _passwordController,
-              obscureText: _obscurePassword,
-              textInputAction: TextInputAction.next,
-              autofillHints: const [AutofillHints.newPassword],
-              decoration: InputDecoration(
-                hintText: 'Crie uma senha',
-                prefixIcon: const Icon(Icons.lock_outline),
-                suffixIcon: IconButton(
-                  onPressed: () =>
-                      setState(() => _obscurePassword = !_obscurePassword),
-                  icon: Icon(
-                    _obscurePassword
-                        ? Icons.visibility_outlined
-                        : Icons.visibility_off_outlined,
+          JuriiStaggeredItem(
+            index: 3,
+            child: _shadowedField(
+              child: TextFormField(
+                controller: _passwordController,
+                obscureText: _obscurePassword,
+                textInputAction: TextInputAction.next,
+                autofillHints: const [AutofillHints.newPassword],
+                decoration: InputDecoration(
+                  hintText: 'Crie uma senha',
+                  prefixIcon: const Icon(Icons.lock_outline),
+                  suffixIcon: IconButton(
+                    onPressed: () =>
+                        setState(() => _obscurePassword = !_obscurePassword),
+                    icon: Icon(
+                      _obscurePassword
+                          ? Icons.visibility_outlined
+                          : Icons.visibility_off_outlined,
+                    ),
                   ),
                 ),
+                onChanged: (value) => setState(() => _password = value),
+                validator: validatePasswordField,
               ),
-              onChanged: (value) => setState(() => _password = value),
-              validator: validatePasswordField,
             ),
           ),
 
-          if (_password.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            _PasswordStrengthIndicator(strength: _passwordStrength),
-          ],
+          AnimatedSize(
+            duration: JuriiMotion.fast,
+            curve: JuriiMotion.ease,
+            alignment: Alignment.topCenter,
+            child: _password.isNotEmpty
+                ? Padding(
+                    padding: const EdgeInsets.only(top: 10),
+                    child: _PasswordStrengthIndicator(
+                      strength: _passwordStrength,
+                    ),
+                  )
+                : const SizedBox(width: double.infinity),
+          ),
 
           const SizedBox(height: 14),
 
-          _shadowedField(
-            child: TextFormField(
-              controller: _confirmPasswordController,
-              obscureText: _obscureConfirmPassword,
-              textInputAction: TextInputAction.done,
-              autofillHints: const [AutofillHints.newPassword],
-              decoration: InputDecoration(
-                hintText: 'Confirme sua senha',
-                prefixIcon: const Icon(Icons.lock_reset_outlined),
-                suffixIcon: IconButton(
-                  onPressed: () => setState(
-                    () => _obscureConfirmPassword = !_obscureConfirmPassword,
-                  ),
-                  icon: Icon(
-                    _obscureConfirmPassword
-                        ? Icons.visibility_outlined
-                        : Icons.visibility_off_outlined,
+          JuriiStaggeredItem(
+            index: 4,
+            child: _shadowedField(
+              child: TextFormField(
+                controller: _confirmPasswordController,
+                obscureText: _obscureConfirmPassword,
+                textInputAction: TextInputAction.done,
+                autofillHints: const [AutofillHints.newPassword],
+                decoration: InputDecoration(
+                  hintText: 'Confirme sua senha',
+                  prefixIcon: const Icon(Icons.lock_reset_outlined),
+                  suffixIcon: IconButton(
+                    onPressed: () => setState(
+                      () => _obscureConfirmPassword = !_obscureConfirmPassword,
+                    ),
+                    icon: Icon(
+                      _obscureConfirmPassword
+                          ? Icons.visibility_outlined
+                          : Icons.visibility_off_outlined,
+                    ),
                   ),
                 ),
+                validator: (value) {
+                  if (value != _password) {
+                    return 'As senhas precisam ser iguais';
+                  }
+                  return null;
+                },
               ),
-              validator: (value) {
-                if (value != _password) {
-                  return 'As senhas precisam ser iguais';
-                }
-                return null;
-              },
             ),
           ),
 
           const SizedBox(height: 20),
 
-          Container(
-            width: double.infinity,
-            height: 56,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: AppTheme.primary.withValues(alpha: 0.20),
-                  blurRadius: 20,
-                  offset: const Offset(0, 8),
-                ),
-              ],
-            ),
-            child: ElevatedButton(
-              onPressed: _isLoading ? null : _submit,
-              child: _isLoading
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: AppTheme.card,
+          JuriiStaggeredItem(
+            index: 5,
+            child: Container(
+              width: double.infinity,
+              height: 56,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppTheme.primary.withValues(alpha: 0.20),
+                    blurRadius: 20,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: ElevatedButton(
+                onPressed: _isLoading ? null : _submit,
+                child: _isLoading
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppTheme.card,
+                        ),
+                      )
+                    : const Text(
+                        'Criar conta',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
-                    )
-                  : const Text(
-                      'Criar conta',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
+              ),
             ),
           ),
 
-          if (_errorMessage != null) ...[
-            const SizedBox(height: 12),
-            Text(
-              _errorMessage!,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: AppTheme.danger,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
+          JuriiFormErrorBanner(message: _errorMessage),
         ],
       ),
     );
@@ -353,7 +372,9 @@ class _PasswordStrengthIndicator extends StatelessWidget {
             children: List.generate(3, (index) {
               final isActive = index < strength;
               return Expanded(
-                child: Container(
+                child: AnimatedContainer(
+                  duration: JuriiMotion.fast,
+                  curve: JuriiMotion.ease,
                   height: 6,
                   margin: EdgeInsets.only(right: index == 2 ? 0 : 6),
                   decoration: BoxDecoration(

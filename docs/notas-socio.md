@@ -1,6 +1,6 @@
 # Notas para troca com o socio - auditoria, busca, casos, LGPD e design
 
-Atualizado em: 10/07/2026
+Atualizado em: 11/07/2026
 Branch atual: `fix/design`
 Base atual: `main`/`origin/main` no commit `3ee49f2`
 (`Adiciona patch de escopo dos casos do escritorio`)
@@ -293,6 +293,28 @@ Com isso, os itens de maior impacto visual listados para chat, notificacoes,
 empty states e timeline de caso foram enderecados. O restante da frente ficou
 mais ligado a formularios/login/cadastro, consolidacao de wrappers e ajustes de
 responsividade.
+
+Continuidade da frente de design em 11/07/2026:
+
+- criei `lib/widgets/jurii_form_motion.dart` com `JuriiFormErrorBanner` e
+  `JuriiFormProgressCard`;
+- apliquei entrada em cascata nos fluxos de login, cadastro, cadastro social e
+  redefinicao de senha;
+- padronizei erros de login, cadastro, recuperacao de senha, reset e verificacao
+  com banner animado em vez de texto solto;
+- a rota login -> cadastro agora usa fade/slide curto;
+- indicadores de forca de senha no cadastro e no reset agora animam a entrada e
+  a mudanca das barras;
+- `PracticeAreaSelector` agora usa chips Jurii customizados, com press feedback,
+  borda/cor/sombra animadas e check animado;
+- formularios de verificacao de advogado e escritorio ganharam card de progresso
+  em tempo real conforme campos, areas e documentos sao preenchidos.
+
+Com isso, tambem foram enderecados os itens pendentes de motion em
+login/cadastro, selecao de areas e progresso visual de verificacao. O que fica
+para a proxima rodada de design e mais estrutural: consolidar wrapper unico para
+cards de listagem, revisar bottom sheets restantes e padronizar transicao
+label/spinner em botoes.
 
 ## Pendencias depois desta rodada
 

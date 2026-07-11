@@ -5,6 +5,8 @@ import '../models/social_auth_provider.dart';
 import '../theme/app_theme.dart';
 import '../types/auth_callbacks.dart';
 import '../utils/validators.dart';
+import '../widgets/jurii_form_motion.dart';
+import '../widgets/jurii_motion.dart';
 import '../widgets/legal_agreement_notice.dart';
 import '../widgets/login_logo.dart';
 
@@ -54,30 +56,33 @@ class _LoginScreenState extends State<LoginScreen> {
             children: [
               const SizedBox(height: 24),
 
-              const LoginLogo(),
+              const JuriiStaggeredItem(index: 0, child: LoginLogo()),
 
               const SizedBox(height: 32),
 
               // Email
-              Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: AppTheme.softShadow,
-                      blurRadius: 8,
-                      offset: Offset(0, 2),
+              JuriiStaggeredItem(
+                index: 1,
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: AppTheme.softShadow,
+                        blurRadius: 8,
+                        offset: Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: TextField(
+                    controller: emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: const InputDecoration(
+                      hintText: 'Seu e-mail',
+                      prefixIcon: Icon(Icons.mail_outline),
+                      filled: true,
+                      fillColor: AppTheme.card,
                     ),
-                  ],
-                ),
-                child: TextField(
-                  controller: emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(
-                    hintText: 'Seu e-mail',
-                    prefixIcon: Icon(Icons.mail_outline),
-                    filled: true,
-                    fillColor: AppTheme.card,
                   ),
                 ),
               ),
@@ -85,32 +90,35 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 14),
 
               // Senha
-              Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: AppTheme.softShadow,
-                      blurRadius: 8,
-                      offset: Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: TextField(
-                  controller: passwordController,
-                  obscureText: !showPassword,
-                  decoration: InputDecoration(
-                    hintText: 'Sua senha',
-                    prefixIcon: const Icon(Icons.lock_outline),
-                    filled: true,
-                    fillColor: AppTheme.card,
-                    suffixIcon: IconButton(
-                      onPressed: () =>
-                          setState(() => showPassword = !showPassword),
-                      icon: Icon(
-                        showPassword
-                            ? Icons.visibility_off_outlined
-                            : Icons.visibility_outlined,
+              JuriiStaggeredItem(
+                index: 2,
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: AppTheme.softShadow,
+                        blurRadius: 8,
+                        offset: Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: TextField(
+                    controller: passwordController,
+                    obscureText: !showPassword,
+                    decoration: InputDecoration(
+                      hintText: 'Sua senha',
+                      prefixIcon: const Icon(Icons.lock_outline),
+                      filled: true,
+                      fillColor: AppTheme.card,
+                      suffixIcon: IconButton(
+                        onPressed: () =>
+                            setState(() => showPassword = !showPassword),
+                        icon: Icon(
+                          showPassword
+                              ? Icons.visibility_off_outlined
+                              : Icons.visibility_outlined,
+                        ),
                       ),
                     ),
                   ),
@@ -119,15 +127,18 @@ class _LoginScreenState extends State<LoginScreen> {
 
               const SizedBox(height: 10),
 
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton(
-                  onPressed: _isAnyAuthLoading ? null : _openPasswordReset,
-                  child: const Text(
-                    'Esqueceu sua senha?',
-                    style: TextStyle(
-                      color: AppTheme.accent,
-                      fontWeight: FontWeight.w600,
+              JuriiStaggeredItem(
+                index: 3,
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: _isAnyAuthLoading ? null : _openPasswordReset,
+                    child: const Text(
+                      'Esqueceu sua senha?',
+                      style: TextStyle(
+                        color: AppTheme.accent,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ),
@@ -136,128 +147,127 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 10),
 
               // Botão entrar
-              Container(
-                width: double.infinity,
-                height: 56,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppTheme.primary.withValues(alpha: 0.20),
-                      blurRadius: 20,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                ),
-                child: ElevatedButton(
-                  onPressed: _isAnyAuthLoading ? null : _submit,
-                  child: isLoading
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: AppTheme.card,
+              JuriiStaggeredItem(
+                index: 4,
+                child: Container(
+                  width: double.infinity,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppTheme.primary.withValues(alpha: 0.20),
+                        blurRadius: 20,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: ElevatedButton(
+                    onPressed: _isAnyAuthLoading ? null : _submit,
+                    child: isLoading
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppTheme.card,
+                            ),
+                          )
+                        : const Text(
+                            'Entrar',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
-                        )
-                      : const Text(
-                          'Entrar',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
+                  ),
                 ),
               ),
 
-              if (errorMessage != null) ...[
-                const SizedBox(height: 12),
-                Text(
-                  errorMessage!,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: AppTheme.danger,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
+              JuriiFormErrorBanner(message: errorMessage),
 
               const SizedBox(height: 22),
 
-              Row(
-                children: [
-                  Expanded(
-                    child: Container(height: 1, color: AppTheme.divider),
-                  ),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 12),
-                    child: Text(
-                      'ou continue com',
-                      style: TextStyle(
-                        color: AppTheme.textSecondary,
-                        fontSize: 13,
+              JuriiStaggeredItem(
+                index: 5,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Container(height: 1, color: AppTheme.divider),
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 12),
+                      child: Text(
+                        'ou continue com',
+                        style: TextStyle(
+                          color: AppTheme.textSecondary,
+                          fontSize: 13,
+                        ),
                       ),
                     ),
-                  ),
-                  Expanded(
-                    child: Container(height: 1, color: AppTheme.divider),
-                  ),
-                ],
+                    Expanded(
+                      child: Container(height: 1, color: AppTheme.divider),
+                    ),
+                  ],
+                ),
               ),
 
               const SizedBox(height: 18),
 
               // Google
-              Container(
-                height: 52,
-                decoration: BoxDecoration(
-                  color: AppTheme.card,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: AppTheme.softShadow,
-                      blurRadius: 8,
-                      offset: Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: OutlinedButton(
-                  onPressed: _isAnyAuthLoading
-                      ? null
-                      : () => _submitSocial(SocialAuthProvider.google),
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: AppTheme.softBorder),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      if (socialLoadingProvider == SocialAuthProvider.google)
-                        const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: AppTheme.primary,
-                          ),
-                        )
-                      else
-                        Image.asset(
-                          'assets/images/google_logo.png',
-                          width: 20,
-                          height: 20,
-                        ),
-                      const SizedBox(width: 12),
-                      const Text(
-                        'Continuar com Google',
-                        style: TextStyle(
-                          color: AppTheme.textPrimary,
-                          fontWeight: FontWeight.w600,
-                        ),
+              JuriiStaggeredItem(
+                index: 6,
+                child: Container(
+                  height: 52,
+                  decoration: BoxDecoration(
+                    color: AppTheme.card,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: AppTheme.softShadow,
+                        blurRadius: 8,
+                        offset: Offset(0, 2),
                       ),
                     ],
+                  ),
+                  child: OutlinedButton(
+                    onPressed: _isAnyAuthLoading
+                        ? null
+                        : () => _submitSocial(SocialAuthProvider.google),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: AppTheme.softBorder),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        if (socialLoadingProvider == SocialAuthProvider.google)
+                          const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppTheme.primary,
+                            ),
+                          )
+                        else
+                          Image.asset(
+                            'assets/images/google_logo.png',
+                            width: 20,
+                            height: 20,
+                          ),
+                        const SizedBox(width: 12),
+                        const Text(
+                          'Continuar com Google',
+                          style: TextStyle(
+                            color: AppTheme.textPrimary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -265,44 +275,47 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 12),
 
               // Apple
-              Container(
-                height: 52,
-                decoration: BoxDecoration(
-                  color: AppTheme.card,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: AppTheme.softShadow,
-                      blurRadius: 8,
-                      offset: Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: OutlinedButton.icon(
-                  onPressed: _isAnyAuthLoading
-                      ? null
-                      : () => _submitSocial(SocialAuthProvider.apple),
-                  icon: socialLoadingProvider == SocialAuthProvider.apple
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: AppTheme.primary,
-                          ),
-                        )
-                      : const Icon(Icons.apple, color: AppTheme.textPrimary),
-                  label: const Text(
-                    'Continuar com Apple',
-                    style: TextStyle(
-                      color: AppTheme.textPrimary,
-                      fontWeight: FontWeight.w600,
-                    ),
+              JuriiStaggeredItem(
+                index: 7,
+                child: Container(
+                  height: 52,
+                  decoration: BoxDecoration(
+                    color: AppTheme.card,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: AppTheme.softShadow,
+                        blurRadius: 8,
+                        offset: Offset(0, 2),
+                      ),
+                    ],
                   ),
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: AppTheme.softBorder),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+                  child: OutlinedButton.icon(
+                    onPressed: _isAnyAuthLoading
+                        ? null
+                        : () => _submitSocial(SocialAuthProvider.apple),
+                    icon: socialLoadingProvider == SocialAuthProvider.apple
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppTheme.primary,
+                            ),
+                          )
+                        : const Icon(Icons.apple, color: AppTheme.textPrimary),
+                    label: const Text(
+                      'Continuar com Apple',
+                      style: TextStyle(
+                        color: AppTheme.textPrimary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: AppTheme.softBorder),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
                     ),
                   ),
                 ),
@@ -310,38 +323,35 @@ class _LoginScreenState extends State<LoginScreen> {
 
               const SizedBox(height: 24),
 
-              const Text(
-                'Ainda não possui conta?',
-                style: TextStyle(color: AppTheme.textSecondary),
+              const JuriiStaggeredItem(
+                index: 8,
+                child: Text(
+                  'Ainda não possui conta?',
+                  style: TextStyle(color: AppTheme.textSecondary),
+                ),
               ),
 
               const SizedBox(height: 12),
 
-              SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: OutlinedButton(
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => RegisterScreen(
-                          onRegister: widget.onRegister,
-                          onSocialLogin: widget.onSocialLogin,
-                        ),
+              JuriiStaggeredItem(
+                index: 9,
+                child: SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: OutlinedButton(
+                    onPressed: _openRegister,
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: AppTheme.accent),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
                       ),
-                    );
-                  },
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: AppTheme.accent),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
                     ),
-                  ),
-                  child: const Text(
-                    'Criar conta',
-                    style: TextStyle(
-                      color: AppTheme.accent,
-                      fontWeight: FontWeight.w700,
+                    child: const Text(
+                      'Criar conta',
+                      style: TextStyle(
+                        color: AppTheme.accent,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
                 ),
@@ -418,6 +428,36 @@ class _LoginScreenState extends State<LoginScreen> {
         setState(() => socialLoadingProvider = null);
       }
     }
+  }
+
+  Future<void> _openRegister() async {
+    await Navigator.of(context).push(
+      PageRouteBuilder<void>(
+        transitionDuration: JuriiMotion.standard,
+        reverseTransitionDuration: JuriiMotion.fast,
+        pageBuilder: (_, _, _) => RegisterScreen(
+          onRegister: widget.onRegister,
+          onSocialLogin: widget.onSocialLogin,
+        ),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          final curved = CurvedAnimation(
+            parent: animation,
+            curve: JuriiMotion.ease,
+            reverseCurve: JuriiMotion.exitEase,
+          );
+          return FadeTransition(
+            opacity: curved,
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0, 0.035),
+                end: Offset.zero,
+              ).animate(curved),
+              child: child,
+            ),
+          );
+        },
+      ),
+    );
   }
 
   Future<void> _openPasswordReset() async {
@@ -591,17 +631,7 @@ class _PasswordResetRequestSheetState
                           ),
                   ),
                 ),
-                if (_errorMessage != null) ...[
-                  const SizedBox(height: 12),
-                  Text(
-                    _errorMessage!,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: AppTheme.danger,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
+                JuriiFormErrorBanner(message: _errorMessage),
               ],
             ),
           ),

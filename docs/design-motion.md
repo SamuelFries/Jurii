@@ -1,6 +1,6 @@
 # Design premium e motion - Jurii
 
-Atualizado em: 10/07/2026  
+Atualizado em: 11/07/2026
 Branch: `fix/design`
 
 Este documento registra a frente de polimento visual, microinteracoes e animacoes
@@ -115,6 +115,35 @@ Criei `lib/widgets/jurii_motion.dart` com:
 - Atualizacoes do caso agora aparecem como timeline visual, com linha e ponto de
   progresso.
 
+## Feito nesta terceira leva
+
+### Formularios de autenticacao
+
+- Criei `lib/widgets/jurii_form_motion.dart` com:
+  - `JuriiFormErrorBanner`: banner de erro animado com `AnimatedSize`, icone e
+    superficie vermelha padronizada;
+  - `JuriiFormProgressCard`: card de progresso para formularios longos.
+- `LoginScreen` ganhou entrada em cascata no logo, campos, CTA, divisores,
+  botoes sociais, CTA de cadastro e aviso legal.
+- A navegacao login -> cadastro agora usa fade/slide curto com `PageRouteBuilder`.
+- O modal de recuperacao de senha usa o novo banner de erro.
+- `RegisterScreen`, `RegisterForm` e `RegisterSocialButtons` ganharam entrada em
+  cascata nos principais blocos.
+- Indicadores de forca de senha no cadastro e reset agora usam `AnimatedSize` e
+  barras com `AnimatedContainer`.
+- `PasswordResetScreen` ganhou entrada em cascata e banner de erro padronizado.
+
+### Areas de atuacao e verificacao
+
+- `PracticeAreaSelector` deixou de usar `FilterChip` padrao e passou a usar
+  chips Jurii com `JuriiPressable`, borda/cor animadas, sombra leve e check que
+  aparece com `AnimatedSize`.
+- Formularios de verificacao de advogado e escritorio ganharam
+  `JuriiFormProgressCard`, mostrando progresso em tempo real conforme dados,
+  areas e documentos sao preenchidos.
+- Mensagens de erro de envio nas verificacoes agora usam
+  `JuriiFormErrorBanner`.
+
 ## Validacao
 
 Rodado em 10/07/2026:
@@ -125,6 +154,12 @@ Rodado em 10/07/2026:
   composer/menu `+`;
 - `flutter test` com 47 testes passando.
 
+Rodado em 11/07/2026:
+
+- `dart format` nos arquivos alterados da terceira leva;
+- `flutter analyze` sem issues;
+- `flutter test` com 47 testes passando.
+
 ## Falta fazer
 
 Prioridade alta:
@@ -133,14 +168,14 @@ Prioridade alta:
   advogado/escritorio/casos.
 - Mapear spinners restantes em fluxos menos acessados e trocar por skeleton
   quando houver ganho real de contexto.
-- Aplicar motion nos fluxos de login/cadastro: entrada do logo/form, erro com
-  `AnimatedSize`, loading menos brusco.
 
 Prioridade media:
 
-- Animar selecao de chips e areas no `PracticeAreaSelector`.
-- Refinar formularios de verificacao com progresso visual por etapa/documento.
 - Revisar transicoes de abertura de bottom sheets para usar um padrao unico.
+- Melhorar loading dos botoes de auth/social com uma transicao padronizada de
+  label -> spinner, sem duplicar codigo.
+- Refinar formularios de verificacao com agrupamento visual por etapa
+  (`Dados`, `Areas`, `Documentos`) se a tela crescer.
 
 Prioridade depois:
 

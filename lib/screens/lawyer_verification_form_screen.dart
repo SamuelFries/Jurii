@@ -11,6 +11,7 @@ import '../models/verification_document.dart';
 import '../repositories/lawyer_verification_repository.dart';
 import '../services/supabase_config.dart';
 import '../theme/app_theme.dart';
+import '../widgets/jurii_form_motion.dart';
 import '../widgets/jurii_motion.dart';
 import '../widgets/practice_area_selector.dart';
 import 'lawyer_verification_success_screen.dart';
@@ -48,6 +49,17 @@ class _LawyerVerificationFormScreenState
         selectedAreas.isNotEmpty &&
         documents.every((document) => document.uploaded);
   }
+
+  int get _completedSteps {
+    var completed = 0;
+    if (oabController.text.trim().isNotEmpty) completed++;
+    if (selectedState != null) completed++;
+    if (selectedAreas.isNotEmpty) completed++;
+    completed += documents.where((document) => document.uploaded).length;
+    return completed;
+  }
+
+  int get _totalSteps => 3 + documents.length;
 
   @override
   void initState() {
@@ -98,6 +110,21 @@ class _LawyerVerificationFormScreenState
                   fontSize: 15,
                   height: 1.5,
                 ),
+              ),
+
+              const SizedBox(height: 20),
+
+              JuriiFormProgressCard(
+                completedSteps: _completedSteps,
+                totalSteps: _totalSteps,
+                title: formularioValido
+                    ? 'Tudo pronto para análise'
+                    : 'Complete sua verificação',
+                subtitle:
+                    'Dados profissionais, áreas de atuação e documentos obrigatórios.',
+                accentColor: AppTheme.primary,
+                surfaceColor: AppTheme.lightBlue,
+                borderColor: AppTheme.lightBlueBorder,
               ),
 
               const SizedBox(height: 32),
@@ -218,17 +245,7 @@ class _LawyerVerificationFormScreenState
                 ),
               ),
 
-              if (errorMessage != null) ...[
-                const SizedBox(height: 12),
-                Text(
-                  errorMessage!,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: AppTheme.danger,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
+              JuriiFormErrorBanner(message: errorMessage),
             ],
           ),
         ),

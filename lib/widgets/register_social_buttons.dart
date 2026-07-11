@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/social_auth_provider.dart';
 import '../theme/app_theme.dart';
 import '../types/auth_callbacks.dart';
+import 'jurii_motion.dart';
 import 'legal_agreement_notice.dart';
 
 /// Botões sociais do cadastro. No Supabase, OAuth de cadastro e de login são
@@ -23,60 +24,72 @@ class _RegisterSocialButtonsState extends State<RegisterSocialButtons> {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Row(
-          children: [
-            Expanded(child: Container(height: 1, color: AppTheme.divider)),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 12),
-              child: Text(
-                'ou cadastre-se com',
-                style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+        JuriiStaggeredItem(
+          index: 0,
+          child: Row(
+            children: [
+              Expanded(child: Container(height: 1, color: AppTheme.divider)),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 12),
+                child: Text(
+                  'ou cadastre-se com',
+                  style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+                ),
               ),
-            ),
-            Expanded(child: Container(height: 1, color: AppTheme.divider)),
-          ],
+              Expanded(child: Container(height: 1, color: AppTheme.divider)),
+            ],
+          ),
         ),
 
         const SizedBox(height: 24),
 
-        _googleButton(context),
+        JuriiStaggeredItem(index: 1, child: _googleButton(context)),
 
         const SizedBox(height: 12),
 
-        _socialButton(
-          icon: Icons.apple,
-          text: 'Continuar com Apple',
-          loading: _loadingProvider == SocialAuthProvider.apple,
-          onPressed: () => _submitSocial(SocialAuthProvider.apple),
+        JuriiStaggeredItem(
+          index: 2,
+          child: _socialButton(
+            icon: Icons.apple,
+            text: 'Continuar com Apple',
+            loading: _loadingProvider == SocialAuthProvider.apple,
+            onPressed: () => _submitSocial(SocialAuthProvider.apple),
+          ),
         ),
 
         const SizedBox(height: 32),
 
-        const Text(
-          'Já possui uma conta?',
-          style: TextStyle(color: AppTheme.textSecondary),
+        const JuriiStaggeredItem(
+          index: 3,
+          child: Text(
+            'Já possui uma conta?',
+            style: TextStyle(color: AppTheme.textSecondary),
+          ),
         ),
 
         const SizedBox(height: 12),
 
-        SizedBox(
-          width: double.infinity,
-          height: 56,
-          child: OutlinedButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-            },
-            style: OutlinedButton.styleFrom(
-              side: const BorderSide(color: AppTheme.accent),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
+        JuriiStaggeredItem(
+          index: 4,
+          child: SizedBox(
+            width: double.infinity,
+            height: 56,
+            child: OutlinedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: AppTheme.accent),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
               ),
-            ),
-            child: const Text(
-              'Entrar',
-              style: TextStyle(
-                color: AppTheme.accent,
-                fontWeight: FontWeight.w700,
+              child: const Text(
+                'Entrar',
+                style: TextStyle(
+                  color: AppTheme.accent,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
           ),
