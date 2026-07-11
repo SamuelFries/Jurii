@@ -57,7 +57,7 @@ Depois de rodar os seeds/patches corretos, validamos:
 
 ## Patch 043 - escopo dos casos do escritorio
 
-Criei `supabase/patch_043_fix_firm_case_scope.sql`.
+Criei `supabase/legacy_patches/patch_043_fix_firm_case_scope.sql`.
 
 O problema: a area do escritorio podia enxergar ou reatribuir casos pessoais de
 advogados membros, ou ate casos de outro escritorio, apenas porque aquele
@@ -98,7 +98,7 @@ privilegio elevado, como apagar Storage sensivel e banir o usuario em
 
 Criei:
 
-- `supabase/patch_044_account_deletion_lgpd.sql`;
+- `supabase/legacy_patches/patch_044_account_deletion_lgpd.sql`;
 - `supabase/functions/delete-account/index.ts`.
 
 Tambem atualizei:
@@ -122,7 +122,7 @@ transacional existente e corrigindo literals antigos de exibicao, como
 Em 06/07/2026, o patch foi aplicado no projeto remoto pelo Supabase CLI:
 
 ```bash
-supabase --output-format text db query --linked --file supabase/patch_044_account_deletion_lgpd.sql
+supabase --output-format text db query --linked --file supabase/legacy_patches/patch_044_account_deletion_lgpd.sql
 ```
 
 ### O que a Edge Function faz
@@ -398,11 +398,12 @@ As maiores pendencias restantes em seguranca/LGPD estao documentadas em
   app, criar canal oficial do titular/DPO, registro de consentimento e politica
   de retencao documentada.
 
-## Como revisar esta branch
+## Como revisar a frente LGPD nessa branch
 
 Arquivos principais:
 
-- `supabase/patch_044_account_deletion_lgpd.sql`;
+- `supabase/migrations/20260711190000_squashed_legacy_baseline.sql`
+  (contém o antigo `patch_044`);
 - `supabase/functions/delete-account/index.ts`;
 - `lib/repositories/profile_repository.dart`;
 - `docs/security.md`;
@@ -411,14 +412,15 @@ Arquivos principais:
 
 Fluxo esperado para ambiente novo:
 
-1. rodar `supabase/patch_044_account_deletion_lgpd.sql` depois do patch 043;
-2. publicar a Function:
+1. aplicar a baseline com `supabase db push`;
+2. publicar a Function `delete-account`:
 
 ```bash
 supabase functions deploy delete-account --project-ref rlgtgipxltucrtkyrmag --use-api
 ```
 
-3. testar com uma conta descartavel confirmada antes de usar em conta real.
+3. testar a exclusao com uma conta descartavel confirmada antes de usar em
+   conta real.
 
 ## Revisao da branch e correcao do grant de id (patch 045)
 
@@ -459,7 +461,7 @@ falharia em silencio, porque o app engole o erro em try/catch.
 
 ### Correcao aplicada: patch_045
 
-Criei e apliquei `supabase/patch_045_profiles_id_update_grant.sql`:
+Criei e apliquei `supabase/legacy_patches/patch_045_profiles_id_update_grant.sql`:
 
 ```sql
 grant update (id) on public.profiles to authenticated;
@@ -473,7 +475,7 @@ no-op.
 Aplicado em 06/07/2026 via:
 
 ```bash
-supabase --output-format text db query --linked --file supabase/patch_045_profiles_id_update_grant.sql
+supabase --output-format text db query --linked --file supabase/legacy_patches/patch_045_profiles_id_update_grant.sql
 ```
 
 Re-rodei o mesmo teste depois do patch:
@@ -501,3 +503,36 @@ execucao. O script de reproducao ficou no scratchpad da sessao
   `catch (_)` cego, que tambem engole erro de rede; ao menos logar.
 - Dark mode: `darkTheme` foi construido mas nunca e exercitado (sem toggle, nem
   de dev) — risco de apodrecer sem ninguem notar quebras.
+
+## Consolidação dos patches SQL em baseline de migrations
+
+Atualizado em: 11/07/2026
+Branch atual: `fix/design`
+
+Depois da discussão sobre o volume de patches SQL no repositório, consolidei a
+estrutura do Supabase para parar de crescer a fila `patch_001...`.
+
+O que foi feito:
+
+- criei `supabase/migrations/20260711190000_squashed_legacy_baseline.sql`;
+- essa baseline junta `schema.sql` + patches 001 a 045 em uma migration única
+  para ambientes novos;
+- movi o `schema.sql` antigo para
+  `supabase/legacy_patches/schema_pre_migration_baseline.sql`;
+- movi os patches 001 a 045 para `supabase/legacy_patches/`;
+- reescrevi `supabase/README.md` com o novo fluxo oficial:
+  `supabase db push` para ambiente novo e `supabase migration new` para
+  mudanças futuras;
+- atualizei o README principal e `docs/security.md` para apontar para a
+  baseline/legado.
+
+Decisão importante: o projeto remoto atual já recebeu esses patches manualmente.
+Então a baseline não deve ser aplicada de novo nesse remoto; ela deve apenas ser
+marcada como aplicada no histórico da CLI:
+
+```bash
+supabase migration repair --linked --status applied 20260711190000
+```
+
+Daqui para frente, a regra passa a ser: nada de `patch_046`. Toda mudança nova
+de banco deve entrar como migration timestampada em `supabase/migrations/`.

@@ -81,12 +81,15 @@ flutter run \
 
 ### Configurar o Supabase do zero
 
-1. Crie um projeto no Supabase e rode `supabase/schema.sql` no SQL Editor.
-2. Aplique os patches em ordem (`supabase/patch_001…` até o mais recente) —
-   instruções em `supabase/README.md`.
-3. **Importante:** rode `supabase/patch_041_security_hardening.sql`
-   (correções de segurança da auditoria de jul/2026 — ver
-   [docs/security.md](docs/security.md)).
+1. Crie um projeto no Supabase.
+2. Rode `supabase link --project-ref SEU_PROJECT_REF`.
+3. Aplique a baseline consolidada com `supabase db push`.
+4. Publique a Edge Function LGPD com
+   `supabase functions deploy delete-account`.
+
+Os antigos `patch_001...045` foram arquivados em
+`supabase/legacy_patches/`. Para setup novo, use a migration baseline em
+`supabase/migrations/`; detalhes em `supabase/README.md`.
 
 A `service_role key` **nunca** entra no app ou no repositório.
 

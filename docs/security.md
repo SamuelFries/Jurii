@@ -2,9 +2,10 @@
 
 Última auditoria: julho/2026 (auditoria multi-agente + verificação manual).
 
-## Corrigido pelo patch_041 (rodar no SQL Editor)
+## Corrigido pelo patch_041 (consolidado na baseline)
 
-`supabase/patch_041_security_hardening.sql` fecha os furos encontrados:
+`supabase/legacy_patches/patch_041_security_hardening.sql` fecha os furos
+encontrados e agora está consolidado na baseline de migrations:
 
 1. **Auto-promoção a advogado (crítico)** — `grant update` amplo em `profiles`
    permitia `lawyer_status='approved'` pelo próprio usuário; agora privilégios
@@ -29,22 +30,24 @@ regex, senha mínima 8 unificada, mensagens de erro sem detalhes internos
 (patches/RPC/schema cache viraram `debugPrint`), validação de magic bytes nos
 anexos do chat.
 
-## Corrigido pelo patch_043 (rodar no SQL Editor)
+## Corrigido pelo patch_043 (consolidado na baseline)
 
-`supabase/patch_043_fix_firm_case_scope.sql` fecha a pendência crítica de
-escopo de casos do escritório: `fetch_law_firm_cases` e
+`supabase/legacy_patches/patch_043_fix_firm_case_scope.sql` fecha a pendência
+crítica de escopo de casos do escritório e agora está consolidado na baseline:
+`fetch_law_firm_cases` e
 `assign_law_firm_case` agora tratam como caso do escritório apenas linhas em
 `legal_cases` com `law_firm_id = law_firm_id_value`. Um advogado poder ser
 membro de um escritório não basta mais para esse escritório enxergar ou
 reatribuir casos pessoais do advogado, nem casos vinculados a outro escritório.
 
-## Corrigido pelo patch_044 + Edge Function (rodar/deployar)
+## Corrigido pelo patch_044 + Edge Function (consolidado na baseline)
 
-`supabase/patch_044_account_deletion_lgpd.sql` e a Edge Function
-`supabase/functions/delete-account` fecham a exclusão de conta: a função roda
-com `service_role`, apaga Storage sensível de verificação/avatar, chama o
-soft-delete transacional existente, bane o usuário em `auth.users` e registra
-auditoria em `account_deletion_audit`.
+`supabase/legacy_patches/patch_044_account_deletion_lgpd.sql` e a Edge
+Function `supabase/functions/delete-account` fecham a exclusão de conta. O SQL
+está consolidado na baseline; a Function ainda precisa ser publicada por
+ambiente. A função roda com `service_role`, apaga Storage sensível de
+verificação/avatar, chama o soft-delete transacional existente, bane o usuário
+em `auth.users` e registra auditoria em `account_deletion_audit`.
 
 Anexos de chat e documentos de caso não são apagados nessa rotina porque podem
 ser prova/evidência; eles continuam dependendo de uma política de retenção
