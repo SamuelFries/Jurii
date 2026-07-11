@@ -53,6 +53,13 @@ Como funciona no app (`lib/screens/chat_screen.dart`):
 5. O advogado recebe o `LawyerOverview` formatado como mensagem do cliente
    e usa isso para avaliar o caso.
 
+**Limitação conhecida (fast-follow):** o resumo é enviado como mensagem comum
+do cliente, identificada só pelo prefixo "Triagem da assistente Jurii" — um
+cliente poderia digitar um texto idêntico à mão. Marcação *verificável* exige
+inserção server-side (RPC SECURITY DEFINER ou Edge Function gravando
+`metadata: {type: intake_summary}`), pois metadata escrito pelo próprio
+cliente também seria forjável. Entra junto com a persistência/IA real.
+
 ## Integração futura com LLM (sem chave no app)
 
 ```
