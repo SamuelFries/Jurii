@@ -36,12 +36,18 @@ class ChatScreen extends StatefulWidget {
   /// Serviço da triagem IA (injetável para testes; default via factory).
   final IntakeAIService? intakeService;
 
+  /// A triagem só faz sentido quando quem vê o chat é o CLIENTE da conversa.
+  /// Contextos de escritório (ex.: chat interno de equipe, que também abre
+  /// com isLawyer=false) devem passar `false`.
+  final bool allowTriage;
+
   const ChatScreen({
     super.key,
     required this.conversation,
     required this.isLawyer,
     this.canRequestCase = true,
     this.intakeService,
+    this.allowTriage = true,
   });
 
   @override
@@ -83,14 +89,25 @@ class _ChatScreenState extends State<ChatScreen>
   bool _showTriageHint = false;
   bool _triageHintShown = false;
   bool _triageDotVisible = false;
+  bool _isStartingTriage = false;
+  bool _everHadMessages = false;
   Timer? _triageHintTimer;
 
   bool get _usesSupabase => widget.conversation.id != null;
 
+  bool get _triageAvailable => !widget.isLawyer && widget.allowTriage;
+
   /// Banner de triagem: só para o cliente, apenas em conversa nova
   /// (sem nenhum histórico) — depois disso a triagem vive no botão "+".
+  /// O latch [_everHadMessages] impede que um refresh que retorne vazio
+  /// (queda de realtime, token expirando) ressuscite o banner numa conversa
+  /// que já teve histórico.
   bool get _showTriageBanner =>
-      !widget.isLawyer && !_isLoading && !_loadFailed && _messages.isEmpty;
+      _triageAvailable &&
+      !_isLoading &&
+      !_loadFailed &&
+      _messages.isEmpty &&
+      !_everHadMessages;
 
   String get _triageCounterpartLabel =>
       widget.conversation.type == 'client_lawyer' ? 'advogado' : 'escritório';
@@ -225,15 +242,21 @@ class _ChatScreenState extends State<ChatScreen>
     final text = _messageController.text.trim();
     if (text.isEmpty || _isSending) return;
 
+    _closePlusMenu();
     _messageController.clear();
     await _sendText(text);
   }
 
-  Future<void> _sendText(
+  /// Envia [text] na conversa. Retorna `true` quando a mensagem foi de fato
+  /// enviada/anexada — o fluxo da triagem depende disso para nunca perder o
+  /// resumo em silêncio.
+  Future<bool> _sendText(
     String text, {
     bool countsAsBannerIgnored = true,
+    bool restoreToComposerOnFailure = true,
+    bool showErrorSnackBar = true,
   }) async {
-    if (text.isEmpty || _isSending) return;
+    if (text.isEmpty || _isSending) return false;
 
     // O banner some com a primeira mensagem; se ele estava visível e o cliente
     // preferiu escrever direto, mostramos a dica de que a triagem mora no "+".
@@ -251,7 +274,7 @@ class _ChatScreenState extends State<ChatScreen>
         ),
       );
       _maybeShowTriageHint(ignoredTriageBanner);
-      return;
+      return true;
     }
 
     setState(() => _isSending = true);
@@ -261,21 +284,26 @@ class _ChatScreenState extends State<ChatScreen>
         body: text,
         senderType: widget.isLawyer ? 'lawyer' : 'client',
       );
-      if (!mounted) return;
+      if (!mounted) return false;
       _appendMessage(message);
       setState(() => _isSending = false);
       _maybeShowTriageHint(ignoredTriageBanner);
+      return true;
     } catch (error) {
       debugPrint('Supabase message send failed: $error');
-      if (!mounted) return;
+      if (!mounted) return false;
       setState(() => _isSending = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Não foi possível enviar a mensagem.')),
-      );
+      if (showErrorSnackBar) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Não foi possível enviar a mensagem.')),
+        );
+      }
       // Restaura o texto só se o usuário não começou outro rascunho.
-      if (_messageController.text.trim().isEmpty) {
+      if (restoreToComposerOnFailure &&
+          _messageController.text.trim().isEmpty) {
         _messageController.text = text;
       }
+      return false;
     }
   }
 
@@ -283,7 +311,9 @@ class _ChatScreenState extends State<ChatScreen>
     setState(() {
       _isPlusMenuOpen = !_isPlusMenuOpen;
       if (_isPlusMenuOpen) {
-        // Abriu o menu: a triagem foi "descoberta", dica e ponto saem de cena.
+        // Abriu o menu: a triagem foi "descoberta" — dica e ponto saem de
+        // cena e não voltam a disparar depois.
+        _triageHintShown = true;
         _triageDotVisible = false;
         _showTriageHint = false;
         _triageHintTimer?.cancel();
@@ -301,7 +331,7 @@ class _ChatScreenState extends State<ChatScreen>
   void _maybeShowTriageHint(bool ignoredTriageBanner) {
     if (!ignoredTriageBanner ||
         _triageHintShown ||
-        widget.isLawyer ||
+        !_triageAvailable ||
         !mounted) {
       return;
     }
@@ -320,6 +350,17 @@ class _ChatScreenState extends State<ChatScreen>
   /// envia a overview como mensagem nesta conversa — é assim que o
   /// advogado/escritório recebe o caso organizado para avaliar.
   Future<void> _startTriage() async {
+    // Double-tap no banner/menu não pode empilhar duas triagens.
+    if (_isStartingTriage) return;
+    _isStartingTriage = true;
+    try {
+      await _runTriageFlow();
+    } finally {
+      _isStartingTriage = false;
+    }
+  }
+
+  Future<void> _runTriageFlow() async {
     _closePlusMenu();
 
     final result = await Navigator.of(context).push<IntakeChatResult>(
@@ -351,10 +392,33 @@ class _ChatScreenState extends State<ChatScreen>
     );
 
     if (!mounted || result == null) return;
-    // Enviar o resumo é usar a triagem — não conta como "ignorou o banner".
-    await _sendText(
+    await _sendTriageOverview(
       'Triagem da assistente Jurii\n\n${result.overviewText}',
+    );
+  }
+
+  /// O resumo da triagem não pode se perder em silêncio: a sessão é só em
+  /// memória e a tela já fechou. Falhou (rede ou outro envio em andamento)?
+  /// Snackbar com "Tentar de novo" reenviando o mesmo texto.
+  Future<void> _sendTriageOverview(String overviewMessage) async {
+    // Enviar o resumo é usar a triagem — não conta como "ignorou o banner".
+    final sent = await _sendText(
+      overviewMessage,
       countsAsBannerIgnored: false,
+      restoreToComposerOnFailure: false,
+      showErrorSnackBar: false,
+    );
+    if (sent || !mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('O resumo da triagem ainda não foi enviado.'),
+        duration: const Duration(seconds: 10),
+        action: SnackBarAction(
+          label: 'Tentar de novo',
+          onPressed: () => _sendTriageOverview(overviewMessage),
+        ),
+      ),
     );
   }
 
@@ -823,6 +887,11 @@ class _ChatScreenState extends State<ChatScreen>
 
   @override
   Widget build(BuildContext context) {
+    // Latch do banner: conversa que já exibiu mensagem alguma vez nunca volta
+    // a contar como "nova" (atribuição direta, sem setState — só trava um
+    // estado que o rebuild atual já reflete).
+    if (_messages.isNotEmpty) _everHadMessages = true;
+
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(
@@ -1000,7 +1069,7 @@ class _ChatScreenState extends State<ChatScreen>
                       child: FadeTransition(
                         opacity: _plusMenuAnimation,
                         child: _PlusMenuSheet(
-                          showTriage: !widget.isLawyer,
+                          showTriage: _triageAvailable,
                           onAttach: () {
                             _closePlusMenu();
                             _sendAttachment();
@@ -1016,6 +1085,7 @@ class _ChatScreenState extends State<ChatScreen>
             _Composer(
               controller: _messageController,
               isLawyer: widget.isLawyer,
+              counterpartLabel: _triageCounterpartLabel,
               isSending: _isSending,
               isUploadingAttachment: _isUploadingAttachment,
               isPlusMenuOpen: _isPlusMenuOpen,
@@ -1693,6 +1763,7 @@ class _CaseRequestStatusChip extends StatelessWidget {
 class _Composer extends StatefulWidget {
   final TextEditingController controller;
   final bool isLawyer;
+  final String counterpartLabel;
   final bool isSending;
   final bool isUploadingAttachment;
   final bool isPlusMenuOpen;
@@ -1703,6 +1774,7 @@ class _Composer extends StatefulWidget {
   const _Composer({
     required this.controller,
     required this.isLawyer,
+    required this.counterpartLabel,
     required this.isSending,
     required this.isUploadingAttachment,
     required this.isPlusMenuOpen,
@@ -1800,7 +1872,7 @@ class _ComposerState extends State<_Composer> {
                     decoration: InputDecoration(
                       hintText: widget.isLawyer
                           ? 'Responder ao cliente'
-                          : 'Mensagem para o escritório',
+                          : 'Mensagem para o ${widget.counterpartLabel}',
                       filled: false,
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 14,

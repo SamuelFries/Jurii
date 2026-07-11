@@ -170,6 +170,10 @@ class _FirmMessagesScreenState extends State<FirmMessagesScreen> {
           isLawyer: selectedSegment == 0,
           canRequestCase:
               selectedSegment == 0 && widget.workspace?.canCreateCases == true,
+          // Quem abre o chat aqui é o escritório, nunca o cliente — a triagem
+          // não pode aparecer (nem no chat interno de equipe, que também usa
+          // isLawyer=false).
+          allowTriage: false,
         ),
       ),
     );

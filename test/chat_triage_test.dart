@@ -195,6 +195,61 @@ void main() {
     },
   );
 
+  testWidgets('chat de equipe do escritório não expõe a triagem', (
+    tester,
+  ) async {
+    // Contexto de escritório abre com isLawyer=false no segmento Equipe,
+    // mas allowTriage=false — banner e opção de triagem não podem aparecer.
+    await tester.pumpWidget(
+      _app(
+        const ChatScreen(
+          conversation: _newConversation,
+          isLawyer: false,
+          allowTriage: false,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Comece com uma triagem guiada'), findsNothing);
+
+    await tester.tap(find.byIcon(Icons.add));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Anexar arquivo'), findsOneWidget);
+    expect(find.text('Triagem com IA'), findsNothing);
+  });
+
+  testWidgets('quem já abriu o menu "+" não recebe a dica da triagem depois', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _app(
+        ChatScreen(
+          conversation: _newConversation,
+          isLawyer: false,
+          intakeService: FakeIntakeService(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Cliente descobre o menu (abre e fecha) antes de mandar mensagem.
+    await tester.tap(find.byIcon(Icons.add));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.add));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), 'primeira mensagem');
+    await tester.tap(find.byIcon(Icons.send));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('A triagem com a assistente está no botão +'),
+      findsNothing,
+    );
+  });
+
   testWidgets('triagem completa pelo banner envia o resumo na conversa', (
     tester,
   ) async {
