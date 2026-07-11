@@ -124,12 +124,8 @@ class _FirmMessagesScreenState extends State<FirmMessagesScreen> {
               if (snapshot.connectionState == ConnectionState.waiting &&
                   conversations == null)
                 const Padding(
-                  padding: EdgeInsets.only(top: 32),
-                  child: Center(
-                    child: CircularProgressIndicator(
-                      color: AppTheme.officePurple,
-                    ),
-                  ),
+                  padding: EdgeInsets.only(top: 4),
+                  child: JuriiSkeletonList(itemCount: 4, itemHeight: 86),
                 )
               else if (conversations == null || conversations.isEmpty)
                 const _EmptyFirmMessagesState()

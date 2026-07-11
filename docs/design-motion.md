@@ -144,6 +144,28 @@ Criei `lib/widgets/jurii_motion.dart` com:
 - Mensagens de erro de envio nas verificacoes agora usam
   `JuriiFormErrorBanner`.
 
+## Feito nesta quarta leva
+
+### Componentes compartilhados
+
+- Adicionei `JuriiLoadingButton` em `lib/widgets/jurii_form_motion.dart` para
+  padronizar CTA com loading: sombra, altura, label -> spinner com
+  `AnimatedSwitcher` e suporte a cor customizada.
+- Adicionei `JuriiModalSheetScaffold` para bottom sheets com handle, radius,
+  safe area e ajuste de teclado consistentes.
+
+### Aplicacoes
+
+- Substitui CTAs carregando em login, cadastro, reset de senha e verificacoes de
+  advogado/escritorio por `JuriiLoadingButton`.
+- A troca icone/logo -> spinner dos botoes sociais de login/cadastro agora usa
+  `AnimatedSwitcher`.
+- Bottom sheets de recuperacao de senha, solicitacao de caso no chat e adicionar
+  atualizacao em caso usam `JuriiModalSheetScaffold`.
+- Loadings de mensagens do cliente, mensagens do advogado, mensagens do
+  escritorio e casos do cliente passaram de spinner solto para skeleton list com
+  contexto de tela.
+
 ## Validacao
 
 Rodado em 10/07/2026:
@@ -159,6 +181,9 @@ Rodado em 11/07/2026:
 - `dart format` nos arquivos alterados da terceira leva;
 - `flutter analyze` sem issues;
 - `flutter test` com 47 testes passando.
+- `dart format` nos arquivos alterados da quarta leva;
+- `flutter analyze` sem issues.
+- `flutter test` com 47 testes passando.
 
 ## Falta fazer
 
@@ -166,14 +191,12 @@ Prioridade alta:
 
 - Criar um wrapper unico para cards de listagem, reduzindo duplicacao entre
   advogado/escritorio/casos.
-- Mapear spinners restantes em fluxos menos acessados e trocar por skeleton
-  quando houver ganho real de contexto.
+- Mapear spinners restantes em fluxos menos acessados e decidir caso a caso se
+  skeleton ou botao carregando melhora clareza.
 
 Prioridade media:
 
-- Revisar transicoes de abertura de bottom sheets para usar um padrao unico.
-- Melhorar loading dos botoes de auth/social com uma transicao padronizada de
-  label -> spinner, sem duplicar codigo.
+- Expandir `JuriiModalSheetScaffold` para bottom sheets de equipe/escritorio.
 - Refinar formularios de verificacao com agrupamento visual por etapa
   (`Dados`, `Areas`, `Documentos`) se a tela crescer.
 

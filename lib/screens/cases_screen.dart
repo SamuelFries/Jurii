@@ -127,8 +127,16 @@ class _CasesScreenState extends State<CasesScreen> {
 
           if (snapshot.connectionState == ConnectionState.waiting &&
               data == null) {
-            return const Center(
-              child: CircularProgressIndicator(color: AppTheme.primary),
+            return const Padding(
+              padding: EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _CasesHeader(),
+                  SizedBox(height: 20),
+                  JuriiSkeletonList(itemCount: 4, itemHeight: 92),
+                ],
+              ),
             );
           }
 

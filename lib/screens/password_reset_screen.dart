@@ -154,37 +154,10 @@ class _PasswordResetScreenState extends State<PasswordResetScreen> {
                 const SizedBox(height: 22),
                 JuriiStaggeredItem(
                   index: 5,
-                  child: Container(
-                    height: 56,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppTheme.primary.withValues(alpha: 0.20),
-                          blurRadius: 20,
-                          offset: const Offset(0, 8),
-                        ),
-                      ],
-                    ),
-                    child: ElevatedButton(
-                      onPressed: _isLoading ? null : _submit,
-                      child: _isLoading
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: AppTheme.card,
-                              ),
-                            )
-                          : const Text(
-                              'Confirmar nova senha',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                    ),
+                  child: JuriiLoadingButton(
+                    label: 'Confirmar nova senha',
+                    isLoading: _isLoading,
+                    onPressed: _isLoading ? null : _submit,
                   ),
                 ),
                 const SizedBox(height: 10),

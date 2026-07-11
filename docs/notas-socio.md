@@ -316,6 +316,24 @@ para a proxima rodada de design e mais estrutural: consolidar wrapper unico para
 cards de listagem, revisar bottom sheets restantes e padronizar transicao
 label/spinner em botoes.
 
+Ainda em 11/07/2026, continuei a consolidacao de design system:
+
+- adicionei `JuriiLoadingButton` para padronizar CTAs com loading e transicao
+  label -> spinner;
+- adicionei `JuriiModalSheetScaffold` para bottom sheets com handle, radius,
+  safe area e comportamento de teclado consistentes;
+- apliquei `JuriiLoadingButton` em login, cadastro, reset de senha e
+  verificacoes de advogado/escritorio;
+- os botoes sociais de login/cadastro agora animam logo/icone -> spinner;
+- bottom sheets de recuperacao de senha, solicitacao de caso no chat e adicionar
+  atualizacao no caso usam o scaffold padronizado;
+- troquei spinners soltos por skeletons em mensagens do cliente, mensagens do
+  advogado, mensagens do escritorio e casos do cliente.
+
+O proximo passo de design passa a ser menos "tela isolada" e mais
+consolidacao: wrapper unico para cards de listagem e migracao gradual de bottom
+sheets restantes.
+
 ## Pendencias depois desta rodada
 
 As maiores pendencias restantes em seguranca/LGPD estao documentadas em

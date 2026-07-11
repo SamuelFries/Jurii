@@ -188,3 +188,140 @@ class JuriiFormProgressCard extends StatelessWidget {
     );
   }
 }
+
+class JuriiLoadingButton extends StatelessWidget {
+  const JuriiLoadingButton({
+    super.key,
+    required this.label,
+    required this.onPressed,
+    this.isLoading = false,
+    this.height = 56,
+    this.shadow = true,
+    this.backgroundColor,
+    this.foregroundColor = AppTheme.card,
+    this.borderRadius = 16,
+    this.textStyle = const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+  });
+
+  final String label;
+  final VoidCallback? onPressed;
+  final bool isLoading;
+  final double height;
+  final bool shadow;
+  final Color? backgroundColor;
+  final Color foregroundColor;
+  final double borderRadius;
+  final TextStyle textStyle;
+
+  @override
+  Widget build(BuildContext context) {
+    final effectiveBackground = backgroundColor ?? AppTheme.primary;
+
+    return AnimatedContainer(
+      duration: JuriiMotion.fast,
+      curve: JuriiMotion.ease,
+      height: height,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(borderRadius),
+        boxShadow: shadow
+            ? [
+                BoxShadow(
+                  color: effectiveBackground.withValues(alpha: 0.20),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
+                ),
+              ]
+            : const [],
+      ),
+      child: ElevatedButton(
+        onPressed: isLoading ? null : onPressed,
+        style: backgroundColor == null
+            ? null
+            : ElevatedButton.styleFrom(
+                backgroundColor: backgroundColor,
+                foregroundColor: foregroundColor,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(borderRadius),
+                ),
+              ),
+        child: AnimatedSwitcher(
+          duration: JuriiMotion.fast,
+          switchInCurve: JuriiMotion.ease,
+          switchOutCurve: JuriiMotion.exitEase,
+          transitionBuilder: (child, animation) {
+            return FadeTransition(
+              opacity: animation,
+              child: ScaleTransition(scale: animation, child: child),
+            );
+          },
+          child: isLoading
+              ? SizedBox(
+                  key: const ValueKey('loading'),
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: foregroundColor,
+                  ),
+                )
+              : Text(label, key: ValueKey('label_$label'), style: textStyle),
+        ),
+      ),
+    );
+  }
+}
+
+class JuriiModalSheetScaffold extends StatelessWidget {
+  const JuriiModalSheetScaffold({
+    super.key,
+    required this.child,
+    this.padding = const EdgeInsets.fromLTRB(24, 12, 24, 24),
+    this.backgroundColor = AppTheme.background,
+    this.borderRadius = 28,
+  });
+
+  final Widget child;
+  final EdgeInsets padding;
+  final Color backgroundColor;
+  final double borderRadius;
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: bottomInset),
+      child: Container(
+        decoration: BoxDecoration(
+          color: backgroundColor,
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(borderRadius),
+          ),
+        ),
+        padding: padding,
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 42,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppTheme.divider,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 22),
+              child,
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

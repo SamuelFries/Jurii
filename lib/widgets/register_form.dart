@@ -188,38 +188,10 @@ class _RegisterFormState extends State<RegisterForm> {
 
           JuriiStaggeredItem(
             index: 5,
-            child: Container(
-              width: double.infinity,
-              height: 56,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppTheme.primary.withValues(alpha: 0.20),
-                    blurRadius: 20,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: ElevatedButton(
-                onPressed: _isLoading ? null : _submit,
-                child: _isLoading
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: AppTheme.card,
-                        ),
-                      )
-                    : const Text(
-                        'Criar conta',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-              ),
+            child: JuriiLoadingButton(
+              label: 'Criar conta',
+              isLoading: _isLoading,
+              onPressed: _isLoading ? null : _submit,
             ),
           ),
 

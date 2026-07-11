@@ -149,38 +149,10 @@ class _LoginScreenState extends State<LoginScreen> {
               // Botão entrar
               JuriiStaggeredItem(
                 index: 4,
-                child: Container(
-                  width: double.infinity,
-                  height: 56,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppTheme.primary.withValues(alpha: 0.20),
-                        blurRadius: 20,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
-                  ),
-                  child: ElevatedButton(
-                    onPressed: _isAnyAuthLoading ? null : _submit,
-                    child: isLoading
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: AppTheme.card,
-                            ),
-                          )
-                        : const Text(
-                            'Entrar',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                  ),
+                child: JuriiLoadingButton(
+                  label: 'Entrar',
+                  isLoading: isLoading,
+                  onPressed: _isAnyAuthLoading ? null : _submit,
                 ),
               ),
 
@@ -243,21 +215,26 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        if (socialLoadingProvider == SocialAuthProvider.google)
-                          const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: AppTheme.primary,
-                            ),
-                          )
-                        else
-                          Image.asset(
-                            'assets/images/google_logo.png',
-                            width: 20,
-                            height: 20,
-                          ),
+                        AnimatedSwitcher(
+                          duration: JuriiMotion.fast,
+                          child:
+                              socialLoadingProvider == SocialAuthProvider.google
+                              ? const SizedBox(
+                                  key: ValueKey('google_loading'),
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: AppTheme.primary,
+                                  ),
+                                )
+                              : Image.asset(
+                                  'assets/images/google_logo.png',
+                                  key: const ValueKey('google_logo'),
+                                  width: 20,
+                                  height: 20,
+                                ),
+                        ),
                         const SizedBox(width: 12),
                         const Text(
                           'Continuar com Google',
@@ -294,16 +271,24 @@ class _LoginScreenState extends State<LoginScreen> {
                     onPressed: _isAnyAuthLoading
                         ? null
                         : () => _submitSocial(SocialAuthProvider.apple),
-                    icon: socialLoadingProvider == SocialAuthProvider.apple
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: AppTheme.primary,
+                    icon: AnimatedSwitcher(
+                      duration: JuriiMotion.fast,
+                      child: socialLoadingProvider == SocialAuthProvider.apple
+                          ? const SizedBox(
+                              key: ValueKey('apple_loading'),
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: AppTheme.primary,
+                              ),
+                            )
+                          : const Icon(
+                              Icons.apple,
+                              key: ValueKey('apple_icon'),
+                              color: AppTheme.textPrimary,
                             ),
-                          )
-                        : const Icon(Icons.apple, color: AppTheme.textPrimary),
+                    ),
                     label: const Text(
                       'Continuar com Apple',
                       style: TextStyle(
@@ -538,103 +523,67 @@ class _PasswordResetRequestSheetState
 
   @override
   Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
-
-    return Padding(
-      padding: EdgeInsets.only(bottom: bottomInset),
-      child: Container(
-        decoration: const BoxDecoration(
-          color: AppTheme.background,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-        ),
-        padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
-        child: SafeArea(
-          top: false,
-          child: Form(
-            key: _formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Center(
-                  child: Container(
-                    width: 42,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: AppTheme.divider,
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 22),
-                const Text(
-                  'Recuperar senha',
-                  style: TextStyle(
-                    color: AppTheme.textPrimary,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Informe o e-mail cadastrado para receber o link de redefinição.',
-                  style: TextStyle(
-                    color: AppTheme.textSecondary,
-                    fontSize: 14,
-                    height: 1.45,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: AppTheme.softShadow,
-                        blurRadius: 8,
-                        offset: Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: TextFormField(
-                    controller: _emailController,
-                    keyboardType: TextInputType.emailAddress,
-                    textInputAction: TextInputAction.done,
-                    autofillHints: const [AutofillHints.email],
-                    decoration: const InputDecoration(
-                      hintText: 'Seu e-mail',
-                      prefixIcon: Icon(Icons.mail_outline),
-                      filled: true,
-                      fillColor: AppTheme.card,
-                    ),
-                    validator: validateEmailField,
-                    onFieldSubmitted: (_) => _submit(),
-                  ),
-                ),
-                const SizedBox(height: 18),
-                SizedBox(
-                  height: 52,
-                  child: ElevatedButton(
-                    onPressed: _isLoading ? null : _submit,
-                    child: _isLoading
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: AppTheme.card,
-                            ),
-                          )
-                        : const Text(
-                            'Enviar link',
-                            style: TextStyle(fontWeight: FontWeight.w700),
-                          ),
-                  ),
-                ),
-                JuriiFormErrorBanner(message: _errorMessage),
-              ],
+    return JuriiModalSheetScaffold(
+      child: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              'Recuperar senha',
+              style: TextStyle(
+                color: AppTheme.textPrimary,
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+              ),
             ),
-          ),
+            const SizedBox(height: 8),
+            const Text(
+              'Informe o e-mail cadastrado para receber o link de redefinição.',
+              style: TextStyle(
+                color: AppTheme.textSecondary,
+                fontSize: 14,
+                height: 1.45,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: const [
+                  BoxShadow(
+                    color: AppTheme.softShadow,
+                    blurRadius: 8,
+                    offset: Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: TextFormField(
+                controller: _emailController,
+                keyboardType: TextInputType.emailAddress,
+                textInputAction: TextInputAction.done,
+                autofillHints: const [AutofillHints.email],
+                decoration: const InputDecoration(
+                  hintText: 'Seu e-mail',
+                  prefixIcon: Icon(Icons.mail_outline),
+                  filled: true,
+                  fillColor: AppTheme.card,
+                ),
+                validator: validateEmailField,
+                onFieldSubmitted: (_) => _submit(),
+              ),
+            ),
+            const SizedBox(height: 18),
+            JuriiLoadingButton(
+              label: 'Enviar link',
+              isLoading: _isLoading,
+              onPressed: _isLoading ? null : _submit,
+              height: 52,
+              textStyle: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+            JuriiFormErrorBanner(message: _errorMessage),
+          ],
         ),
       ),
     );

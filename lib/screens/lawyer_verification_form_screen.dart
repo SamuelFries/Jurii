@@ -227,22 +227,11 @@ class _LawyerVerificationFormScreenState
 
               const SizedBox(height: 32),
 
-              SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: ElevatedButton(
-                  onPressed: isSubmitting ? null : _submit,
-                  child: isSubmitting
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: AppTheme.card,
-                          ),
-                        )
-                      : const Text('Enviar para análise'),
-                ),
+              JuriiLoadingButton(
+                label: 'Enviar para análise',
+                isLoading: isSubmitting,
+                onPressed: isSubmitting ? null : _submit,
+                textStyle: const TextStyle(fontWeight: FontWeight.w700),
               ),
 
               JuriiFormErrorBanner(message: errorMessage),

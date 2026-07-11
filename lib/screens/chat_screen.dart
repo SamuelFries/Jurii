@@ -21,6 +21,7 @@ import '../services/supabase_config.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import '../widgets/jurii_empty_state.dart';
+import '../widgets/jurii_form_motion.dart';
 import '../widgets/jurii_motion.dart';
 import 'client_profile_screen.dart';
 import 'intake_screen.dart';
@@ -761,6 +762,7 @@ class _ChatScreenState extends State<ChatScreen>
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
+      backgroundColor: Colors.transparent,
       builder: (context) =>
           _CaseRequestSheet(initialTitle: widget.conversation.specialty),
     );
@@ -1073,13 +1075,11 @@ class _CaseRequestSheetState extends State<_CaseRequestSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
-
-    return Padding(
-      padding: EdgeInsets.fromLTRB(20, 20, 20, bottomInset + 20),
+    return JuriiModalSheetScaffold(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
       child: Column(
         mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const Text(
             'Solicitar aceite do caso',
@@ -1123,12 +1123,10 @@ class _CaseRequestSheetState extends State<_CaseRequestSheet> {
             ),
           ),
           const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: _submit,
-              child: const Text('Enviar solicitação'),
-            ),
+          JuriiLoadingButton(
+            label: 'Enviar solicitação',
+            onPressed: _submit,
+            shadow: false,
           ),
         ],
       ),

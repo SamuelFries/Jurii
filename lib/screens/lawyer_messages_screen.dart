@@ -51,8 +51,19 @@ class _LawyerMessagesScreenState extends State<LawyerMessagesScreen> {
 
           if (snapshot.connectionState == ConnectionState.waiting &&
               conversations == null) {
-            return const Center(
-              child: CircularProgressIndicator(color: AppTheme.primary),
+            return const Padding(
+              padding: EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _MessagesHeader(
+                    title: 'Mensagens',
+                    subtitle: 'Converse com clientes e acompanhe contatos.',
+                  ),
+                  SizedBox(height: 20),
+                  JuriiSkeletonList(itemCount: 4, itemHeight: 86),
+                ],
+              ),
             );
           }
 

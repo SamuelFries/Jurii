@@ -133,21 +133,25 @@ class _RegisterSocialButtonsState extends State<RegisterSocialButtons> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            if (loading)
-              const SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: AppTheme.primary,
-                ),
-              )
-            else
-              Image.asset(
-                'assets/images/google_logo.png',
-                width: 20,
-                height: 20,
-              ),
+            AnimatedSwitcher(
+              duration: JuriiMotion.fast,
+              child: loading
+                  ? const SizedBox(
+                      key: ValueKey('google_loading'),
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppTheme.primary,
+                      ),
+                    )
+                  : Image.asset(
+                      'assets/images/google_logo.png',
+                      key: const ValueKey('google_logo'),
+                      width: 20,
+                      height: 20,
+                    ),
+            ),
             const SizedBox(width: 12),
             const Text(
               'Continuar com Google',
@@ -183,16 +187,24 @@ class _RegisterSocialButtonsState extends State<RegisterSocialButtons> {
       ),
       child: OutlinedButton.icon(
         onPressed: _loadingProvider != null ? null : onPressed,
-        icon: loading
-            ? const SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: AppTheme.primary,
+        icon: AnimatedSwitcher(
+          duration: JuriiMotion.fast,
+          child: loading
+              ? const SizedBox(
+                  key: ValueKey('social_loading'),
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: AppTheme.primary,
+                  ),
+                )
+              : Icon(
+                  icon,
+                  key: ValueKey('social_icon_$text'),
+                  color: AppTheme.textPrimary,
                 ),
-              )
-            : Icon(icon, color: AppTheme.textPrimary),
+        ),
         label: Text(
           text,
           style: const TextStyle(
