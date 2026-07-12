@@ -294,6 +294,7 @@ class ProfileScreen extends StatelessWidget {
                 name: isLawyerMode ? 'Dr. ${user.name}' : user.name,
                 email: user.email,
                 initials: user.initials,
+                avatarUrl: user.avatarUrl,
                 memberSince: isLawyerMode
                     ? user.oabNumber ?? 'Perfil profissional'
                     : user.memberSince,

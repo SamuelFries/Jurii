@@ -17,6 +17,9 @@ class VerificationDocumentStorage {
 
   static const String bucket = 'verification-documents';
 
+  /// Bucket público das fotos de perfil.
+  static const String avatarBucket = 'profile-avatars';
+
   /// Sobe um documento e retorna o caminho salvo no Storage.
   Future<String> upload({
     required String userId,
@@ -31,6 +34,26 @@ class VerificationDocumentStorage {
           fileOptions: FileOptions(contentType: file.mimeType, upsert: false),
         );
     return path;
+  }
+
+  /// Sobe a foto profissional como avatar público e retorna a URL pública.
+  ///
+  /// Vai para o bucket `profile-avatars` (leitura pública, escrita na pasta
+  /// própria `{uid}/...`), separado dos documentos privados de verificação.
+  Future<String> uploadAvatar({
+    required String userId,
+    required PendingVerificationUpload file,
+  }) async {
+    final timestamp = DateTime.now().toUtc().microsecondsSinceEpoch;
+    final path = '$userId/avatar-$timestamp-${_safeFileName(file.fileName)}';
+    await SupabaseConfig.client.storage
+        .from(avatarBucket)
+        .uploadBinary(
+          path,
+          file.bytes,
+          fileOptions: FileOptions(contentType: file.mimeType, upsert: true),
+        );
+    return SupabaseConfig.client.storage.from(avatarBucket).getPublicUrl(path);
   }
 
   /// Remove caminhos já enviados (rollback quando o submit falha no meio).

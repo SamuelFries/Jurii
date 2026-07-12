@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 import '../data/legal_practice_areas.dart';
 import '../models/lawyer_status.dart';
 import '../models/lawyer_verification.dart';
@@ -54,13 +56,18 @@ class LawyerVerificationRepository {
     final row = (rows as List<dynamic>).cast<Map<String, dynamic>>().first;
     final verificationId = row['id'] as String?;
 
+    final userId = row['user_id'] as String? ?? user.id;
+
     if (verificationId != null && uploads.isNotEmpty) {
       await _persistDocuments(
-        userId: row['user_id'] as String? ?? user.id,
+        userId: userId,
         verificationId: verificationId,
         uploads: uploads,
       );
     }
+
+    // A foto profissional também vira o avatar público do perfil.
+    await _applyProfilePhotoAsAvatar(userId: userId, uploads: uploads);
 
     final returnedPracticeArea =
         row['practice_area'] as String? ?? primaryPracticeArea(practiceAreas);
@@ -106,6 +113,32 @@ class LawyerVerificationRepository {
     } catch (error) {
       await documentStorage.remove(uploadedPaths);
       rethrow;
+    }
+  }
+
+  /// Sobe a foto profissional ao bucket público e a define como avatar do
+  /// perfil. Não-fatal: a verificação é a ação principal; se o avatar falhar,
+  /// apenas registra e segue (a foto continua no pacote de documentos).
+  Future<void> _applyProfilePhotoAsAvatar({
+    required String userId,
+    required List<PendingVerificationUpload> uploads,
+  }) async {
+    final photo = uploads
+        .where((upload) => upload.documentType == 'professional_photo')
+        .firstOrNull;
+    if (photo == null) return;
+
+    try {
+      final url = await documentStorage.uploadAvatar(
+        userId: userId,
+        file: photo,
+      );
+      await SupabaseConfig.client
+          .from('profiles')
+          .update({'avatar_url': url})
+          .eq('id', userId);
+    } catch (error) {
+      debugPrint('Falha ao definir avatar da foto profissional: $error');
     }
   }
 

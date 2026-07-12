@@ -746,3 +746,34 @@ Outra limitacao conhecida: se o upload de um documento falhar depois da
 verificacao ja criada, ela fica pendente com documentos faltando (o revisor
 recusaria). Aceitavel para v1; da para endurecer depois movendo a criacao da
 verificacao para o fim, ou para uma Edge Function transacional.
+
+### Foto profissional vira o avatar do perfil (12/07/2026)
+
+A "Foto profissional" da verificacao do advogado (subtitulo ja dizia "Imagem
+exibida no perfil") agora vira de fato o avatar do perfil. Detalhe do banco: as
+colunas `profiles.avatar_url` e `lawyer_profiles.professional_photo_url`
+existiam desde a baseline mas nao eram usadas em lugar nenhum — o app so
+mostrava iniciais e o bucket publico `profile-avatars` nunca era escrito.
+
+- No submit da verificacao, alem de ir para o bucket privado
+  `verification-documents` (o revisor precisa ver o rosto para bater com o
+  documento), a foto profissional tambem sobe para o bucket publico
+  `profile-avatars` (`{uid}/avatar-...`) e o `profiles.avatar_url` recebe a URL
+  publica. Nao precisou de migration: o grant de coluna do patch_041 ja
+  incluia `update (... avatar_url ...)` para authenticated, e a policy
+  `profiles_update_own` cobre a linha propria.
+- E nao-fatal: se o upload/registro do avatar falhar, a verificacao continua
+  (a foto ja esta no pacote de documentos); so nao troca o avatar.
+- App: `UserProfile` ganhou `avatarUrl`; `ProfileHeaderCard` mostra a foto
+  (BoxFit.cover, recorte arredondado) com fallback para as iniciais em erro de
+  rede/ausencia; o `main` recarrega o perfil apos o submit para o header
+  refletir a foto na volta.
+- So advogado. O escritorio nao envia foto de pessoa (os documentos sao CNPJ,
+  contrato social, etc.), entao nada de avatar la.
+
+Escopo que deixei de fora de proposito: mostrar essa foto para o CLIENTE na
+descoberta de advogados. Hoje os cards de advogado (`LawyerProfileSummary`) sao
+so cor + iniciais, sem campo de foto — renderizar foto ali e uma frente
+separada (model + repo + todos os cards). A base ja esta pronta:
+`avatar_url` esta salvo e da para levar para `lawyer_profiles.professional_photo_url`
+na aprovacao quando essa frente for encarada.
