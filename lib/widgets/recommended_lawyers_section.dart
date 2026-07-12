@@ -6,7 +6,7 @@ import '../models/lawyer_profile_summary.dart';
 import '../repositories/lawyer_profile_repository.dart';
 import '../screens/lawyer_profile_screen.dart';
 import '../services/supabase_config.dart';
-import '../theme/app_theme.dart';
+import '../theme/app_colors.dart';
 import 'jurii_empty_state.dart';
 import 'jurii_motion.dart';
 import 'lawyer_profile_card.dart';
@@ -59,9 +59,9 @@ class _RecommendedLawyersSectionState extends State<RecommendedLawyersSection> {
           style: Theme.of(context).textTheme.titleLarge,
         ),
         const SizedBox(height: 6),
-        const Text(
+        Text(
           'Perfis verificados para atendimento direto.',
-          style: TextStyle(color: AppTheme.textSecondary, fontSize: 14),
+          style: TextStyle(color: context.jColors.textSecondary, fontSize: 14),
         ),
         const SizedBox(height: 16),
         FutureBuilder<List<LawyerProfileSummary>>(

@@ -3,7 +3,7 @@ import '../data/mock/mock_cases.dart';
 import '../models/lawyer_case.dart';
 import '../repositories/case_repository.dart';
 import '../services/supabase_config.dart';
-import '../theme/app_theme.dart';
+import '../theme/app_colors.dart';
 import '../widgets/jurii_empty_state.dart';
 import '../widgets/jurii_motion.dart';
 import '../widgets/lawyer_case_card.dart';
@@ -103,23 +103,20 @@ class _CasesLoadErrorState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
-              Icons.wifi_off_rounded,
-              size: 40,
-              color: AppTheme.textSecondary,
-            ),
+            Icon(Icons.wifi_off_rounded, size: 40, color: colors.textSecondary),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'Não foi possível carregar seus casos.',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: AppTheme.textPrimary,
+                color: colors.textPrimary,
                 fontWeight: FontWeight.w700,
                 fontSize: 16,
               ),
@@ -141,17 +138,18 @@ class _EmptyCasesState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return Padding(
       padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Casos',
             style: TextStyle(
               fontSize: 34,
               fontWeight: FontWeight.bold,
-              color: AppTheme.textPrimary,
+              color: colors.textPrimary,
               decoration: TextDecoration.none,
             ),
           ),
@@ -186,10 +184,11 @@ class _CasesListState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: colors.background,
       floatingActionButton: FloatingActionButton(
-        backgroundColor: AppTheme.primary,
+        backgroundColor: colors.primary,
         onPressed: () {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -199,19 +198,19 @@ class _CasesListState extends StatelessWidget {
             ),
           );
         },
-        child: const Icon(Icons.add, color: AppTheme.card),
+        child: Icon(Icons.add, color: colors.card),
       ),
       body: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Casos',
               style: TextStyle(
                 fontSize: 34,
                 fontWeight: FontWeight.bold,
-                color: AppTheme.textPrimary,
+                color: colors.textPrimary,
                 decoration: TextDecoration.none,
               ),
             ),

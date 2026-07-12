@@ -4,8 +4,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/jurii_notification.dart';
 import '../repositories/notification_repository.dart';
 import '../services/supabase_config.dart';
-import '../theme/app_theme.dart';
+import '../theme/app_colors.dart';
 import 'jurii_empty_state.dart';
+import 'jurii_form_motion.dart';
 import 'jurii_motion.dart';
 
 class NotificationBell extends StatefulWidget {
@@ -13,18 +14,18 @@ class NotificationBell extends StatefulWidget {
     super.key,
     required this.scope,
     this.lawFirmId,
-    this.iconColor = AppTheme.primary,
-    this.backgroundColor = AppTheme.card,
-    this.borderColor = AppTheme.softBorder,
+    this.iconColor,
+    this.backgroundColor,
+    this.borderColor,
     this.onChanged,
     this.repository = const NotificationRepository(),
   });
 
   final NotificationScope scope;
   final String? lawFirmId;
-  final Color iconColor;
-  final Color backgroundColor;
-  final Color borderColor;
+  final Color? iconColor;
+  final Color? backgroundColor;
+  final Color? borderColor;
   final Future<void> Function()? onChanged;
   final NotificationRepository repository;
 
@@ -130,11 +131,7 @@ class _NotificationBellState extends State<NotificationBell> {
 
     await showModalBottomSheet<void>(
       context: context,
-      backgroundColor: AppTheme.card,
-      showDragHandle: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+      backgroundColor: Colors.transparent,
       builder: (context) {
         return _NotificationSheet(
           notifications: visibleNotifications,
@@ -152,11 +149,12 @@ class _NotificationBellState extends State<NotificationBell> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return Stack(
       clipBehavior: Clip.none,
       children: [
         Material(
-          color: widget.backgroundColor,
+          color: widget.backgroundColor ?? colors.card,
           borderRadius: BorderRadius.circular(14),
           child: InkWell(
             onTap: _openNotifications,
@@ -165,12 +163,14 @@ class _NotificationBellState extends State<NotificationBell> {
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                border: Border.all(color: widget.borderColor),
+                border: Border.all(
+                  color: widget.borderColor ?? colors.softBorder,
+                ),
                 borderRadius: BorderRadius.circular(14),
               ),
               child: Icon(
                 Icons.notifications_none_outlined,
-                color: widget.iconColor,
+                color: widget.iconColor ?? colors.primary,
               ),
             ),
           ),
@@ -200,15 +200,15 @@ class _NotificationBellState extends State<NotificationBell> {
                       ),
                       padding: const EdgeInsets.symmetric(horizontal: 5),
                       decoration: BoxDecoration(
-                        color: AppTheme.danger,
-                        border: Border.all(color: AppTheme.card, width: 2),
+                        color: colors.danger,
+                        border: Border.all(color: colors.card, width: 2),
                         borderRadius: BorderRadius.circular(99),
                       ),
                       child: Center(
                         child: Text(
                           _unreadCount > 9 ? '9+' : '$_unreadCount',
-                          style: const TextStyle(
-                            color: AppTheme.card,
+                          style: TextStyle(
+                            color: colors.card,
                             fontSize: 10,
                             fontWeight: FontWeight.w900,
                           ),
@@ -282,61 +282,62 @@ class _NotificationSheetState extends State<_NotificationSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      top: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Notificações',
-              style: TextStyle(
-                color: AppTheme.textPrimary,
-                fontSize: 22,
-                fontWeight: FontWeight.w900,
+    // Teto explícito: dentro do JuriiModalSheetScaffold a Column não repassa
+    // altura limitada, então Flexible quebraria com lista longa.
+    final maxListHeight = MediaQuery.sizeOf(context).height * 0.55;
+
+    return JuriiModalSheetScaffold(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Notificações',
+            style: TextStyle(
+              color: context.jColors.textPrimary,
+              fontSize: 22,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 14),
+          if (_notifications.isEmpty)
+            _EmptyNotifications(scope: widget.scope)
+          else
+            ConstrainedBox(
+              constraints: BoxConstraints(maxHeight: maxListHeight),
+              child: ListView.separated(
+                shrinkWrap: true,
+                itemCount: _notifications.length,
+                separatorBuilder: (_, _) => const SizedBox(height: 10),
+                itemBuilder: (context, index) {
+                  final notification = _notifications[index];
+                  return JuriiStaggeredItem(
+                    index: index,
+                    beginOffset: const Offset(0, 10),
+                    child: Dismissible(
+                      key: ValueKey('notification_${notification.id}'),
+                      direction: DismissDirection.endToStart,
+                      resizeDuration: const Duration(milliseconds: 180),
+                      movementDuration: const Duration(milliseconds: 260),
+                      dismissThresholds: const {
+                        DismissDirection.endToStart: 0.28,
+                      },
+                      background: const SizedBox.shrink(),
+                      secondaryBackground: _DismissNotificationBackground(
+                        scope: notification.scope,
+                      ),
+                      onDismissed: (_) => _dismissNotification(notification),
+                      child: _NotificationTile(
+                        notification: notification,
+                        repository: widget.repository,
+                        onChanged: _reload,
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
-            const SizedBox(height: 14),
-            if (_notifications.isEmpty)
-              _EmptyNotifications(scope: widget.scope)
-            else
-              Flexible(
-                child: ListView.separated(
-                  shrinkWrap: true,
-                  itemCount: _notifications.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 10),
-                  itemBuilder: (context, index) {
-                    final notification = _notifications[index];
-                    return JuriiStaggeredItem(
-                      index: index,
-                      beginOffset: const Offset(0, 10),
-                      child: Dismissible(
-                        key: ValueKey('notification_${notification.id}'),
-                        direction: DismissDirection.endToStart,
-                        resizeDuration: const Duration(milliseconds: 180),
-                        movementDuration: const Duration(milliseconds: 260),
-                        dismissThresholds: const {
-                          DismissDirection.endToStart: 0.28,
-                        },
-                        background: const SizedBox.shrink(),
-                        secondaryBackground: _DismissNotificationBackground(
-                          scope: notification.scope,
-                        ),
-                        onDismissed: (_) => _dismissNotification(notification),
-                        child: _NotificationTile(
-                          notification: notification,
-                          repository: widget.repository,
-                          onChanged: _reload,
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-          ],
-        ),
+        ],
       ),
     );
   }
@@ -349,17 +350,18 @@ class _DismissNotificationBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     final accentColor = switch (scope) {
-      NotificationScope.client => AppTheme.accent,
-      NotificationScope.lawyer => AppTheme.primary,
-      NotificationScope.firm => AppTheme.officePurple,
+      NotificationScope.client => colors.accent,
+      NotificationScope.lawyer => colors.primary,
+      NotificationScope.firm => colors.officePurple,
     };
 
     return Container(
       alignment: Alignment.centerRight,
       padding: const EdgeInsets.symmetric(horizontal: 18),
       decoration: BoxDecoration(
-        color: AppTheme.danger,
+        color: colors.danger,
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
@@ -369,19 +371,19 @@ class _DismissNotificationBackground extends StatelessWidget {
           ),
         ],
       ),
-      child: const Row(
+      child: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
           Text(
             'Excluir',
             style: TextStyle(
-              color: AppTheme.card,
+              color: colors.card,
               fontSize: 13,
               fontWeight: FontWeight.w900,
             ),
           ),
-          SizedBox(width: 10),
-          Icon(Icons.delete_outline, color: AppTheme.card, size: 22),
+          const SizedBox(width: 10),
+          Icon(Icons.delete_outline, color: colors.card, size: 22),
         ],
       ),
     );
@@ -395,7 +397,7 @@ class _EmptyNotifications extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = _emptyColorsForScope(scope);
+    final colors = _emptyColorsForScope(scope, context.jColors);
 
     return JuriiEmptyState(
       icon: Icons.notifications_none_outlined,
@@ -409,22 +411,23 @@ class _EmptyNotifications extends StatelessWidget {
 
   ({Color surface, Color border, Color accent}) _emptyColorsForScope(
     NotificationScope scope,
+    AppColors colors,
   ) {
     return switch (scope) {
       NotificationScope.client => (
-        surface: AppTheme.lightGold,
-        border: AppTheme.lightGoldBorder,
-        accent: AppTheme.accent,
+        surface: colors.lightGold,
+        border: colors.lightGoldBorder,
+        accent: colors.accent,
       ),
       NotificationScope.lawyer => (
-        surface: AppTheme.lightBlue,
-        border: AppTheme.lightBlueBorder,
-        accent: AppTheme.primary,
+        surface: colors.lightBlue,
+        border: colors.lightBlueBorder,
+        accent: colors.primary,
       ),
       NotificationScope.firm => (
-        surface: AppTheme.officePurpleSurface,
-        border: AppTheme.officePurpleBorder,
-        accent: AppTheme.officePurple,
+        surface: colors.officePurpleSurface,
+        border: colors.officePurpleBorder,
+        accent: colors.officePurple,
       ),
     };
   }
@@ -443,7 +446,11 @@ class _NotificationTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = _colorsForScope(notification.scope, notification.isUnread);
+    final colors = _colorsForScope(
+      notification.scope,
+      notification.isUnread,
+      context.jColors,
+    );
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -464,8 +471,8 @@ class _NotificationTile extends StatelessWidget {
                   notification.title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppTheme.textPrimary,
+                  style: TextStyle(
+                    color: context.jColors.textPrimary,
                     fontSize: 14,
                     fontWeight: FontWeight.w900,
                   ),
@@ -475,8 +482,8 @@ class _NotificationTile extends StatelessWidget {
                   notification.body,
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppTheme.textSecondary,
+                  style: TextStyle(
+                    color: context.jColors.textSecondary,
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                   ),
@@ -515,22 +522,23 @@ class _NotificationTile extends StatelessWidget {
   ({Color surface, Color border, Color icon}) _colorsForScope(
     NotificationScope scope,
     bool isUnread,
+    AppColors colors,
   ) {
     return switch (scope) {
       NotificationScope.client => (
-        surface: isUnread ? AppTheme.lightGold : AppTheme.card,
-        border: AppTheme.lightGoldBorder,
-        icon: AppTheme.accent,
+        surface: isUnread ? colors.lightGold : colors.card,
+        border: colors.lightGoldBorder,
+        icon: colors.accent,
       ),
       NotificationScope.lawyer => (
-        surface: isUnread ? AppTheme.lightBlue : AppTheme.card,
-        border: AppTheme.lightBlueBorder,
-        icon: AppTheme.primary,
+        surface: isUnread ? colors.lightBlue : colors.card,
+        border: colors.lightBlueBorder,
+        icon: colors.primary,
       ),
       NotificationScope.firm => (
-        surface: isUnread ? AppTheme.officePurpleSurface : AppTheme.card,
-        border: AppTheme.officePurpleBorder,
-        icon: AppTheme.officePurple,
+        surface: isUnread ? colors.officePurpleSurface : colors.card,
+        border: colors.officePurpleBorder,
+        icon: colors.officePurple,
       ),
     };
   }
@@ -595,6 +603,7 @@ class _TeamInviteActionsState extends State<_TeamInviteActions> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return Wrap(
       spacing: 8,
       runSpacing: 8,
@@ -602,8 +611,8 @@ class _TeamInviteActionsState extends State<_TeamInviteActions> {
         FilledButton(
           onPressed: _isSubmitting ? null : () => _respond(accepted: true),
           style: FilledButton.styleFrom(
-            backgroundColor: AppTheme.success,
-            foregroundColor: AppTheme.card,
+            backgroundColor: colors.success,
+            foregroundColor: colors.card,
             minimumSize: const Size(96, 40),
           ),
           child: const Text('Aceitar'),
@@ -611,8 +620,8 @@ class _TeamInviteActionsState extends State<_TeamInviteActions> {
         OutlinedButton(
           onPressed: _isSubmitting ? null : () => _respond(accepted: false),
           style: OutlinedButton.styleFrom(
-            foregroundColor: AppTheme.danger,
-            side: const BorderSide(color: AppTheme.danger),
+            foregroundColor: colors.danger,
+            side: BorderSide(color: colors.danger),
             minimumSize: const Size(96, 40),
           ),
           child: const Text('Recusar'),
@@ -629,17 +638,18 @@ class _InviteStatusPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     final accepted = status == 'accepted';
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: accepted ? AppTheme.successSurface : AppTheme.warningSurface,
+        color: accepted ? colors.successSurface : colors.warningSurface,
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
         accepted ? 'Convite aceito' : 'Convite recusado',
         style: TextStyle(
-          color: accepted ? AppTheme.success : AppTheme.warningText,
+          color: accepted ? colors.success : colors.warningText,
           fontSize: 12,
           fontWeight: FontWeight.w800,
         ),
@@ -693,6 +703,7 @@ class _CaseRequestActionsState extends State<_CaseRequestActions> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return Wrap(
       spacing: 8,
       runSpacing: 8,
@@ -700,8 +711,8 @@ class _CaseRequestActionsState extends State<_CaseRequestActions> {
         FilledButton(
           onPressed: _isSubmitting ? null : () => _respond(accepted: true),
           style: FilledButton.styleFrom(
-            backgroundColor: AppTheme.success,
-            foregroundColor: AppTheme.card,
+            backgroundColor: colors.success,
+            foregroundColor: colors.card,
             minimumSize: const Size(112, 40),
           ),
           child: const Text('Aceitar caso'),
@@ -709,8 +720,8 @@ class _CaseRequestActionsState extends State<_CaseRequestActions> {
         OutlinedButton(
           onPressed: _isSubmitting ? null : () => _respond(accepted: false),
           style: OutlinedButton.styleFrom(
-            foregroundColor: AppTheme.danger,
-            side: const BorderSide(color: AppTheme.danger),
+            foregroundColor: colors.danger,
+            side: BorderSide(color: colors.danger),
             minimumSize: const Size(96, 40),
           ),
           child: const Text('Recusar'),
@@ -727,16 +738,17 @@ class _CaseRequestStatusPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     final accepted = status == 'accepted';
     final declined = status == 'declined';
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: accepted
-            ? AppTheme.successSurface
+            ? colors.successSurface
             : declined
-            ? AppTheme.warningSurface
-            : AppTheme.lightBlue,
+            ? colors.warningSurface
+            : colors.lightBlue,
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
@@ -747,10 +759,10 @@ class _CaseRequestStatusPill extends StatelessWidget {
             : 'Solicitação pendente',
         style: TextStyle(
           color: accepted
-              ? AppTheme.success
+              ? colors.success
               : declined
-              ? AppTheme.warningText
-              : AppTheme.primary,
+              ? colors.warningText
+              : colors.primary,
           fontSize: 12,
           fontWeight: FontWeight.w800,
         ),

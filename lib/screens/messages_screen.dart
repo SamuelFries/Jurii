@@ -4,7 +4,7 @@ import '../data/mock/mock_messages.dart';
 import '../models/conversation.dart';
 import '../repositories/messaging_repository.dart';
 import '../services/supabase_config.dart';
-import '../theme/app_theme.dart';
+import '../theme/app_colors.dart';
 import '../widgets/conversation_card.dart';
 import '../widgets/jurii_empty_state.dart';
 import '../widgets/jurii_motion.dart';
@@ -149,21 +149,22 @@ class _MessagesHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           title,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 34,
             fontWeight: FontWeight.bold,
-            color: AppTheme.textPrimary,
+            color: colors.textPrimary,
           ),
         ),
         const SizedBox(height: 8),
         Text(
           subtitle,
-          style: const TextStyle(color: AppTheme.textSecondary, fontSize: 16),
+          style: TextStyle(color: colors.textSecondary, fontSize: 16),
         ),
       ],
     );
@@ -177,23 +178,24 @@ class _EmptyMessagesState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return Padding(
       padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Conversas',
             style: TextStyle(
               fontSize: 34,
               fontWeight: FontWeight.bold,
-              color: AppTheme.textPrimary,
+              color: colors.textPrimary,
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'Suas conversas com escritórios aparecerão nesta área.',
-            style: TextStyle(color: AppTheme.textSecondary, fontSize: 16),
+            style: TextStyle(color: colors.textSecondary, fontSize: 16),
           ),
           const Spacer(),
           Center(

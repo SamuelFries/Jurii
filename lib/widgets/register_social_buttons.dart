@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/social_auth_provider.dart';
-import '../theme/app_theme.dart';
+import '../theme/app_colors.dart';
 import '../types/auth_callbacks.dart';
 import 'jurii_motion.dart';
 import 'legal_agreement_notice.dart';
@@ -22,21 +22,22 @@ class _RegisterSocialButtonsState extends State<RegisterSocialButtons> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return Column(
       children: [
         JuriiStaggeredItem(
           index: 0,
           child: Row(
             children: [
-              Expanded(child: Container(height: 1, color: AppTheme.divider)),
-              const Padding(
+              Expanded(child: Container(height: 1, color: colors.divider)),
+              Padding(
                 padding: EdgeInsets.symmetric(horizontal: 12),
                 child: Text(
                   'ou cadastre-se com',
-                  style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+                  style: TextStyle(color: colors.textSecondary, fontSize: 13),
                 ),
               ),
-              Expanded(child: Container(height: 1, color: AppTheme.divider)),
+              Expanded(child: Container(height: 1, color: colors.divider)),
             ],
           ),
         ),
@@ -50,6 +51,7 @@ class _RegisterSocialButtonsState extends State<RegisterSocialButtons> {
         JuriiStaggeredItem(
           index: 2,
           child: _socialButton(
+            context: context,
             icon: Icons.apple,
             text: 'Continuar com Apple',
             loading: _loadingProvider == SocialAuthProvider.apple,
@@ -59,11 +61,11 @@ class _RegisterSocialButtonsState extends State<RegisterSocialButtons> {
 
         const SizedBox(height: 32),
 
-        const JuriiStaggeredItem(
+        JuriiStaggeredItem(
           index: 3,
           child: Text(
             'Já possui uma conta?',
-            style: TextStyle(color: AppTheme.textSecondary),
+            style: TextStyle(color: colors.textSecondary),
           ),
         ),
 
@@ -79,15 +81,15 @@ class _RegisterSocialButtonsState extends State<RegisterSocialButtons> {
                 Navigator.of(context).pop();
               },
               style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: AppTheme.accent),
+                side: BorderSide(color: colors.accent),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                 ),
               ),
-              child: const Text(
+              child: Text(
                 'Entrar',
                 style: TextStyle(
-                  color: AppTheme.accent,
+                  color: colors.accent,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -105,16 +107,17 @@ class _RegisterSocialButtonsState extends State<RegisterSocialButtons> {
   }
 
   Widget _googleButton(BuildContext context) {
+    final colors = context.jColors;
     final loading = _loadingProvider == SocialAuthProvider.google;
 
     return Container(
       height: 52,
       decoration: BoxDecoration(
-        color: AppTheme.card,
+        color: colors.card,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: const [
+        boxShadow: [
           BoxShadow(
-            color: AppTheme.softShadow,
+            color: colors.softShadow,
             blurRadius: 8,
             offset: Offset(0, 2),
           ),
@@ -125,7 +128,7 @@ class _RegisterSocialButtonsState extends State<RegisterSocialButtons> {
             ? null
             : () => _submitSocial(SocialAuthProvider.google),
         style: OutlinedButton.styleFrom(
-          side: const BorderSide(color: AppTheme.softBorder),
+          side: BorderSide(color: colors.softBorder),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
@@ -136,13 +139,13 @@ class _RegisterSocialButtonsState extends State<RegisterSocialButtons> {
             AnimatedSwitcher(
               duration: JuriiMotion.fast,
               child: loading
-                  ? const SizedBox(
+                  ? SizedBox(
                       key: ValueKey('google_loading'),
                       width: 20,
                       height: 20,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: AppTheme.primary,
+                        color: colors.primary,
                       ),
                     )
                   : Image.asset(
@@ -153,10 +156,10 @@ class _RegisterSocialButtonsState extends State<RegisterSocialButtons> {
                     ),
             ),
             const SizedBox(width: 12),
-            const Text(
+            Text(
               'Continuar com Google',
               style: TextStyle(
-                color: AppTheme.textPrimary,
+                color: colors.textPrimary,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -167,19 +170,21 @@ class _RegisterSocialButtonsState extends State<RegisterSocialButtons> {
   }
 
   Widget _socialButton({
+    required BuildContext context,
     required IconData icon,
     required String text,
     required bool loading,
     required VoidCallback onPressed,
   }) {
+    final colors = context.jColors;
     return Container(
       height: 52,
       decoration: BoxDecoration(
-        color: AppTheme.card,
+        color: colors.card,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: const [
+        boxShadow: [
           BoxShadow(
-            color: AppTheme.softShadow,
+            color: colors.softShadow,
             blurRadius: 8,
             offset: Offset(0, 2),
           ),
@@ -190,30 +195,30 @@ class _RegisterSocialButtonsState extends State<RegisterSocialButtons> {
         icon: AnimatedSwitcher(
           duration: JuriiMotion.fast,
           child: loading
-              ? const SizedBox(
+              ? SizedBox(
                   key: ValueKey('social_loading'),
                   width: 20,
                   height: 20,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    color: AppTheme.primary,
+                    color: colors.primary,
                   ),
                 )
               : Icon(
                   icon,
                   key: ValueKey('social_icon_$text'),
-                  color: AppTheme.textPrimary,
+                  color: colors.textPrimary,
                 ),
         ),
         label: Text(
           text,
-          style: const TextStyle(
-            color: AppTheme.textPrimary,
+          style: TextStyle(
+            color: colors.textPrimary,
             fontWeight: FontWeight.w600,
           ),
         ),
         style: OutlinedButton.styleFrom(
-          side: const BorderSide(color: AppTheme.softBorder),
+          side: BorderSide(color: colors.softBorder),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),

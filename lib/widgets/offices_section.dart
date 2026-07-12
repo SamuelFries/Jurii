@@ -5,7 +5,7 @@ import '../models/law_firm.dart';
 import '../repositories/law_firm_repository.dart';
 import '../screens/law_firm_profile_screen.dart';
 import '../services/supabase_config.dart';
-import '../theme/app_theme.dart';
+import '../theme/app_colors.dart';
 import 'jurii_empty_state.dart';
 import 'jurii_motion.dart';
 import 'office_card.dart';
@@ -189,21 +189,22 @@ class _OfficesErrorState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppTheme.card,
+        color: colors.card,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.lightBlueBorder),
+        border: Border.all(color: colors.lightBlueBorder),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Não foi possível carregar os escritórios.',
             style: TextStyle(
-              color: AppTheme.textSecondary,
+              color: colors.textSecondary,
               fontWeight: FontWeight.w700,
             ),
           ),

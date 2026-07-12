@@ -9,7 +9,7 @@ import '../data/legal_documents.dart';
 import 'law_firm_verification_screen.dart';
 import 'lawyer_verification_screen.dart';
 import 'legal_document_screen.dart';
-import '../theme/app_theme.dart';
+import '../theme/app_colors.dart';
 import '../widgets/law_firm_mode_card.dart';
 import '../widgets/profile_header_card.dart';
 import '../widgets/profile_menu_section.dart';
@@ -56,6 +56,7 @@ class ProfileScreen extends StatelessWidget {
   });
 
   Future<void> _openSecuritySettings(BuildContext context) async {
+    final colors = context.jColors;
     await showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
@@ -67,13 +68,13 @@ class ProfileScreen extends StatelessWidget {
               margin: const EdgeInsets.all(12),
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: AppTheme.card,
+                color: colors.card,
                 borderRadius: BorderRadius.circular(24),
-                boxShadow: const [
+                boxShadow: [
                   BoxShadow(
-                    color: AppTheme.softShadow,
+                    color: colors.softShadow,
                     blurRadius: 24,
-                    offset: Offset(0, 12),
+                    offset: const Offset(0, 12),
                   ),
                 ],
               ),
@@ -87,32 +88,29 @@ class ProfileScreen extends StatelessWidget {
                         width: 44,
                         height: 44,
                         decoration: BoxDecoration(
-                          color: AppTheme.warningSurface,
+                          color: colors.warningSurface,
                           borderRadius: BorderRadius.circular(14),
                         ),
-                        child: const Icon(
-                          Icons.lock_outline,
-                          color: AppTheme.warning,
-                        ),
+                        child: Icon(Icons.lock_outline, color: colors.warning),
                       ),
                       const SizedBox(width: 12),
-                      const Expanded(
+                      Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
                               'Segurança',
                               style: TextStyle(
-                                color: AppTheme.textPrimary,
+                                color: colors.textPrimary,
                                 fontSize: 20,
                                 fontWeight: FontWeight.w900,
                               ),
                             ),
-                            SizedBox(height: 2),
+                            const SizedBox(height: 2),
                             Text(
                               'Gerencie ações sensíveis da sua conta.',
                               style: TextStyle(
-                                color: AppTheme.textSecondary,
+                                color: colors.textSecondary,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
@@ -126,26 +124,26 @@ class ProfileScreen extends StatelessWidget {
                     width: double.infinity,
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: AppTheme.dangerSurface,
+                      color: colors.dangerSurface,
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: AppTheme.dangerBorder),
+                      border: Border.all(color: colors.dangerBorder),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
+                        Text(
                           'Excluir conta',
                           style: TextStyle(
-                            color: AppTheme.danger,
+                            color: colors.danger,
                             fontSize: 16,
                             fontWeight: FontWeight.w900,
                           ),
                         ),
                         const SizedBox(height: 6),
-                        const Text(
+                        Text(
                           'Seu acesso será encerrado e o perfil profissional será removido. Conversas, casos e documentos compartilhados continuam preservados para os demais participantes.',
                           style: TextStyle(
-                            color: AppTheme.textSecondary,
+                            color: colors.textSecondary,
                             height: 1.35,
                             fontWeight: FontWeight.w600,
                           ),
@@ -161,10 +159,8 @@ class ProfileScreen extends StatelessWidget {
                                     _confirmDeleteAccount(context);
                                   },
                             style: OutlinedButton.styleFrom(
-                              foregroundColor: AppTheme.danger,
-                              side: const BorderSide(
-                                color: AppTheme.dangerBorder,
-                              ),
+                              foregroundColor: colors.danger,
+                              side: BorderSide(color: colors.dangerBorder),
                             ),
                             icon: const Icon(Icons.delete_outline),
                             label: const Text('Excluir minha conta'),
@@ -189,6 +185,7 @@ class ProfileScreen extends StatelessWidget {
   }
 
   Future<void> _confirmDeleteAccount(BuildContext context) async {
+    final colors = context.jColors;
     await showDialog<void>(
       context: context,
       barrierDismissible: false,
@@ -232,16 +229,16 @@ class ProfileScreen extends StatelessWidget {
                           }
                         },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.danger,
-                    foregroundColor: AppTheme.card,
+                    backgroundColor: colors.danger,
+                    foregroundColor: colors.card,
                   ),
                   icon: isDeleting
-                      ? const SizedBox(
+                      ? SizedBox(
                           width: 18,
                           height: 18,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            color: AppTheme.card,
+                            color: colors.card,
                           ),
                         )
                       : const Icon(Icons.delete_outline),
@@ -257,6 +254,7 @@ class ProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     final isLawyerMode = onSwitchToClient != null;
     final canOpenLawFirmArea =
         isLawyerMode &&
@@ -270,20 +268,20 @@ class ProfileScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'Perfil',
                 style: TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
-                  color: AppTheme.textPrimary,
+                  color: colors.textPrimary,
                   decoration: TextDecoration.none,
                 ),
               ),
-              const Text(
+              Text(
                 'Gerencie sua conta e acompanhe suas informações.',
                 style: TextStyle(
                   fontSize: 14,
-                  color: AppTheme.textSecondary,
+                  color: colors.textSecondary,
                   decoration: TextDecoration.none,
                 ),
               ),
@@ -307,7 +305,7 @@ class ProfileScreen extends StatelessWidget {
                   title: 'Voltar ao Modo Cliente',
                   subtitle: 'Acesse a área do cliente',
                   icon: Icons.person_outline,
-                  color: AppTheme.primary,
+                  color: colors.primary,
                   onTap: onSwitchToClient ?? () {},
                 )
               else
@@ -390,23 +388,20 @@ class ProfileScreen extends StatelessWidget {
                   width: double.infinity,
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: AppTheme.warningSurface,
+                    color: colors.warningSurface,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppTheme.warningBorder),
+                    border: Border.all(color: colors.warningBorder),
                   ),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(
-                        Icons.schedule_outlined,
-                        color: AppTheme.warning,
-                      ),
+                      Icon(Icons.schedule_outlined, color: colors.warning),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
                           'Solicitação enviada para ${lawyerVerification!.practiceArea}. OAB/${lawyerVerification!.oabState} ${lawyerVerification!.oabNumber} em análise.',
-                          style: const TextStyle(
-                            color: AppTheme.warningText,
+                          style: TextStyle(
+                            color: colors.warningText,
                             height: 1.45,
                             fontWeight: FontWeight.w600,
                           ),
@@ -426,21 +421,21 @@ class ProfileScreen extends StatelessWidget {
                     if (canOpenLawFirmArea)
                       ProfileMenuItem(
                         icon: Icons.apartment_outlined,
-                        iconColor: AppTheme.officePurple,
+                        iconColor: colors.officePurple,
                         label: 'Área do Escritório',
                         subtitle: 'Acesse ${firmWorkspace!.firm.name}',
                         onTap: onOpenLawFirmArea,
                       ),
                     ProfileMenuItem(
                       icon: Icons.badge_outlined,
-                      iconColor: AppTheme.accent,
+                      iconColor: colors.accent,
                       label: 'Perfil Profissional',
                       subtitle: 'Revise sua bio e áreas de atuação',
                       onTap: () {},
                     ),
                     ProfileMenuItem(
                       icon: Icons.schedule_outlined,
-                      iconColor: AppTheme.accent,
+                      iconColor: colors.accent,
                       label: 'Disponibilidade',
                       subtitle: 'Gerencie seus horários de atendimento',
                       onTap: onOpenAgenda,
@@ -455,21 +450,21 @@ class ProfileScreen extends StatelessWidget {
                 items: [
                   ProfileMenuItem(
                     icon: Icons.person_outline,
-                    iconColor: AppTheme.textSecondary,
+                    iconColor: colors.textSecondary,
                     label: 'Dados Pessoais',
                     subtitle: 'Atualize suas informações',
                     onTap: () {},
                   ),
                   ProfileMenuItem(
                     icon: Icons.lock_outline,
-                    iconColor: AppTheme.warning,
+                    iconColor: colors.warning,
                     label: 'Segurança',
                     subtitle: 'Senha e configurações de acesso',
                     onTap: () => _openSecuritySettings(context),
                   ),
                   ProfileMenuItem(
                     icon: Icons.description_outlined,
-                    iconColor: AppTheme.textSecondary,
+                    iconColor: colors.textSecondary,
                     label: 'Meus Documentos',
                     subtitle: 'Visualize documentos enviados',
                     onTap: () {},
@@ -484,7 +479,7 @@ class ProfileScreen extends StatelessWidget {
                 items: [
                   ProfileMenuItem(
                     icon: Icons.chat_bubble_outline,
-                    iconColor: AppTheme.textSecondary,
+                    iconColor: colors.textSecondary,
                     label: 'Conversas',
                     subtitle: isLawyerMode
                         ? 'Conversas com seus clientes'
@@ -493,7 +488,7 @@ class ProfileScreen extends StatelessWidget {
                   ),
                   ProfileMenuItem(
                     icon: Icons.folder_outlined,
-                    iconColor: AppTheme.accent,
+                    iconColor: colors.accent,
                     label: isLawyerMode ? 'Casos dos Clientes' : 'Meus Casos',
                     subtitle: isLawyerMode
                         ? 'Gerencie os casos dos seus clientes'
@@ -502,7 +497,7 @@ class ProfileScreen extends StatelessWidget {
                   ),
                   ProfileMenuItem(
                     icon: Icons.calendar_month_outlined,
-                    iconColor: AppTheme.textSecondary,
+                    iconColor: colors.textSecondary,
                     label: 'Reuniões',
                     subtitle: 'Visualize reuniões agendadas',
                     onTap: onOpenAgenda,
@@ -521,7 +516,7 @@ class ProfileScreen extends StatelessWidget {
                               LawFirmVerificationStatus.rejected))
                     ProfileMenuItem(
                       icon: Icons.apartment_outlined,
-                      iconColor: AppTheme.officePurple,
+                      iconColor: colors.officePurple,
                       label:
                           lawFirmVerification?.status ==
                               LawFirmVerificationStatus.rejected
@@ -547,19 +542,19 @@ class ProfileScreen extends StatelessWidget {
                     ),
                   ProfileMenuItem(
                     icon: Icons.help_outline,
-                    iconColor: AppTheme.primary,
+                    iconColor: colors.primary,
                     label: 'Central de Ajuda',
                     onTap: () {},
                   ),
                   ProfileMenuItem(
                     icon: Icons.phone_outlined,
-                    iconColor: AppTheme.primary,
+                    iconColor: colors.primary,
                     label: 'Suporte',
                     onTap: () {},
                   ),
                   ProfileMenuItem(
                     icon: Icons.article_outlined,
-                    iconColor: AppTheme.accent,
+                    iconColor: colors.accent,
                     label: 'Termos de Uso',
                     onTap: () => _openLegalDocument(
                       context,
@@ -568,7 +563,7 @@ class ProfileScreen extends StatelessWidget {
                   ),
                   ProfileMenuItem(
                     icon: Icons.lock_outline,
-                    iconColor: AppTheme.accent,
+                    iconColor: colors.accent,
                     label: 'Política de Privacidade',
                     onTap: () => _openLegalDocument(
                       context,
@@ -583,16 +578,16 @@ class ProfileScreen extends StatelessWidget {
               Container(
                 width: double.infinity,
                 decoration: BoxDecoration(
-                  border: Border.all(color: AppTheme.lightBlueBorder),
+                  border: Border.all(color: colors.lightBlueBorder),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: TextButton.icon(
                   onPressed: onLogout,
-                  icon: const Icon(Icons.logout, color: AppTheme.danger),
-                  label: const Text(
+                  icon: Icon(Icons.logout, color: colors.danger),
+                  label: Text(
                     'Sair da Conta',
                     style: TextStyle(
-                      color: AppTheme.danger,
+                      color: colors.danger,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -634,6 +629,7 @@ class _SwitchModeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -659,13 +655,13 @@ class _SwitchModeCard extends StatelessWidget {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: AppTheme.card.withValues(alpha: 0.18),
+                  color: colors.card.withValues(alpha: 0.18),
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(
-                    color: AppTheme.card.withValues(alpha: 0.45),
+                    color: colors.card.withValues(alpha: 0.45),
                   ),
                 ),
-                child: Icon(icon, color: AppTheme.card, size: 24),
+                child: Icon(icon, color: colors.card, size: 24),
               ),
 
               const SizedBox(width: 14),
@@ -676,8 +672,8 @@ class _SwitchModeCard extends StatelessWidget {
                   children: [
                     Text(
                       title,
-                      style: const TextStyle(
-                        color: AppTheme.card,
+                      style: TextStyle(
+                        color: colors.card,
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
                         decoration: TextDecoration.none,
@@ -686,8 +682,8 @@ class _SwitchModeCard extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       subtitle,
-                      style: const TextStyle(
-                        color: AppTheme.card,
+                      style: TextStyle(
+                        color: colors.card,
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                         decoration: TextDecoration.none,
@@ -703,14 +699,10 @@ class _SwitchModeCard extends StatelessWidget {
                 width: 36,
                 height: 36,
                 decoration: BoxDecoration(
-                  color: AppTheme.card.withValues(alpha: 0.12),
+                  color: colors.card.withValues(alpha: 0.12),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
-                  Icons.chevron_right,
-                  color: AppTheme.card,
-                  size: 26,
-                ),
+                child: Icon(Icons.chevron_right, color: colors.card, size: 26),
               ),
             ],
           ),

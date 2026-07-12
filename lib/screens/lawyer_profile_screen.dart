@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../data/legal_practice_areas.dart';
 import '../models/lawyer_profile_summary.dart';
 import '../repositories/messaging_repository.dart';
-import '../theme/app_theme.dart';
+import '../theme/app_colors.dart';
 import 'chat_screen.dart';
 
 class LawyerProfileScreen extends StatefulWidget {
@@ -23,16 +23,17 @@ class LawyerProfileScreen extends StatefulWidget {
 class _LawyerProfileScreenState extends State<LawyerProfileScreen> {
   bool _isOpeningChat = false;
 
-  Color get _avatarColor => switch (widget.lawyer.avatarType) {
-    'gold' => AppTheme.accent,
-    'navy' => AppTheme.primary,
-    _ => AppTheme.lightBlue,
+  Color _avatarColor(AppColors colors) => switch (widget.lawyer.avatarType) {
+    'gold' => colors.accent,
+    'navy' => colors.primary,
+    _ => colors.lightBlue,
   };
 
-  Color get _avatarTextColor => switch (widget.lawyer.avatarType) {
-    'gold' || 'navy' => AppTheme.card,
-    _ => AppTheme.primary,
-  };
+  Color _avatarTextColor(AppColors colors) =>
+      switch (widget.lawyer.avatarType) {
+        'gold' || 'navy' => colors.card,
+        _ => colors.primary,
+      };
 
   Future<void> _openChat() async {
     if (_isOpeningChat) return;
@@ -62,8 +63,9 @@ class _LawyerProfileScreenState extends State<LawyerProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: colors.background,
       appBar: AppBar(title: const Text('Perfil profissional')),
       body: SafeArea(
         child: ListView(
@@ -72,8 +74,8 @@ class _LawyerProfileScreenState extends State<LawyerProfileScreen> {
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: AppTheme.card,
-                border: Border.all(color: AppTheme.lightGoldBorder),
+                color: colors.card,
+                border: Border.all(color: colors.lightGoldBorder),
                 borderRadius: BorderRadius.circular(18),
               ),
               child: Column(
@@ -85,14 +87,14 @@ class _LawyerProfileScreenState extends State<LawyerProfileScreen> {
                         width: 64,
                         height: 64,
                         decoration: BoxDecoration(
-                          color: _avatarColor,
+                          color: _avatarColor(colors),
                           borderRadius: BorderRadius.circular(18),
                         ),
                         child: Center(
                           child: Text(
                             widget.lawyer.initials,
                             style: TextStyle(
-                              color: _avatarTextColor,
+                              color: _avatarTextColor(colors),
                               fontSize: 20,
                               fontWeight: FontWeight.w900,
                             ),
@@ -108,8 +110,8 @@ class _LawyerProfileScreenState extends State<LawyerProfileScreen> {
                               widget.lawyer.name,
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: AppTheme.textPrimary,
+                              style: TextStyle(
+                                color: colors.textPrimary,
                                 fontSize: 24,
                                 fontWeight: FontWeight.w900,
                               ),
@@ -117,8 +119,8 @@ class _LawyerProfileScreenState extends State<LawyerProfileScreen> {
                             const SizedBox(height: 6),
                             Text(
                               practiceAreaSummary(widget.lawyer.practiceAreas),
-                              style: const TextStyle(
-                                color: AppTheme.textSecondary,
+                              style: TextStyle(
+                                color: colors.textSecondary,
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
@@ -160,8 +162,8 @@ class _LawyerProfileScreenState extends State<LawyerProfileScreen> {
                   const SizedBox(height: 12),
                   Text(
                     widget.lawyer.bio,
-                    style: const TextStyle(
-                      color: AppTheme.textSecondary,
+                    style: TextStyle(
+                      color: colors.textSecondary,
                       fontSize: 15,
                       height: 1.45,
                     ),
@@ -193,12 +195,12 @@ class _LawyerProfileScreenState extends State<LawyerProfileScreen> {
               child: ElevatedButton.icon(
                 onPressed: _isOpeningChat ? null : _openChat,
                 icon: _isOpeningChat
-                    ? const SizedBox(
+                    ? SizedBox(
                         width: 18,
                         height: 18,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: AppTheme.card,
+                          color: colors.card,
                         ),
                       )
                     : const Icon(Icons.chat_bubble_outline),
@@ -220,12 +222,13 @@ class _ProfileSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: AppTheme.card,
-        border: Border.all(color: AppTheme.lightGoldBorder),
+        color: colors.card,
+        border: Border.all(color: colors.lightGoldBorder),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
@@ -233,8 +236,8 @@ class _ProfileSection extends StatelessWidget {
         children: [
           Text(
             title,
-            style: const TextStyle(
-              color: AppTheme.textPrimary,
+            style: TextStyle(
+              color: colors.textPrimary,
               fontSize: 16,
               fontWeight: FontWeight.w900,
             ),
@@ -255,21 +258,22 @@ class _InfoChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
-        color: AppTheme.lightGold,
+        color: colors.lightGold,
         borderRadius: BorderRadius.circular(999),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: AppTheme.accent, size: 15),
+          Icon(icon, color: colors.accent, size: 15),
           const SizedBox(width: 6),
           Text(
             label,
-            style: const TextStyle(
-              color: AppTheme.textPrimary,
+            style: TextStyle(
+              color: colors.textPrimary,
               fontSize: 12,
               fontWeight: FontWeight.w800,
             ),
@@ -287,6 +291,7 @@ class _AreaTags extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     if (areas.isEmpty) return const SizedBox.shrink();
 
     return Wrap(
@@ -297,13 +302,13 @@ class _AreaTags extends StatelessWidget {
             (area) => Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
               decoration: BoxDecoration(
-                color: AppTheme.lightGold,
+                color: colors.lightGold,
                 borderRadius: BorderRadius.circular(999),
               ),
               child: Text(
                 area,
-                style: const TextStyle(
-                  color: AppTheme.accent,
+                style: TextStyle(
+                  color: colors.accent,
                   fontSize: 12,
                   fontWeight: FontWeight.w800,
                 ),
@@ -323,15 +328,16 @@ class _ContactRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return Row(
       children: [
-        Icon(icon, color: AppTheme.accent, size: 20),
+        Icon(icon, color: colors.accent, size: 20),
         const SizedBox(width: 10),
         Expanded(
           child: Text(
             label,
-            style: const TextStyle(
-              color: AppTheme.textSecondary,
+            style: TextStyle(
+              color: colors.textSecondary,
               fontWeight: FontWeight.w700,
             ),
           ),

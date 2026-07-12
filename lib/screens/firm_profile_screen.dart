@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/firm_workspace.dart';
 import '../models/lawyer_status.dart';
 import '../models/user_profile.dart';
-import '../theme/app_theme.dart';
+import '../theme/app_colors.dart';
 import '../widgets/profile_menu_item.dart';
 import '../widgets/profile_menu_section.dart';
 
@@ -26,6 +26,8 @@ class FirmProfileScreen extends StatelessWidget {
   final Future<void> Function()? onDeleteAccount;
 
   Future<void> _confirmDeleteAccount(BuildContext context) async {
+    final colors = context.jColors;
+
     await showDialog<void>(
       context: context,
       barrierDismissible: false,
@@ -69,16 +71,16 @@ class FirmProfileScreen extends StatelessWidget {
                           }
                         },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.danger,
-                    foregroundColor: AppTheme.card,
+                    backgroundColor: colors.danger,
+                    foregroundColor: colors.card,
                   ),
                   icon: isDeleting
-                      ? const SizedBox(
+                      ? SizedBox(
                           width: 18,
                           height: 18,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            color: AppTheme.card,
+                            color: colors.card,
                           ),
                         )
                       : const Icon(Icons.delete_outline),
@@ -100,30 +102,31 @@ class FirmProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     final workspaceName = workspace?.firm.name ?? 'Escritório';
 
     return SafeArea(
       child: ListView(
         padding: const EdgeInsets.all(24),
         children: [
-          const Text(
+          Text(
             'Escritório',
             style: TextStyle(
               fontSize: 34,
               fontWeight: FontWeight.bold,
-              color: AppTheme.textPrimary,
+              color: colors.textPrimary,
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'Gerencie configurações e acesso da área administrativa.',
-            style: TextStyle(color: AppTheme.textSecondary, fontSize: 16),
+            style: TextStyle(color: colors.textSecondary, fontSize: 16),
           ),
           const SizedBox(height: 20),
           Container(
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
-              color: AppTheme.officePurple,
+              color: colors.officePurple,
               borderRadius: BorderRadius.circular(16),
             ),
             child: Row(
@@ -132,13 +135,10 @@ class FirmProfileScreen extends StatelessWidget {
                   width: 52,
                   height: 52,
                   decoration: BoxDecoration(
-                    color: AppTheme.card.withValues(alpha: 0.16),
+                    color: colors.card.withValues(alpha: 0.16),
                     borderRadius: BorderRadius.circular(14),
                   ),
-                  child: const Icon(
-                    Icons.apartment_outlined,
-                    color: AppTheme.card,
-                  ),
+                  child: Icon(Icons.apartment_outlined, color: colors.card),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -149,8 +149,8 @@ class FirmProfileScreen extends StatelessWidget {
                         workspaceName,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: AppTheme.card,
+                        style: TextStyle(
+                          color: colors.card,
                           fontSize: 18,
                           fontWeight: FontWeight.w900,
                         ),
@@ -160,8 +160,8 @@ class FirmProfileScreen extends StatelessWidget {
                         'Responsável: ${user.name}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: AppTheme.card,
+                        style: TextStyle(
+                          color: colors.card,
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),
@@ -178,21 +178,21 @@ class FirmProfileScreen extends StatelessWidget {
             items: [
               ProfileMenuItem(
                 icon: Icons.apartment_outlined,
-                iconColor: AppTheme.officePurple,
+                iconColor: colors.officePurple,
                 label: 'Dados do escritório',
                 subtitle: 'CNPJ, endereço e áreas atendidas',
                 onTap: () => _showComingSoon(context),
               ),
               ProfileMenuItem(
                 icon: Icons.group_outlined,
-                iconColor: AppTheme.officePurple,
+                iconColor: colors.officePurple,
                 label: 'Permissões da equipe',
                 subtitle: 'Dono, admins, secretárias e advogados',
                 onTap: () => _showComingSoon(context),
               ),
               ProfileMenuItem(
                 icon: Icons.schedule_outlined,
-                iconColor: AppTheme.officePurple,
+                iconColor: colors.officePurple,
                 label: 'Horários de atendimento',
                 subtitle: 'Disponibilidade do escritório',
                 onTap: () => _showComingSoon(context),
@@ -205,7 +205,7 @@ class FirmProfileScreen extends StatelessWidget {
             items: [
               ProfileMenuItem(
                 icon: Icons.delete_outline,
-                iconColor: AppTheme.danger,
+                iconColor: colors.danger,
                 label: 'Excluir conta',
                 subtitle: 'Desative seu acesso e remova dados privados',
                 onTap: onDeleteAccount == null
@@ -243,11 +243,11 @@ class FirmProfileScreen extends StatelessWidget {
             height: 56,
             child: TextButton.icon(
               onPressed: onLogout,
-              icon: const Icon(Icons.logout, color: AppTheme.danger),
-              label: const Text(
+              icon: Icon(Icons.logout, color: colors.danger),
+              label: Text(
                 'Sair da conta',
                 style: TextStyle(
-                  color: AppTheme.danger,
+                  color: colors.danger,
                   fontWeight: FontWeight.w700,
                 ),
               ),

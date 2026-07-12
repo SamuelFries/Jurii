@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../data/legal_practice_areas.dart';
 import '../models/lawyer_profile_summary.dart';
-import '../theme/app_theme.dart';
+import '../theme/app_colors.dart';
 import 'jurii_list_card.dart';
 
 class LawyerProfileCard extends StatelessWidget {
@@ -11,37 +11,38 @@ class LawyerProfileCard extends StatelessWidget {
   final LawyerProfileSummary lawyer;
   final VoidCallback? onTap;
 
-  Color get _avatarColor => switch (lawyer.avatarType) {
-    'gold' => AppTheme.accent,
-    'navy' => AppTheme.primary,
-    _ => AppTheme.lightBlue,
+  Color _avatarColor(AppColors colors) => switch (lawyer.avatarType) {
+    'gold' => colors.accent,
+    'navy' => colors.primary,
+    _ => colors.lightBlue,
   };
 
-  Color get _avatarTextColor => switch (lawyer.avatarType) {
-    'gold' || 'navy' => AppTheme.card,
-    _ => AppTheme.primary,
+  Color _avatarTextColor(AppColors colors) => switch (lawyer.avatarType) {
+    'gold' || 'navy' => colors.card,
+    _ => colors.primary,
   };
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return JuriiListCard(
       onTap: onTap,
       semanticLabel: lawyer.name,
-      borderColor: AppTheme.lightGoldBorder,
+      borderColor: colors.lightGoldBorder,
       child: Row(
         children: [
           Container(
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              color: _avatarColor,
+              color: _avatarColor(colors),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Center(
               child: Text(
                 lawyer.initials,
                 style: TextStyle(
-                  color: _avatarTextColor,
+                  color: _avatarTextColor(colors),
                   fontWeight: FontWeight.bold,
                   fontSize: 16,
                 ),
@@ -57,8 +58,8 @@ class LawyerProfileCard extends StatelessWidget {
                   lawyer.name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppTheme.textPrimary,
+                  style: TextStyle(
+                    color: colors.textPrimary,
                     fontSize: 15,
                     fontWeight: FontWeight.w800,
                   ),
@@ -68,18 +69,15 @@ class LawyerProfileCard extends StatelessWidget {
                   practiceAreaSummary(lawyer.practiceAreas),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppTheme.textSecondary,
-                    fontSize: 12,
-                  ),
+                  style: TextStyle(color: colors.textSecondary, fontSize: 12),
                 ),
                 const SizedBox(height: 6),
                 Row(
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.workspace_premium_outlined,
                       size: 14,
-                      color: AppTheme.accent,
+                      color: colors.accent,
                     ),
                     const SizedBox(width: 4),
                     Flexible(
@@ -87,20 +85,20 @@ class LawyerProfileCard extends StatelessWidget {
                         lawyer.oabLabel,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: AppTheme.textPrimary,
+                        style: TextStyle(
+                          color: colors.textPrimary,
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
                     ),
                     const Spacer(),
-                    const Icon(Icons.star, size: 14, color: AppTheme.accent),
+                    Icon(Icons.star, size: 14, color: colors.accent),
                     const SizedBox(width: 4),
                     Text(
                       '${lawyer.rating}',
-                      style: const TextStyle(
-                        color: AppTheme.textPrimary,
+                      style: TextStyle(
+                        color: colors.textPrimary,
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
                       ),
@@ -110,7 +108,7 @@ class LawyerProfileCard extends StatelessWidget {
               ],
             ),
           ),
-          const Icon(Icons.chevron_right, color: AppTheme.textSecondary),
+          Icon(Icons.chevron_right, color: colors.textSecondary),
         ],
       ),
     );

@@ -8,10 +8,7 @@ const mockRecommendedLawyers = [
     oabNumber: '123456',
     oabState: 'SP',
     primaryArea: 'Direito de Família',
-    practiceAreas: [
-      'Direito de Família',
-      'Direito Cível',
-    ],
+    practiceAreas: ['Direito de Família', 'Direito Cível'],
     bio:
         'Atuação consultiva e contenciosa em divórcios, guarda, alimentos e acordos familiares.',
     rating: 4.9,
@@ -25,10 +22,7 @@ const mockRecommendedLawyers = [
     oabNumber: '654321',
     oabState: 'SP',
     primaryArea: 'Direito Trabalhista',
-    practiceAreas: [
-      'Direito Trabalhista',
-      'Direito Empresarial',
-    ],
+    practiceAreas: ['Direito Trabalhista', 'Direito Empresarial'],
     bio:
         'Especialista em rescisões, verbas trabalhistas, acordos e defesa em reclamações.',
     rating: 4.8,
@@ -42,10 +36,7 @@ const mockRecommendedLawyers = [
     oabNumber: '884422',
     oabState: 'RJ',
     primaryArea: 'Direito do Consumidor',
-    practiceAreas: [
-      'Direito do Consumidor',
-      'Direito Digital',
-    ],
+    practiceAreas: ['Direito do Consumidor', 'Direito Digital'],
     bio:
         'Atendimento focado em cobranças indevidas, contratos, garantias e conflitos com empresas.',
     rating: 4.7,

@@ -5,7 +5,7 @@ import '../models/conversation.dart';
 import '../models/firm_workspace.dart';
 import '../repositories/messaging_repository.dart';
 import '../services/supabase_config.dart';
-import '../theme/app_theme.dart';
+import '../theme/app_colors.dart';
 import '../widgets/conversation_card.dart';
 import '../widgets/jurii_empty_state.dart';
 import '../widgets/jurii_motion.dart';
@@ -71,6 +71,8 @@ class _FirmMessagesScreenState extends State<FirmMessagesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
+
     return SafeArea(
       child: FutureBuilder<List<Conversation>>(
         future: _conversationsFuture,
@@ -80,26 +82,26 @@ class _FirmMessagesScreenState extends State<FirmMessagesScreen> {
           return ListView(
             padding: const EdgeInsets.all(24),
             children: [
-              const Text(
+              Text(
                 'Mensagens',
                 style: TextStyle(
                   fontSize: 34,
                   fontWeight: FontWeight.bold,
-                  color: AppTheme.textPrimary,
+                  color: colors.textPrimary,
                 ),
               ),
               const SizedBox(height: 8),
-              const Text(
+              Text(
                 'Centralize conversas com clientes e equipe do escritório.',
-                style: TextStyle(color: AppTheme.textSecondary, fontSize: 16),
+                style: TextStyle(color: colors.textSecondary, fontSize: 16),
               ),
               const SizedBox(height: 20),
               Container(
                 padding: const EdgeInsets.all(4),
                 decoration: BoxDecoration(
-                  color: AppTheme.officePurpleSurface,
+                  color: colors.officePurpleSurface,
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: AppTheme.officePurpleBorder),
+                  border: Border.all(color: colors.officePurpleBorder),
                 ),
                 child: Row(
                   children: [
@@ -190,16 +192,18 @@ class _EmptyFirmMessagesState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.symmetric(vertical: 20),
+    final colors = context.jColors;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 20),
       child: JuriiEmptyState(
         icon: Icons.mark_chat_unread_outlined,
         title: 'Nenhuma conversa encontrada',
         message:
             'As conversas do escritório com clientes e equipe aparecerão aqui.',
-        accentColor: AppTheme.officePurple,
-        surfaceColor: AppTheme.officePurpleSurface,
-        borderColor: AppTheme.officePurpleBorder,
+        accentColor: colors.officePurple,
+        surfaceColor: colors.officePurpleSurface,
+        borderColor: colors.officePurpleBorder,
       ),
     );
   }
@@ -218,6 +222,8 @@ class _SegmentButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
+
     return JuriiPressable(
       onTap: onTap,
       borderRadius: BorderRadius.circular(10),
@@ -226,7 +232,7 @@ class _SegmentButton extends StatelessWidget {
         duration: JuriiMotion.fast,
         curve: JuriiMotion.ease,
         decoration: BoxDecoration(
-          color: selected ? AppTheme.card : Colors.transparent,
+          color: selected ? colors.card : Colors.transparent,
           borderRadius: BorderRadius.circular(10),
         ),
         child: SizedBox(
@@ -236,9 +242,7 @@ class _SegmentButton extends StatelessWidget {
               duration: JuriiMotion.fast,
               curve: JuriiMotion.ease,
               style: TextStyle(
-                color: selected
-                    ? AppTheme.officePurple
-                    : AppTheme.textSecondary,
+                color: selected ? colors.officePurple : colors.textSecondary,
                 fontWeight: FontWeight.w800,
               ),
               child: Text(label),

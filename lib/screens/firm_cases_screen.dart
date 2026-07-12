@@ -6,7 +6,7 @@ import '../models/firm_team_member.dart';
 import '../models/firm_workspace.dart';
 import '../repositories/case_repository.dart';
 import '../services/supabase_config.dart';
-import '../theme/app_theme.dart';
+import '../theme/app_colors.dart';
 import '../widgets/jurii_empty_state.dart';
 import '../widgets/jurii_form_motion.dart';
 import '../widgets/jurii_list_card.dart';
@@ -168,6 +168,7 @@ class _FirmCasesScreenState extends State<FirmCasesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return SafeArea(
       child: FutureBuilder<List<FirmCaseOverview>>(
         future: _casesFuture,
@@ -177,18 +178,18 @@ class _FirmCasesScreenState extends State<FirmCasesScreen> {
           return ListView(
             padding: const EdgeInsets.all(24),
             children: [
-              const Text(
+              Text(
                 'Casos',
                 style: TextStyle(
                   fontSize: 34,
                   fontWeight: FontWeight.bold,
-                  color: AppTheme.textPrimary,
+                  color: colors.textPrimary,
                 ),
               ),
               const SizedBox(height: 8),
-              const Text(
+              Text(
                 'Visão geral dos casos por cliente e advogado responsável.',
-                style: TextStyle(color: AppTheme.textSecondary, fontSize: 16),
+                style: TextStyle(color: colors.textSecondary, fontSize: 16),
               ),
               const SizedBox(height: 20),
               if (snapshot.connectionState == ConnectionState.waiting &&
@@ -227,16 +228,17 @@ class _EmptyFirmCasesState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
+    final colors = context.jColors;
+    return Padding(
       padding: EdgeInsets.symmetric(vertical: 20),
       child: JuriiEmptyState(
         icon: Icons.business_center_outlined,
         title: 'Nenhum caso encontrado',
         message:
             'Quando o escritório iniciar atendimentos, eles aparecerão aqui.',
-        accentColor: AppTheme.officePurple,
-        surfaceColor: AppTheme.officePurpleSurface,
-        borderColor: AppTheme.officePurpleBorder,
+        accentColor: colors.officePurple,
+        surfaceColor: colors.officePurpleSurface,
+        borderColor: colors.officePurpleBorder,
       ),
     );
   }
@@ -255,15 +257,16 @@ class _FirmCaseCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final statusColor = overview.urgent ? AppTheme.danger : AppTheme.primary;
+    final colors = context.jColors;
+    final statusColor = overview.urgent ? colors.danger : colors.primary;
 
     return JuriiListCard(
       onTap: onTap,
       semanticLabel: overview.title,
       borderRadius: 14,
       borderColor: overview.urgent
-          ? AppTheme.danger.withValues(alpha: 0.35)
-          : AppTheme.officePurpleBorder,
+          ? colors.danger.withValues(alpha: 0.35)
+          : colors.officePurpleBorder,
       child: Row(
         children: [
           Container(
@@ -271,17 +274,15 @@ class _FirmCaseCard extends StatelessWidget {
             height: 46,
             decoration: BoxDecoration(
               color: overview.urgent
-                  ? AppTheme.danger.withValues(alpha: 0.10)
-                  : AppTheme.officePurpleSurface,
+                  ? colors.danger.withValues(alpha: 0.10)
+                  : colors.officePurpleSurface,
               borderRadius: BorderRadius.circular(14),
             ),
             child: Center(
               child: Text(
                 overview.clientInitials,
                 style: TextStyle(
-                  color: overview.urgent
-                      ? AppTheme.danger
-                      : AppTheme.officePurple,
+                  color: overview.urgent ? colors.danger : colors.officePurple,
                   fontWeight: FontWeight.w900,
                 ),
               ),
@@ -299,8 +300,8 @@ class _FirmCaseCard extends StatelessWidget {
                         overview.title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: AppTheme.textPrimary,
+                        style: TextStyle(
+                          color: colors.textPrimary,
                           fontSize: 15,
                           fontWeight: FontWeight.w800,
                         ),
@@ -332,8 +333,8 @@ class _FirmCaseCard extends StatelessWidget {
                   '${overview.clientName} · ${overview.assignedLawyer}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppTheme.textSecondary,
+                  style: TextStyle(
+                    color: colors.textSecondary,
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                   ),
@@ -367,10 +368,10 @@ class _FirmCaseCard extends StatelessWidget {
             IconButton(
               onPressed: onAssign,
               icon: const Icon(Icons.assignment_ind_outlined),
-              color: AppTheme.officePurple,
+              color: colors.officePurple,
               tooltip: 'Atribuir caso',
             ),
-          const Icon(Icons.chevron_right, color: AppTheme.textSecondary),
+          Icon(Icons.chevron_right, color: colors.textSecondary),
         ],
       ),
     );
@@ -388,24 +389,25 @@ class _AssignLawyerSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return JuriiModalSheetScaffold(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Atribuir caso',
             style: TextStyle(
-              color: AppTheme.textPrimary,
+              color: colors.textPrimary,
               fontSize: 22,
               fontWeight: FontWeight.w900,
             ),
           ),
           const SizedBox(height: 6),
-          const Text(
+          Text(
             'Escolha o advogado responsável pelo próximo acompanhamento.',
             style: TextStyle(
-              color: AppTheme.textSecondary,
+              color: colors.textSecondary,
               height: 1.35,
               fontWeight: FontWeight.w600,
             ),
@@ -429,11 +431,11 @@ class _AssignLawyerSheet extends StatelessWidget {
                   borderRadius: 14,
                   padding: const EdgeInsets.all(12),
                   borderColor: selected
-                      ? AppTheme.officePurple
-                      : AppTheme.officePurpleBorder,
+                      ? colors.officePurple
+                      : colors.officePurpleBorder,
                   backgroundColor: selected
-                      ? AppTheme.officePurpleSurface
-                      : AppTheme.card,
+                      ? colors.officePurpleSurface
+                      : colors.card,
                   shadowBlur: 8,
                   shadowOffset: const Offset(0, 4),
                   child: Row(
@@ -443,8 +445,8 @@ class _AssignLawyerSheet extends StatelessWidget {
                         height: 44,
                         decoration: BoxDecoration(
                           color: selected
-                              ? AppTheme.officePurple
-                              : AppTheme.officePurpleSurface,
+                              ? colors.officePurple
+                              : colors.officePurpleSurface,
                           borderRadius: BorderRadius.circular(14),
                         ),
                         child: Center(
@@ -452,8 +454,8 @@ class _AssignLawyerSheet extends StatelessWidget {
                             lawyer.initials,
                             style: TextStyle(
                               color: selected
-                                  ? AppTheme.card
-                                  : AppTheme.officePurple,
+                                  ? colors.card
+                                  : colors.officePurple,
                               fontWeight: FontWeight.w900,
                             ),
                           ),
@@ -468,8 +470,8 @@ class _AssignLawyerSheet extends StatelessWidget {
                               lawyer.name,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: AppTheme.textPrimary,
+                              style: TextStyle(
+                                color: colors.textPrimary,
                                 fontWeight: FontWeight.w800,
                               ),
                             ),
@@ -478,8 +480,8 @@ class _AssignLawyerSheet extends StatelessWidget {
                               lawyer.specialty,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: AppTheme.textSecondary,
+                              style: TextStyle(
+                                color: colors.textSecondary,
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -490,15 +492,15 @@ class _AssignLawyerSheet extends StatelessWidget {
                       AnimatedSwitcher(
                         duration: JuriiMotion.fast,
                         child: selected
-                            ? const Icon(
+                            ? Icon(
                                 Icons.check_circle,
                                 key: ValueKey('selected'),
-                                color: AppTheme.officePurple,
+                                color: colors.officePurple,
                               )
-                            : const Icon(
+                            : Icon(
                                 Icons.chevron_right,
                                 key: ValueKey('available'),
-                                color: AppTheme.textSecondary,
+                                color: colors.textSecondary,
                               ),
                       ),
                     ],

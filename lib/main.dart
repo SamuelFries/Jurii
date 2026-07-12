@@ -35,6 +35,7 @@ import 'screens/lawyer_home_screen.dart';
 import 'screens/lawyer_messages_screen.dart';
 import 'screens/lawyer_cases_screen.dart';
 
+import 'theme/app_colors.dart';
 import 'theme/app_theme.dart';
 import 'theme/theme_controller.dart';
 import 'services/supabase_config.dart';
@@ -730,9 +731,10 @@ class _BootstrapScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      backgroundColor: AppTheme.background,
-      body: Center(child: CircularProgressIndicator(color: AppTheme.primary)),
+    final colors = context.jColors;
+    return Scaffold(
+      backgroundColor: colors.background,
+      body: Center(child: CircularProgressIndicator(color: colors.primary)),
     );
   }
 }
@@ -745,8 +747,9 @@ class _BootstrapErrorScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: colors.background,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(32),
@@ -754,10 +757,10 @@ class _BootstrapErrorScreen extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Icon(
+              Icon(
                 Icons.wifi_off_rounded,
                 size: 56,
-                color: AppTheme.textSecondary,
+                color: colors.textSecondary,
               ),
               const SizedBox(height: 20),
               Text(

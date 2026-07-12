@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'register_screen.dart';
 import '../models/social_auth_provider.dart';
-import '../theme/app_theme.dart';
+import '../theme/app_colors.dart';
 import '../types/auth_callbacks.dart';
 import '../utils/validators.dart';
 import '../widgets/jurii_form_motion.dart';
@@ -47,8 +47,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: colors.background,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 28),
@@ -66,9 +67,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Container(
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(16),
-                    boxShadow: const [
+                    boxShadow: [
                       BoxShadow(
-                        color: AppTheme.softShadow,
+                        color: colors.softShadow,
                         blurRadius: 8,
                         offset: Offset(0, 2),
                       ),
@@ -77,11 +78,11 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: TextField(
                     controller: emailController,
                     keyboardType: TextInputType.emailAddress,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       hintText: 'Seu e-mail',
                       prefixIcon: Icon(Icons.mail_outline),
                       filled: true,
-                      fillColor: AppTheme.card,
+                      fillColor: colors.card,
                     ),
                   ),
                 ),
@@ -95,9 +96,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Container(
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(16),
-                    boxShadow: const [
+                    boxShadow: [
                       BoxShadow(
-                        color: AppTheme.softShadow,
+                        color: colors.softShadow,
                         blurRadius: 8,
                         offset: Offset(0, 2),
                       ),
@@ -110,7 +111,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       hintText: 'Sua senha',
                       prefixIcon: const Icon(Icons.lock_outline),
                       filled: true,
-                      fillColor: AppTheme.card,
+                      fillColor: colors.card,
                       suffixIcon: IconButton(
                         onPressed: () =>
                             setState(() => showPassword = !showPassword),
@@ -133,10 +134,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   alignment: Alignment.centerRight,
                   child: TextButton(
                     onPressed: _isAnyAuthLoading ? null : _openPasswordReset,
-                    child: const Text(
+                    child: Text(
                       'Esqueceu sua senha?',
                       style: TextStyle(
-                        color: AppTheme.accent,
+                        color: colors.accent,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -165,20 +166,20 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Row(
                   children: [
                     Expanded(
-                      child: Container(height: 1, color: AppTheme.divider),
+                      child: Container(height: 1, color: colors.divider),
                     ),
-                    const Padding(
+                    Padding(
                       padding: EdgeInsets.symmetric(horizontal: 12),
                       child: Text(
                         'ou continue com',
                         style: TextStyle(
-                          color: AppTheme.textSecondary,
+                          color: colors.textSecondary,
                           fontSize: 13,
                         ),
                       ),
                     ),
                     Expanded(
-                      child: Container(height: 1, color: AppTheme.divider),
+                      child: Container(height: 1, color: colors.divider),
                     ),
                   ],
                 ),
@@ -192,11 +193,11 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Container(
                   height: 52,
                   decoration: BoxDecoration(
-                    color: AppTheme.card,
+                    color: colors.card,
                     borderRadius: BorderRadius.circular(16),
-                    boxShadow: const [
+                    boxShadow: [
                       BoxShadow(
-                        color: AppTheme.softShadow,
+                        color: colors.softShadow,
                         blurRadius: 8,
                         offset: Offset(0, 2),
                       ),
@@ -207,7 +208,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ? null
                         : () => _submitSocial(SocialAuthProvider.google),
                     style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: AppTheme.softBorder),
+                      side: BorderSide(color: colors.softBorder),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
                       ),
@@ -219,13 +220,13 @@ class _LoginScreenState extends State<LoginScreen> {
                           duration: JuriiMotion.fast,
                           child:
                               socialLoadingProvider == SocialAuthProvider.google
-                              ? const SizedBox(
+                              ? SizedBox(
                                   key: ValueKey('google_loading'),
                                   width: 20,
                                   height: 20,
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
-                                    color: AppTheme.primary,
+                                    color: colors.primary,
                                   ),
                                 )
                               : Image.asset(
@@ -236,10 +237,10 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ),
                         ),
                         const SizedBox(width: 12),
-                        const Text(
+                        Text(
                           'Continuar com Google',
                           style: TextStyle(
-                            color: AppTheme.textPrimary,
+                            color: colors.textPrimary,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -257,11 +258,11 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Container(
                   height: 52,
                   decoration: BoxDecoration(
-                    color: AppTheme.card,
+                    color: colors.card,
                     borderRadius: BorderRadius.circular(16),
-                    boxShadow: const [
+                    boxShadow: [
                       BoxShadow(
-                        color: AppTheme.softShadow,
+                        color: colors.softShadow,
                         blurRadius: 8,
                         offset: Offset(0, 2),
                       ),
@@ -274,30 +275,30 @@ class _LoginScreenState extends State<LoginScreen> {
                     icon: AnimatedSwitcher(
                       duration: JuriiMotion.fast,
                       child: socialLoadingProvider == SocialAuthProvider.apple
-                          ? const SizedBox(
+                          ? SizedBox(
                               key: ValueKey('apple_loading'),
                               width: 20,
                               height: 20,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                color: AppTheme.primary,
+                                color: colors.primary,
                               ),
                             )
-                          : const Icon(
+                          : Icon(
                               Icons.apple,
                               key: ValueKey('apple_icon'),
-                              color: AppTheme.textPrimary,
+                              color: colors.textPrimary,
                             ),
                     ),
-                    label: const Text(
+                    label: Text(
                       'Continuar com Apple',
                       style: TextStyle(
-                        color: AppTheme.textPrimary,
+                        color: colors.textPrimary,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                     style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: AppTheme.softBorder),
+                      side: BorderSide(color: colors.softBorder),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
                       ),
@@ -308,11 +309,11 @@ class _LoginScreenState extends State<LoginScreen> {
 
               const SizedBox(height: 24),
 
-              const JuriiStaggeredItem(
+              JuriiStaggeredItem(
                 index: 8,
                 child: Text(
                   'Ainda não possui conta?',
-                  style: TextStyle(color: AppTheme.textSecondary),
+                  style: TextStyle(color: colors.textSecondary),
                 ),
               ),
 
@@ -326,15 +327,15 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: OutlinedButton(
                     onPressed: _openRegister,
                     style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: AppTheme.accent),
+                      side: BorderSide(color: colors.accent),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
                       ),
                     ),
-                    child: const Text(
+                    child: Text(
                       'Criar conta',
                       style: TextStyle(
-                        color: AppTheme.accent,
+                        color: colors.accent,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -523,6 +524,7 @@ class _PasswordResetRequestSheetState
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return JuriiModalSheetScaffold(
       child: Form(
         key: _formKey,
@@ -530,19 +532,19 @@ class _PasswordResetRequestSheetState
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text(
+            Text(
               'Recuperar senha',
               style: TextStyle(
-                color: AppTheme.textPrimary,
+                color: colors.textPrimary,
                 fontSize: 22,
                 fontWeight: FontWeight.w800,
               ),
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'Informe o e-mail cadastrado para receber o link de redefinição.',
               style: TextStyle(
-                color: AppTheme.textSecondary,
+                color: colors.textSecondary,
                 fontSize: 14,
                 height: 1.45,
               ),
@@ -551,9 +553,9 @@ class _PasswordResetRequestSheetState
             Container(
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(16),
-                boxShadow: const [
+                boxShadow: [
                   BoxShadow(
-                    color: AppTheme.softShadow,
+                    color: colors.softShadow,
                     blurRadius: 8,
                     offset: Offset(0, 2),
                   ),
@@ -564,11 +566,11 @@ class _PasswordResetRequestSheetState
                 keyboardType: TextInputType.emailAddress,
                 textInputAction: TextInputAction.done,
                 autofillHints: const [AutofillHints.email],
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   hintText: 'Seu e-mail',
                   prefixIcon: Icon(Icons.mail_outline),
                   filled: true,
-                  fillColor: AppTheme.card,
+                  fillColor: colors.card,
                 ),
                 validator: validateEmailField,
                 onFieldSubmitted: (_) => _submit(),

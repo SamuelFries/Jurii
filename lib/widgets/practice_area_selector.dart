@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../data/legal_practice_areas.dart';
-import '../theme/app_theme.dart';
+import '../theme/app_colors.dart';
 import 'jurii_motion.dart';
 
 class PracticeAreaSelector extends StatelessWidget {
@@ -12,7 +12,7 @@ class PracticeAreaSelector extends StatelessWidget {
     required this.showError,
     this.label = 'Áreas de atuação',
     this.errorText = 'Selecione pelo menos uma área',
-    this.selectedColor = AppTheme.primary,
+    this.selectedColor,
   });
 
   final List<String> selectedAreas;
@@ -20,11 +20,14 @@ class PracticeAreaSelector extends StatelessWidget {
   final bool showError;
   final String label;
   final String errorText;
-  final Color selectedColor;
+
+  /// Cor do chip selecionado; quando nula, segue a paleta do tema ativo.
+  final Color? selectedColor;
 
   @override
   Widget build(BuildContext context) {
     final hasError = showError && selectedAreas.isEmpty;
+    final effectiveSelectedColor = selectedColor ?? context.jColors.primary;
 
     return InputDecorator(
       decoration: InputDecoration(
@@ -40,7 +43,7 @@ class PracticeAreaSelector extends StatelessWidget {
           return _PracticeAreaChip(
             area: area,
             selected: selected,
-            selectedColor: selectedColor,
+            selectedColor: effectiveSelectedColor,
             onTap: () => _toggleArea(area),
           );
         }).toList(),
@@ -73,6 +76,7 @@ class _PracticeAreaChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return JuriiPressable(
       onTap: onTap,
       borderRadius: BorderRadius.circular(999),
@@ -83,12 +87,10 @@ class _PracticeAreaChip extends StatelessWidget {
         curve: JuriiMotion.ease,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
         decoration: BoxDecoration(
-          color: selected
-              ? selectedColor.withValues(alpha: 0.14)
-              : AppTheme.card,
+          color: selected ? selectedColor.withValues(alpha: 0.14) : colors.card,
           borderRadius: BorderRadius.circular(999),
           border: Border.all(
-            color: selected ? selectedColor : AppTheme.lightBlueBorder,
+            color: selected ? selectedColor : colors.lightBlueBorder,
             width: selected ? 1.4 : 1,
           ),
           boxShadow: [
@@ -117,7 +119,7 @@ class _PracticeAreaChip extends StatelessWidget {
               duration: JuriiMotion.fast,
               curve: JuriiMotion.ease,
               style: TextStyle(
-                color: selected ? selectedColor : AppTheme.textSecondary,
+                color: selected ? selectedColor : colors.textSecondary,
                 fontSize: 12,
                 fontWeight: selected ? FontWeight.w900 : FontWeight.w800,
               ),

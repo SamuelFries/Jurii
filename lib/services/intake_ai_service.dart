@@ -92,17 +92,12 @@ class RuleBasedIntakeAIService implements IntakeAIService {
       ),
     ];
 
-    final statements = [
-      ...session.clientStatements,
-      trimmed,
-    ].join('\n');
+    final statements = [...session.clientStatements, trimmed].join('\n');
     final inferredAreas = inferPracticeAreasForSearch(statements);
 
     final needsSafetyNotice =
         _detectUrgency(statements).$1 == UrgencyLevel.critical &&
-        !session.messages.any(
-          (message) => message.body == _safetyNotice,
-        );
+        !session.messages.any((message) => message.body == _safetyNotice);
     if (needsSafetyNotice) {
       messages.add(
         IntakeMessage(
@@ -457,7 +452,8 @@ class RuleBasedIntakeAIService implements IntakeAIService {
     ),
     IntakeQuestion(
       id: 'familia_acordo',
-      text: 'Existe chance de acordo entre as partes ou o conflito está aberto?',
+      text:
+          'Existe chance de acordo entre as partes ou o conflito está aberto?',
       practiceAreas: ['Direito de Família'],
     ),
     // Direito do Consumidor
@@ -535,7 +531,8 @@ class RuleBasedIntakeAIService implements IntakeAIService {
     ),
     IntakeQuestion(
       id: 'geral_outro_advogado',
-      text: 'Você já procurou outro advogado ou algum órgão público sobre isso?',
+      text:
+          'Você já procurou outro advogado ou algum órgão público sobre isso?',
     ),
   ];
 

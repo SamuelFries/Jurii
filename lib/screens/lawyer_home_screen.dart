@@ -9,7 +9,7 @@ import '../repositories/appointment_repository.dart';
 import '../repositories/case_repository.dart';
 import '../repositories/messaging_repository.dart';
 import '../services/supabase_config.dart';
-import '../theme/app_theme.dart';
+import '../theme/app_colors.dart';
 import '../widgets/jurii_list_card.dart';
 import '../widgets/jurii_motion.dart';
 import '../widgets/notification_bell.dart';
@@ -191,17 +191,18 @@ class _ProfessionalHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppTheme.primary,
+        color: colors.primary,
         borderRadius: BorderRadius.circular(8),
-        boxShadow: const [
+        boxShadow: [
           BoxShadow(
-            color: AppTheme.softShadow,
+            color: colors.softShadow,
             blurRadius: 18,
-            offset: Offset(0, 10),
+            offset: const Offset(0, 10),
           ),
         ],
       ),
@@ -214,15 +215,15 @@ class _ProfessionalHeader extends StatelessWidget {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: AppTheme.card.withValues(alpha: 0.12),
+                  color: colors.card.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: AppTheme.card.withValues(alpha: 0.24),
+                    color: colors.card.withValues(alpha: 0.24),
                   ),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.balance_outlined,
-                  color: AppTheme.card,
+                  color: colors.card,
                   size: 24,
                 ),
               ),
@@ -235,8 +236,8 @@ class _ProfessionalHeader extends StatelessWidget {
                       'Bom dia, Dr. $firstName',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppTheme.card,
+                      style: TextStyle(
+                        color: colors.card,
                         fontSize: 24,
                         fontWeight: FontWeight.w800,
                         height: 1.1,
@@ -248,7 +249,7 @@ class _ProfessionalHeader extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        color: AppTheme.card.withValues(alpha: 0.72),
+                        color: colors.card.withValues(alpha: 0.72),
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -258,9 +259,9 @@ class _ProfessionalHeader extends StatelessWidget {
               const SizedBox(width: 10),
               NotificationBell(
                 scope: NotificationScope.lawyer,
-                iconColor: AppTheme.primary,
-                backgroundColor: AppTheme.card,
-                borderColor: AppTheme.softBorder,
+                iconColor: colors.primary,
+                backgroundColor: colors.card,
+                borderColor: colors.softBorder,
                 onChanged: onNotificationsChanged,
               ),
             ],
@@ -292,22 +293,23 @@ class _StatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
-        color: AppTheme.card.withValues(alpha: 0.12),
+        color: colors.card.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppTheme.card.withValues(alpha: 0.20)),
+        border: Border.all(color: colors.card.withValues(alpha: 0.20)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: AppTheme.accent),
+          Icon(icon, size: 14, color: colors.accent),
           const SizedBox(width: 6),
           Text(
             label,
-            style: const TextStyle(
-              color: AppTheme.card,
+            style: TextStyle(
+              color: colors.card,
               fontSize: 12,
               fontWeight: FontWeight.w700,
             ),
@@ -370,6 +372,7 @@ class _ActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return JuriiPressable(
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
@@ -378,21 +381,21 @@ class _ActionButton extends StatelessWidget {
         height: 82,
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
         decoration: BoxDecoration(
-          color: AppTheme.card,
+          color: colors.card,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: AppTheme.lightBlueBorder),
+          border: Border.all(color: colors.lightBlueBorder),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: AppTheme.primary, size: 24),
+            Icon(icon, color: colors.primary, size: 24),
             const SizedBox(height: 8),
             Text(
               label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: AppTheme.textPrimary,
+              style: TextStyle(
+                color: colors.textPrimary,
                 fontSize: 12,
                 fontWeight: FontWeight.w800,
               ),
@@ -436,7 +439,7 @@ class _MetricsOverview extends StatelessWidget {
                       icon: Icons.work_outline,
                       label: 'Casos ativos',
                       value: activeCasesValue,
-                      accentColor: AppTheme.primary,
+                      accentColor: context.jColors.primary,
                     );
                   },
                 ),
@@ -453,7 +456,7 @@ class _MetricsOverview extends StatelessWidget {
                       icon: Icons.mark_chat_unread_outlined,
                       label: 'Novos contatos',
                       value: newContactsValue,
-                      accentColor: AppTheme.accent,
+                      accentColor: context.jColors.accent,
                     );
                   },
                 ),
@@ -483,9 +486,10 @@ class _MetricCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     final parsedValue = int.tryParse(value);
-    const valueStyle = TextStyle(
-      color: AppTheme.textPrimary,
+    final valueStyle = TextStyle(
+      color: colors.textPrimary,
       fontSize: 20,
       fontWeight: FontWeight.w900,
     );
@@ -495,9 +499,9 @@ class _MetricCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: AppTheme.card,
+          color: colors.card,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: AppTheme.lightBlueBorder),
+          border: Border.all(color: colors.lightBlueBorder),
         ),
         child: Row(
           children: [
@@ -531,8 +535,8 @@ class _MetricCard extends StatelessWidget {
                     label,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: AppTheme.textSecondary,
+                    style: TextStyle(
+                      color: colors.textSecondary,
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                     ),
@@ -562,6 +566,7 @@ class _TodayAgenda extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -570,9 +575,9 @@ class _TodayAgenda extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: AppTheme.card,
+            color: colors.card,
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: AppTheme.lightBlueBorder),
+            border: Border.all(color: colors.lightBlueBorder),
           ),
           child: FutureBuilder<List<Object>>(
             future: Future.wait<Object>([
@@ -582,11 +587,10 @@ class _TodayAgenda extends StatelessWidget {
             ]),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 20),
-                  child: Center(
-                    child: CircularProgressIndicator(color: AppTheme.primary),
-                  ),
+                return const JuriiSkeletonList(
+                  itemCount: 3,
+                  itemHeight: 36,
+                  gap: 12,
                 );
               }
 
@@ -610,32 +614,32 @@ class _TodayAgenda extends StatelessWidget {
                     icon: Icons.chat_bubble_outline,
                     label: 'Conversas ativas',
                     value: '${conversations.length}',
-                    color: AppTheme.primary,
+                    color: colors.primary,
                   ),
                   const SizedBox(height: 12),
                   _AttentionRow(
                     icon: Icons.video_call_outlined,
                     label: 'Compromissos hoje',
                     value: '${appointments.length}',
-                    color: AppTheme.accent,
+                    color: colors.accent,
                   ),
                   const SizedBox(height: 12),
                   _AttentionRow(
                     icon: Icons.timer_outlined,
                     label: 'Casos com prazo',
                     value: '$deadlineCases',
-                    color: AppTheme.danger,
+                    color: colors.danger,
                   ),
                   const SizedBox(height: 16),
-                  const Divider(height: 1, color: AppTheme.divider),
+                  Divider(height: 1, color: colors.divider),
                   const SizedBox(height: 14),
                   if (appointments.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 4),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
                       child: Text(
                         'Nenhum compromisso para hoje.',
                         style: TextStyle(
-                          color: AppTheme.textSecondary,
+                          color: colors.textSecondary,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -684,8 +688,8 @@ class _AttentionRow extends StatelessWidget {
         Expanded(
           child: Text(
             label,
-            style: const TextStyle(
-              color: AppTheme.textPrimary,
+            style: TextStyle(
+              color: context.jColors.textPrimary,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -720,6 +724,7 @@ class _ScheduleItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     final icon = appointment.status == AppointmentStatus.confirmed
         ? Icons.video_call_outlined
         : Icons.schedule_outlined;
@@ -731,8 +736,8 @@ class _ScheduleItem extends StatelessWidget {
           width: 46,
           child: Text(
             appointment.timeLabel,
-            style: const TextStyle(
-              color: AppTheme.textSecondary,
+            style: TextStyle(
+              color: colors.textSecondary,
               fontSize: 12,
               fontWeight: FontWeight.w800,
             ),
@@ -742,10 +747,10 @@ class _ScheduleItem extends StatelessWidget {
           width: 34,
           height: 34,
           decoration: BoxDecoration(
-            color: AppTheme.lightBlue,
+            color: colors.lightBlue,
             borderRadius: BorderRadius.circular(8),
           ),
-          child: Icon(icon, color: AppTheme.primary, size: 18),
+          child: Icon(icon, color: colors.primary, size: 18),
         ),
         const SizedBox(width: 10),
         Expanded(
@@ -756,8 +761,8 @@ class _ScheduleItem extends StatelessWidget {
                 appointment.title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: AppTheme.textPrimary,
+                style: TextStyle(
+                  color: colors.textPrimary,
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -766,8 +771,8 @@ class _ScheduleItem extends StatelessWidget {
                 '${appointment.counterpartName} · ${appointment.area}',
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: AppTheme.textSecondary,
+                style: TextStyle(
+                  color: colors.textSecondary,
                   fontSize: 12,
                   height: 1.35,
                 ),
@@ -795,6 +800,7 @@ class _PriorityCases extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return FutureBuilder<List<LawyerCase>>(
       future: casesFuture,
       builder: (context, snapshot) {
@@ -812,26 +818,21 @@ class _PriorityCases extends StatelessWidget {
             _SectionHeader(title: 'Casos prioritários', onTap: onOpenCases),
             const SizedBox(height: 12),
             if (snapshot.connectionState == ConnectionState.waiting)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 16),
-                child: Center(
-                  child: CircularProgressIndicator(color: AppTheme.primary),
-                ),
-              )
+              const JuriiSkeletonList(itemCount: 2, itemHeight: 92, gap: 10)
             else if (topCases.isEmpty)
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: AppTheme.card,
+                  color: colors.card,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppTheme.lightBlueBorder),
+                  border: Border.all(color: colors.lightBlueBorder),
                 ),
-                child: const Text(
+                child: Text(
                   'Nenhum caso ativo no momento. Novos casos aceitos pelos '
                   'clientes aparecem aqui.',
                   style: TextStyle(
-                    color: AppTheme.textSecondary,
+                    color: colors.textSecondary,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -859,7 +860,8 @@ class _PriorityCaseCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final status = _caseStatus(lawyerCase.status);
+    final colors = context.jColors;
+    final status = _caseStatus(lawyerCase.status, colors);
 
     return JuriiListCard(
       onTap: onTap,
@@ -894,8 +896,8 @@ class _PriorityCaseCard extends StatelessWidget {
                   lawyerCase.title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppTheme.textPrimary,
+                  style: TextStyle(
+                    color: colors.textPrimary,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -904,10 +906,7 @@ class _PriorityCaseCard extends StatelessWidget {
                   '${lawyerCase.clientName} · ${lawyerCase.area}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppTheme.textSecondary,
-                    fontSize: 12,
-                  ),
+                  style: TextStyle(color: colors.textSecondary, fontSize: 12),
                 ),
                 const SizedBox(height: 7),
                 Row(
@@ -932,24 +931,27 @@ class _PriorityCaseCard extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          const Icon(Icons.chevron_right, color: AppTheme.textSecondary),
+          Icon(Icons.chevron_right, color: colors.textSecondary),
         ],
       ),
     );
   }
 
-  ({Color color, IconData icon}) _caseStatus(LawyerCaseStatus status) {
+  ({Color color, IconData icon}) _caseStatus(
+    LawyerCaseStatus status,
+    AppColors colors,
+  ) {
     return switch (status) {
       LawyerCaseStatus.newMessage => (
-        color: AppTheme.primary,
+        color: colors.primary,
         icon: Icons.mark_chat_unread_outlined,
       ),
       LawyerCaseStatus.deadline => (
-        color: AppTheme.danger,
+        color: colors.danger,
         icon: Icons.timer_outlined,
       ),
       LawyerCaseStatus.updated => (
-        color: AppTheme.success,
+        color: colors.success,
         icon: Icons.check_circle_outline,
       ),
     };
@@ -964,6 +966,7 @@ class _NewContacts extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -986,11 +989,11 @@ class _NewContacts extends StatelessWidget {
             }
 
             return Material(
-              color: AppTheme.card,
+              color: colors.card,
               clipBehavior: Clip.antiAlias,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),
-                side: const BorderSide(color: AppTheme.lightBlueBorder),
+                side: BorderSide(color: colors.lightBlueBorder),
               ),
               child: Column(
                 children: [
@@ -1000,11 +1003,7 @@ class _NewContacts extends StatelessWidget {
                       onTap: onOpenMessages,
                     ),
                     if (index < contacts.length - 1)
-                      const Divider(
-                        height: 1,
-                        indent: 68,
-                        color: AppTheme.divider,
-                      ),
+                      Divider(height: 1, indent: 68, color: colors.divider),
                   ],
                 ],
               ),
@@ -1024,17 +1023,15 @@ class _NewContactTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
       leading: CircleAvatar(
         radius: 20,
-        backgroundColor: AppTheme.lightGold,
+        backgroundColor: colors.lightGold,
         child: Text(
           conversation.initials,
-          style: const TextStyle(
-            color: AppTheme.accent,
-            fontWeight: FontWeight.w900,
-          ),
+          style: TextStyle(color: colors.accent, fontWeight: FontWeight.w900),
         ),
       ),
       title: Text(
@@ -1048,7 +1045,7 @@ class _NewContactTile extends StatelessWidget {
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
-      trailing: const Icon(Icons.chevron_right, color: AppTheme.textSecondary),
+      trailing: Icon(Icons.chevron_right, color: colors.textSecondary),
       onTap: onTap,
     );
   }
@@ -1066,37 +1063,7 @@ class _NewContactsLoadingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: AppTheme.card,
-        border: Border.all(color: AppTheme.lightBlueBorder),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: const Row(
-        children: [
-          SizedBox(
-            width: 18,
-            height: 18,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              color: AppTheme.primary,
-            ),
-          ),
-          SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              'Carregando contatos...',
-              style: TextStyle(
-                color: AppTheme.textSecondary,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+    return const JuriiSkeletonList(itemCount: 2, itemHeight: 64, gap: 10);
   }
 }
 
@@ -1105,18 +1072,19 @@ class _EmptyNewContactsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: AppTheme.card,
-        border: Border.all(color: AppTheme.lightBlueBorder),
+        color: colors.card,
+        border: Border.all(color: colors.lightBlueBorder),
         borderRadius: BorderRadius.circular(8),
       ),
-      child: const Text(
+      child: Text(
         'Nenhum novo contato recebido no momento.',
         style: TextStyle(
-          color: AppTheme.textSecondary,
+          color: colors.textSecondary,
           fontWeight: FontWeight.w700,
         ),
       ),
@@ -1132,6 +1100,7 @@ class _SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return Row(
       children: [
         Expanded(
@@ -1140,10 +1109,10 @@ class _SectionHeader extends StatelessWidget {
         if (onTap != null)
           TextButton(
             onPressed: onTap,
-            child: const Text(
+            child: Text(
               'Ver tudo',
               style: TextStyle(
-                color: AppTheme.accent,
+                color: colors.accent,
                 fontWeight: FontWeight.w800,
               ),
             ),

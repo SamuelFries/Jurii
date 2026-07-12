@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../data/legal_documents.dart';
 import '../screens/legal_document_screen.dart';
-import '../theme/app_theme.dart';
+import '../theme/app_colors.dart';
 
 class LegalAgreementNotice extends StatelessWidget {
   const LegalAgreementNotice({super.key, required this.prefix});
@@ -11,16 +11,13 @@ class LegalAgreementNotice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return Column(
       children: [
         Text(
           prefix,
           textAlign: TextAlign.center,
-          style: const TextStyle(
-            fontSize: 12,
-            color: AppTheme.muted,
-            height: 1.5,
-          ),
+          style: TextStyle(fontSize: 12, color: colors.muted, height: 1.5),
         ),
         const SizedBox(height: 2),
         Wrap(
@@ -32,10 +29,7 @@ class LegalAgreementNotice extends StatelessWidget {
               label: 'Termos de Uso',
               type: LegalDocumentType.termsOfUse,
             ),
-            const Text(
-              'e',
-              style: TextStyle(fontSize: 12, color: AppTheme.muted),
-            ),
+            Text('e', style: TextStyle(fontSize: 12, color: colors.muted)),
             _LegalTextButton(
               label: 'Política de Privacidade',
               type: LegalDocumentType.privacyPolicy,
@@ -55,10 +49,11 @@ class _LegalTextButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return TextButton(
       onPressed: () => _openLegalDocument(context, type),
       style: TextButton.styleFrom(
-        foregroundColor: AppTheme.primary,
+        foregroundColor: colors.primary,
         minimumSize: Size.zero,
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../theme/app_theme.dart';
+import '../theme/app_colors.dart';
 import '../models/lawyer_status.dart';
 
 class ProfessionalModeCard extends StatelessWidget {
@@ -15,6 +15,7 @@ class ProfessionalModeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     String title;
     String subtitle;
     Color cardColor;
@@ -24,21 +25,21 @@ class ProfessionalModeCard extends StatelessWidget {
       case LawyerStatus.client:
         title = 'Ativar Modo Profissional';
         subtitle = 'Atenda clientes pela plataforma';
-        cardColor = AppTheme.accent;
+        cardColor = colors.accent;
         icon = Icons.business_center_outlined;
         break;
 
       case LawyerStatus.pending:
         title = 'Verificação em andamento';
         subtitle = 'Sua documentação está sendo analisada';
-        cardColor = AppTheme.warning;
+        cardColor = colors.warning;
         icon = Icons.schedule_outlined;
         break;
 
       case LawyerStatus.approved:
         title = 'Entrar no Modo Profissional';
         subtitle = 'Acesse sua área profissional';
-        cardColor = AppTheme.accent;
+        cardColor = colors.accent;
         icon = Icons.business_center_outlined;
         break;
     }
@@ -68,13 +69,13 @@ class ProfessionalModeCard extends StatelessWidget {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: AppTheme.card.withValues(alpha: 0.18),
+                  color: colors.card.withValues(alpha: 0.18),
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(
-                    color: AppTheme.card.withValues(alpha: 0.45),
+                    color: colors.card.withValues(alpha: 0.45),
                   ),
                 ),
-                child: Icon(icon, color: AppTheme.card, size: 24),
+                child: Icon(icon, color: colors.card, size: 24),
               ),
 
               const SizedBox(width: 14),
@@ -85,8 +86,8 @@ class ProfessionalModeCard extends StatelessWidget {
                   children: [
                     Text(
                       title,
-                      style: const TextStyle(
-                        color: AppTheme.card,
+                      style: TextStyle(
+                        color: colors.card,
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
                       ),
@@ -94,8 +95,8 @@ class ProfessionalModeCard extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       subtitle,
-                      style: const TextStyle(
-                        color: AppTheme.card,
+                      style: TextStyle(
+                        color: colors.card,
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                       ),
@@ -110,14 +111,10 @@ class ProfessionalModeCard extends StatelessWidget {
                 width: 36,
                 height: 36,
                 decoration: BoxDecoration(
-                  color: AppTheme.card.withValues(alpha: 0.12),
+                  color: colors.card.withValues(alpha: 0.12),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
-                  Icons.chevron_right,
-                  color: AppTheme.card,
-                  size: 26,
-                ),
+                child: Icon(Icons.chevron_right, color: colors.card, size: 26),
               ),
             ],
           ),

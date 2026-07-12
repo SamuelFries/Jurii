@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 
-import '../theme/app_theme.dart';
+import '../theme/app_colors.dart';
 
 class LawFirmVerificationSuccessScreen extends StatelessWidget {
   const LawFirmVerificationSuccessScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: colors.background,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -19,31 +20,27 @@ class LawFirmVerificationSuccessScreen extends StatelessWidget {
                 width: 96,
                 height: 96,
                 decoration: BoxDecoration(
-                  color: AppTheme.officePurpleSurface,
+                  color: colors.officePurpleSurface,
                   borderRadius: BorderRadius.circular(48),
                 ),
-                child: const Icon(
-                  Icons.check,
-                  color: AppTheme.officePurple,
-                  size: 48,
-                ),
+                child: Icon(Icons.check, color: colors.officePurple, size: 48),
               ),
               const SizedBox(height: 28),
-              const Text(
+              Text(
                 'Cadastro enviado',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 30,
                   fontWeight: FontWeight.w700,
-                  color: AppTheme.textPrimary,
+                  color: colors.textPrimary,
                 ),
               ),
               const SizedBox(height: 16),
-              const Text(
+              Text(
                 'Recebemos os dados do escritório e vamos analisar a documentação enviada.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: AppTheme.textSecondary,
+                  color: colors.textSecondary,
                   fontSize: 16,
                   height: 1.5,
                 ),
@@ -56,19 +53,19 @@ class LawFirmVerificationSuccessScreen extends StatelessWidget {
                   vertical: 16,
                 ),
                 decoration: BoxDecoration(
-                  color: AppTheme.officePurpleSurface,
+                  color: colors.officePurpleSurface,
                   borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: AppTheme.officePurpleBorder),
+                  border: Border.all(color: colors.officePurpleBorder),
                 ),
-                child: const Row(
+                child: Row(
                   children: [
-                    Icon(Icons.schedule_outlined, color: AppTheme.officePurple),
+                    Icon(Icons.schedule_outlined, color: colors.officePurple),
                     SizedBox(width: 12),
                     Expanded(
                       child: Text(
                         'Prazo estimado: até 3 dias úteis',
                         style: TextStyle(
-                          color: AppTheme.officePurpleText,
+                          color: colors.officePurpleText,
                           fontWeight: FontWeight.w600,
                           fontSize: 14,
                         ),

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../theme/app_theme.dart';
+import '../theme/app_colors.dart';
 import '../types/auth_callbacks.dart';
 import '../utils/validators.dart';
 import '../widgets/jurii_form_motion.dart';
@@ -40,8 +40,9 @@ class _PasswordResetScreenState extends State<PasswordResetScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: colors.background,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 28),
@@ -53,26 +54,26 @@ class _PasswordResetScreenState extends State<PasswordResetScreen> {
                 const SizedBox(height: 24),
                 const JuriiStaggeredItem(index: 0, child: LoginLogo()),
                 const SizedBox(height: 36),
-                const JuriiStaggeredItem(
+                JuriiStaggeredItem(
                   index: 1,
                   child: Text(
                     'Defina sua nova senha',
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      color: AppTheme.textPrimary,
+                      color: colors.textPrimary,
                       fontSize: 26,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
                 ),
                 const SizedBox(height: 10),
-                const JuriiStaggeredItem(
+                JuriiStaggeredItem(
                   index: 2,
                   child: Text(
                     'Escolha uma senha segura para voltar a acessar sua conta.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      color: AppTheme.textSecondary,
+                      color: colors.textSecondary,
                       fontSize: 15,
                       height: 1.45,
                     ),
@@ -163,10 +164,10 @@ class _PasswordResetScreenState extends State<PasswordResetScreen> {
                 const SizedBox(height: 10),
                 TextButton(
                   onPressed: _isLoading ? null : widget.onCancel,
-                  child: const Text(
+                  child: Text(
                     'Voltar ao login',
                     style: TextStyle(
-                      color: AppTheme.textSecondary,
+                      color: colors.textSecondary,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -216,12 +217,13 @@ class _PasswordResetScreenState extends State<PasswordResetScreen> {
   }
 
   Widget _shadowedField({required Widget child}) {
+    final colors = context.jColors;
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
-        boxShadow: const [
+        boxShadow: [
           BoxShadow(
-            color: AppTheme.softShadow,
+            color: colors.softShadow,
             blurRadius: 8,
             offset: Offset(0, 2),
           ),
@@ -253,29 +255,30 @@ class _PasswordHint extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     final label = switch (strength) {
       0 || 1 => 'Senha fraca',
       2 => 'Senha média',
       _ => 'Senha forte',
     };
     final color = switch (strength) {
-      0 || 1 => AppTheme.danger,
-      2 => AppTheme.warning,
-      _ => AppTheme.success,
+      0 || 1 => colors.danger,
+      2 => colors.warning,
+      _ => colors.success,
     };
 
     return Row(
       children: [
         Expanded(
-          child: _bar(active: strength >= 1, color: color),
+          child: _bar(context, active: strength >= 1, color: color),
         ),
         const SizedBox(width: 6),
         Expanded(
-          child: _bar(active: strength >= 2, color: color),
+          child: _bar(context, active: strength >= 2, color: color),
         ),
         const SizedBox(width: 6),
         Expanded(
-          child: _bar(active: strength >= 3, color: color),
+          child: _bar(context, active: strength >= 3, color: color),
         ),
         const SizedBox(width: 12),
         Text(
@@ -286,13 +289,18 @@ class _PasswordHint extends StatelessWidget {
     );
   }
 
-  Widget _bar({required bool active, required Color color}) {
+  Widget _bar(
+    BuildContext context, {
+    required bool active,
+    required Color color,
+  }) {
+    final colors = context.jColors;
     return AnimatedContainer(
       duration: JuriiMotion.fast,
       curve: JuriiMotion.ease,
       height: 5,
       decoration: BoxDecoration(
-        color: active ? color : AppTheme.divider,
+        color: active ? color : colors.divider,
         borderRadius: BorderRadius.circular(999),
       ),
     );

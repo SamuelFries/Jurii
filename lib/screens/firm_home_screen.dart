@@ -5,7 +5,7 @@ import '../models/firm_workspace.dart';
 import '../models/jurii_notification.dart';
 import '../repositories/firm_workspace_repository.dart';
 import '../services/supabase_config.dart';
-import '../theme/app_theme.dart';
+import '../theme/app_colors.dart';
 import '../widgets/jurii_motion.dart';
 import '../widgets/notification_bell.dart';
 
@@ -78,6 +78,7 @@ class _FirmHomeScreenState extends State<FirmHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     final workspaceName = widget.workspace?.firm.name ?? 'Escritório';
 
     return SafeArea(
@@ -87,11 +88,11 @@ class _FirmHomeScreenState extends State<FirmHomeScreen> {
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: AppTheme.officePurple,
+              color: colors.officePurple,
               borderRadius: BorderRadius.circular(18),
               boxShadow: [
                 BoxShadow(
-                  color: AppTheme.officePurple.withValues(alpha: 0.22),
+                  color: colors.officePurple.withValues(alpha: 0.22),
                   blurRadius: 20,
                   offset: const Offset(0, 10),
                 ),
@@ -103,16 +104,13 @@ class _FirmHomeScreenState extends State<FirmHomeScreen> {
                   width: 48,
                   height: 48,
                   decoration: BoxDecoration(
-                    color: AppTheme.card.withValues(alpha: 0.14),
+                    color: colors.card.withValues(alpha: 0.14),
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
-                      color: AppTheme.card.withValues(alpha: 0.35),
+                      color: colors.card.withValues(alpha: 0.35),
                     ),
                   ),
-                  child: const Icon(
-                    Icons.apartment_outlined,
-                    color: AppTheme.card,
-                  ),
+                  child: Icon(Icons.apartment_outlined, color: colors.card),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -123,8 +121,8 @@ class _FirmHomeScreenState extends State<FirmHomeScreen> {
                         workspaceName,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: AppTheme.card,
+                        style: TextStyle(
+                          color: colors.card,
                           fontSize: 20,
                           fontWeight: FontWeight.w900,
                         ),
@@ -136,8 +134,8 @@ class _FirmHomeScreenState extends State<FirmHomeScreen> {
                             : 'Área do escritório em preparação',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: AppTheme.card,
+                        style: TextStyle(
+                          color: colors.card,
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),
@@ -149,9 +147,9 @@ class _FirmHomeScreenState extends State<FirmHomeScreen> {
                 NotificationBell(
                   scope: NotificationScope.firm,
                   lawFirmId: widget.workspace?.firm.id,
-                  iconColor: AppTheme.officePurple,
-                  backgroundColor: AppTheme.card,
-                  borderColor: AppTheme.officePurpleBorder,
+                  iconColor: colors.officePurple,
+                  backgroundColor: colors.card,
+                  borderColor: colors.officePurpleBorder,
                   onChanged: _reloadMetrics,
                 ),
               ],
@@ -186,10 +184,10 @@ class _FirmHomeScreenState extends State<FirmHomeScreen> {
             ],
           ),
           const SizedBox(height: 24),
-          const Text(
+          Text(
             'Operação',
             style: TextStyle(
-              color: AppTheme.textPrimary,
+              color: colors.textPrimary,
               fontSize: 18,
               fontWeight: FontWeight.w800,
             ),
@@ -272,13 +270,14 @@ class _TodayOverview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Hoje',
           style: TextStyle(
-            color: AppTheme.textPrimary,
+            color: colors.textPrimary,
             fontSize: 18,
             fontWeight: FontWeight.w800,
           ),
@@ -292,7 +291,7 @@ class _TodayOverview extends StatelessWidget {
           subtitle: metrics.clientMessages > 0
               ? '${metrics.clientMessages} conversas ativas com clientes do escritório'
               : 'As conversas aparecerão aqui após a primeira mensagem real.',
-          color: AppTheme.officePurple,
+          color: colors.officePurple,
         ),
         const SizedBox(height: 10),
         _TodayItem(
@@ -304,8 +303,8 @@ class _TodayOverview extends StatelessWidget {
               ? '${metrics.activeCases} casos vinculados ao escritório'
               : 'Casos aceitos por advogados do escritório aparecerão aqui.',
           color: metrics.activeCases > 0
-              ? AppTheme.primary
-              : AppTheme.textSecondary,
+              ? colors.primary
+              : colors.textSecondary,
         ),
         const SizedBox(height: 10),
         _TodayItem(
@@ -313,7 +312,7 @@ class _TodayOverview extends StatelessWidget {
           title: 'Equipe ativa',
           subtitle:
               '${metrics.teamMembers} membros ativos vinculados ao escritório',
-          color: AppTheme.accent,
+          color: colors.accent,
         ),
       ],
     );
@@ -333,6 +332,7 @@ class _ActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return JuriiPressable(
       onTap: onTap,
       borderRadius: BorderRadius.circular(10),
@@ -341,21 +341,21 @@ class _ActionButton extends StatelessWidget {
         height: 84,
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: AppTheme.card,
-          border: Border.all(color: AppTheme.officePurpleBorder),
+          color: colors.card,
+          border: Border.all(color: colors.officePurpleBorder),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: AppTheme.officePurple, size: 22),
+            Icon(icon, color: colors.officePurple, size: 22),
             const SizedBox(height: 8),
             Text(
               label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: AppTheme.textPrimary,
+              style: TextStyle(
+                color: colors.textPrimary,
                 fontSize: 12,
                 fontWeight: FontWeight.w800,
               ),
@@ -380,9 +380,10 @@ class _MetricCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     final parsedValue = int.tryParse(value);
-    const valueStyle = TextStyle(
-      color: AppTheme.textPrimary,
+    final valueStyle = TextStyle(
+      color: colors.textPrimary,
       fontSize: 20,
       fontWeight: FontWeight.w900,
     );
@@ -390,8 +391,8 @@ class _MetricCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppTheme.card,
-        border: Border.all(color: AppTheme.officePurpleBorder),
+        color: colors.card,
+        border: Border.all(color: colors.officePurpleBorder),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -400,10 +401,10 @@ class _MetricCard extends StatelessWidget {
             width: 34,
             height: 34,
             decoration: BoxDecoration(
-              color: AppTheme.officePurpleSurface,
+              color: colors.officePurpleSurface,
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(icon, color: AppTheme.officePurple, size: 18),
+            child: Icon(icon, color: colors.officePurple, size: 18),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -421,8 +422,8 @@ class _MetricCard extends StatelessWidget {
                   label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppTheme.textSecondary,
+                  style: TextStyle(
+                    color: colors.textSecondary,
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
                   ),
@@ -451,11 +452,12 @@ class _TodayItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppTheme.card,
-        border: Border.all(color: AppTheme.divider),
+        color: colors.card,
+        border: Border.all(color: colors.divider),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -468,8 +470,8 @@ class _TodayItem extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
-                    color: AppTheme.textPrimary,
+                  style: TextStyle(
+                    color: colors.textPrimary,
                     fontSize: 14,
                     fontWeight: FontWeight.w800,
                   ),
@@ -479,10 +481,7 @@ class _TodayItem extends StatelessWidget {
                   subtitle,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppTheme.textSecondary,
-                    fontSize: 12,
-                  ),
+                  style: TextStyle(color: colors.textSecondary, fontSize: 12),
                 ),
               ],
             ),

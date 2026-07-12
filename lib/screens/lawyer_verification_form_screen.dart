@@ -10,7 +10,7 @@ import '../models/user_profile.dart';
 import '../models/verification_document.dart';
 import '../repositories/lawyer_verification_repository.dart';
 import '../services/supabase_config.dart';
-import '../theme/app_theme.dart';
+import '../theme/app_colors.dart';
 import '../widgets/jurii_form_motion.dart';
 import '../widgets/jurii_motion.dart';
 import '../widgets/practice_area_selector.dart';
@@ -81,21 +81,22 @@ class _LawyerVerificationFormScreenState
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return Scaffold(
-      backgroundColor: AppTheme.background,
-      appBar: AppBar(backgroundColor: AppTheme.background, elevation: 0),
+      backgroundColor: colors.background,
+      appBar: AppBar(backgroundColor: colors.background, elevation: 0),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'Verificação\nProfissional',
                 style: TextStyle(
                   fontSize: 34,
                   fontWeight: FontWeight.w700,
-                  color: AppTheme.textPrimary,
+                  color: colors.textPrimary,
                   height: 1.15,
                   fontFamily: 'Serif',
                 ),
@@ -103,10 +104,10 @@ class _LawyerVerificationFormScreenState
 
               const SizedBox(height: 12),
 
-              const Text(
+              Text(
                 'Envie seus dados e documentos para validar seu perfil profissional.',
                 style: TextStyle(
-                  color: AppTheme.textSecondary,
+                  color: colors.textSecondary,
                   fontSize: 15,
                   height: 1.5,
                 ),
@@ -122,16 +123,19 @@ class _LawyerVerificationFormScreenState
                     : 'Complete sua verificação',
                 subtitle:
                     'Dados profissionais, áreas de atuação e documentos obrigatórios.',
-                accentColor: AppTheme.primary,
-                surfaceColor: AppTheme.lightBlue,
-                borderColor: AppTheme.lightBlueBorder,
+                accentColor: colors.primary,
+                surfaceColor: colors.lightBlue,
+                borderColor: colors.lightBlueBorder,
               ),
 
               const SizedBox(height: 32),
 
-              const Text(
-                'Dados Profissionais',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+              JuriiFormSectionHeader(
+                stepNumber: 1,
+                title: 'Dados profissionais',
+                isComplete:
+                    oabController.text.trim().isNotEmpty &&
+                    selectedState != null,
               ),
 
               const SizedBox(height: 16),
@@ -176,19 +180,29 @@ class _LawyerVerificationFormScreenState
                 },
               ),
 
-              const SizedBox(height: 14),
+              const SizedBox(height: 32),
+
+              JuriiFormSectionHeader(
+                stepNumber: 2,
+                title: 'Áreas de atuação',
+                isComplete: selectedAreas.isNotEmpty,
+              ),
+
+              const SizedBox(height: 16),
 
               PracticeAreaSelector(
                 selectedAreas: selectedAreas,
                 showError: mostrarErros,
+                label: 'Selecione as áreas',
                 onChanged: (areas) => setState(() => selectedAreas = areas),
               ),
 
               const SizedBox(height: 32),
 
-              const Text(
-                'Documentos',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+              JuriiFormSectionHeader(
+                stepNumber: 3,
+                title: 'Documentos',
+                isComplete: documents.every((document) => document.uploaded),
               ),
 
               const SizedBox(height: 16),
@@ -207,13 +221,13 @@ class _LawyerVerificationFormScreenState
               Container(
                 padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
-                  color: AppTheme.warningSurface,
+                  color: colors.warningSurface,
                   borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: AppTheme.warningBorder),
+                  border: Border.all(color: colors.warningBorder),
                 ),
-                child: const Row(
+                child: Row(
                   children: [
-                    Icon(Icons.shield_outlined, color: AppTheme.accent),
+                    Icon(Icons.shield_outlined, color: colors.accent),
                     SizedBox(width: 12),
                     Expanded(
                       child: Text(
@@ -247,23 +261,24 @@ class _LawyerVerificationFormScreenState
     required bool hasError,
     required VoidCallback onTap,
   }) {
+    final colors = context.jColors;
     final borderColor = document.uploaded
-        ? AppTheme.success
+        ? colors.success
         : hasError
-        ? AppTheme.danger
-        : AppTheme.lightBlueBorder;
+        ? colors.danger
+        : colors.lightBlueBorder;
 
     return AnimatedContainer(
       duration: JuriiMotion.fast,
       curve: JuriiMotion.ease,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: AppTheme.card,
+        color: colors.card,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: borderColor, width: 1.5),
-        boxShadow: const [
+        boxShadow: [
           BoxShadow(
-            color: AppTheme.softShadow,
+            color: colors.softShadow,
             blurRadius: 10,
             offset: Offset(0, 4),
           ),
@@ -271,7 +286,7 @@ class _LawyerVerificationFormScreenState
       ),
       child: Row(
         children: [
-          Icon(_iconForDocument(document.type), color: AppTheme.primary),
+          Icon(_iconForDocument(document.type), color: colors.primary),
 
           const SizedBox(width: 14),
 
@@ -285,10 +300,7 @@ class _LawyerVerificationFormScreenState
                 ),
                 Text(
                   document.subtitle,
-                  style: const TextStyle(
-                    color: AppTheme.textSecondary,
-                    fontSize: 13,
-                  ),
+                  style: TextStyle(color: colors.textSecondary, fontSize: 13),
                 ),
               ],
             ),
@@ -307,18 +319,18 @@ class _LawyerVerificationFormScreenState
                 ),
                 side: BorderSide(
                   color: document.uploaded
-                      ? AppTheme.success
-                      : AppTheme.lightBlueBorder,
+                      ? colors.success
+                      : colors.lightBlueBorder,
                 ),
               ),
               onPressed: onTap,
               child: document.uploaded
-                  ? const Row(
+                  ? Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(
                           Icons.check_circle,
-                          color: AppTheme.success,
+                          color: colors.success,
                           size: 16,
                         ),
                         SizedBox(width: 5),
@@ -327,17 +339,17 @@ class _LawyerVerificationFormScreenState
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
-                            color: AppTheme.success,
+                            color: colors.success,
                           ),
                         ),
                       ],
                     )
-                  : const Text(
+                  : Text(
                       'Selecionar',
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
-                        color: AppTheme.textPrimary,
+                        color: colors.textPrimary,
                       ),
                     ),
             ),

@@ -4,8 +4,10 @@ import '../data/mock/mock_appointments.dart';
 import '../models/appointment.dart';
 import '../repositories/appointment_repository.dart';
 import '../services/supabase_config.dart';
-import '../theme/app_theme.dart';
+import '../theme/app_colors.dart';
 import '../widgets/jurii_empty_state.dart';
+import '../widgets/jurii_list_card.dart';
+import '../widgets/jurii_motion.dart';
 
 class AgendaScreen extends StatefulWidget {
   final AppointmentRole role;
@@ -54,13 +56,14 @@ class _AgendaScreenState extends State<AgendaScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     final isLawyer = widget.role == AppointmentRole.lawyer;
 
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: colors.background,
       appBar: AppBar(
         title: const Text('Agenda'),
-        backgroundColor: AppTheme.background,
+        backgroundColor: colors.background,
       ),
       body: SafeArea(
         child: FutureBuilder<List<Appointment>>(
@@ -82,22 +85,17 @@ class _AgendaScreenState extends State<AgendaScreen> {
                 const SizedBox(height: 12),
                 if (snapshot.connectionState == ConnectionState.waiting &&
                     appointments == null)
-                  const Padding(
-                    padding: EdgeInsets.only(top: 32),
-                    child: Center(
-                      child: CircularProgressIndicator(color: AppTheme.primary),
-                    ),
-                  )
+                  const JuriiSkeletonList(itemCount: 3, itemHeight: 112)
                 else if (snapshot.hasError && appointments == null)
                   Padding(
                     padding: const EdgeInsets.only(top: 16),
                     child: Column(
                       children: [
-                        const Text(
+                        Text(
                           'Não foi possível carregar seus compromissos.',
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            color: AppTheme.textSecondary,
+                            color: colors.textSecondary,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
@@ -113,7 +111,10 @@ class _AgendaScreenState extends State<AgendaScreen> {
                   _EmptyAgendaState(isLawyer: isLawyer)
                 else
                   for (var index = 0; index < appointments.length; index++) ...[
-                    _AppointmentCard(appointment: appointments[index]),
+                    JuriiStaggeredItem(
+                      index: index,
+                      child: _AppointmentCard(appointment: appointments[index]),
+                    ),
                     if (index < appointments.length - 1)
                       const SizedBox(height: 12),
                   ],
@@ -135,11 +136,12 @@ class _AgendaHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: AppTheme.primary,
+        color: colors.primary,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
@@ -148,13 +150,10 @@ class _AgendaHero extends StatelessWidget {
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              color: AppTheme.card.withValues(alpha: 0.14),
+              color: colors.card.withValues(alpha: 0.14),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: const Icon(
-              Icons.calendar_month_outlined,
-              color: AppTheme.card,
-            ),
+            child: Icon(Icons.calendar_month_outlined, color: colors.card),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -167,8 +166,8 @@ class _AgendaHero extends StatelessWidget {
                       : 'Acompanhe suas reuniões',
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppTheme.card,
+                  style: TextStyle(
+                    color: colors.card,
                     fontSize: 20,
                     fontWeight: FontWeight.w900,
                     height: 1.15,
@@ -180,7 +179,7 @@ class _AgendaHero extends StatelessWidget {
                       ? 'Consultas, prazos e retornos em uma visão clara.'
                       : 'Veja horários confirmados e pendências de envio.',
                   style: TextStyle(
-                    color: AppTheme.card.withValues(alpha: 0.72),
+                    color: colors.card.withValues(alpha: 0.72),
                     height: 1.35,
                   ),
                 ),
@@ -198,6 +197,7 @@ class _DateSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     final now = DateTime.now();
     final days = List.generate(4, (index) {
       final date = now.add(Duration(days: index));
@@ -218,12 +218,12 @@ class _DateSelector extends StatelessWidget {
             child: Container(
               height: 68,
               decoration: BoxDecoration(
-                color: index == 0 ? AppTheme.lightGold : AppTheme.card,
+                color: index == 0 ? colors.lightGold : colors.card,
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
                   color: index == 0
-                      ? AppTheme.lightGoldBorder
-                      : AppTheme.lightBlueBorder,
+                      ? colors.lightGoldBorder
+                      : colors.lightBlueBorder,
                 ),
               ),
               child: Column(
@@ -234,9 +234,7 @@ class _DateSelector extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: index == 0
-                          ? AppTheme.accent
-                          : AppTheme.textSecondary,
+                      color: index == 0 ? colors.accent : colors.textSecondary,
                       fontSize: 12,
                       fontWeight: FontWeight.w800,
                     ),
@@ -244,8 +242,8 @@ class _DateSelector extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     days[index].day,
-                    style: const TextStyle(
-                      color: AppTheme.textPrimary,
+                    style: TextStyle(
+                      color: colors.textPrimary,
                       fontSize: 18,
                       fontWeight: FontWeight.w900,
                     ),
@@ -280,102 +278,89 @@ class _AppointmentCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final status = _statusStyle(appointment.status);
+    final colors = context.jColors;
+    final status = _statusStyle(appointment.status, colors);
 
-    return Material(
-      color: AppTheme.card,
-      borderRadius: BorderRadius.circular(8),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(8),
-        onTap: () {},
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: AppTheme.lightBlueBorder),
+    // Sem onTap: o card ainda não tem ação; ripple em card inerte confunde.
+    return JuriiListCard(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 50,
+            child: Text(
+              appointment.timeLabel,
+              style: TextStyle(
+                color: colors.textPrimary,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
           ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(
-                width: 50,
-                child: Text(
-                  appointment.timeLabel,
-                  style: const TextStyle(
-                    color: AppTheme.textPrimary,
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: status.color.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(status.icon, color: status.color, size: 21),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  appointment.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: colors.textPrimary,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
-              ),
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: status.color.withValues(alpha: 0.10),
-                  borderRadius: BorderRadius.circular(8),
+                const SizedBox(height: 4),
+                Text(
+                  '${appointment.counterpartName} · ${appointment.area}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: colors.textSecondary, fontSize: 12),
                 ),
-                child: Icon(status.icon, color: status.color, size: 21),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
                   children: [
-                    Text(
-                      appointment.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppTheme.textPrimary,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${appointment.counterpartName} · ${appointment.area}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppTheme.textSecondary,
-                        fontSize: 12,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 6,
-                      children: [
-                        _Pill(label: appointment.dateLabel),
-                        _Pill(label: appointment.location),
-                        _Pill(label: status.label, color: status.color),
-                      ],
-                    ),
+                    _Pill(label: appointment.dateLabel),
+                    _Pill(label: appointment.location),
+                    _Pill(label: status.label, color: status.color),
                   ],
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
 
   ({Color color, IconData icon, String label}) _statusStyle(
     AppointmentStatus status,
+    AppColors colors,
   ) {
     return switch (status) {
       AppointmentStatus.confirmed => (
-        color: AppTheme.success,
+        color: colors.success,
         icon: Icons.check_circle_outline,
         label: 'Confirmado',
       ),
       AppointmentStatus.pending => (
-        color: AppTheme.warning,
+        color: colors.warning,
         icon: Icons.schedule_outlined,
         label: 'Pendente',
       ),
       AppointmentStatus.done => (
-        color: AppTheme.textSecondary,
+        color: colors.textSecondary,
         icon: Icons.done_all,
         label: 'Concluído',
       ),
@@ -391,7 +376,8 @@ class _Pill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final pillColor = color ?? AppTheme.primary;
+    final colors = context.jColors;
+    final pillColor = color ?? colors.primary;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
@@ -435,24 +421,25 @@ class _AvailabilityCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppTheme.warningSurface,
+        color: colors.warningSurface,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppTheme.warningBorder),
+        border: Border.all(color: colors.warningBorder),
       ),
       child: Row(
         children: [
-          const Icon(Icons.tune_outlined, color: AppTheme.warning),
+          Icon(Icons.tune_outlined, color: colors.warning),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               isLawyer
                   ? 'Disponibilidade editável será conectada ao backend na próxima etapa.'
                   : 'Reagendamentos e confirmações serão ativados na integração.',
-              style: const TextStyle(
-                color: AppTheme.warningText,
+              style: TextStyle(
+                color: colors.warningText,
                 fontWeight: FontWeight.w700,
                 height: 1.4,
               ),
