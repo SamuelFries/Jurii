@@ -10,7 +10,9 @@ import 'law_firm_verification_screen.dart';
 import 'lawyer_verification_screen.dart';
 import 'legal_document_screen.dart';
 import '../theme/app_colors.dart';
+import '../theme/theme_controller.dart';
 import '../widgets/law_firm_mode_card.dart';
+import '../widgets/theme_mode_sheet.dart';
 import '../widgets/profile_header_card.dart';
 import '../widgets/profile_menu_section.dart';
 import '../widgets/profile_menu_item.dart';
@@ -445,31 +447,43 @@ class ProfileScreen extends StatelessWidget {
                 const SizedBox(height: 24),
               ],
 
-              ProfileMenuSection(
-                title: 'MINHA CONTA',
-                items: [
-                  ProfileMenuItem(
-                    icon: Icons.person_outline,
-                    iconColor: colors.textSecondary,
-                    label: 'Dados Pessoais',
-                    subtitle: 'Atualize suas informações',
-                    onTap: () {},
-                  ),
-                  ProfileMenuItem(
-                    icon: Icons.lock_outline,
-                    iconColor: colors.warning,
-                    label: 'Segurança',
-                    subtitle: 'Senha e configurações de acesso',
-                    onTap: () => _openSecuritySettings(context),
-                  ),
-                  ProfileMenuItem(
-                    icon: Icons.description_outlined,
-                    iconColor: colors.textSecondary,
-                    label: 'Meus Documentos',
-                    subtitle: 'Visualize documentos enviados',
-                    onTap: () {},
-                  ),
-                ],
+              ValueListenableBuilder<ThemeMode>(
+                valueListenable: ThemeController.instance,
+                builder: (context, themeMode, _) {
+                  return ProfileMenuSection(
+                    title: 'MINHA CONTA',
+                    items: [
+                      ProfileMenuItem(
+                        icon: Icons.person_outline,
+                        iconColor: colors.textSecondary,
+                        label: 'Dados Pessoais',
+                        subtitle: 'Atualize suas informações',
+                        onTap: () {},
+                      ),
+                      ProfileMenuItem(
+                        icon: Icons.lock_outline,
+                        iconColor: colors.warning,
+                        label: 'Segurança',
+                        subtitle: 'Senha e configurações de acesso',
+                        onTap: () => _openSecuritySettings(context),
+                      ),
+                      ProfileMenuItem(
+                        icon: Icons.dark_mode_outlined,
+                        iconColor: colors.primary,
+                        label: 'Aparência',
+                        subtitle: 'Tema: ${themeModeLabel(themeMode)}',
+                        onTap: () => showThemeModeSheet(context),
+                      ),
+                      ProfileMenuItem(
+                        icon: Icons.description_outlined,
+                        iconColor: colors.textSecondary,
+                        label: 'Meus Documentos',
+                        subtitle: 'Visualize documentos enviados',
+                        onTap: () {},
+                      ),
+                    ],
+                  );
+                },
               ),
 
               const SizedBox(height: 24),

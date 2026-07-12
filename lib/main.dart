@@ -47,6 +47,7 @@ import 'widgets/jurii_motion.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await SupabaseConfig.initialize();
+  await ThemeController.instance.load();
   runApp(const JuriiApp());
 }
 

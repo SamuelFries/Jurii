@@ -304,7 +304,9 @@ class _StatusChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: colors.accent),
+          // lightGold (não accent): sobre o header primary, accent some no
+          // tema escuro (dourado e azul-claro têm a mesma luminância).
+          Icon(icon, size: 14, color: colors.lightGold),
           const SizedBox(width: 6),
           Text(
             label,

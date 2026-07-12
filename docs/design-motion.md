@@ -1,7 +1,7 @@
 # Design premium e motion - Jurii
 
-Atualizado em: 11/07/2026
-Branch: `fix/design`
+Atualizado em: 12/07/2026
+Branch: `main`
 
 Este documento registra a frente de polimento visual, microinteracoes e animacoes
 do app. A ideia e deixar a Jurii mais fluida e premium sem mudar regra de
@@ -254,6 +254,57 @@ Mantidos de proposito (nao sao pendencia):
 - Consequencia: **o app inteiro agora reage ao tema — o dark mode pode ser
   ativado** (ver "Falta fazer").
 
+## Feito nesta oitava leva — DARK MODE ATIVADO (12/07/2026)
+
+### QA do tema escuro (pre-requisito, prioridade alta)
+
+Como a paleta dark nunca tinha sido vista tela a tela, o QA foi feito em duas
+camadas antes de ligar qualquer coisa:
+
+1. **Varredura mecanica**: zero `Colors.*`/`Color(0x...)` hardcoded fora de
+   `lib/theme/` (so `Colors.transparent`, inofensivo); nenhum override de
+   status bar; imagens = so o logo do Google (multicolorido, funciona nos dois
+   temas); todos os `withValues` derivam de tokens.
+2. **Matriz de contraste WCAG da paleta dark** (script em scratchpad):
+   computados todos os pares fg/bg que tem contraste bom no claro (>=3.0) e
+   ruim no escuro (<3.0). O padrao dominante: `primary` e `officePurple` sao
+   fills ESCUROS no claro mas CLAROS no escuro — qualquer foreground claro
+   (`accent`, `textPrimary`, `textSecondary`, `warning`, `success`, `danger`,
+   `muted`) em cima deles quebra so no escuro. Pior par: `accent` sobre
+   `primary` (6.0 -> 1.0 — dourado e azul-claro tem a MESMA luminancia no
+   dark). Auditoria guiada por essa lista em todas as 55 telas/widgets.
+
+Resultado: **2 problemas reais** (o resto do app usa `colors.card` como
+foreground sobre fills de marca, que inverte junto e continua legivel):
+
+- `lawyer_home_screen.dart` `_StatusChip`: icone `accent` sobre o header
+  `primary` sumia no escuro → trocado por `lightGold` (creme-dourado sobre
+  navy no claro, dourado-escuro legivel — 7.6:1 — sobre o header azul-claro
+  no escuro).
+- `profile_header_card.dart`: avatar `accent` sobre header `primary` perdia a
+  borda no escuro (mesma luminancia) → borda `card` a 35%, mesmo idiom do
+  `_SwitchModeCard`.
+
+### Ativacao
+
+- `ThemeController`: default `ThemeMode.system`; `setMode` persiste em
+  `shared_preferences` (chave `jurii.theme_mode`); `load()` restaura antes do
+  `runApp` (valor corrompido cai para system, fail-safe).
+- Novo `lib/widgets/theme_mode_sheet.dart`: sheet "Aparencia" com Automatico/
+  Claro/Escuro (selecao com check animado, troca aplica na hora com o app
+  reanimando atras do sheet). `isScrollControlled: true` — sem ele as tres
+  opcoes estouravam o teto de 9/16 em telas baixas.
+- Item "Aparencia" com subtitulo dinamico ("Tema: Escuro") no `ProfileScreen`
+  (secao MINHA CONTA — cliente e advogado) e no `FirmProfileScreen` (nova
+  secao PREFERENCIAS), via `ValueListenableBuilder`.
+- Dependencia nova: `shared_preferences: ^2.5.3`.
+- Testes novos em `test/theme_controller_test.dart`: persistencia, fallback de
+  valor corrompido, fluxo do sheet e sanity do tema dark.
+
+O QA que falta e o de olho em device real (animacoes, brilho OLED, teclado);
+o estatico nao substitui isso, mas os erros de contraste conhecidos ja foram
+eliminados.
+
 ## Validacao
 
 Rodado em 10/07/2026:
@@ -287,15 +338,20 @@ Rodado na setima leva:
 - `grep AppTheme.` fora de `lib/theme/`: somente lightTheme/darkTheme no
   main.dart.
 
+Rodado na oitava leva (12/07/2026):
+
+- `dart format` nos 8 arquivos alterados (0 reformatados);
+- `flutter analyze` sem issues;
+- `flutter test` com 54 testes passando (49 + 5 novos de tema).
+
 ## Falta fazer
 
 Prioridade alta:
 
-- **Ativar o dark mode** (a migracao jColors esta completa): mudar o default
-  do `ThemeController` para `system`, expor toggle no perfil e persistir com
-  `shared_preferences` (receita em docs/architecture.md). ANTES de ativar,
-  fazer um QA visual completo no tema escuro — a paleta dark foi desenhada
-  mas nunca foi vista tela a tela.
+- ~~Ativar o dark mode~~ **FEITO na oitava leva** (QA estatico + ativacao
+  completa). Resta o QA de olho em device real no tema escuro — navegar o app
+  com o toggle em Escuro num aparelho fisico antes de considerar o tema
+  100% entregue.
 
 Prioridade media:
 
@@ -308,7 +364,8 @@ Prioridade depois:
 
 - Adicionar testes focados para helpers de motion/composer se eles passarem a
   carregar mais comportamento.
-- Golden tests do tema escuro nas telas principais quando o dark mode ativar.
+- Golden tests do tema escuro nas telas principais (o dark mode ja esta
+  ativo; goldens congelariam o resultado do QA).
 
 ## Cuidados para proximas alteracoes
 
@@ -323,3 +380,11 @@ Prioridade depois:
   resolvido no build com `?? colors.token`; default const de cor quebra o tema.
 - Dentro de `JuriiModalSheetScaffold`, listas roláveis precisam de altura
   maxima explicita (`ConstrainedBox`); `Flexible` quebra.
+- **Dark mode — pares proibidos**: `primary` e `officePurple` viram fills
+  CLAROS no tema escuro. Sobre eles, foreground claro (`accent`, `textPrimary`,
+  `textSecondary`, `warning`, `success`, `danger`, `muted`) fica ilegivel —
+  use `colors.card` (inverte junto) ou `lightGold` quando precisar de tom
+  dourado. Vale o simetrico: `textPrimary` sobre fill solido de
+  `accent`/`warning`/`success`/`danger` tambem degrada no escuro.
+- Fills de baixa alpha (<= 0.35) sobre card/background NAO tem esse problema:
+  o fundo efetivo continua escuro e qualquer token claro funciona por cima.
