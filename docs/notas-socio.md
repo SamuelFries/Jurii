@@ -57,7 +57,7 @@ Depois de rodar os seeds/patches corretos, validamos:
 
 ## Patch 043 - escopo dos casos do escritorio
 
-Criei `supabase/patch_043_fix_firm_case_scope.sql`.
+Criei `supabase/legacy_patches/patch_043_fix_firm_case_scope.sql`.
 
 O problema: a area do escritorio podia enxergar ou reatribuir casos pessoais de
 advogados membros, ou ate casos de outro escritorio, apenas porque aquele
@@ -98,7 +98,7 @@ privilegio elevado, como apagar Storage sensivel e banir o usuario em
 
 Criei:
 
-- `supabase/patch_044_account_deletion_lgpd.sql`;
+- `supabase/legacy_patches/patch_044_account_deletion_lgpd.sql`;
 - `supabase/functions/delete-account/index.ts`.
 
 Tambem atualizei:
@@ -122,7 +122,7 @@ transacional existente e corrigindo literals antigos de exibicao, como
 Em 06/07/2026, o patch foi aplicado no projeto remoto pelo Supabase CLI:
 
 ```bash
-supabase --output-format text db query --linked --file supabase/patch_044_account_deletion_lgpd.sql
+supabase --output-format text db query --linked --file supabase/legacy_patches/patch_044_account_deletion_lgpd.sql
 ```
 
 ### O que a Edge Function faz
@@ -398,11 +398,12 @@ As maiores pendencias restantes em seguranca/LGPD estao documentadas em
   app, criar canal oficial do titular/DPO, registro de consentimento e politica
   de retencao documentada.
 
-## Como revisar esta branch
+## Como revisar a frente LGPD nessa branch
 
 Arquivos principais:
 
-- `supabase/patch_044_account_deletion_lgpd.sql`;
+- `supabase/migrations/20260711190000_squashed_legacy_baseline.sql`
+  (contém o antigo `patch_044`);
 - `supabase/functions/delete-account/index.ts`;
 - `lib/repositories/profile_repository.dart`;
 - `docs/security.md`;
@@ -411,14 +412,15 @@ Arquivos principais:
 
 Fluxo esperado para ambiente novo:
 
-1. rodar `supabase/patch_044_account_deletion_lgpd.sql` depois do patch 043;
-2. publicar a Function:
+1. aplicar a baseline com `supabase db push`;
+2. publicar a Function `delete-account`:
 
 ```bash
 supabase functions deploy delete-account --project-ref rlgtgipxltucrtkyrmag --use-api
 ```
 
-3. testar com uma conta descartavel confirmada antes de usar em conta real.
+3. testar a exclusao com uma conta descartavel confirmada antes de usar em
+   conta real.
 
 ## Revisao da branch e correcao do grant de id (patch 045)
 
@@ -459,7 +461,7 @@ falharia em silencio, porque o app engole o erro em try/catch.
 
 ### Correcao aplicada: patch_045
 
-Criei e apliquei `supabase/patch_045_profiles_id_update_grant.sql`:
+Criei e apliquei `supabase/legacy_patches/patch_045_profiles_id_update_grant.sql`:
 
 ```sql
 grant update (id) on public.profiles to authenticated;
@@ -473,7 +475,7 @@ no-op.
 Aplicado em 06/07/2026 via:
 
 ```bash
-supabase --output-format text db query --linked --file supabase/patch_045_profiles_id_update_grant.sql
+supabase --output-format text db query --linked --file supabase/legacy_patches/patch_045_profiles_id_update_grant.sql
 ```
 
 Re-rodei o mesmo teste depois do patch:
@@ -501,3 +503,152 @@ execucao. O script de reproducao ficou no scratchpad da sessao
   `catch (_)` cego, que tambem engole erro de rede; ao menos logar.
 - Dark mode: `darkTheme` foi construido mas nunca e exercitado (sem toggle, nem
   de dev) — risco de apodrecer sem ninguem notar quebras.
+
+## Consolidação dos patches SQL em baseline de migrations
+
+Atualizado em: 11/07/2026
+Branch atual: `fix/design`
+
+Depois da discussão sobre o volume de patches SQL no repositório, consolidei a
+estrutura do Supabase para parar de crescer a fila `patch_001...`.
+
+O que foi feito:
+
+- criei `supabase/migrations/20260711190000_squashed_legacy_baseline.sql`;
+- essa baseline junta `schema.sql` + patches 001 a 045 em uma migration única
+  para ambientes novos;
+- movi o `schema.sql` antigo para
+  `supabase/legacy_patches/schema_pre_migration_baseline.sql`;
+- movi os patches 001 a 045 para `supabase/legacy_patches/`;
+- reescrevi `supabase/README.md` com o novo fluxo oficial:
+  `supabase db push` para ambiente novo e `supabase migration new` para
+  mudanças futuras;
+- atualizei o README principal e `docs/security.md` para apontar para a
+  baseline/legado.
+
+Decisão importante: o projeto remoto atual já recebeu esses patches manualmente.
+Então a baseline não deve ser aplicada de novo nesse remoto; ela deve apenas ser
+marcada como aplicada no histórico da CLI:
+
+```bash
+supabase migration repair --linked --status applied 20260711190000
+```
+
+Daqui para frente, a regra passa a ser: nada de `patch_046`. Toda mudança nova
+de banco deve entrar como migration timestampada em `supabase/migrations/`.
+
+## Preparacao do Supabase local com Docker
+
+Atualizado em: 11/07/2026
+Branch de trabalho: `fix/DB`
+
+Depois que o Docker Desktop ficou disponivel, preparei o repositório para rodar
+o Supabase localmente via CLI, sem depender do projeto remoto para validar
+migrations.
+
+O que foi feito:
+
+- rodei `supabase init` na branch `fix/DB`;
+- adicionei `supabase/config.toml` ao projeto;
+- ajustei `project_id = "jurii"` para manter um ambiente local estavel;
+- desativei o seed da CLI em `[db.seed]`, porque a baseline consolidada ja
+  contem os dados/seeds necessarios;
+- mantive `supabase/.gitignore` gerado pela CLI para ignorar `.temp`,
+  `.branches` e envs locais;
+- criei `docs/supabase-local.md` com o fluxo local, comandos e smoke tests;
+- atualizei `supabase/README.md` apontando para esse novo fluxo.
+
+Tentei executar `supabase start` para baixar/subir a stack local. O processo
+comecou a puxar as imagens do Supabase, mas falhou no Docker com:
+
+```text
+write /var/lib/desktop-containerd/daemon/io.containerd.metadata.v1.bolt/meta.db: input/output error
+```
+
+Diagnostico: o macOS estava com o disco praticamente cheio, entre ~106Mi e
+~120Mi livres em `/`/`/Users/samuelfries`, e o Docker Desktop ocupando cerca de
+13G. Com esse espaco livre, o Docker nao consegue concluir o pull das imagens
+nem estabilizar o containerd.
+
+Por seguranca, nao rodei `docker system prune` nem limpezas destrutivas amplas.
+Tambem nao foi possivel rodar `supabase db reset`, porque a stack local nao
+chegou a subir.
+
+Proximo passo para finalizar essa validacao:
+
+1. liberar alguns GB de disco ou aumentar o limite de disco do Docker Desktop;
+2. reiniciar o Docker Desktop;
+3. rodar `supabase start`;
+4. rodar `supabase db reset`;
+5. executar os smoke tests SQL documentados em `docs/supabase-local.md`.
+
+### Nova tentativa apos limpeza do disco
+
+Depois da limpeza do computador, o espaco livre subiu para cerca de 45GiB. Isso
+removeu o bloqueio de disco do macOS, mas o Docker Desktop continuou sem subir
+o daemon.
+
+Resultado da nova tentativa:
+
+- `df -h` confirmou espaco livre suficiente;
+- `docker info` deixou de travar, mas passou a retornar
+  `Cannot connect to the Docker daemon`;
+- reiniciei o Docker Desktop por processo;
+- os logs do Docker mostram que, durante a tentativa anterior sem espaco, o
+  filesystem interno do Docker entrou em erro EXT4 e foi remontado como
+  read-only:
+
+```text
+EXT4-fs (vda1): Remounting filesystem read-only
+containerd ... garbage collection failed: input/output error
+```
+
+Diagnostico atualizado: a limpeza do macOS foi necessaria, mas agora o bloqueio
+parece estar no disco interno do Docker Desktop (`Docker.raw`), provavelmente
+corrompido/read-only depois do pull interrompido.
+
+Nao executei limpeza destrutiva do Docker via CLI. O proximo passo seguro e
+abrir Docker Desktop > Troubleshoot e usar Clean / Purge data ou Reset to
+factory defaults. Isso apaga imagens, containers e volumes locais do Docker,
+mas nao apaga o codigo do projeto. Depois disso, repetir:
+
+```bash
+docker info
+supabase start
+supabase db reset
+```
+
+### Limpeza total do Docker e validacao local concluida
+
+Depois foi autorizado apagar tudo que existia no Docker local. Como nada era
+util para o projeto, parei o Docker Desktop, removi o storage operacional local
+do Docker e abri o Docker novamente. O diretório do Docker caiu de cerca de 13G
+para 36M antes de baixar novamente as imagens, e o daemon voltou a responder.
+
+Com o Docker limpo:
+
+- `docker info` voltou a funcionar;
+- `supabase start` baixou as imagens do zero;
+- corrigi a baseline para nao criar funcoes helper antes das tabelas/policies
+  que elas referenciam;
+- `supabase start` subiu a stack local;
+- `supabase db reset` recriou o banco local e aplicou a baseline
+  `20260711190000_squashed_legacy_baseline.sql`;
+- `supabase_migrations.schema_migrations` confirmou a versao `20260711190000`.
+
+Smoke tests locais executados com sucesso:
+
+- `public.approve_lawyer_verification(uuid, uuid)` existe;
+- `public.approve_law_firm_verification(uuid, uuid)` existe;
+- `public.account_deletion_audit` existe;
+- `public.legal_search_intents` tem 645 linhas;
+- `public.legal_search_term_matches('minha demissao foi sem justa causa', 'iss')`
+  retorna `false`;
+- `public.infer_legal_search_areas('inss negou meu auxilio')` retorna
+  `Direito Previdenciário`;
+- buckets locais esperados existem:
+  `case-documents`, `chat-attachments`, `profile-avatars` e
+  `verification-documents`.
+
+Com isso, a baseline consolidada passou a ser validada de verdade em ambiente
+Supabase local via Docker.
