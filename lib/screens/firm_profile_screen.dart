@@ -4,8 +4,10 @@ import '../models/firm_workspace.dart';
 import '../models/lawyer_status.dart';
 import '../models/user_profile.dart';
 import '../theme/app_colors.dart';
+import '../theme/theme_controller.dart';
 import '../widgets/profile_menu_item.dart';
 import '../widgets/profile_menu_section.dart';
+import '../widgets/theme_mode_sheet.dart';
 
 class FirmProfileScreen extends StatelessWidget {
   const FirmProfileScreen({
@@ -198,6 +200,24 @@ class FirmProfileScreen extends StatelessWidget {
                 onTap: () => _showComingSoon(context),
               ),
             ],
+          ),
+          const SizedBox(height: 24),
+          ValueListenableBuilder<ThemeMode>(
+            valueListenable: ThemeController.instance,
+            builder: (context, themeMode, _) {
+              return ProfileMenuSection(
+                title: 'PREFERÊNCIAS',
+                items: [
+                  ProfileMenuItem(
+                    icon: Icons.dark_mode_outlined,
+                    iconColor: colors.primary,
+                    label: 'Aparência',
+                    subtitle: 'Tema: ${themeModeLabel(themeMode)}',
+                    onTap: () => showThemeModeSheet(context),
+                  ),
+                ],
+              );
+            },
           ),
           const SizedBox(height: 24),
           ProfileMenuSection(

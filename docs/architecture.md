@@ -51,21 +51,25 @@ Meus Casos, que hoje depende da recriação. Decisão de UX pendente.
 - `AppTheme.lightTheme`/`darkTheme` registram a extension e todos os component
   themes (inputs com estados de erro, dialogs/sheets sem tint M3, snackbar,
   botões).
-- `ThemeController` (ValueNotifier) já alimenta `themeMode` no MaterialApp.
+- `ThemeController` (ValueNotifier) alimenta `themeMode` no MaterialApp.
 
-**Estado atual: MIGRAÇÃO CONCLUÍDA (jul/2026).** Todas as telas e widgets
+**Estado atual: DARK MODE ATIVO (12/07/2026).** Todas as telas e widgets
 usam `context.jColors`; fora de `lib/theme/` restam apenas
 `AppTheme.lightTheme/darkTheme` no `main.dart` (wiring do MaterialApp).
 Componentes reutilizáveis expõem cor customizável como `Color?` anulável
 resolvido no build (`?? colors.token`) — nunca default const, que congelaria
 o tema claro.
 
-**Para ativar o dark mode (pendente, decisão de produto):**
+Ativação: default do `ThemeController` é `system`; a escolha do usuário vem
+do sheet "Aparência" (`lib/widgets/theme_mode_sheet.dart`, acessível no
+perfil do cliente/advogado e do escritório) e persiste em
+`shared_preferences` (chave `jurii.theme_mode`, restaurada em
+`ThemeController.load()` antes do `runApp`).
 
-1. QA visual completo no tema escuro (a paleta dark nunca foi vista tela a
-   tela).
-2. Default do `ThemeController` → `system`, expor toggle no perfil e
-   persistir com `shared_preferences`.
+Regra ao escrever UI nova: `primary` e `officePurple` são fills CLAROS no
+tema escuro — sobre eles use `colors.card` como foreground (inverte junto),
+nunca tokens claros como `accent`/`textPrimary` (detalhes e matriz de
+contraste em docs/design-motion.md, "oitava leva").
 
 ## Busca inteligente
 

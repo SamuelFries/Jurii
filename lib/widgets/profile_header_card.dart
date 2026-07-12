@@ -35,6 +35,9 @@ class ProfileHeaderCard extends StatelessWidget {
             decoration: BoxDecoration(
               color: colors.accent,
               borderRadius: BorderRadius.circular(12),
+              // Delineia o avatar no tema escuro, onde accent e o header
+              // primary têm a mesma luminância.
+              border: Border.all(color: colors.card.withValues(alpha: 0.35)),
             ),
             child: Center(
               child: Text(
