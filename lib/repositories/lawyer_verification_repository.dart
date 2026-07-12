@@ -1,11 +1,17 @@
 import '../data/legal_practice_areas.dart';
 import '../models/lawyer_status.dart';
 import '../models/lawyer_verification.dart';
+import '../models/pending_verification_upload.dart';
 import '../models/verification_document.dart';
 import '../services/supabase_config.dart';
+import 'verification_document_storage.dart';
 
 class LawyerVerificationRepository {
-  const LawyerVerificationRepository();
+  const LawyerVerificationRepository({
+    this.documentStorage = const VerificationDocumentStorage(),
+  });
+
+  final VerificationDocumentStorage documentStorage;
 
   Future<LawyerVerification?> fetchLatestForCurrentUser() async {
     final user = SupabaseConfig.client.auth.currentUser;
@@ -28,6 +34,7 @@ class LawyerVerificationRepository {
     required String practiceArea,
     required List<String> practiceAreas,
     required List<VerificationDocument> documents,
+    List<PendingVerificationUpload> uploads = const [],
   }) async {
     final user = SupabaseConfig.client.auth.currentUser;
     if (user == null) {
@@ -45,6 +52,15 @@ class LawyerVerificationRepository {
     );
 
     final row = (rows as List<dynamic>).cast<Map<String, dynamic>>().first;
+    final verificationId = row['id'] as String?;
+
+    if (verificationId != null && uploads.isNotEmpty) {
+      await _persistDocuments(
+        userId: row['user_id'] as String? ?? user.id,
+        verificationId: verificationId,
+        uploads: uploads,
+      );
+    }
 
     final returnedPracticeArea =
         row['practice_area'] as String? ?? primaryPracticeArea(practiceAreas);
@@ -63,6 +79,36 @@ class LawyerVerificationRepository {
     );
   }
 
+  /// Sobe cada documento ao Storage e grava a linha em `verification_documents`.
+  /// Em caso de falha, remove os blobs já enviados (rollback best-effort) — a
+  /// verificação em si continua criada e o usuário reenvia os documentos.
+  Future<void> _persistDocuments({
+    required String userId,
+    required String verificationId,
+    required List<PendingVerificationUpload> uploads,
+  }) async {
+    final uploadedPaths = <String>[];
+    try {
+      for (final upload in uploads) {
+        final path = await documentStorage.upload(userId: userId, file: upload);
+        uploadedPaths.add(path);
+
+        await SupabaseConfig.client.from('verification_documents').insert({
+          'verification_id': verificationId,
+          'user_id': userId,
+          'document_type': upload.documentType,
+          'title': upload.title,
+          'storage_path': path,
+          'mime_type': upload.mimeType,
+          'file_size_bytes': upload.fileSizeBytes,
+        });
+      }
+    } catch (error) {
+      await documentStorage.remove(uploadedPaths);
+      rethrow;
+    }
+  }
+
   LawyerVerification _fromRow(Map<String, dynamic> row) {
     return LawyerVerification(
       userId: row['user_id'] as String,
@@ -75,7 +121,14 @@ class LawyerVerificationRepository {
       ),
       documents: const [],
       status: _statusFromRow(row['status'] as String?),
+      reviewedAt: _dateTimeFromRow(row['reviewed_at']),
+      rejectionReason: row['rejection_reason'] as String?,
     );
+  }
+
+  DateTime? _dateTimeFromRow(dynamic value) {
+    if (value is! String || value.isEmpty) return null;
+    return DateTime.tryParse(value);
   }
 
   List<String> _practiceAreasFromRow(Object? value, {List<String>? fallback}) {
@@ -97,6 +150,7 @@ class LawyerVerificationRepository {
   LawyerStatus _statusFromRow(String? value) {
     return switch (value) {
       'approved' => LawyerStatus.approved,
+      'rejected' => LawyerStatus.rejected,
       'pending' || 'draft' => LawyerStatus.pending,
       _ => LawyerStatus.client,
     };

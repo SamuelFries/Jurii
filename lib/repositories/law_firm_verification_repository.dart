@@ -1,15 +1,19 @@
 import '../models/law_firm_verification.dart';
 import '../models/law_firm_verification_document.dart';
 import '../models/law_firm_verification_status.dart';
+import '../models/pending_verification_upload.dart';
 import '../services/supabase_config.dart';
 import 'profile_repository.dart';
+import 'verification_document_storage.dart';
 
 class LawFirmVerificationRepository {
   const LawFirmVerificationRepository({
     this.profileRepository = const ProfileRepository(),
+    this.documentStorage = const VerificationDocumentStorage(),
   });
 
   final ProfileRepository profileRepository;
+  final VerificationDocumentStorage documentStorage;
 
   Future<LawFirmVerification?> fetchLatestForCurrentUser() async {
     final user = SupabaseConfig.client.auth.currentUser;
@@ -34,6 +38,7 @@ class LawFirmVerificationRepository {
     required String address,
     required List<String> practiceAreas,
     required List<LawFirmVerificationDocument> documents,
+    List<PendingVerificationUpload> uploads = const [],
   }) async {
     final user = SupabaseConfig.client.auth.currentUser;
     if (user == null) {
@@ -62,18 +67,32 @@ class LawFirmVerificationRepository {
       );
     }
 
-    await SupabaseConfig.client.from('law_firm_verifications').insert({
-      'owner_profile_id': user.id,
-      'firm_name': firmName,
-      'cnpj': cnpj,
-      'phone': phone,
-      'email': email,
-      'address': address,
-      'practice_areas': practiceAreas,
-      'status': 'pending',
-    });
+    final inserted = await SupabaseConfig.client
+        .from('law_firm_verifications')
+        .insert({
+          'owner_profile_id': user.id,
+          'firm_name': firmName,
+          'cnpj': cnpj,
+          'phone': phone,
+          'email': email,
+          'address': address,
+          'practice_areas': practiceAreas,
+          'status': 'pending',
+        })
+        .select('id')
+        .single();
+
+    final verificationId = inserted['id'] as String?;
+    if (verificationId != null && uploads.isNotEmpty) {
+      await _persistDocuments(
+        ownerProfileId: user.id,
+        verificationId: verificationId,
+        uploads: uploads,
+      );
+    }
 
     return LawFirmVerification(
+      id: verificationId,
       ownerProfileId: user.id,
       firmName: firmName,
       cnpj: cnpj,
@@ -84,6 +103,40 @@ class LawFirmVerificationRepository {
       documents: documents,
       status: LawFirmVerificationStatus.pending,
     );
+  }
+
+  /// Sobe cada documento ao Storage e grava a linha em
+  /// `law_firm_verification_documents`; rollback best-effort dos blobs em caso
+  /// de falha (a verificação continua criada, o usuário reenvia os documentos).
+  Future<void> _persistDocuments({
+    required String ownerProfileId,
+    required String verificationId,
+    required List<PendingVerificationUpload> uploads,
+  }) async {
+    final uploadedPaths = <String>[];
+    try {
+      for (final upload in uploads) {
+        final path = await documentStorage.upload(
+          userId: ownerProfileId,
+          file: upload,
+        );
+        uploadedPaths.add(path);
+
+        await SupabaseConfig.client
+            .from('law_firm_verification_documents')
+            .insert({
+              'verification_id': verificationId,
+              'owner_profile_id': ownerProfileId,
+              'document_type': upload.documentType,
+              'title': upload.title,
+              'storage_path': path,
+              'mime_type': upload.mimeType,
+            });
+      }
+    } catch (error) {
+      await documentStorage.remove(uploadedPaths);
+      rethrow;
+    }
   }
 
   LawFirmVerification _fromRow(Map<String, dynamic> row) {

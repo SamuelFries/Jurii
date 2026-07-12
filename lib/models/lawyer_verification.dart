@@ -9,6 +9,8 @@ class LawyerVerification {
   final List<String> practiceAreas;
   final List<VerificationDocument> documents;
   final LawyerStatus status;
+  final DateTime? reviewedAt;
+  final String? rejectionReason;
 
   const LawyerVerification({
     required this.userId,
@@ -18,5 +20,7 @@ class LawyerVerification {
     required this.practiceAreas,
     required this.documents,
     required this.status,
+    this.reviewedAt,
+    this.rejectionReason,
   });
 }

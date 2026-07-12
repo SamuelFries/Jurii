@@ -1,3 +1,4 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
@@ -6,10 +7,12 @@ import '../data/mock/mock_law_firm_verification.dart';
 import '../models/law_firm_verification.dart';
 import '../models/law_firm_verification_document.dart';
 import '../models/law_firm_verification_status.dart';
+import '../models/pending_verification_upload.dart';
 import '../models/user_profile.dart';
 import '../repositories/law_firm_verification_repository.dart';
 import '../services/supabase_config.dart';
 import '../theme/app_colors.dart';
+import '../utils/document_file_validation.dart';
 import '../widgets/jurii_form_motion.dart';
 import '../widgets/jurii_motion.dart';
 import '../widgets/practice_area_selector.dart';
@@ -44,6 +47,7 @@ class _LawFirmVerificationFormScreenState
   String? errorMessage;
   List<String> selectedAreas = const [];
   late List<LawFirmVerificationDocument> documents;
+  final Map<String, PendingVerificationUpload> _pickedFiles = {};
 
   bool get formIsValid {
     return _dataStepComplete &&
@@ -253,7 +257,7 @@ class _LawFirmVerificationFormScreenState
                 _uploadCard(
                   document: documents[index],
                   hasError: showErrors && !documents[index].uploaded,
-                  onTap: () => _markDocumentUploaded(index),
+                  onTap: () => _pickDocument(index),
                 ),
                 if (index < documents.length - 1) const SizedBox(height: 14),
               ],
@@ -339,8 +343,15 @@ class _LawFirmVerificationFormScreenState
                   style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
                 Text(
-                  document.subtitle,
-                  style: TextStyle(color: colors.textSecondary, fontSize: 13),
+                  _pickedFiles[document.id]?.fileName ?? document.subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: _pickedFiles.containsKey(document.id)
+                        ? colors.success
+                        : colors.textSecondary,
+                    fontSize: 13,
+                  ),
                 ),
               ],
             ),
@@ -421,6 +432,7 @@ class _LawFirmVerificationFormScreenState
               address: addressController.text.trim(),
               practiceAreas: selectedAreas,
               documents: documents,
+              uploads: _pickedFiles.values.toList(),
             )
           : LawFirmVerification(
               ownerProfileId: widget.user.id,
@@ -453,9 +465,48 @@ class _LawFirmVerificationFormScreenState
     }
   }
 
-  void _markDocumentUploaded(int index) {
+  Future<void> _pickDocument(int index) async {
+    final document = documents[index];
+
+    // Modo demo/testes (sem Supabase): sem Storage para receber o arquivo.
+    if (!SupabaseConfig.isReady) {
+      setState(() {
+        documents[index] = document.copyWith(uploaded: true);
+      });
+      return;
+    }
+
+    final picked = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowMultiple: false,
+      withData: true,
+      allowedExtensions: verificationAllowedExtensions,
+    );
+    final file = picked?.files.single;
+    if (file == null) return;
+
+    final validation = validateVerificationDocument(
+      fileName: file.name,
+      bytes: file.bytes,
+      sizeBytes: file.size,
+    );
+    if (!mounted) return;
+    if (!validation.isValid) {
+      setState(() => errorMessage = validation.error);
+      return;
+    }
+
     setState(() {
-      documents[index] = documents[index].copyWith(uploaded: true);
+      errorMessage = null;
+      _pickedFiles[document.id] = PendingVerificationUpload(
+        documentId: document.id,
+        documentType: document.id,
+        title: document.title,
+        fileName: file.name,
+        mimeType: validation.mimeType!,
+        bytes: file.bytes!,
+      );
+      documents[index] = document.copyWith(uploaded: true);
     });
   }
 
