@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/law_firm_verification.dart';
 import '../models/law_firm_verification_status.dart';
-import '../theme/app_theme.dart';
+import '../theme/app_colors.dart';
 
 class LawFirmModeCard extends StatelessWidget {
   const LawFirmModeCard({
@@ -16,6 +16,7 @@ class LawFirmModeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     final isApproved =
         verification.status == LawFirmVerificationStatus.approved;
     final title = isApproved ? 'Área do Escritório' : 'Escritório em análise';
@@ -25,7 +26,7 @@ class LawFirmModeCard extends StatelessWidget {
     final icon = isApproved
         ? Icons.dashboard_customize_outlined
         : Icons.schedule_outlined;
-    final cardColor = isApproved ? AppTheme.officePurple : AppTheme.muted;
+    final cardColor = isApproved ? colors.officePurple : colors.muted;
 
     return Material(
       color: Colors.transparent,
@@ -52,13 +53,13 @@ class LawFirmModeCard extends StatelessWidget {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: AppTheme.card.withValues(alpha: 0.18),
+                  color: colors.card.withValues(alpha: 0.18),
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(
-                    color: AppTheme.card.withValues(alpha: 0.45),
+                    color: colors.card.withValues(alpha: 0.45),
                   ),
                 ),
-                child: Icon(icon, color: AppTheme.card, size: 24),
+                child: Icon(icon, color: colors.card, size: 24),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -67,8 +68,8 @@ class LawFirmModeCard extends StatelessWidget {
                   children: [
                     Text(
                       title,
-                      style: const TextStyle(
-                        color: AppTheme.card,
+                      style: TextStyle(
+                        color: colors.card,
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
                         decoration: TextDecoration.none,
@@ -79,8 +80,8 @@ class LawFirmModeCard extends StatelessWidget {
                       subtitle,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppTheme.card,
+                      style: TextStyle(
+                        color: colors.card,
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                         decoration: TextDecoration.none,
@@ -94,14 +95,10 @@ class LawFirmModeCard extends StatelessWidget {
                 width: 36,
                 height: 36,
                 decoration: BoxDecoration(
-                  color: AppTheme.card.withValues(alpha: 0.12),
+                  color: colors.card.withValues(alpha: 0.12),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
-                  Icons.chevron_right,
-                  color: AppTheme.card,
-                  size: 26,
-                ),
+                child: Icon(Icons.chevron_right, color: colors.card, size: 26),
               ),
             ],
           ),

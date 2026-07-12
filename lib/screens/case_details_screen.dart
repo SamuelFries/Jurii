@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/case_update.dart';
 import '../repositories/case_repository.dart';
-import '../theme/app_theme.dart';
+import '../theme/app_colors.dart';
 import '../widgets/jurii_empty_state.dart';
 import '../widgets/jurii_form_motion.dart';
 import '../widgets/jurii_motion.dart';
@@ -76,20 +76,21 @@ class _CaseDetailsScreenState extends State<CaseDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: colors.background,
       appBar: AppBar(title: const Text('Detalhes do caso')),
       floatingActionButton: widget.canAddUpdates
           ? FloatingActionButton.extended(
-              backgroundColor: AppTheme.primary,
-              foregroundColor: AppTheme.card,
+              backgroundColor: colors.primary,
+              foregroundColor: colors.card,
               onPressed: _isSubmitting ? null : _openAddUpdateSheet,
               icon: _isSubmitting
-                  ? const SizedBox(
+                  ? SizedBox(
                       width: 18,
                       height: 18,
                       child: CircularProgressIndicator(
-                        color: AppTheme.card,
+                        color: colors.card,
                         strokeWidth: 2,
                       ),
                     )
@@ -108,10 +109,10 @@ class _CaseDetailsScreenState extends State<CaseDetailsScreen> {
               children: [
                 _CaseHeader(title: widget.title, subtitle: widget.subtitle),
                 const SizedBox(height: 24),
-                const Text(
+                Text(
                   'Atualizações',
                   style: TextStyle(
-                    color: AppTheme.textPrimary,
+                    color: colors.textPrimary,
                     fontSize: 20,
                     fontWeight: FontWeight.w900,
                   ),
@@ -161,13 +162,14 @@ class _CaseHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppTheme.card,
+        color: colors.card,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppTheme.lightBlueBorder),
+        border: Border.all(color: colors.lightBlueBorder),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -176,16 +178,16 @@ class _CaseHeader extends StatelessWidget {
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              color: AppTheme.lightBlue,
+              color: colors.lightBlue,
               borderRadius: BorderRadius.circular(14),
             ),
-            child: const Icon(Icons.folder_outlined, color: AppTheme.primary),
+            child: Icon(Icons.folder_outlined, color: colors.primary),
           ),
           const SizedBox(height: 14),
           Text(
             title,
-            style: const TextStyle(
-              color: AppTheme.textPrimary,
+            style: TextStyle(
+              color: colors.textPrimary,
               fontSize: 24,
               fontWeight: FontWeight.w900,
             ),
@@ -193,8 +195,8 @@ class _CaseHeader extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             subtitle,
-            style: const TextStyle(
-              color: AppTheme.textSecondary,
+            style: TextStyle(
+              color: colors.textSecondary,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -212,6 +214,7 @@ class _CaseUpdateTimelineItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return IntrinsicHeight(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -223,9 +226,9 @@ class _CaseUpdateTimelineItem extends StatelessWidget {
                 height: 12,
                 margin: const EdgeInsets.only(top: 18),
                 decoration: BoxDecoration(
-                  color: AppTheme.accent,
+                  color: colors.accent,
                   shape: BoxShape.circle,
-                  border: Border.all(color: AppTheme.lightGoldBorder, width: 2),
+                  border: Border.all(color: colors.lightGoldBorder, width: 2),
                 ),
               ),
               if (!isLast)
@@ -234,7 +237,7 @@ class _CaseUpdateTimelineItem extends StatelessWidget {
                     width: 2,
                     margin: const EdgeInsets.symmetric(vertical: 6),
                     decoration: BoxDecoration(
-                      color: AppTheme.lightBlueBorder,
+                      color: colors.lightBlueBorder,
                       borderRadius: BorderRadius.circular(999),
                     ),
                   ),
@@ -261,12 +264,13 @@ class _CaseUpdateCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppTheme.card,
+        color: colors.card,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.lightBlueBorder),
+        border: Border.all(color: colors.lightBlueBorder),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -275,14 +279,14 @@ class _CaseUpdateCard extends StatelessWidget {
             width: 42,
             height: 42,
             decoration: BoxDecoration(
-              color: AppTheme.lightGold,
+              color: colors.lightGold,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Center(
               child: Text(
                 update.authorInitials,
-                style: const TextStyle(
-                  color: AppTheme.accent,
+                style: TextStyle(
+                  color: colors.accent,
                   fontWeight: FontWeight.w900,
                   fontSize: 12,
                 ),
@@ -299,8 +303,8 @@ class _CaseUpdateCard extends StatelessWidget {
                     Expanded(
                       child: Text(
                         update.title,
-                        style: const TextStyle(
-                          color: AppTheme.textPrimary,
+                        style: TextStyle(
+                          color: colors.textPrimary,
                           fontWeight: FontWeight.w900,
                         ),
                       ),
@@ -308,8 +312,8 @@ class _CaseUpdateCard extends StatelessWidget {
                     const SizedBox(width: 8),
                     Text(
                       update.createdAtLabel,
-                      style: const TextStyle(
-                        color: AppTheme.textSecondary,
+                      style: TextStyle(
+                        color: colors.textSecondary,
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
                       ),
@@ -319,8 +323,8 @@ class _CaseUpdateCard extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   update.authorName,
-                  style: const TextStyle(
-                    color: AppTheme.textSecondary,
+                  style: TextStyle(
+                    color: colors.textSecondary,
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
                   ),
@@ -329,10 +333,7 @@ class _CaseUpdateCard extends StatelessWidget {
                   const SizedBox(height: 8),
                   Text(
                     update.body,
-                    style: const TextStyle(
-                      color: AppTheme.textSecondary,
-                      height: 1.35,
-                    ),
+                    style: TextStyle(color: colors.textSecondary, height: 1.35),
                   ),
                 ],
               ],
@@ -351,21 +352,22 @@ class _UpdatesErrorState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppTheme.card,
+        color: colors.card,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppTheme.lightBlueBorder),
+        border: Border.all(color: colors.lightBlueBorder),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Não foi possível carregar as atualizações.',
             style: TextStyle(
-              color: AppTheme.textSecondary,
+              color: colors.textSecondary,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -425,16 +427,17 @@ class _AddUpdateSheetState extends State<_AddUpdateSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return JuriiModalSheetScaffold(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text(
+          Text(
             'Adicionar atualização',
             style: TextStyle(
-              color: AppTheme.textPrimary,
+              color: colors.textPrimary,
               fontSize: 22,
               fontWeight: FontWeight.w900,
             ),

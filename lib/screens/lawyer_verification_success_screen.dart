@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 
-import '../theme/app_theme.dart';
+import '../theme/app_colors.dart';
 
 class LawyerVerificationSuccessScreen extends StatelessWidget {
   const LawyerVerificationSuccessScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: colors.background,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -20,35 +21,31 @@ class LawyerVerificationSuccessScreen extends StatelessWidget {
                 width: 96,
                 height: 96,
                 decoration: BoxDecoration(
-                  color: AppTheme.successSurface,
+                  color: colors.successSurface,
                   borderRadius: BorderRadius.circular(48),
                 ),
-                child: const Icon(
-                  Icons.check,
-                  color: AppTheme.success,
-                  size: 48,
-                ),
+                child: Icon(Icons.check, color: colors.success, size: 48),
               ),
 
               const SizedBox(height: 28),
 
-              const Text(
+              Text(
                 'Solicitação enviada',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 30,
                   fontWeight: FontWeight.w700,
-                  color: AppTheme.textPrimary,
+                  color: colors.textPrimary,
                 ),
               ),
 
               const SizedBox(height: 16),
 
-              const Text(
+              Text(
                 'Sua documentação foi recebida e já está em análise.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: AppTheme.textSecondary,
+                  color: colors.textSecondary,
                   fontSize: 16,
                   height: 1.5,
                 ),
@@ -63,19 +60,19 @@ class LawyerVerificationSuccessScreen extends StatelessWidget {
                   vertical: 16,
                 ),
                 decoration: BoxDecoration(
-                  color: AppTheme.warningSurface,
+                  color: colors.warningSurface,
                   borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: AppTheme.warningBorder),
+                  border: Border.all(color: colors.warningBorder),
                 ),
-                child: const Row(
+                child: Row(
                   children: [
-                    Icon(Icons.schedule_outlined, color: AppTheme.accent),
+                    Icon(Icons.schedule_outlined, color: colors.accent),
                     SizedBox(width: 12),
                     Expanded(
                       child: Text(
                         'Prazo estimado: até 2 dias úteis',
                         style: TextStyle(
-                          color: AppTheme.textPrimary,
+                          color: colors.textPrimary,
                           fontWeight: FontWeight.w600,
                           fontSize: 14,
                         ),

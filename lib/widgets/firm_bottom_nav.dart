@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../theme/app_theme.dart';
+import '../theme/app_colors.dart';
 import 'jurii_motion.dart';
 
 class FirmBottomNav extends StatelessWidget {
@@ -15,6 +15,7 @@ class FirmBottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     final items = [
       (Icons.home_outlined, Icons.home, 'Início'),
       (Icons.chat_bubble_outline, Icons.chat_bubble, 'Mensagens'),
@@ -24,9 +25,9 @@ class FirmBottomNav extends StatelessWidget {
     ];
 
     return Container(
-      decoration: const BoxDecoration(
-        color: AppTheme.card,
-        border: Border(top: BorderSide(color: AppTheme.officePurpleBorder)),
+      decoration: BoxDecoration(
+        color: colors.card,
+        border: Border(top: BorderSide(color: colors.officePurpleBorder)),
       ),
       // Scaffold não aplica safe area ao bottomNavigationBar: sem isto o
       // home indicator do iPhone sobrepõe os labels.
@@ -57,7 +58,7 @@ class FirmBottomNav extends StatelessWidget {
                             width: selected ? 36 : 0,
                             height: 4,
                             decoration: BoxDecoration(
-                              color: AppTheme.officePurple,
+                              color: colors.officePurple,
                               borderRadius: BorderRadius.circular(99),
                             ),
                           ),
@@ -79,8 +80,8 @@ class FirmBottomNav extends StatelessWidget {
                                 selected ? items[index].$2 : items[index].$1,
                                 key: ValueKey('firm_nav_${index}_$selected'),
                                 color: selected
-                                    ? AppTheme.officePurple
-                                    : AppTheme.textSecondary,
+                                    ? colors.officePurple
+                                    : colors.textSecondary,
                                 size: 26,
                               ),
                             ),
@@ -91,7 +92,7 @@ class FirmBottomNav extends StatelessWidget {
                               right: -2,
                               child: CircleAvatar(
                                 radius: 4,
-                                backgroundColor: AppTheme.accent,
+                                backgroundColor: colors.accent,
                               ),
                             ),
                         ],
@@ -102,8 +103,8 @@ class FirmBottomNav extends StatelessWidget {
                         curve: JuriiMotion.ease,
                         style: TextStyle(
                           color: selected
-                              ? AppTheme.officePurple
-                              : AppTheme.textSecondary,
+                              ? colors.officePurple
+                              : colors.textSecondary,
                           fontWeight: selected
                               ? FontWeight.w700
                               : FontWeight.w500,

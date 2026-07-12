@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../theme/app_theme.dart';
+import '../theme/app_colors.dart';
 import '../types/auth_callbacks.dart';
 import '../utils/validators.dart';
 import 'jurii_form_motion.dart';
@@ -255,12 +255,13 @@ class _RegisterFormState extends State<RegisterForm> {
   }
 
   Widget _shadowedField({required Widget child}) {
+    final colors = context.jColors;
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
-        boxShadow: const [
+        boxShadow: [
           BoxShadow(
-            color: AppTheme.softShadow,
+            color: colors.softShadow,
             blurRadius: 8,
             offset: Offset(0, 2),
           ),
@@ -321,10 +322,10 @@ class _PasswordStrengthIndicator extends StatelessWidget {
 
   final int strength;
 
-  Color get _color => switch (strength) {
-    3 => AppTheme.success,
-    2 => AppTheme.accent,
-    _ => AppTheme.danger,
+  Color _color(AppColors colors) => switch (strength) {
+    3 => colors.success,
+    2 => colors.accent,
+    _ => colors.danger,
   };
 
   String get _label => switch (strength) {
@@ -335,6 +336,7 @@ class _PasswordStrengthIndicator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: Column(
@@ -351,8 +353,8 @@ class _PasswordStrengthIndicator extends StatelessWidget {
                   margin: EdgeInsets.only(right: index == 2 ? 0 : 6),
                   decoration: BoxDecoration(
                     color: isActive
-                        ? _color
-                        : AppTheme.lightBlueBorder.withValues(alpha: 0.45),
+                        ? _color(colors)
+                        : colors.lightBlueBorder.withValues(alpha: 0.45),
                     borderRadius: BorderRadius.circular(8),
                   ),
                 ),
@@ -363,7 +365,7 @@ class _PasswordStrengthIndicator extends StatelessWidget {
           Text(
             _label,
             style: TextStyle(
-              color: _color,
+              color: _color(colors),
               fontSize: 12,
               fontWeight: FontWeight.w700,
             ),

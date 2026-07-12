@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/user_profile.dart';
-import '../theme/app_theme.dart';
+import '../theme/app_colors.dart';
 
 class ClientProfileScreen extends StatelessWidget {
   const ClientProfileScreen({super.key, required this.profile});
@@ -10,8 +10,9 @@ class ClientProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: colors.background,
       appBar: AppBar(title: const Text('Perfil do cliente')),
       body: SafeArea(
         child: ListView(
@@ -20,9 +21,9 @@ class ClientProfileScreen extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: AppTheme.card,
+                color: colors.card,
                 borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: AppTheme.lightBlueBorder),
+                border: Border.all(color: colors.lightBlueBorder),
               ),
               child: Row(
                 children: [
@@ -30,14 +31,14 @@ class ClientProfileScreen extends StatelessWidget {
                     width: 64,
                     height: 64,
                     decoration: BoxDecoration(
-                      color: AppTheme.lightBlue,
+                      color: colors.lightBlue,
                       borderRadius: BorderRadius.circular(18),
                     ),
                     child: Center(
                       child: Text(
                         profile.initials,
-                        style: const TextStyle(
-                          color: AppTheme.primary,
+                        style: TextStyle(
+                          color: colors.primary,
                           fontSize: 20,
                           fontWeight: FontWeight.w900,
                         ),
@@ -53,8 +54,8 @@ class ClientProfileScreen extends StatelessWidget {
                           profile.name,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: AppTheme.textPrimary,
+                          style: TextStyle(
+                            color: colors.textPrimary,
                             fontSize: 24,
                             fontWeight: FontWeight.w900,
                           ),
@@ -62,8 +63,8 @@ class ClientProfileScreen extends StatelessWidget {
                         const SizedBox(height: 6),
                         Text(
                           profile.memberSince,
-                          style: const TextStyle(
-                            color: AppTheme.textSecondary,
+                          style: TextStyle(
+                            color: colors.textSecondary,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
@@ -113,12 +114,13 @@ class _ProfileSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: AppTheme.card,
-        border: Border.all(color: AppTheme.lightBlueBorder),
+        color: colors.card,
+        border: Border.all(color: colors.lightBlueBorder),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
@@ -126,8 +128,8 @@ class _ProfileSection extends StatelessWidget {
         children: [
           Text(
             title,
-            style: const TextStyle(
-              color: AppTheme.textPrimary,
+            style: TextStyle(
+              color: colors.textPrimary,
               fontSize: 17,
               fontWeight: FontWeight.w900,
             ),
@@ -148,15 +150,16 @@ class _ContactRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return Row(
       children: [
-        Icon(icon, color: AppTheme.primary, size: 20),
+        Icon(icon, color: colors.primary, size: 20),
         const SizedBox(width: 10),
         Expanded(
           child: Text(
             label,
-            style: const TextStyle(
-              color: AppTheme.textSecondary,
+            style: TextStyle(
+              color: colors.textSecondary,
               fontWeight: FontWeight.w700,
             ),
           ),

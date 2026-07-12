@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../theme/app_theme.dart';
+import '../theme/app_colors.dart';
 
 class ProfileHeaderCard extends StatelessWidget {
   final String name;
@@ -19,11 +19,12 @@ class ProfileHeaderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppTheme.primary,
+        color: colors.primary,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
@@ -32,14 +33,14 @@ class ProfileHeaderCard extends StatelessWidget {
             width: 56,
             height: 56,
             decoration: BoxDecoration(
-              color: AppTheme.accent,
+              color: colors.accent,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Center(
               child: Text(
                 initials,
-                style: const TextStyle(
-                  color: AppTheme.card,
+                style: TextStyle(
+                  color: colors.card,
                   fontWeight: FontWeight.bold,
                   fontSize: 18,
                 ),
@@ -53,8 +54,8 @@ class ProfileHeaderCard extends StatelessWidget {
               children: [
                 Text(
                   name,
-                  style: const TextStyle(
-                    color: AppTheme.card,
+                  style: TextStyle(
+                    color: colors.card,
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                   ),
@@ -62,7 +63,7 @@ class ProfileHeaderCard extends StatelessWidget {
                 Text(
                   email,
                   style: TextStyle(
-                    color: AppTheme.card.withValues(alpha: 0.7),
+                    color: colors.card.withValues(alpha: 0.7),
                     fontSize: 13,
                   ),
                 ),
@@ -73,7 +74,7 @@ class ProfileHeaderCard extends StatelessWidget {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: AppTheme.card.withValues(alpha: 0.15),
+                    color: colors.card.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Row(
@@ -81,14 +82,14 @@ class ProfileHeaderCard extends StatelessWidget {
                     children: [
                       Icon(
                         Icons.shield_outlined,
-                        color: AppTheme.card.withValues(alpha: 0.7),
+                        color: colors.card.withValues(alpha: 0.7),
                         size: 14,
                       ),
                       const SizedBox(width: 4),
                       Text(
                         memberSince,
                         style: TextStyle(
-                          color: AppTheme.card.withValues(alpha: 0.7),
+                          color: colors.card.withValues(alpha: 0.7),
                           fontSize: 11,
                         ),
                       ),
@@ -104,14 +105,10 @@ class ProfileHeaderCard extends StatelessWidget {
               width: 36,
               height: 36,
               decoration: BoxDecoration(
-                color: AppTheme.card.withValues(alpha: 0.15),
+                color: colors.card.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
-                Icons.edit_outlined,
-                color: AppTheme.card,
-                size: 18,
-              ),
+              child: Icon(Icons.edit_outlined, color: colors.card, size: 18),
             ),
           ),
         ],

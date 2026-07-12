@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../data/legal_documents.dart';
-import '../theme/app_theme.dart';
+import '../theme/app_colors.dart';
 
 class LegalDocumentScreen extends StatelessWidget {
   const LegalDocumentScreen({super.key, required this.type});
@@ -10,10 +10,11 @@ class LegalDocumentScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     final document = legalDocumentFor(type);
 
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: colors.background,
       appBar: AppBar(title: Text(document.title)),
       body: SafeArea(
         child: ListView(
@@ -39,14 +40,15 @@ class _DocumentHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: AppTheme.card,
+        color: colors.card,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.lightBlueBorder),
-        boxShadow: const [
+        border: Border.all(color: colors.lightBlueBorder),
+        boxShadow: [
           BoxShadow(
-            color: AppTheme.softShadow,
+            color: colors.softShadow,
             blurRadius: 12,
             offset: Offset(0, 6),
           ),
@@ -59,8 +61,8 @@ class _DocumentHeader extends StatelessWidget {
           children: [
             Text(
               document.updatedAt,
-              style: const TextStyle(
-                color: AppTheme.accent,
+              style: TextStyle(
+                color: colors.accent,
                 fontSize: 12,
                 fontWeight: FontWeight.w800,
               ),
@@ -68,8 +70,8 @@ class _DocumentHeader extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               document.summary,
-              style: const TextStyle(
-                color: AppTheme.textPrimary,
+              style: TextStyle(
+                color: colors.textPrimary,
                 height: 1.45,
                 fontWeight: FontWeight.w600,
               ),
@@ -88,11 +90,12 @@ class _DocumentSectionView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: AppTheme.card,
+        color: colors.card,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.divider),
+        border: Border.all(color: colors.divider),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -101,8 +104,8 @@ class _DocumentSectionView extends StatelessWidget {
           children: [
             Text(
               section.title,
-              style: const TextStyle(
-                color: AppTheme.textPrimary,
+              style: TextStyle(
+                color: colors.textPrimary,
                 fontSize: 16,
                 fontWeight: FontWeight.w900,
               ),
@@ -111,8 +114,8 @@ class _DocumentSectionView extends StatelessWidget {
             for (final paragraph in section.body) ...[
               Text(
                 paragraph,
-                style: const TextStyle(
-                  color: AppTheme.textSecondary,
+                style: TextStyle(
+                  color: colors.textSecondary,
                   height: 1.55,
                   fontWeight: FontWeight.w500,
                 ),

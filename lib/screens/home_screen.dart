@@ -4,11 +4,11 @@ import 'package:flutter/material.dart';
 
 import 'package:jurii/data/legal_practice_areas.dart';
 import 'package:jurii/models/jurii_notification.dart';
-import 'package:jurii/theme/app_theme.dart';
 import 'package:jurii/widgets/categories_section.dart';
 import 'package:jurii/widgets/notification_bell.dart';
 import 'package:jurii/widgets/offices_section.dart';
 import 'package:jurii/widgets/recommended_lawyers_section.dart';
+import '../theme/app_colors.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -63,6 +63,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return SafeArea(
       child: RefreshIndicator(
         onRefresh: _refresh,
@@ -73,14 +74,14 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Row(
+                Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(
                       child: Text(
                         'Como podemos ajudar hoje?',
                         style: TextStyle(
-                          color: AppTheme.textPrimary,
+                          color: colors.textPrimary,
                           fontSize: 34,
                           fontWeight: FontWeight.bold,
                         ),
@@ -89,9 +90,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     SizedBox(width: 12),
                     NotificationBell(
                       scope: NotificationScope.client,
-                      iconColor: AppTheme.accent,
-                      backgroundColor: AppTheme.card,
-                      borderColor: AppTheme.lightGoldBorder,
+                      iconColor: colors.accent,
+                      backgroundColor: colors.card,
+                      borderColor: colors.lightGoldBorder,
                     ),
                   ],
                 ),
@@ -143,17 +144,17 @@ class _HomeScreenState extends State<HomeScreen> {
                         label: Text(area),
                         selected: selected,
                         showCheckmark: false,
-                        selectedColor: AppTheme.lightGold,
-                        backgroundColor: AppTheme.card,
+                        selectedColor: colors.lightGold,
+                        backgroundColor: colors.card,
                         side: BorderSide(
                           color: selected
-                              ? AppTheme.accent
-                              : AppTheme.lightBlueBorder,
+                              ? colors.accent
+                              : colors.lightBlueBorder,
                         ),
                         labelStyle: TextStyle(
                           color: selected
-                              ? AppTheme.accent
-                              : AppTheme.textSecondary,
+                              ? colors.accent
+                              : colors.textSecondary,
                           fontSize: 12,
                           fontWeight: FontWeight.w800,
                         ),
@@ -194,4 +195,3 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 }
-

@@ -9,7 +9,7 @@ import '../models/law_firm_verification_status.dart';
 import '../models/user_profile.dart';
 import '../repositories/law_firm_verification_repository.dart';
 import '../services/supabase_config.dart';
-import '../theme/app_theme.dart';
+import '../theme/app_colors.dart';
 import '../widgets/jurii_form_motion.dart';
 import '../widgets/jurii_motion.dart';
 import '../widgets/practice_area_selector.dart';
@@ -46,13 +46,17 @@ class _LawFirmVerificationFormScreenState
   late List<LawFirmVerificationDocument> documents;
 
   bool get formIsValid {
+    return _dataStepComplete &&
+        selectedAreas.isNotEmpty &&
+        documents.every((document) => document.uploaded);
+  }
+
+  bool get _dataStepComplete {
     return firmNameController.text.trim().length >= 3 &&
         _onlyDigits(cnpjController.text).length == 14 &&
         _isValidPhone(phoneController.text) &&
         emailController.text.trim().contains('@') &&
-        addressController.text.trim().length >= 8 &&
-        selectedAreas.isNotEmpty &&
-        documents.every((document) => document.uploaded);
+        addressController.text.trim().length >= 8;
   }
 
   int get _completedSteps {
@@ -105,30 +109,31 @@ class _LawFirmVerificationFormScreenState
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return Scaffold(
-      backgroundColor: AppTheme.background,
-      appBar: AppBar(backgroundColor: AppTheme.background, elevation: 0),
+      backgroundColor: colors.background,
+      appBar: AppBar(backgroundColor: colors.background, elevation: 0),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'Verificação\ndo Escritório',
                 style: TextStyle(
                   fontSize: 34,
                   fontWeight: FontWeight.w700,
-                  color: AppTheme.textPrimary,
+                  color: colors.textPrimary,
                   height: 1.15,
                   fontFamily: 'Serif',
                 ),
               ),
               const SizedBox(height: 12),
-              const Text(
+              Text(
                 'Envie os dados da pessoa jurídica e os documentos do responsável pelo cadastro.',
                 style: TextStyle(
-                  color: AppTheme.textSecondary,
+                  color: colors.textSecondary,
                   fontSize: 15,
                   height: 1.5,
                 ),
@@ -142,14 +147,16 @@ class _LawFirmVerificationFormScreenState
                     : 'Complete o cadastro do escritório',
                 subtitle:
                     'Dados da pessoa jurídica, áreas atendidas e documentos.',
-                accentColor: AppTheme.officePurple,
-                surfaceColor: AppTheme.officePurpleSurface,
-                borderColor: AppTheme.officePurpleBorder,
+                accentColor: colors.officePurple,
+                surfaceColor: colors.officePurpleSurface,
+                borderColor: colors.officePurpleBorder,
               ),
               const SizedBox(height: 32),
-              const Text(
-                'Dados do Escritório',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+              JuriiFormSectionHeader(
+                stepNumber: 1,
+                title: 'Dados do escritório',
+                isComplete: _dataStepComplete,
+                accentColor: colors.officePurple,
               ),
               const SizedBox(height: 16),
               TextField(
@@ -219,17 +226,27 @@ class _LawFirmVerificationFormScreenState
                       : null,
                 ),
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 32),
+              JuriiFormSectionHeader(
+                stepNumber: 2,
+                title: 'Áreas atendidas',
+                isComplete: selectedAreas.isNotEmpty,
+                accentColor: colors.officePurple,
+              ),
+              const SizedBox(height: 16),
               PracticeAreaSelector(
                 selectedAreas: selectedAreas,
                 showError: showErrors,
-                selectedColor: AppTheme.officePurple,
+                selectedColor: colors.officePurple,
+                label: 'Selecione as áreas',
                 onChanged: (areas) => setState(() => selectedAreas = areas),
               ),
               const SizedBox(height: 32),
-              const Text(
-                'Documentos',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+              JuriiFormSectionHeader(
+                stepNumber: 3,
+                title: 'Documentos',
+                isComplete: documents.every((document) => document.uploaded),
+                accentColor: colors.officePurple,
               ),
               const SizedBox(height: 16),
               for (var index = 0; index < documents.length; index++) ...[
@@ -244,13 +261,13 @@ class _LawFirmVerificationFormScreenState
               Container(
                 padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
-                  color: AppTheme.officePurpleSurface,
+                  color: colors.officePurpleSurface,
                   borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: AppTheme.officePurpleBorder),
+                  border: Border.all(color: colors.officePurpleBorder),
                 ),
-                child: const Row(
+                child: Row(
                   children: [
-                    Icon(Icons.shield_outlined, color: AppTheme.officePurple),
+                    Icon(Icons.shield_outlined, color: colors.officePurple),
                     SizedBox(width: 12),
                     Expanded(
                       child: Text(
@@ -258,7 +275,7 @@ class _LawFirmVerificationFormScreenState
                         style: TextStyle(
                           fontSize: 13,
                           height: 1.5,
-                          color: AppTheme.officePurpleText,
+                          color: colors.officePurpleText,
                         ),
                       ),
                     ),
@@ -270,7 +287,7 @@ class _LawFirmVerificationFormScreenState
                 label: 'Enviar para análise',
                 isLoading: isSubmitting,
                 onPressed: isSubmitting ? null : _submit,
-                backgroundColor: AppTheme.officePurple,
+                backgroundColor: colors.officePurple,
                 textStyle: const TextStyle(fontWeight: FontWeight.w700),
               ),
               JuriiFormErrorBanner(message: errorMessage),
@@ -286,23 +303,24 @@ class _LawFirmVerificationFormScreenState
     required bool hasError,
     required VoidCallback onTap,
   }) {
+    final colors = context.jColors;
     final borderColor = document.uploaded
-        ? AppTheme.success
+        ? colors.success
         : hasError
-        ? AppTheme.danger
-        : AppTheme.lightBlueBorder;
+        ? colors.danger
+        : colors.lightBlueBorder;
 
     return AnimatedContainer(
       duration: JuriiMotion.fast,
       curve: JuriiMotion.ease,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: AppTheme.card,
+        color: colors.card,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: borderColor, width: 1.5),
-        boxShadow: const [
+        boxShadow: [
           BoxShadow(
-            color: AppTheme.softShadow,
+            color: colors.softShadow,
             blurRadius: 10,
             offset: Offset(0, 4),
           ),
@@ -310,7 +328,7 @@ class _LawFirmVerificationFormScreenState
       ),
       child: Row(
         children: [
-          Icon(_iconForDocument(document.type), color: AppTheme.officePurple),
+          Icon(_iconForDocument(document.type), color: colors.officePurple),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
@@ -322,10 +340,7 @@ class _LawFirmVerificationFormScreenState
                 ),
                 Text(
                   document.subtitle,
-                  style: const TextStyle(
-                    color: AppTheme.textSecondary,
-                    fontSize: 13,
-                  ),
+                  style: TextStyle(color: colors.textSecondary, fontSize: 13),
                 ),
               ],
             ),
@@ -342,18 +357,18 @@ class _LawFirmVerificationFormScreenState
                 ),
                 side: BorderSide(
                   color: document.uploaded
-                      ? AppTheme.success
-                      : AppTheme.lightBlueBorder,
+                      ? colors.success
+                      : colors.lightBlueBorder,
                 ),
               ),
               onPressed: onTap,
               child: document.uploaded
-                  ? const Row(
+                  ? Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(
                           Icons.check_circle,
-                          color: AppTheme.success,
+                          color: colors.success,
                           size: 16,
                         ),
                         SizedBox(width: 5),
@@ -362,17 +377,17 @@ class _LawFirmVerificationFormScreenState
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
-                            color: AppTheme.success,
+                            color: colors.success,
                           ),
                         ),
                       ],
                     )
-                  : const Text(
+                  : Text(
                       'Selecionar',
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
-                        color: AppTheme.textPrimary,
+                        color: colors.textPrimary,
                       ),
                     ),
             ),

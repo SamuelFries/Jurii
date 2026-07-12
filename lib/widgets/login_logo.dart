@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../theme/app_theme.dart';
+import '../theme/app_colors.dart';
 
 class LoginLogo extends StatelessWidget {
   const LoginLogo({
@@ -12,17 +12,18 @@ class LoginLogo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return Column(
       children: [
         RichText(
-          text: const TextSpan(
+          text: TextSpan(
             children: [
               TextSpan(
                 text: 'Jurii',
                 style: TextStyle(
                   fontSize: 46,
                   fontWeight: FontWeight.bold,
-                  color: AppTheme.primary,
+                  color: colors.primary,
                 ),
               ),
               TextSpan(
@@ -30,7 +31,7 @@ class LoginLogo extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 46,
                   fontWeight: FontWeight.bold,
-                  color: AppTheme.accent,
+                  color: colors.accent,
                 ),
               ),
             ],
@@ -42,8 +43,8 @@ class LoginLogo extends StatelessWidget {
         Text(
           subtitle,
           textAlign: TextAlign.center,
-          style: const TextStyle(
-            color: AppTheme.textSecondary,
+          style: TextStyle(
+            color: colors.textSecondary,
             fontSize: 16,
             height: 1.5,
           ),

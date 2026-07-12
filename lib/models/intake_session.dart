@@ -29,7 +29,9 @@ class IntakeMessage {
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'sender': sender == IntakeMessageSender.assistant ? 'assistant' : 'client',
+      'sender': sender == IntakeMessageSender.assistant
+          ? 'assistant'
+          : 'client',
       'body': body,
       'sent_at': sentAt.toIso8601String(),
     };

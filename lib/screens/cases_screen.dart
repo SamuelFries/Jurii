@@ -5,7 +5,7 @@ import '../models/case_request.dart';
 import '../models/cases.dart';
 import '../repositories/case_repository.dart';
 import '../services/supabase_config.dart';
-import '../theme/app_theme.dart';
+import '../theme/app_colors.dart';
 import '../widgets/jurii_empty_state.dart';
 import '../widgets/jurii_list_card.dart';
 import '../widgets/jurii_motion.dart';
@@ -220,32 +220,29 @@ class _CasesErrorState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
-              Icons.wifi_off_rounded,
-              size: 40,
-              color: AppTheme.textSecondary,
-            ),
+            Icon(Icons.wifi_off_rounded, size: 40, color: colors.textSecondary),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'Não foi possível carregar seus casos.',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: AppTheme.textPrimary,
+                color: colors.textPrimary,
                 fontWeight: FontWeight.w700,
                 fontSize: 16,
               ),
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'Verifique sua conexão e tente novamente.',
               textAlign: TextAlign.center,
-              style: TextStyle(color: AppTheme.textSecondary),
+              style: TextStyle(color: colors.textSecondary),
             ),
             const SizedBox(height: 16),
             OutlinedButton(
@@ -273,10 +270,11 @@ class _SectionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return Text(
       title,
-      style: const TextStyle(
-        color: AppTheme.textPrimary,
+      style: TextStyle(
+        color: colors.textPrimary,
         fontSize: 18,
         fontWeight: FontWeight.w900,
       ),
@@ -297,12 +295,13 @@ class _CaseRequestCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppTheme.card,
+        color: colors.card,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.lightGoldBorder),
+        border: Border.all(color: colors.lightGoldBorder),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -313,14 +312,14 @@ class _CaseRequestCard extends StatelessWidget {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: AppTheme.lightGold,
+                  color: colors.lightGold,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Center(
                   child: Text(
                     request.requesterInitials,
-                    style: const TextStyle(
-                      color: AppTheme.accent,
+                    style: TextStyle(
+                      color: colors.accent,
                       fontWeight: FontWeight.w900,
                       fontSize: 12,
                     ),
@@ -334,16 +333,16 @@ class _CaseRequestCard extends StatelessWidget {
                   children: [
                     Text(
                       request.title,
-                      style: const TextStyle(
-                        color: AppTheme.textPrimary,
+                      style: TextStyle(
+                        color: colors.textPrimary,
                         fontWeight: FontWeight.w900,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       '${request.requestedBy} · ${request.area}',
-                      style: const TextStyle(
-                        color: AppTheme.textSecondary,
+                      style: TextStyle(
+                        color: colors.textSecondary,
                         fontWeight: FontWeight.w700,
                         fontSize: 12,
                       ),
@@ -357,7 +356,7 @@ class _CaseRequestCard extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               request.summary,
-              style: const TextStyle(color: AppTheme.textSecondary),
+              style: TextStyle(color: colors.textSecondary),
             ),
           ],
           const SizedBox(height: 14),
@@ -389,7 +388,8 @@ class _CasesHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Column(
+    final colors = context.jColors;
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
@@ -397,13 +397,13 @@ class _CasesHeader extends StatelessWidget {
           style: TextStyle(
             fontSize: 34,
             fontWeight: FontWeight.bold,
-            color: AppTheme.textPrimary,
+            color: colors.textPrimary,
           ),
         ),
         SizedBox(height: 8),
         Text(
           'Acompanhe aqui seus atendimentos jurídicos.',
-          style: TextStyle(color: AppTheme.textSecondary, fontSize: 16),
+          style: TextStyle(color: colors.textSecondary, fontSize: 16),
         ),
         SizedBox(height: 8),
       ],
@@ -419,6 +419,7 @@ class _ClientCaseCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return JuriiListCard(
       onTap: onTap,
       semanticLabel: legalCase.title,
@@ -429,10 +430,10 @@ class _ClientCaseCard extends StatelessWidget {
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: AppTheme.lightBlue,
+              color: colors.lightBlue,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(Icons.folder_outlined, color: AppTheme.primary),
+            child: Icon(Icons.folder_outlined, color: colors.primary),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -443,8 +444,8 @@ class _ClientCaseCard extends StatelessWidget {
                   legalCase.title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppTheme.textPrimary,
+                  style: TextStyle(
+                    color: colors.textPrimary,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -453,7 +454,7 @@ class _ClientCaseCard extends StatelessWidget {
                   '${legalCase.area} · ${legalCase.lastUpdate}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: AppTheme.textSecondary),
+                  style: TextStyle(color: colors.textSecondary),
                 ),
               ],
             ),
@@ -461,8 +462,8 @@ class _ClientCaseCard extends StatelessWidget {
           const SizedBox(width: 12),
           Text(
             legalCase.status,
-            style: const TextStyle(
-              color: AppTheme.primary,
+            style: TextStyle(
+              color: colors.primary,
               fontWeight: FontWeight.w800,
               fontSize: 12,
             ),
@@ -480,25 +481,26 @@ class _EmptyCasesState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return Padding(
       padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Meus Casos',
             style: TextStyle(
               fontSize: 34,
               fontWeight: FontWeight.bold,
-              color: AppTheme.textPrimary,
+              color: colors.textPrimary,
             ),
           ),
 
           const SizedBox(height: 8),
 
-          const Text(
+          Text(
             'Acompanhe aqui seus atendimentos jurídicos.',
-            style: TextStyle(color: AppTheme.textSecondary, fontSize: 16),
+            style: TextStyle(color: colors.textSecondary, fontSize: 16),
           ),
 
           const Spacer(),

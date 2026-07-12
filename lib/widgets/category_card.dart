@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../theme/app_theme.dart';
+import '../theme/app_colors.dart';
 import 'jurii_motion.dart';
 
 class CategoryCard extends StatelessWidget {
@@ -39,7 +39,8 @@ class CategoryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accentColor = isGold ? AppTheme.accent : AppTheme.primary;
+    final colors = context.jColors;
+    final accentColor = isGold ? colors.accent : colors.primary;
 
     return JuriiPressable(
       onTap: onTap,
@@ -49,13 +50,13 @@ class CategoryCard extends StatelessWidget {
         duration: JuriiMotion.fast,
         curve: JuriiMotion.ease,
         decoration: BoxDecoration(
-          color: isGold ? AppTheme.lightGold : AppTheme.lightBlue,
+          color: isGold ? colors.lightGold : colors.lightBlue,
           border: Border.all(
             color: selected
                 ? accentColor
                 : isGold
-                ? AppTheme.lightGoldBorder
-                : AppTheme.lightBlueBorder,
+                ? colors.lightGoldBorder
+                : colors.lightBlueBorder,
             width: selected ? 2 : 1.5,
           ),
           borderRadius: BorderRadius.circular(16),
@@ -68,10 +69,10 @@ class CategoryCard extends StatelessWidget {
             Text(
               title,
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
-                color: AppTheme.textPrimary,
+                color: colors.textPrimary,
               ),
             ),
           ],

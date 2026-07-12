@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../theme/app_theme.dart';
+import '../theme/app_colors.dart';
 import 'profile_menu_item.dart';
 
 class ProfileMenuSection extends StatelessWidget {
@@ -19,16 +19,16 @@ class ProfileMenuSection extends StatelessWidget {
       children: [
         Text(
           title,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w600,
-            color: AppTheme.textSecondary,
+            color: context.jColors.textSecondary,
             letterSpacing: 1,
           ),
         ),
         const SizedBox(height: 12),
         Material(
-          color: AppTheme.card,
+          color: context.jColors.card,
           borderRadius: BorderRadius.circular(12),
           child: Column(
             children: items.asMap().entries.map((entry) {

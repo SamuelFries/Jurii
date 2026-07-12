@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../theme/app_theme.dart';
+import '../theme/app_colors.dart';
 import 'jurii_motion.dart';
 
 class JuriiListCard extends StatelessWidget {
@@ -11,10 +11,10 @@ class JuriiListCard extends StatelessWidget {
     this.semanticLabel,
     this.padding = const EdgeInsets.all(16),
     this.borderRadius = 16,
-    this.backgroundColor = AppTheme.card,
-    this.borderColor = AppTheme.lightBlueBorder,
+    this.backgroundColor,
+    this.borderColor,
     this.pressedScale = 0.985,
-    this.shadowColor = AppTheme.softShadow,
+    this.shadowColor,
     this.shadowBlur = 12,
     this.shadowOffset = const Offset(0, 6),
   });
@@ -24,15 +24,18 @@ class JuriiListCard extends StatelessWidget {
   final String? semanticLabel;
   final EdgeInsetsGeometry padding;
   final double borderRadius;
-  final Color backgroundColor;
-  final Color borderColor;
+
+  /// Cores opcionais; quando nulas, seguem a paleta do tema ativo.
+  final Color? backgroundColor;
+  final Color? borderColor;
   final double pressedScale;
-  final Color shadowColor;
+  final Color? shadowColor;
   final double shadowBlur;
   final Offset shadowOffset;
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     final radius = BorderRadius.circular(borderRadius);
     final disabled = JuriiMotion.disabled(context);
 
@@ -47,12 +50,12 @@ class JuriiListCard extends StatelessWidget {
         curve: JuriiMotion.ease,
         padding: padding,
         decoration: BoxDecoration(
-          color: backgroundColor,
+          color: backgroundColor ?? colors.card,
           borderRadius: radius,
-          border: Border.all(color: borderColor),
+          border: Border.all(color: borderColor ?? colors.lightBlueBorder),
           boxShadow: [
             BoxShadow(
-              color: shadowColor,
+              color: shadowColor ?? colors.softShadow,
               blurRadius: shadowBlur,
               offset: shadowOffset,
             ),

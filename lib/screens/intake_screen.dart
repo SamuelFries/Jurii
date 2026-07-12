@@ -8,6 +8,7 @@ import '../services/intake_ai_service_factory.dart';
 import '../services/supabase_config.dart';
 import '../theme/app_colors.dart';
 import '../widgets/intake_summary_view.dart';
+import '../widgets/jurii_motion.dart';
 import 'legal_document_screen.dart';
 
 /// Resultado da triagem que volta para o chat: o resumo estruturado e a
@@ -249,7 +250,12 @@ class _IntakeScreenState extends State<IntakeScreen> {
 
     final session = _session;
     if (session == null) {
-      return Center(child: CircularProgressIndicator(color: colors.primary));
+      // Skeleton de bolhas: hoje o serviço local resolve na hora, mas a IA
+      // remota (Edge Function) terá latência real aqui.
+      return const Padding(
+        padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+        child: JuriiSkeletonList(itemCount: 3, itemHeight: 64, gap: 10),
+      );
     }
 
     if (_summary != null) {
@@ -299,10 +305,7 @@ class _IntakeScreenState extends State<IntakeScreen> {
             style: TextStyle(color: colors.textSecondary, fontSize: 12),
           ),
           const SizedBox(height: 10),
-          TextButton(
-            onPressed: _restart,
-            child: const Text('Refazer triagem'),
-          ),
+          TextButton(onPressed: _restart, child: const Text('Refazer triagem')),
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
             child: const Text('Agora não'),
@@ -405,9 +408,7 @@ class _IntakeBubble extends StatelessWidget {
               bottomLeft: Radius.circular(isClient ? 16 : 4),
               bottomRight: Radius.circular(isClient ? 4 : 16),
             ),
-            border: isClient
-                ? null
-                : Border.all(color: colors.lightBlueBorder),
+            border: isClient ? null : Border.all(color: colors.lightBlueBorder),
           ),
           child: Text(
             message.body,
@@ -435,7 +436,10 @@ class _GeneratingSummaryStrip extends StatelessWidget {
           SizedBox(
             width: 16,
             height: 16,
-            child: CircularProgressIndicator(strokeWidth: 2, color: colors.primary),
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: colors.primary,
+            ),
           ),
           const SizedBox(width: 12),
           Text(

@@ -19,7 +19,6 @@ import '../repositories/profile_repository.dart';
 import '../services/intake_ai_service.dart';
 import '../services/supabase_config.dart';
 import '../theme/app_colors.dart';
-import '../theme/app_theme.dart';
 import '../widgets/jurii_empty_state.dart';
 import '../widgets/jurii_form_motion.dart';
 import '../widgets/jurii_motion.dart';
@@ -892,10 +891,12 @@ class _ChatScreenState extends State<ChatScreen>
     // estado que o rebuild atual já reflete).
     if (_messages.isNotEmpty) _everHadMessages = true;
 
+    final colors = context.jColors;
+
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: colors.background,
       appBar: AppBar(
-        backgroundColor: AppTheme.background,
+        backgroundColor: colors.background,
         titleSpacing: 0,
         title: InkWell(
           onTap: _isOpeningProfile ? null : _openCounterpartProfile,
@@ -907,8 +908,8 @@ class _ChatScreenState extends State<ChatScreen>
                 CircleAvatar(
                   radius: 18,
                   backgroundColor: widget.isLawyer
-                      ? AppTheme.lightGold
-                      : AppTheme.lightBlue,
+                      ? colors.lightGold
+                      : colors.lightBlue,
                   child: _isOpeningProfile
                       ? const SizedBox(
                           width: 14,
@@ -919,8 +920,8 @@ class _ChatScreenState extends State<ChatScreen>
                           widget.conversation.initials,
                           style: TextStyle(
                             color: widget.isLawyer
-                                ? AppTheme.accent
-                                : AppTheme.primary,
+                                ? colors.accent
+                                : colors.primary,
                             fontWeight: FontWeight.w900,
                             fontSize: 12,
                           ),
@@ -935,8 +936,8 @@ class _ChatScreenState extends State<ChatScreen>
                         widget.conversation.officeName,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: AppTheme.textPrimary,
+                        style: TextStyle(
+                          color: colors.textPrimary,
                           fontSize: 16,
                           fontWeight: FontWeight.w900,
                         ),
@@ -945,8 +946,8 @@ class _ChatScreenState extends State<ChatScreen>
                         widget.conversation.specialty,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: AppTheme.textSecondary,
+                        style: TextStyle(
+                          color: colors.textSecondary,
                           fontSize: 12,
                         ),
                       ),
@@ -954,10 +955,10 @@ class _ChatScreenState extends State<ChatScreen>
                   ),
                 ),
                 const SizedBox(width: 6),
-                const Icon(
+                Icon(
                   Icons.chevron_right,
                   size: 18,
-                  color: AppTheme.textSecondary,
+                  color: colors.textSecondary,
                 ),
               ],
             ),
@@ -1151,18 +1152,18 @@ class _CaseRequestSheetState extends State<_CaseRequestSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text(
+          Text(
             'Solicitar aceite do caso',
             style: TextStyle(
-              color: AppTheme.textPrimary,
+              color: context.jColors.textPrimary,
               fontSize: 22,
               fontWeight: FontWeight.w900,
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'O cliente poderá aceitar ou recusar pelo sino, pelo chat ou pela aba Meus Casos.',
-            style: TextStyle(color: AppTheme.textSecondary),
+            style: TextStyle(color: context.jColors.textSecondary),
           ),
           const SizedBox(height: 16),
           TextField(
@@ -1229,11 +1230,11 @@ class _ChatLoadErrorState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
+            Text(
               'Não foi possível carregar as mensagens.',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: AppTheme.textSecondary,
+                color: context.jColors.textSecondary,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -1254,15 +1255,17 @@ class _EmptyChatState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.all(16),
+    final colors = context.jColors;
+
+    return Padding(
+      padding: const EdgeInsets.all(16),
       child: JuriiEmptyState(
         icon: Icons.chat_bubble_outline,
         title: 'Nenhuma mensagem nesta conversa',
         message: 'Envie uma mensagem ou use + para anexar e iniciar a triagem.',
-        accentColor: AppTheme.primary,
-        surfaceColor: AppTheme.lightBlue,
-        borderColor: AppTheme.lightBlueBorder,
+        accentColor: colors.primary,
+        surfaceColor: colors.lightBlue,
+        borderColor: colors.lightBlueBorder,
       ),
     );
   }
@@ -1303,15 +1306,16 @@ class _MessageBubble extends StatelessWidget {
       );
     }
 
+    final colors = context.jColors;
     final isMine = message.author == MessageAuthor.me;
     final isSystem = message.author == MessageAuthor.system;
     final alignment = isMine ? Alignment.centerRight : Alignment.centerLeft;
     final bubbleColor = isSystem
-        ? AppTheme.lightGold
+        ? colors.lightGold
         : isMine
-        ? AppTheme.primary
-        : AppTheme.card;
-    final textColor = isMine ? AppTheme.card : AppTheme.textPrimary;
+        ? colors.primary
+        : colors.card;
+    final textColor = isMine ? colors.card : colors.textPrimary;
 
     return Align(
       alignment: isSystem ? Alignment.center : alignment,
@@ -1330,7 +1334,7 @@ class _MessageBubble extends StatelessWidget {
               bottomLeft: Radius.circular(isMine ? 16 : 4),
               bottomRight: Radius.circular(isMine ? 4 : 16),
             ),
-            border: isMine ? null : Border.all(color: AppTheme.lightBlueBorder),
+            border: isMine ? null : Border.all(color: colors.lightBlueBorder),
           ),
           child: Column(
             crossAxisAlignment: isMine
@@ -1358,8 +1362,8 @@ class _MessageBubble extends StatelessWidget {
                     message.time,
                     style: TextStyle(
                       color: isMine
-                          ? AppTheme.card.withValues(alpha: 0.70)
-                          : AppTheme.textSecondary,
+                          ? colors.card.withValues(alpha: 0.70)
+                          : colors.textSecondary,
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
                     ),
@@ -1369,7 +1373,7 @@ class _MessageBubble extends StatelessWidget {
                     Icon(
                       message.read ? Icons.done_all : Icons.done,
                       size: 14,
-                      color: AppTheme.card.withValues(alpha: 0.70),
+                      color: colors.card.withValues(alpha: 0.70),
                     ),
                   ],
                 ],
@@ -1400,13 +1404,14 @@ class _AttachmentTile extends StatelessWidget {
         : attachment.mimeType == 'application/pdf'
         ? Icons.picture_as_pdf_outlined
         : Icons.description_outlined;
+    final colors = context.jColors;
     final surfaceColor = isMine
-        ? AppTheme.card.withValues(alpha: 0.14)
-        : AppTheme.lightBlue;
-    final foregroundColor = isMine ? AppTheme.card : AppTheme.textPrimary;
+        ? colors.card.withValues(alpha: 0.14)
+        : colors.lightBlue;
+    final foregroundColor = isMine ? colors.card : colors.textPrimary;
     final secondaryColor = isMine
-        ? AppTheme.card.withValues(alpha: 0.72)
-        : AppTheme.textSecondary;
+        ? colors.card.withValues(alpha: 0.72)
+        : colors.textSecondary;
 
     return JuriiPressable(
       onTap: onTap,
@@ -1428,8 +1433,8 @@ class _AttachmentTile extends StatelessWidget {
               height: 38,
               decoration: BoxDecoration(
                 color: isMine
-                    ? AppTheme.card.withValues(alpha: 0.16)
-                    : AppTheme.card,
+                    ? colors.card.withValues(alpha: 0.16)
+                    : colors.card,
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Icon(icon, color: foregroundColor, size: 20),
@@ -1483,6 +1488,8 @@ class _ImageAttachmentDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
+
     return Dialog(
       insetPadding: const EdgeInsets.all(18),
       child: ConstrainedBox(
@@ -1502,8 +1509,8 @@ class _ImageAttachmentDialog extends StatelessWidget {
                       attachment.fileName,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppTheme.textPrimary,
+                      style: TextStyle(
+                        color: colors.textPrimary,
                         fontWeight: FontWeight.w900,
                       ),
                     ),
@@ -1529,22 +1536,22 @@ class _ImageAttachmentDialog extends StatelessWidget {
                     fit: BoxFit.contain,
                     loadingBuilder: (context, child, loadingProgress) {
                       if (loadingProgress == null) return child;
-                      return const SizedBox(
+                      return SizedBox(
                         height: 320,
                         child: Center(
                           child: CircularProgressIndicator(
-                            color: AppTheme.primary,
+                            color: colors.primary,
                           ),
                         ),
                       );
                     },
                     errorBuilder: (context, error, stackTrace) {
-                      return const SizedBox(
+                      return SizedBox(
                         height: 260,
                         child: Center(
                           child: Text(
                             'Não foi possível carregar a imagem.',
-                            style: TextStyle(color: AppTheme.textSecondary),
+                            style: TextStyle(color: colors.textSecondary),
                           ),
                         ),
                       );
@@ -1581,6 +1588,7 @@ class _CaseRequestMessageCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     final status = message.caseRequestStatus ?? 'pending';
 
     return Align(
@@ -1593,12 +1601,12 @@ class _CaseRequestMessageCard extends StatelessWidget {
           margin: const EdgeInsets.only(bottom: 12),
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: AppTheme.card,
-            border: Border.all(color: AppTheme.lightGoldBorder),
+            color: colors.card,
+            border: Border.all(color: colors.lightGoldBorder),
             borderRadius: BorderRadius.circular(18),
             boxShadow: [
               BoxShadow(
-                color: AppTheme.primary.withValues(alpha: 0.06),
+                color: colors.primary.withValues(alpha: 0.06),
                 blurRadius: 18,
                 offset: const Offset(0, 8),
               ),
@@ -1613,14 +1621,14 @@ class _CaseRequestMessageCard extends StatelessWidget {
                     width: 56,
                     height: 56,
                     decoration: BoxDecoration(
-                      color: AppTheme.lightGold,
+                      color: colors.lightGold,
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: Center(
                       child: Text(
                         requesterInitials,
-                        style: const TextStyle(
-                          color: AppTheme.accent,
+                        style: TextStyle(
+                          color: colors.accent,
                           fontWeight: FontWeight.w900,
                           fontSize: 16,
                         ),
@@ -1636,8 +1644,8 @@ class _CaseRequestMessageCard extends StatelessWidget {
                           message.caseRequestTitle ?? 'Solicitação de caso',
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: AppTheme.textPrimary,
+                          style: TextStyle(
+                            color: colors.textPrimary,
                             fontSize: 18,
                             fontWeight: FontWeight.w900,
                           ),
@@ -1647,8 +1655,8 @@ class _CaseRequestMessageCard extends StatelessWidget {
                           '$requesterName · ${message.caseRequestArea ?? 'Atendimento jurídico'}',
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: AppTheme.textSecondary,
+                          style: TextStyle(
+                            color: colors.textSecondary,
                             fontSize: 13,
                             fontWeight: FontWeight.w800,
                           ),
@@ -1666,8 +1674,8 @@ class _CaseRequestMessageCard extends StatelessWidget {
                       child: OutlinedButton(
                         onPressed: isSubmitting ? null : onDecline,
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: AppTheme.danger,
-                          side: const BorderSide(color: AppTheme.divider),
+                          foregroundColor: colors.danger,
+                          side: BorderSide(color: colors.divider),
                           minimumSize: const Size(0, 56),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(18),
@@ -1687,12 +1695,12 @@ class _CaseRequestMessageCard extends StatelessWidget {
                           ),
                         ),
                         child: isSubmitting
-                            ? const SizedBox(
+                            ? SizedBox(
                                 width: 18,
                                 height: 18,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
-                                  color: AppTheme.card,
+                                  color: colors.card,
                                 ),
                               )
                             : const Text('Aceitar caso'),
@@ -1707,8 +1715,8 @@ class _CaseRequestMessageCard extends StatelessWidget {
               const SizedBox(height: 8),
               Text(
                 message.time,
-                style: const TextStyle(
-                  color: AppTheme.textSecondary,
+                style: TextStyle(
+                  color: colors.textSecondary,
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
                 ),
@@ -1728,16 +1736,17 @@ class _CaseRequestStatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     final accepted = status == 'accepted';
     final declined = status == 'declined';
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: accepted
-            ? AppTheme.successSurface
+            ? colors.successSurface
             : declined
-            ? AppTheme.danger.withValues(alpha: 0.10)
-            : AppTheme.lightGold,
+            ? colors.danger.withValues(alpha: 0.10)
+            : colors.lightGold,
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
@@ -1748,10 +1757,10 @@ class _CaseRequestStatusChip extends StatelessWidget {
             : 'Aguardando aceite do cliente',
         style: TextStyle(
           color: accepted
-              ? AppTheme.success
+              ? colors.success
               : declined
-              ? AppTheme.danger
-              : AppTheme.accent,
+              ? colors.danger
+              : colors.accent,
           fontSize: 12,
           fontWeight: FontWeight.w800,
         ),
@@ -1812,23 +1821,25 @@ class _ComposerState extends State<_Composer> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
+
     return AnimatedContainer(
       duration: JuriiMotion.fast,
       curve: JuriiMotion.ease,
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
       decoration: BoxDecoration(
-        color: AppTheme.card,
+        color: colors.card,
         border: Border(
           top: BorderSide(
             color: widget.isPlusMenuOpen
-                ? AppTheme.lightBlueBorder
-                : AppTheme.divider,
+                ? colors.lightBlueBorder
+                : colors.divider,
           ),
         ),
         boxShadow: [
           if (_isFocused || widget.isPlusMenuOpen)
             BoxShadow(
-              color: AppTheme.primary.withValues(alpha: 0.08),
+              color: colors.primary.withValues(alpha: 0.08),
               blurRadius: 20,
               offset: const Offset(0, -8),
             ),
@@ -1855,12 +1866,10 @@ class _ComposerState extends State<_Composer> {
                   duration: JuriiMotion.fast,
                   curve: JuriiMotion.ease,
                   decoration: BoxDecoration(
-                    color: AppTheme.background,
+                    color: colors.background,
                     borderRadius: BorderRadius.circular(18),
                     border: Border.all(
-                      color: _isFocused
-                          ? AppTheme.primary
-                          : AppTheme.background,
+                      color: _isFocused ? colors.primary : colors.background,
                       width: _isFocused ? 1.3 : 1,
                     ),
                   ),
@@ -1901,25 +1910,21 @@ class _ComposerState extends State<_Composer> {
                     height: 44,
                     decoration: BoxDecoration(
                       color: canSend || widget.isSending
-                          ? AppTheme.primary
-                          : AppTheme.lightBlueBorder,
+                          ? colors.primary
+                          : colors.lightBlueBorder,
                       borderRadius: BorderRadius.circular(14),
                     ),
                     child: Center(
                       child: widget.isSending
-                          ? const SizedBox(
+                          ? SizedBox(
                               width: 18,
                               height: 18,
                               child: CircularProgressIndicator(
-                                color: AppTheme.card,
+                                color: colors.card,
                                 strokeWidth: 2,
                               ),
                             )
-                          : const Icon(
-                              Icons.send,
-                              color: AppTheme.card,
-                              size: 18,
-                            ),
+                          : Icon(Icons.send, color: colors.card, size: 18),
                     ),
                   ),
                 ),

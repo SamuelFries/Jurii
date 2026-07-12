@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/conversation.dart';
-import '../theme/app_theme.dart';
+import '../theme/app_colors.dart';
 import 'jurii_list_card.dart';
 
 class ConversationCard extends StatelessWidget {
@@ -16,6 +16,7 @@ class ConversationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return JuriiListCard(
       onTap: onTap,
       semanticLabel: conversation.officeName,
@@ -26,14 +27,14 @@ class ConversationCard extends StatelessWidget {
             width: 52,
             height: 52,
             decoration: BoxDecoration(
-              color: AppTheme.primary,
+              color: colors.primary,
               borderRadius: BorderRadius.circular(14),
             ),
             child: Center(
               child: Text(
                 conversation.initials,
-                style: const TextStyle(
-                  color: AppTheme.card,
+                style: TextStyle(
+                  color: colors.card,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -46,10 +47,10 @@ class ConversationCard extends StatelessWidget {
               children: [
                 Text(
                   conversation.officeName,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 15,
-                    color: AppTheme.textPrimary,
+                    color: colors.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -59,15 +60,12 @@ class ConversationCard extends StatelessWidget {
                     vertical: 3,
                   ),
                   decoration: BoxDecoration(
-                    color: AppTheme.lightBlue,
+                    color: colors.lightBlue,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
                     conversation.specialty,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: AppTheme.primary,
-                    ),
+                    style: TextStyle(fontSize: 11, color: colors.primary),
                   ),
                 ),
                 const SizedBox(height: 6),
@@ -75,7 +73,7 @@ class ConversationCard extends StatelessWidget {
                   conversation.lastMessage,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: AppTheme.textSecondary),
+                  style: TextStyle(color: colors.textSecondary),
                 ),
               ],
             ),
@@ -85,25 +83,22 @@ class ConversationCard extends StatelessWidget {
             children: [
               Text(
                 conversation.time,
-                style: const TextStyle(
-                  color: AppTheme.textSecondary,
-                  fontSize: 12,
-                ),
+                style: TextStyle(color: colors.textSecondary, fontSize: 12),
               ),
               const SizedBox(height: 8),
               if (conversation.unreadCount > 0)
                 Container(
                   width: 22,
                   height: 22,
-                  decoration: const BoxDecoration(
-                    color: AppTheme.accent,
+                  decoration: BoxDecoration(
+                    color: colors.accent,
                     shape: BoxShape.circle,
                   ),
                   child: Center(
                     child: Text(
                       conversation.unreadCount.toString(),
-                      style: const TextStyle(
-                        color: AppTheme.card,
+                      style: TextStyle(
+                        color: colors.card,
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
                       ),

@@ -53,18 +53,19 @@ Meus Casos, que hoje depende da recriação. Decisão de UX pendente.
   botões).
 - `ThemeController` (ValueNotifier) já alimenta `themeMode` no MaterialApp.
 
-**Estado atual:** o app permanece em `ThemeMode.light` porque as telas ainda
-usam as constantes estáticas `AppTheme.*` (765 referências em 45 arquivos),
-que não reagem ao tema.
+**Estado atual: MIGRAÇÃO CONCLUÍDA (jul/2026).** Todas as telas e widgets
+usam `context.jColors`; fora de `lib/theme/` restam apenas
+`AppTheme.lightTheme/darkTheme` no `main.dart` (wiring do MaterialApp).
+Componentes reutilizáveis expõem cor customizável como `Color?` anulável
+resolvido no build (`?? colors.token`) — nunca default const, que congelaria
+o tema claro.
 
-**Receita da migração (mecânica, tela a tela):**
+**Para ativar o dark mode (pendente, decisão de produto):**
 
-1. No `build`, trocar `AppTheme.token` por `context.jColors.token`
-   (import `../theme/app_colors.dart`); remover `const` dos widgets afetados.
-2. Rodar `flutter analyze` — os valores light são idênticos, zero mudança
-   visual no tema claro.
-3. Ao terminar todas as telas: default do `ThemeController` → `system`,
-   expor toggle no perfil e persistir com `shared_preferences`.
+1. QA visual completo no tema escuro (a paleta dark nunca foi vista tela a
+   tela).
+2. Default do `ThemeController` → `system`, expor toggle no perfil e
+   persistir com `shared_preferences`.
 
 ## Busca inteligente
 

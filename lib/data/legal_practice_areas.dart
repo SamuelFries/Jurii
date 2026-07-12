@@ -836,9 +836,11 @@ List<InferredPracticeArea> scorePracticeAreasForSearch(String query) {
 
   final scoreByArea = <String, int>{};
   final firstRuleByArea = <String, int>{};
-  for (var ruleIndex = 0;
-      ruleIndex < legalSearchIntentRules.length;
-      ruleIndex++) {
+  for (
+    var ruleIndex = 0;
+    ruleIndex < legalSearchIntentRules.length;
+    ruleIndex++
+  ) {
     final rule = legalSearchIntentRules[ruleIndex];
     var matches = 0;
     for (final term in rule.terms) {

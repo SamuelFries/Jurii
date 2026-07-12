@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../theme/app_theme.dart';
+import '../theme/app_colors.dart';
 
 class ProfileMenuItem {
   final IconData icon;
@@ -29,6 +29,7 @@ class ProfileMenuItemTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return Column(
       children: [
         ListTile(
@@ -46,29 +47,22 @@ class ProfileMenuItemTile extends StatelessWidget {
           ),
           title: Text(
             item.label,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w500,
-              color: AppTheme.textPrimary,
+              color: colors.textPrimary,
             ),
           ),
           subtitle: item.subtitle != null
               ? Text(
                   item.subtitle!,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AppTheme.textSecondary,
-                  ),
+                  style: TextStyle(fontSize: 12, color: colors.textSecondary),
                 )
               : null,
-          trailing: const Icon(
-            Icons.chevron_right,
-            color: AppTheme.textSecondary,
-          ),
+          trailing: Icon(Icons.chevron_right, color: colors.textSecondary),
           onTap: item.onTap,
         ),
-        if (showDivider)
-          const Divider(height: 1, indent: 56, color: AppTheme.divider),
+        if (showDivider) Divider(height: 1, indent: 56, color: colors.divider),
       ],
     );
   }

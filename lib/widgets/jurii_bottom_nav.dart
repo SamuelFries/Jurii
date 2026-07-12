@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../theme/app_theme.dart';
+import '../theme/app_colors.dart';
 import 'jurii_motion.dart';
 
 class JuriiBottomNav extends StatelessWidget {
@@ -14,6 +14,7 @@ class JuriiBottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     final items = [
       (Icons.home_outlined, Icons.home, 'Início'),
       (Icons.chat_bubble_outline, Icons.chat_bubble, 'Mensagens'),
@@ -22,9 +23,9 @@ class JuriiBottomNav extends StatelessWidget {
     ];
 
     return Container(
-      decoration: const BoxDecoration(
-        color: AppTheme.card,
-        border: Border(top: BorderSide(color: AppTheme.lightBlueBorder)),
+      decoration: BoxDecoration(
+        color: colors.card,
+        border: Border(top: BorderSide(color: colors.lightBlueBorder)),
       ),
       // Scaffold não aplica safe area ao bottomNavigationBar: sem isto o
       // home indicator do iPhone sobrepõe os labels.
@@ -55,7 +56,7 @@ class JuriiBottomNav extends StatelessWidget {
                             width: selected ? 40 : 0,
                             height: 4,
                             decoration: BoxDecoration(
-                              color: AppTheme.accent,
+                              color: colors.accent,
                               borderRadius: BorderRadius.circular(99),
                             ),
                           ),
@@ -79,8 +80,8 @@ class JuriiBottomNav extends StatelessWidget {
                                 selected ? items[index].$2 : items[index].$1,
                                 key: ValueKey('client_nav_${index}_$selected'),
                                 color: selected
-                                    ? AppTheme.primary
-                                    : AppTheme.textSecondary,
+                                    ? colors.primary
+                                    : colors.textSecondary,
                                 size: 28,
                               ),
                             ),
@@ -91,7 +92,7 @@ class JuriiBottomNav extends StatelessWidget {
                               right: -2,
                               child: CircleAvatar(
                                 radius: 4,
-                                backgroundColor: AppTheme.accent,
+                                backgroundColor: colors.accent,
                               ),
                             ),
                         ],
@@ -104,8 +105,8 @@ class JuriiBottomNav extends StatelessWidget {
                         curve: JuriiMotion.ease,
                         style: TextStyle(
                           color: selected
-                              ? AppTheme.primary
-                              : AppTheme.textSecondary,
+                              ? colors.primary
+                              : colors.textSecondary,
                           fontWeight: selected
                               ? FontWeight.w700
                               : FontWeight.w500,

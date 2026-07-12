@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/law_firm_verification.dart';
 import '../models/user_profile.dart';
-import '../theme/app_theme.dart';
+import '../theme/app_colors.dart';
 import 'law_firm_verification_form_screen.dart';
 
 class LawFirmVerificationScreen extends StatelessWidget {
@@ -17,8 +17,9 @@ class LawFirmVerificationScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: colors.background,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
@@ -29,40 +30,41 @@ class LawFirmVerificationScreen extends StatelessWidget {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: AppTheme.card,
+                  color: colors.card,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: IconButton(
                   onPressed: () => Navigator.pop(context),
-                  icon: const Icon(
+                  icon: Icon(
                     Icons.arrow_back_ios_new,
-                    color: AppTheme.textPrimary,
+                    color: colors.textPrimary,
                     size: 18,
                   ),
                 ),
               ),
               const SizedBox(height: 28),
-              const Text(
+              Text(
                 'Cadastre seu\nEscritório',
                 style: TextStyle(
                   fontSize: 36,
                   fontWeight: FontWeight.w700,
-                  color: AppTheme.textPrimary,
+                  color: colors.textPrimary,
                   height: 1.15,
                   fontFamily: 'Serif',
                 ),
               ),
               const SizedBox(height: 12),
-              const Text(
+              Text(
                 'Valide os dados do escritório para receber leads qualificados e preparar a gestão da sua equipe.',
                 style: TextStyle(
                   fontSize: 16,
-                  color: AppTheme.textSecondary,
+                  color: colors.textSecondary,
                   height: 1.5,
                 ),
               ),
               const SizedBox(height: 28),
               _infoPanel(
+                colors,
                 title: 'O que o escritório poderá fazer',
                 children: const [
                   _InfoLine('Receber leads voltados para escritórios'),
@@ -73,6 +75,7 @@ class LawFirmVerificationScreen extends StatelessWidget {
               ),
               const SizedBox(height: 20),
               _infoPanel(
+                colors,
                 title: 'O que será necessário',
                 children: const [
                   _RequirementLine(Icons.apartment_outlined, 'CNPJ válido'),
@@ -95,9 +98,9 @@ class LawFirmVerificationScreen extends StatelessWidget {
                 width: double.infinity,
                 padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
-                  color: AppTheme.officePurpleSurface,
+                  color: colors.officePurpleSurface,
                   borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: AppTheme.officePurpleBorder),
+                  border: Border.all(color: colors.officePurpleBorder),
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -106,22 +109,22 @@ class LawFirmVerificationScreen extends StatelessWidget {
                       width: 42,
                       height: 42,
                       decoration: BoxDecoration(
-                        color: AppTheme.officePurple,
+                        color: colors.officePurple,
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.verified_user_outlined,
-                        color: AppTheme.card,
+                        color: colors.card,
                       ),
                     ),
                     const SizedBox(width: 14),
-                    const Expanded(
+                    Expanded(
                       child: Text(
                         'A aprovação do escritório é independente da verificação por OAB. O responsável pode ser dono, administrador ou secretário.',
                         style: TextStyle(
                           fontSize: 13,
                           height: 1.6,
-                          color: AppTheme.officePurpleText,
+                          color: colors.officePurpleText,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -170,7 +173,8 @@ class LawFirmVerificationScreen extends StatelessWidget {
     );
   }
 
-  static Widget _infoPanel({
+  static Widget _infoPanel(
+    AppColors colors, {
     required String title,
     required List<Widget> children,
   }) {
@@ -178,11 +182,11 @@ class LawFirmVerificationScreen extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppTheme.card,
+        color: colors.card,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: const [
+        boxShadow: [
           BoxShadow(
-            color: AppTheme.softShadow,
+            color: colors.softShadow,
             blurRadius: 12,
             offset: Offset(0, 4),
           ),
@@ -193,10 +197,10 @@ class LawFirmVerificationScreen extends StatelessWidget {
         children: [
           Text(
             title,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w700,
-              color: AppTheme.textPrimary,
+              color: colors.textPrimary,
             ),
           ),
           const SizedBox(height: 18),
@@ -214,18 +218,19 @@ class _InfoLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.check_circle, color: AppTheme.success, size: 20),
+          Icon(Icons.check_circle, color: colors.success, size: 20),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               text,
-              style: const TextStyle(
-                color: AppTheme.textPrimary,
+              style: TextStyle(
+                color: colors.textPrimary,
                 fontSize: 14,
                 height: 1.4,
               ),
@@ -245,6 +250,7 @@ class _RequirementLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: Row(
@@ -253,17 +259,17 @@ class _RequirementLine extends StatelessWidget {
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-              color: AppTheme.officePurpleSurface,
+              color: colors.officePurpleSurface,
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(icon, color: AppTheme.officePurple, size: 20),
+            child: Icon(icon, color: colors.officePurple, size: 20),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               text,
-              style: const TextStyle(
-                color: AppTheme.textPrimary,
+              style: TextStyle(
+                color: colors.textPrimary,
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
               ),

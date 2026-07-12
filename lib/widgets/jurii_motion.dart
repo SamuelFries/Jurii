@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../theme/app_theme.dart';
+import '../theme/app_colors.dart';
 
 abstract final class JuriiMotion {
   static const Duration press = Duration(milliseconds: 110);
@@ -417,20 +417,21 @@ class _SkeletonSurface extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return ClipRRect(
       borderRadius: borderRadius,
       child: Container(
         height: height,
         decoration: BoxDecoration(
           borderRadius: borderRadius,
-          border: Border.all(color: AppTheme.lightBlueBorder),
+          border: Border.all(color: colors.lightBlueBorder),
           gradient: LinearGradient(
             begin: Alignment(alignment.x - 1, -0.2),
             end: Alignment(alignment.x + 1, 0.2),
             colors: [
-              AppTheme.lightBlue.withValues(alpha: 0.68),
-              AppTheme.card,
-              AppTheme.lightBlue.withValues(alpha: 0.68),
+              colors.lightBlue.withValues(alpha: 0.68),
+              colors.card,
+              colors.lightBlue.withValues(alpha: 0.68),
             ],
             stops: const [0.18, 0.5, 0.82],
           ),

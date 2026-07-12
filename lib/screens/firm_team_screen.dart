@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 import '../models/firm_role.dart';
 import '../models/firm_team_member.dart';
 import '../models/firm_workspace.dart';
-import '../theme/app_theme.dart';
+import '../theme/app_colors.dart';
 import '../widgets/jurii_form_motion.dart';
 import '../widgets/jurii_list_card.dart';
 import '../widgets/jurii_motion.dart';
@@ -33,6 +33,7 @@ class FirmTeamScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     final members = teamMembers ?? const <FirmTeamMember>[];
     final canManageMembers =
         workspace?.fromSupabase == true && workspace?.canManageMembers == true;
@@ -44,7 +45,7 @@ class FirmTeamScreen extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -53,14 +54,14 @@ class FirmTeamScreen extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 34,
                         fontWeight: FontWeight.bold,
-                        color: AppTheme.textPrimary,
+                        color: colors.textPrimary,
                       ),
                     ),
-                    SizedBox(height: 8),
+                    const SizedBox(height: 8),
                     Text(
                       'Advogados e operação do escritório.',
                       style: TextStyle(
-                        color: AppTheme.textSecondary,
+                        color: colors.textSecondary,
                         fontSize: 16,
                       ),
                     ),
@@ -70,8 +71,8 @@ class FirmTeamScreen extends StatelessWidget {
               IconButton.filled(
                 onPressed: () => _openInviteSheet(context, canInvite),
                 style: IconButton.styleFrom(
-                  backgroundColor: AppTheme.officePurple,
-                  foregroundColor: AppTheme.card,
+                  backgroundColor: colors.officePurple,
+                  foregroundColor: colors.card,
                 ),
                 icon: const Icon(Icons.person_add_alt_1),
                 tooltip: 'Convidar membro',
@@ -84,29 +85,26 @@ class FirmTeamScreen extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: AppTheme.card,
+                color: colors.card,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppTheme.officePurpleBorder),
+                border: Border.all(color: colors.officePurpleBorder),
               ),
-              child: const Column(
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     'Sua equipe aparecerá aqui',
                     style: TextStyle(
-                      color: AppTheme.textPrimary,
+                      color: colors.textPrimary,
                       fontWeight: FontWeight.w800,
                       fontSize: 16,
                     ),
                   ),
-                  SizedBox(height: 6),
+                  const SizedBox(height: 6),
                   Text(
                     'Convide advogados verificados pelo botão acima para '
                     'montar o time do escritório.',
-                    style: TextStyle(
-                      color: AppTheme.textSecondary,
-                      height: 1.4,
-                    ),
+                    style: TextStyle(color: colors.textSecondary, height: 1.4),
                   ),
                 ],
               ),
@@ -311,6 +309,7 @@ class _MemberRolesSheetState extends State<_MemberRolesSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return JuriiModalSheetScaffold(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -318,17 +317,17 @@ class _MemberRolesSheetState extends State<_MemberRolesSheet> {
         children: [
           Text(
             'Cargos de ${widget.member.name}',
-            style: const TextStyle(
-              color: AppTheme.textPrimary,
+            style: TextStyle(
+              color: colors.textPrimary,
               fontSize: 22,
               fontWeight: FontWeight.w900,
             ),
           ),
           const SizedBox(height: 6),
-          const Text(
+          Text(
             'Defina o que este membro pode fazer dentro do escritório.',
             style: TextStyle(
-              color: AppTheme.textSecondary,
+              color: colors.textSecondary,
               height: 1.35,
               fontWeight: FontWeight.w600,
             ),
@@ -377,7 +376,7 @@ class _MemberRolesSheetState extends State<_MemberRolesSheet> {
                   isLoading: _isSubmitting,
                   onPressed: _submit,
                   height: 52,
-                  backgroundColor: AppTheme.officePurple,
+                  backgroundColor: colors.officePurple,
                 ),
               ),
             ],
@@ -415,13 +414,12 @@ class _RoleToggleTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     final borderColor = selected
-        ? AppTheme.officePurple
-        : AppTheme.officePurpleBorder;
-    final backgroundColor = selected
-        ? AppTheme.officePurpleSurface
-        : AppTheme.card;
-    final iconColor = selected ? AppTheme.officePurple : AppTheme.textSecondary;
+        ? colors.officePurple
+        : colors.officePurpleBorder;
+    final backgroundColor = selected ? colors.officePurpleSurface : colors.card;
+    final iconColor = selected ? colors.officePurple : colors.textSecondary;
 
     return JuriiPressable(
       onTap: enabled ? () => onChanged(!selected) : null,
@@ -434,7 +432,7 @@ class _RoleToggleTile extends StatelessWidget {
         decoration: BoxDecoration(
           color: enabled
               ? backgroundColor
-              : AppTheme.lightBlue.withValues(alpha: 0.55),
+              : colors.lightBlue.withValues(alpha: 0.55),
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: borderColor),
         ),
@@ -446,17 +444,17 @@ class _RoleToggleTile extends StatelessWidget {
               width: 26,
               height: 26,
               decoration: BoxDecoration(
-                color: selected ? AppTheme.officePurple : AppTheme.card,
+                color: selected ? colors.officePurple : colors.card,
                 shape: BoxShape.circle,
                 border: Border.all(color: iconColor, width: 1.4),
               ),
               child: AnimatedSwitcher(
                 duration: JuriiMotion.fast,
                 child: selected
-                    ? const Icon(
+                    ? Icon(
                         Icons.check,
-                        key: ValueKey('selected'),
-                        color: AppTheme.card,
+                        key: const ValueKey('selected'),
+                        color: colors.card,
                         size: 16,
                       )
                     : const SizedBox(key: ValueKey('empty')),
@@ -471,16 +469,16 @@ class _RoleToggleTile extends StatelessWidget {
                     title,
                     style: TextStyle(
                       color: enabled
-                          ? AppTheme.textPrimary
-                          : AppTheme.textSecondary,
+                          ? colors.textPrimary
+                          : colors.textSecondary,
                       fontWeight: FontWeight.w900,
                     ),
                   ),
                   const SizedBox(height: 3),
                   Text(
                     description,
-                    style: const TextStyle(
-                      color: AppTheme.textSecondary,
+                    style: TextStyle(
+                      color: colors.textSecondary,
                       fontSize: 12,
                       height: 1.25,
                       fontWeight: FontWeight.w600,
@@ -592,24 +590,25 @@ class _InviteLawyerSheetState extends State<_InviteLawyerSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return JuriiModalSheetScaffold(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Convidar advogado',
             style: TextStyle(
-              color: AppTheme.textPrimary,
+              color: colors.textPrimary,
               fontSize: 22,
               fontWeight: FontWeight.w900,
             ),
           ),
           const SizedBox(height: 6),
-          const Text(
+          Text(
             'Informe a OAB de um advogado já verificado na Jurii.',
             style: TextStyle(
-              color: AppTheme.textSecondary,
+              color: colors.textSecondary,
               height: 1.35,
               fontWeight: FontWeight.w600,
             ),
@@ -669,7 +668,7 @@ class _InviteLawyerSheetState extends State<_InviteLawyerSheet> {
                   isLoading: _isSubmitting,
                   onPressed: _submit,
                   height: 52,
-                  backgroundColor: AppTheme.officePurple,
+                  backgroundColor: colors.officePurple,
                 ),
               ),
             ],
@@ -688,6 +687,7 @@ class _TeamMemberCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     final roleLabel = member.roleLabel;
     final detailLabel = member.specialty == roleLabel
         ? roleLabel
@@ -695,7 +695,7 @@ class _TeamMemberCard extends StatelessWidget {
 
     return JuriiListCard(
       borderRadius: 14,
-      borderColor: AppTheme.officePurpleBorder,
+      borderColor: colors.officePurpleBorder,
       child: Row(
         children: [
           Container(
@@ -703,15 +703,15 @@ class _TeamMemberCard extends StatelessWidget {
             height: 48,
             decoration: BoxDecoration(
               color: member.available
-                  ? AppTheme.officePurple
-                  : AppTheme.textSecondary,
+                  ? colors.officePurple
+                  : colors.textSecondary,
               borderRadius: BorderRadius.circular(14),
             ),
             child: Center(
               child: Text(
                 member.initials,
-                style: const TextStyle(
-                  color: AppTheme.card,
+                style: TextStyle(
+                  color: colors.card,
                   fontWeight: FontWeight.w900,
                 ),
               ),
@@ -726,8 +726,8 @@ class _TeamMemberCard extends StatelessWidget {
                   member.name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppTheme.textPrimary,
+                  style: TextStyle(
+                    color: colors.textPrimary,
                     fontSize: 15,
                     fontWeight: FontWeight.w800,
                   ),
@@ -737,8 +737,8 @@ class _TeamMemberCard extends StatelessWidget {
                   detailLabel,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppTheme.textSecondary,
+                  style: TextStyle(
+                    color: colors.textSecondary,
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                   ),
@@ -778,7 +778,7 @@ class _TeamMemberCard extends StatelessWidget {
             icon: Icon(
               onEditRoles == null ? Icons.chevron_right : Icons.manage_accounts,
             ),
-            color: AppTheme.textSecondary,
+            color: colors.textSecondary,
             tooltip: onEditRoles == null ? 'Abrir membro' : 'Editar cargos',
           ),
         ],
@@ -797,13 +797,13 @@ class _MiniBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: AppTheme.officePurpleSurface,
+        color: context.jColors.officePurpleSurface,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
         label,
-        style: const TextStyle(
-          color: AppTheme.officePurple,
+        style: TextStyle(
+          color: context.jColors.officePurple,
           fontSize: 11,
           fontWeight: FontWeight.w700,
         ),

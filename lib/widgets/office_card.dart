@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../theme/app_theme.dart';
+import '../theme/app_colors.dart';
 import 'jurii_list_card.dart';
 
 class OfficeCard extends StatelessWidget {
@@ -25,19 +25,20 @@ class OfficeCard extends StatelessWidget {
     this.onTap,
   });
 
-  Color get _avatarColor => switch (avatarType) {
-    'navy' => AppTheme.primary,
-    'gold' => AppTheme.accent,
-    _ => AppTheme.lightBlue,
+  Color _avatarColor(AppColors colors) => switch (avatarType) {
+    'navy' => colors.primary,
+    'gold' => colors.accent,
+    _ => colors.lightBlue,
   };
 
-  Color get _avatarTextColor => switch (avatarType) {
-    'navy' || 'gold' => AppTheme.card,
-    _ => AppTheme.primary,
+  Color _avatarTextColor(AppColors colors) => switch (avatarType) {
+    'navy' || 'gold' => colors.card,
+    _ => colors.primary,
   };
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return JuriiListCard(
       onTap: onTap,
       semanticLabel: officeName,
@@ -47,14 +48,14 @@ class OfficeCard extends StatelessWidget {
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              color: _avatarColor,
+              color: _avatarColor(colors),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Center(
               child: Text(
                 initials,
                 style: TextStyle(
-                  color: _avatarTextColor,
+                  color: _avatarTextColor(colors),
                   fontWeight: FontWeight.bold,
                   fontSize: 16,
                 ),
@@ -70,10 +71,10 @@ class OfficeCard extends StatelessWidget {
                   officeName,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
-                    color: AppTheme.textPrimary,
+                    color: colors.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -81,22 +82,19 @@ class OfficeCard extends StatelessWidget {
                   specialty,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AppTheme.textSecondary,
-                  ),
+                  style: TextStyle(fontSize: 12, color: colors.textSecondary),
                 ),
                 const SizedBox(height: 6),
                 Row(
                   children: [
-                    const Icon(Icons.star, size: 14, color: AppTheme.accent),
+                    Icon(Icons.star, size: 14, color: colors.accent),
                     const SizedBox(width: 4),
                     Text(
                       '$rating',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
-                        color: AppTheme.textPrimary,
+                        color: colors.textPrimary,
                       ),
                     ),
                     const SizedBox(width: 4),
@@ -105,24 +103,24 @@ class OfficeCard extends StatelessWidget {
                         '($reviews avaliações)',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
-                          color: AppTheme.textSecondary,
+                          color: colors.textSecondary,
                         ),
                       ),
                     ),
                     const Spacer(),
-                    const Icon(
+                    Icon(
                       Icons.location_on_outlined,
                       size: 14,
-                      color: AppTheme.textSecondary,
+                      color: colors.textSecondary,
                     ),
                     const SizedBox(width: 2),
                     Text(
                       distance,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
-                        color: AppTheme.textSecondary,
+                        color: colors.textSecondary,
                       ),
                     ),
                   ],
@@ -130,7 +128,7 @@ class OfficeCard extends StatelessWidget {
               ],
             ),
           ),
-          const Icon(Icons.chevron_right, color: AppTheme.textSecondary),
+          Icon(Icons.chevron_right, color: colors.textSecondary),
         ],
       ),
     );

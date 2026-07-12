@@ -197,6 +197,63 @@ Criei `lib/widgets/jurii_motion.dart` com:
   `JuriiModalSheetScaffold` e `JuriiListCard`, deixando a escolha de advogado
   com avatar, check animado e superficie consistente.
 
+## Feito nesta setima leva
+
+### Spinners restantes (prioridade alta) — decisao caso a caso
+
+Trocados por skeleton (contexto de lista/secao, onde spinner esconde o layout):
+
+- Home do advogado: secao "Hoje", casos prioritarios e novos contatos.
+- Agenda: lista de compromissos.
+- Triagem IA: abertura da conversa (hoje o servico local e instantaneo, mas a
+  IA remota tera latencia real ali).
+
+Mantidos de proposito (nao sao pendencia):
+
+- Spinners dentro de botoes (excluir conta, abrir chat, enviar, anexar) — e o
+  padrao `JuriiLoadingButton`/feedback pontual de acao.
+- Splash de bootstrap no `main.dart` (momento de marca, nao de conteudo).
+- Indicadores pontuais do chat (avatar carregando, imagem no dialog).
+
+### Cards e sheets (prioridade media)
+
+- Card de compromisso da agenda migrou para `JuriiListCard` + entrada em
+  cascata. Removido `onTap` vazio que dava ripple num card sem acao — ripple
+  em card inerte sugere interacao que nao existe.
+- Bottom sheet de notificacoes padronizado com `JuriiModalSheetScaffold`.
+  CUIDADO de layout descoberto aqui: dentro do scaffold a Column nao repassa
+  altura limitada, entao `Flexible`+ListView quebra — listas longas dentro do
+  scaffold precisam de teto explicito (`ConstrainedBox` com maxHeight
+  proporcional a tela).
+- Dialogs de confirmacao destrutiva (excluir conta, sair da triagem) FICAM
+  como `AlertDialog` — confirmacao destrutiva pede dialog, nao sheet.
+
+### Formularios de verificacao por etapas (prioridade media)
+
+- Novo `JuriiFormSectionHeader` em `jurii_form_motion.dart`: circulo numerado
+  (1/2/3) que vira check verde animado quando a etapa completa, conversando
+  com o `JuriiFormProgressCard`.
+- Aplicado nos dois formularios (advogado e escritorio): Dados, Areas e
+  Documentos agora sao etapas visuais; no escritorio com accent roxo.
+- `PracticeAreaSelector` recebeu `label: 'Selecione as areas'` nesses usos
+  para o rotulo do campo nao duplicar o titulo da secao.
+
+### Migracao AppTheme.* -> context.jColors (primeiro item do "depois")
+
+- **CONCLUIDA: as 819 referencias estaticas em 53 arquivos foram migradas.**
+  Fora de `lib/theme/` restam apenas `AppTheme.lightTheme/darkTheme` no
+  `main.dart` (wiring do MaterialApp, intencional).
+- Helpers compartilhados (`JuriiListCard`, `JuriiEmptyState`,
+  `JuriiFormProgressCard`, `JuriiLoadingButton`, `JuriiModalSheetScaffold`,
+  `JuriiFormSectionHeader`, `PracticeAreaSelector`, `NotificationBell`)
+  trocaram defaults const de cor por parametros `Color?` anulaveis resolvidos
+  no build — API 100% compativel com os call sites existentes.
+- Getters de cor em widgets viraram metodos com parametro `AppColors`
+  (ex.: `_avatarColor(colors)`), e helpers static recebem `colors` de quem
+  chama.
+- Consequencia: **o app inteiro agora reage ao tema — o dark mode pode ser
+  ativado** (ver "Falta fazer").
+
 ## Validacao
 
 Rodado em 10/07/2026:
@@ -222,29 +279,36 @@ Rodado em 11/07/2026:
 - `flutter analyze` sem issues.
 - `flutter test` com 47 testes passando.
 
+Rodado na setima leva:
+
+- `dart format lib/` (121 arquivos, 34 alterados);
+- `flutter analyze` sem issues;
+- `flutter test` com 49 testes passando;
+- `grep AppTheme.` fora de `lib/theme/`: somente lightTheme/darkTheme no
+  main.dart.
+
 ## Falta fazer
 
 Prioridade alta:
 
-- Mapear spinners restantes em fluxos menos acessados e decidir caso a caso se
-  skeleton ou botao carregando melhora clareza.
+- **Ativar o dark mode** (a migracao jColors esta completa): mudar o default
+  do `ThemeController` para `system`, expor toggle no perfil e persistir com
+  `shared_preferences` (receita em docs/architecture.md). ANTES de ativar,
+  fazer um QA visual completo no tema escuro — a paleta dark foi desenhada
+  mas nunca foi vista tela a tela.
 
 Prioridade media:
 
-- Expandir `JuriiListCard` para cards privados restantes quando houver ganho
-  claro, especialmente agenda, detalhes de caso e telas de perfil.
-- Revisar bottom sheets restantes fora de equipe/escritorio quando algum fluxo
-  ainda destoar visualmente.
-- Refinar formularios de verificacao com agrupamento visual por etapa
-  (`Dados`, `Areas`, `Documentos`) se a tela crescer.
+- Expandir `JuriiListCard` para os cards privados que sobraram em detalhes de
+  caso e telas de perfil quando houver ganho claro (agenda ja migrou).
+- Revisar responsividade dos dashboards em telas pequenas depois das
+  animacoes.
 
 Prioridade depois:
 
-- Migrar mais telas de `AppTheme.*` estatico para `context.jColors` antes de
-  ativar dark mode real.
-- Revisar responsividade dos dashboards em telas pequenas depois das animacoes.
 - Adicionar testes focados para helpers de motion/composer se eles passarem a
   carregar mais comportamento.
+- Golden tests do tema escuro nas telas principais quando o dark mode ativar.
 
 ## Cuidados para proximas alteracoes
 
@@ -253,3 +317,9 @@ Prioridade depois:
 - Em listas longas, limitar delays de stagger para nao atrasar a interacao.
 - Em telas juridicas sensiveis, motion deve esclarecer estado e hierarquia, nao
   mascarar informacao.
+- Codigo novo usa SEMPRE `context.jColors` (nunca `AppTheme.*` estatico — os
+  tokens de cor sairam de circulacao fora de `lib/theme/`).
+- Em componentes reutilizaveis, cor customizavel = parametro `Color?` anulavel
+  resolvido no build com `?? colors.token`; default const de cor quebra o tema.
+- Dentro de `JuriiModalSheetScaffold`, listas roláveis precisam de altura
+  maxima explicita (`ConstrainedBox`); `Flexible` quebra.

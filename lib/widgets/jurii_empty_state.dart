@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../theme/app_theme.dart';
+import '../theme/app_colors.dart';
 import 'jurii_motion.dart';
 
 class JuriiEmptyState extends StatelessWidget {
@@ -11,9 +11,9 @@ class JuriiEmptyState extends StatelessWidget {
     required this.message,
     this.actionLabel,
     this.onAction,
-    this.accentColor = AppTheme.primary,
-    this.surfaceColor = AppTheme.lightBlue,
-    this.borderColor = AppTheme.lightBlueBorder,
+    this.accentColor,
+    this.surfaceColor,
+    this.borderColor,
   });
 
   final IconData icon;
@@ -21,12 +21,19 @@ class JuriiEmptyState extends StatelessWidget {
   final String message;
   final String? actionLabel;
   final VoidCallback? onAction;
-  final Color accentColor;
-  final Color surfaceColor;
-  final Color borderColor;
+
+  /// Cores opcionais; quando nulas, seguem a paleta do tema ativo.
+  final Color? accentColor;
+  final Color? surfaceColor;
+  final Color? borderColor;
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
+    final accent = accentColor ?? colors.primary;
+    final surface = surfaceColor ?? colors.lightBlue;
+    final border = borderColor ?? colors.lightBlueBorder;
+
     return JuriiStaggeredItem(
       index: 0,
       beginOffset: const Offset(0, 16),
@@ -54,18 +61,18 @@ class JuriiEmptyState extends StatelessWidget {
                       width: iconBoxSize,
                       height: iconBoxSize,
                       decoration: BoxDecoration(
-                        color: surfaceColor,
+                        color: surface,
                         borderRadius: BorderRadius.circular(iconBoxSize / 2),
-                        border: Border.all(color: borderColor),
+                        border: Border.all(color: border),
                         boxShadow: [
                           BoxShadow(
-                            color: accentColor.withValues(alpha: 0.08),
+                            color: accent.withValues(alpha: 0.08),
                             blurRadius: compact ? 18 : 24,
                             offset: Offset(0, compact ? 8 : 12),
                           ),
                         ],
                       ),
-                      child: Icon(icon, size: iconSize, color: accentColor),
+                      child: Icon(icon, size: iconSize, color: accent),
                     ),
                   ),
                   SizedBox(height: compact ? 12 : 24),
@@ -75,7 +82,7 @@ class JuriiEmptyState extends StatelessWidget {
                     style: TextStyle(
                       fontSize: compact ? 19 : 22,
                       fontWeight: FontWeight.bold,
-                      color: AppTheme.textPrimary,
+                      color: colors.textPrimary,
                       decoration: TextDecoration.none,
                     ),
                   ),
@@ -84,7 +91,7 @@ class JuriiEmptyState extends StatelessWidget {
                     message,
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      color: AppTheme.textSecondary,
+                      color: colors.textSecondary,
                       fontSize: compact ? 13 : 15,
                       height: 1.35,
                       decoration: TextDecoration.none,
