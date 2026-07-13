@@ -652,3 +652,128 @@ Smoke tests locais executados com sucesso:
 
 Com isso, a baseline consolidada passou a ser validada de verdade em ambiente
 Supabase local via Docker.
+
+## Verificacao de documentos - upload real + ciclo de recusa (12/07/2026)
+
+Ataquei o maior gap funcional do produto: o upload de documentos na
+verificacao (advogado e escritorio) era placebo. O botao "Selecionar" so fazia
+`copyWith(uploaded: true)` — nenhum arquivo saia do aparelho, e o submit gravava
+OAB/CNPJ mas nenhum documento. Para uma legaltech, "verificamos a OAB" e a
+promessa central de confianca; nao da para lancar com isso fingindo funcionar.
+
+### O que ja existia (e estava certo)
+
+Boa surpresa: o banco ja estava quase todo pronto desde a baseline. Existiam as
+tabelas `verification_documents` e `law_firm_verification_documents` (com
+`storage_path`, `mime_type`, `file_size_bytes`), o bucket privado
+`verification-documents` com policies de pasta propria (`{uid}/...`), os enums de
+tipo de documento e as funcoes `approve_*` (SECURITY DEFINER, `revoke` de
+authenticated + `grant` so para service_role — ou seja, so back-office aprova, o
+cliente nunca consegue se auto-aprovar). So faltava o app usar tudo isso, e
+faltava o caminho de recusa.
+
+### Fase A - upload real (app)
+
+- Novo util `lib/utils/document_file_validation.dart`: valida extensao
+  (pdf/jpg/png/webp), le os magic bytes (mesma defesa dos anexos de chat, agora
+  extraida para reuso) e o teto de 10 MB. Recusa arquivo renomeado.
+- Novo `lib/repositories/verification_document_storage.dart`: sobe ao bucket
+  `verification-documents` em `{uid}/{tipo}-{ts}-{nome}` (a policy de escrita
+  exige o uid como primeiro segmento) e remove blobs no rollback.
+- Novo model `PendingVerificationUpload` (bytes na memoria ate o submit).
+- Repos de advogado e escritorio: o `submitVerification` agora recebe os
+  arquivos escolhidos; apos criar a verificacao (o RPC do advogado retorna o id;
+  no escritorio adicionei `.select('id')`), sobe cada documento e insere a linha
+  na tabela de documentos. Se algo falha no meio, remove os blobs ja enviados
+  (rollback best-effort) e propaga o erro — a verificacao em si fica criada e o
+  usuario reenvia os documentos.
+- Telas de verificacao: tocar em "Selecionar" abre o file picker real (com
+  Supabase), valida e guarda o arquivo; mostra o nome do arquivo no card. Sem
+  Supabase (modo demo/teste) mantem o comportamento antigo de so marcar como
+  anexado — os widget tests continuam passando.
+
+### Fase B - ciclo de recusa + hardening (migration nova)
+
+Nova migration timestampada `20260712120000_verification_review_reject.sql`
+(nao e patch, seguindo a estrutura nova; e aditiva, producao ja tem a baseline):
+
+- `reject_lawyer_verification(id, motivo, revisor)` e
+  `reject_law_firm_verification(id, motivo, revisor)` — espelham as `approve_*`:
+  marcam `status='rejected'`, gravam `reviewed_at`/`reviewer_id`/`rejection_reason`
+  e (advogado) voltam `profiles.lawyer_status` para `client`. SECURITY DEFINER,
+  so service_role executa. Faltava o par da aprovacao — sem isso o revisor nao
+  tinha como devolver com motivo.
+- Hardening do bucket: `file_size_limit = 10 MB` e `allowed_mime_types`
+  (pdf/jpeg/png/webp) direto no Storage, valendo mesmo que o cliente burle a
+  validacao local. Mais um CHECK de tamanho na `verification_documents`.
+
+### Fase C - estado "rejeitado" no app
+
+O enum `LawyerStatus` do app nao tinha `rejected` (o do banco tem): advogado
+recusado caia em silencio no card inicial e perdia o motivo. Corrigido:
+
+- `LawyerStatus.rejected` + `_statusFromRow` mapeia `'rejected'`; o model
+  `LawyerVerification` ganhou `rejectionReason`/`reviewedAt`.
+- `ProfessionalModeCard` ganhou o estado vermelho "Verificacao nao aprovada -
+  toque para revisar e reenviar"; o perfil mostra um banner de recusa com o
+  motivo real; tocar no card reabre o fluxo para reenviar.
+- O escritorio ja tratava `rejected` (model e enum ja tinham os campos).
+
+### Testado
+
+- Local (Docker/Supabase): `supabase migration up` aplicou a migration nova
+  sobre a baseline; conferido que as funcoes de reject existem e so
+  service_role executa (`authenticated` recebe "permission denied"); ciclo
+  completo num usuario de teste — `reject_lawyer_verification` devolveu o
+  status `rejected` com motivo e `reviewed_at`, e o perfil voltou para `client`;
+  o CHECK de tamanho barrou um insert de 20 MB. Tudo em transacao com rollback
+  (sem lixo no banco).
+- App: `flutter analyze` limpo; suite com 64 testes passando (10 novos cobrindo
+  a validacao de arquivo: extensao, magic bytes, vazio e teto de tamanho).
+
+### DECISAO EM ABERTO para voce - quem revisa?
+
+Nao construi tela de revisao interna. Hoje o modelo e back-office: quem tem
+service_role (dashboard do Supabase ou uma Edge Function futura) chama
+`approve_*`/`reject_*`. Isso e barato, seguro e normal para o estagio. A
+alternativa e uma tela de revisao dentro do app, mas ela exige um modelo de
+papel de revisor (hoje nao existe) e policies de leitura dos documentos para o
+revisor (hoje o bucket e as tabelas sao leitura so do dono). Nao quis assumir
+isso sozinho porque e decisao de produto/ops. Minha sugestao: manter back-office
+por enquanto e so construir a tela quando o volume de verificacoes justificar.
+
+Outra limitacao conhecida: se o upload de um documento falhar depois da
+verificacao ja criada, ela fica pendente com documentos faltando (o revisor
+recusaria). Aceitavel para v1; da para endurecer depois movendo a criacao da
+verificacao para o fim, ou para uma Edge Function transacional.
+
+### Foto profissional vira o avatar do perfil (12/07/2026)
+
+A "Foto profissional" da verificacao do advogado (subtitulo ja dizia "Imagem
+exibida no perfil") agora vira de fato o avatar do perfil. Detalhe do banco: as
+colunas `profiles.avatar_url` e `lawyer_profiles.professional_photo_url`
+existiam desde a baseline mas nao eram usadas em lugar nenhum — o app so
+mostrava iniciais e o bucket publico `profile-avatars` nunca era escrito.
+
+- No submit da verificacao, alem de ir para o bucket privado
+  `verification-documents` (o revisor precisa ver o rosto para bater com o
+  documento), a foto profissional tambem sobe para o bucket publico
+  `profile-avatars` (`{uid}/avatar-...`) e o `profiles.avatar_url` recebe a URL
+  publica. Nao precisou de migration: o grant de coluna do patch_041 ja
+  incluia `update (... avatar_url ...)` para authenticated, e a policy
+  `profiles_update_own` cobre a linha propria.
+- E nao-fatal: se o upload/registro do avatar falhar, a verificacao continua
+  (a foto ja esta no pacote de documentos); so nao troca o avatar.
+- App: `UserProfile` ganhou `avatarUrl`; `ProfileHeaderCard` mostra a foto
+  (BoxFit.cover, recorte arredondado) com fallback para as iniciais em erro de
+  rede/ausencia; o `main` recarrega o perfil apos o submit para o header
+  refletir a foto na volta.
+- So advogado. O escritorio nao envia foto de pessoa (os documentos sao CNPJ,
+  contrato social, etc.), entao nada de avatar la.
+
+Escopo que deixei de fora de proposito: mostrar essa foto para o CLIENTE na
+descoberta de advogados. Hoje os cards de advogado (`LawyerProfileSummary`) sao
+so cor + iniciais, sem campo de foto — renderizar foto ali e uma frente
+separada (model + repo + todos os cards). A base ja esta pronta:
+`avatar_url` esta salvo e da para levar para `lawyer_profiles.professional_photo_url`
+na aprovacao quando essa frente for encarada.

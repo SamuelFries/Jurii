@@ -36,6 +36,13 @@ class ProfessionalModeCard extends StatelessWidget {
         icon = Icons.schedule_outlined;
         break;
 
+      case LawyerStatus.rejected:
+        title = 'Verificação não aprovada';
+        subtitle = 'Toque para revisar e reenviar';
+        cardColor = colors.danger;
+        icon = Icons.error_outline;
+        break;
+
       case LawyerStatus.approved:
         title = 'Entrar no Modo Profissional';
         subtitle = 'Acesse sua área profissional';

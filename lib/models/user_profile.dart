@@ -8,6 +8,7 @@ class UserProfile {
   final String memberSince;
   final String? oabNumber;
   final LawyerStatus lawyerStatus;
+  final String? avatarUrl;
 
   const UserProfile({
     required this.id,
@@ -17,6 +18,7 @@ class UserProfile {
     required this.memberSince,
     required this.lawyerStatus,
     this.oabNumber,
+    this.avatarUrl,
   });
 
   UserProfile copyWith({
@@ -27,6 +29,7 @@ class UserProfile {
     String? memberSince,
     String? oabNumber,
     LawyerStatus? lawyerStatus,
+    String? avatarUrl,
   }) {
     return UserProfile(
       id: id ?? this.id,
@@ -36,6 +39,7 @@ class UserProfile {
       memberSince: memberSince ?? this.memberSince,
       oabNumber: oabNumber ?? this.oabNumber,
       lawyerStatus: lawyerStatus ?? this.lawyerStatus,
+      avatarUrl: avatarUrl ?? this.avatarUrl,
     );
   }
 }

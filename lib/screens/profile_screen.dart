@@ -294,6 +294,7 @@ class ProfileScreen extends StatelessWidget {
                 name: isLawyerMode ? 'Dr. ${user.name}' : user.name,
                 email: user.email,
                 initials: user.initials,
+                avatarUrl: user.avatarUrl,
                 memberSince: isLawyerMode
                     ? user.oabNumber ?? 'Perfil profissional'
                     : user.memberSince,
@@ -316,6 +317,7 @@ class ProfileScreen extends StatelessWidget {
                   onTap: () {
                     switch (user.lawyerStatus) {
                       case LawyerStatus.client:
+                      case LawyerStatus.rejected:
                         Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -407,6 +409,55 @@ class ProfileScreen extends StatelessWidget {
                             height: 1.45,
                             fontWeight: FontWeight.w600,
                           ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+
+              if (!isLawyerMode &&
+                  user.lawyerStatus == LawyerStatus.rejected) ...[
+                const SizedBox(height: 12),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: colors.dangerSurface,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: colors.dangerBorder),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.error_outline, color: colors.danger),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Verificação não aprovada',
+                              style: TextStyle(
+                                color: colors.danger,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              lawyerVerification?.rejectionReason
+                                          ?.trim()
+                                          .isNotEmpty ==
+                                      true
+                                  ? lawyerVerification!.rejectionReason!
+                                  : 'Revise seus documentos e envie uma nova solicitação pelo card acima.',
+                              style: TextStyle(
+                                color: colors.textSecondary,
+                                height: 1.45,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],

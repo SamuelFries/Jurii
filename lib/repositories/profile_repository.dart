@@ -83,6 +83,9 @@ class ProfileRepository {
       memberSince: 'Cliente desde ${row['member_since'] ?? ''}',
       oabNumber: null,
       lawyerStatus: status,
+      avatarUrl: (row['avatar_url'] as String?)?.trim().isEmpty ?? true
+          ? null
+          : row['avatar_url'] as String,
     );
   }
 

@@ -1,1 +1,1 @@
-enum LawyerStatus { client, pending, approved }
+enum LawyerStatus { client, pending, approved, rejected }

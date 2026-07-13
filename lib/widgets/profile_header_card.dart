@@ -6,6 +6,7 @@ class ProfileHeaderCard extends StatelessWidget {
   final String email;
   final String initials;
   final String memberSince;
+  final String? avatarUrl;
   final VoidCallback? onEditTap;
 
   const ProfileHeaderCard({
@@ -14,6 +15,7 @@ class ProfileHeaderCard extends StatelessWidget {
     required this.email,
     required this.initials,
     required this.memberSince,
+    this.avatarUrl,
     this.onEditTap,
   });
 
@@ -39,16 +41,8 @@ class ProfileHeaderCard extends StatelessWidget {
               // primary têm a mesma luminância.
               border: Border.all(color: colors.card.withValues(alpha: 0.35)),
             ),
-            child: Center(
-              child: Text(
-                initials,
-                style: TextStyle(
-                  color: colors.card,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
-                ),
-              ),
-            ),
+            clipBehavior: Clip.antiAlias,
+            child: _avatar(colors),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -115,6 +109,36 @@ class ProfileHeaderCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _avatar(AppColors colors) {
+    final url = avatarUrl;
+    if (url == null || url.isEmpty) return _initials(colors);
+
+    return Image.network(
+      url,
+      width: 56,
+      height: 56,
+      fit: BoxFit.cover,
+      loadingBuilder: (context, child, progress) {
+        if (progress == null) return child;
+        return _initials(colors);
+      },
+      errorBuilder: (context, error, stackTrace) => _initials(colors),
+    );
+  }
+
+  Widget _initials(AppColors colors) {
+    return Center(
+      child: Text(
+        initials,
+        style: TextStyle(
+          color: colors.card,
+          fontWeight: FontWeight.bold,
+          fontSize: 18,
+        ),
       ),
     );
   }

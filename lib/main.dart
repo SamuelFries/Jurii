@@ -530,6 +530,22 @@ class _JuriiAppState extends State<JuriiApp> {
       _currentUser = _userWithLawyerVerification(_currentUser, verification);
       _isLawyerMode = false;
     });
+    // A foto profissional virou avatar no banco durante o submit; recarrega o
+    // perfil para refletir no header.
+    _refreshAvatarFromProfile();
+  }
+
+  Future<void> _refreshAvatarFromProfile() async {
+    if (!SupabaseConfig.isReady) return;
+    try {
+      final profile = await _profileRepository.fetchCurrentProfile();
+      if (!mounted || profile == null || profile.avatarUrl == null) return;
+      setState(() {
+        _currentUser = _currentUser.copyWith(avatarUrl: profile.avatarUrl);
+      });
+    } catch (error) {
+      debugPrint('Falha ao atualizar avatar após verificação: $error');
+    }
   }
 
   Future<void> _refreshLawyerVerification() async {
