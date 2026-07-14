@@ -44,14 +44,41 @@ reatribuir casos pessoais do advogado, nem casos vinculados a outro escritório.
 
 `supabase/legacy_patches/patch_044_account_deletion_lgpd.sql` e a Edge
 Function `supabase/functions/delete-account` fecham a exclusão de conta. O SQL
-está consolidado na baseline; a Function ainda precisa ser publicada por
-ambiente. A função roda com `service_role`, apaga Storage sensível de
-verificação/avatar, chama o soft-delete transacional existente, bane o usuário
-em `auth.users` e registra auditoria em `account_deletion_audit`.
+está consolidado na baseline; a Function está ativa no projeto atual e ainda
+precisa ser publicada separadamente nos demais ambientes. A função roda com
+`service_role`, apaga Storage sensível de verificação/avatar, chama o
+soft-delete transacional existente, bane o usuário em `auth.users` e registra
+auditoria em `account_deletion_audit`.
 
 Anexos de chat e documentos de caso não são apagados nessa rotina porque podem
 ser prova/evidência; eles continuam dependendo de uma política de retenção
 própria.
+
+### Teste remoto com conta burner — bloqueio encontrado em 14/07/2026
+
+O fluxo destrutivo foi finalmente exercitado com uma conta confirmada e
+descartável. Antes do POST foram persistidos CPF, telefone, uma verificação
+pendente, um documento no bucket privado e um avatar público.
+
+O `POST /functions/v1/delete-account` retornou `500` e criou corretamente uma
+auditoria `failed`. A falha acontece antes do soft-delete: a Function consulta
+os caminhos pelo REST usando `service_role`, mas esse papel recebe
+`permission denied` ao selecionar:
+
+- `verification_documents`;
+- `law_firm_verification_documents`;
+- `profiles`.
+
+O comportamento de falha foi seguro: perfil, arquivos e login permaneceram
+intactos, evitando uma exclusão parcial silenciosa. Para não deixar a conta de
+teste ativa, o cleanup foi concluído manualmente pelos mesmos componentes:
+Storage zerado, RPC de soft-delete executada, usuário banido, relogin com HTTP
+`400` e token antigo com HTTP `403`.
+
+A correção pendente deve dar à Function acesso mínimo apenas às colunas usadas
+para localizar os caminhos, ou substituí-las por uma RPC administrativa
+dedicada. Depois disso, é obrigatório repetir o teste ponta a ponta e exigir
+auditoria `completed`.
 
 ## Corrigido no app — Política e Termos acessíveis
 
@@ -124,8 +151,8 @@ decisão de roadmap, não um bloqueio técnico do app atual.
 
 ## Pendências reais antes de produção ampla
 
-- Executar a exclusão LGPD ponta a ponta com conta descartável confirmada e
-  conferir Storage, auditoria, soft-delete e bloqueio de login.
+- Corrigir as leituras administrativas da Edge Function `delete-account` e
+  repetir o teste ponta a ponta até obter auditoria `completed`.
 - Revisão jurídica final da Política de Privacidade e dos Termos de Uso.
 - Definir canal oficial do titular/DPO, registro de consentimento e política de
   retenção para mensagens, anexos e documentos de caso.

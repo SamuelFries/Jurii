@@ -211,6 +211,51 @@ executar `POST /functions/v1/delete-account` nela e conferir:
 - usuario banido em `auth.users`;
 - login posterior bloqueado.
 
+### Teste destrutivo remoto com conta burner (14/07/2026)
+
+O teste pendente acima foi executado com uma conta confirmada criada apenas
+para essa finalidade (`profile_id = 88f6e249-7d95-41f8-95f5-61d597a85007`).
+Foram preparados antes da exclusao:
+
+- CPF e telefone no perfil;
+- verificacao de advogado pendente;
+- documento real no bucket privado `verification-documents` e respectiva linha
+  em `verification_documents`;
+- avatar real no bucket publico `profile-avatars` e URL gravada no perfil.
+
+Resultado do `POST /functions/v1/delete-account`:
+
+- HTTP `500` com resposta publica generica `Account deletion failed`;
+- linha de `account_deletion_audit` criada e finalizada como `failed`;
+- `error_message` registrou `permission denied`;
+- perfil e arquivos permaneceram intactos;
+- login continuou retornando HTTP `200`.
+
+Causa confirmada: o `service_role` usado pela Edge Function consegue operar
+Storage e `account_deletion_audit`, mas nao tem `SELECT` pelo REST nas tres
+tabelas consultadas por `collectDatabaseStoragePaths()`:
+
+- `verification_documents`;
+- `law_firm_verification_documents`;
+- `profiles`.
+
+O cleanup da burner foi concluido manualmente para nao deixar credenciais
+ativas no ambiente remoto:
+
+- documento privado e avatar removidos, ambos com contagem final zero;
+- `delete_current_account()` executada com o JWT do proprio usuario;
+- verificacao e metadado do documento removidos;
+- perfil com `deleted_at`, CPF/telefone/avatar nulos e status `client`;
+- usuario banido e marcado com `deleted_account=true`;
+- logout global retornou `204`, novo login retornou `400` e o token antigo
+  retornou `403`.
+
+Conclusao: os componentes individuais funcionam, e a falha da orquestracao e
+especifica ao acesso de leitura da Function. Antes de repetir o teste, criar
+uma migration de menor privilegio (grants somente nas colunas usadas ou uma RPC
+administrativa de paths), publicar a Function se o contrato mudar e exigir
+auditoria final `completed`.
+
 ## Decisoes tomadas
 
 - Mantivemos a logica transacional sensivel dentro de
