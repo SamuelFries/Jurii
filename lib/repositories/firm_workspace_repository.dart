@@ -47,6 +47,11 @@ class FirmWorkspaceRepository {
     final membershipWorkspace = await _fetchWorkspaceFromMembership(user.id);
     if (membershipWorkspace != null) return membershipWorkspace;
 
+    // Em ambiente real, uma verificacao aprovada prova apenas que o escritorio
+    // foi validado; autoridade vem exclusivamente de membership ativo. Isso
+    // impede que um ex-dono continue entrando pela verificacao historica.
+    if (SupabaseConfig.isReady) return null;
+
     if (verification?.status != LawFirmVerificationStatus.approved) {
       return null;
     }

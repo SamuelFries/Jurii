@@ -18,10 +18,11 @@ class ProfileRepository {
     final user = SupabaseConfig.client.auth.currentUser;
     if (user == null) return null;
 
+    // A tabela profiles expoe diretamente apenas colunas publicas. Dados do
+    // titular (como email, CPF e telefone) passam por uma RPC que fixa o alvo
+    // em auth.uid(), evitando vazar PII para contrapartes de caso/conversa.
     final row = await SupabaseConfig.client
-        .from('profiles')
-        .select()
-        .eq('id', user.id)
+        .rpc('fetch_current_profile')
         .maybeSingle();
 
     if (row == null) return null;
@@ -41,20 +42,24 @@ class ProfileRepository {
   }
 
   Future<void> upsertProfile({
-    required String id,
     required String fullName,
-    required String email,
     String? cpf,
     String? phone,
   }) async {
-    await SupabaseConfig.client.from('profiles').upsert({
-      'id': id,
-      'full_name': fullName,
-      'email': email,
-      'initials': _initialsFor(fullName),
-      'cpf': cpf,
-      'phone': phone,
-    });
+    if (SupabaseConfig.client.auth.currentUser == null) {
+      throw StateError(
+        'É necessário estar autenticado para atualizar o perfil.',
+      );
+    }
+
+    await SupabaseConfig.client.rpc(
+      'upsert_current_profile',
+      params: {
+        'full_name_value': fullName,
+        'cpf_value': cpf,
+        'phone_value': phone,
+      },
+    );
   }
 
   Future<void> deleteCurrentAccount() async {
@@ -87,16 +92,5 @@ class ProfileRepository {
           ? null
           : row['avatar_url'] as String,
     );
-  }
-
-  String _initialsFor(String fullName) {
-    final parts = fullName
-        .trim()
-        .split(RegExp(r'\s+'))
-        .where((part) => part.isNotEmpty)
-        .toList();
-    if (parts.isEmpty) return 'J';
-    if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
-    return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
   }
 }

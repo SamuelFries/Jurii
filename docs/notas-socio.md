@@ -1,23 +1,28 @@
 # Notas para troca com o socio - auditoria, busca, casos, LGPD e design
 
-Atualizado em: 11/07/2026
-Branch atual: `fix/design`
-Base atual: `main`/`origin/main` no commit `3ee49f2`
-(`Adiciona patch de escopo dos casos do escritorio`)
+Atualizado em: 14/07/2026
+Branch atual: `fix/hardening`
+Base atual: `main`/`origin/main` no commit `861590f`
+(`Merge pull request #52 from SamuelFries/fix/notificação`)
 
 ## Resumo executivo
 
-Pegamos a branch `feat/auditoriaLLM`, revisamos as mudancas, validamos o que ja
-existia e fechamos tres frentes importantes:
+O historico abaixo comecou na auditoria de busca, casos e LGPD e hoje ja inclui
+verificacao documental real, avaliacoes, recomendacoes e notificacoes, todas
+incorporadas em `main` ate o commit `861590f`.
 
-1. busca juridica com menos falsos positivos;
-2. escopo correto de casos dentro da area do escritorio;
-3. inicio de exclusao LGPD completa via Edge Function, com service role,
-   auditoria e banimento do usuario no Auth.
+Na branch `fix/hardening`, a frente atual implementou localmente seis grupos de
+controle antes do piloto: PII de perfis, roster privado, autoridade apenas para
+memberships ativos, criacao de conversas por RPC/agenda sem escrita direta,
+imutabilidade de anexo entregue e mitigacao de enumeracao por OAB. A migration
+`20260714220000_security_hardening_round2.sql` passou na suite local e foi
+aplicada ao remoto em 14/07/2026. O app compativel com as novas RPCs de perfil
+segue nesta mesma branch para merge imediato; builds antigos nao suportam o
+novo contrato de leitura de `profiles`.
 
-A parte de busca e escopo de casos ja esta em `main`. A parte LGPD esta na
-branch `fix/exclusao`, com patch SQL, Edge Function publicada e app chamando a
-Function em vez da RPC direta.
+A revisao de OAB/escritorio permanece manual por decisao de produto. Enquanto
+o Jurii for apenas app, um operador privilegiado usa o SQL Editor do Supabase;
+a pagina revisora e o papel de funcionario entram no futuro webapp.
 
 ## O que revisamos primeiro
 
@@ -381,10 +386,11 @@ equipe/escritorio foi enderecada. O proximo alvo de design mais logico e mapear
 spinners restantes em fluxos menos acessados e decidir caso a caso entre
 skeleton, botao carregando ou manter spinner pequeno contextual.
 
-## Pendencias depois desta rodada
+## Pendencias registradas depois da rodada de 11/07 (historico)
 
-As maiores pendencias restantes em seguranca/LGPD estao documentadas em
-`docs/security.md`. As principais sao:
+Esta lista retrata o estado naquele momento. Upload real, PII, roster, ex-dono,
+conversas, anexos e convite por OAB foram tratados nas rodadas posteriores
+documentadas mais abaixo. As pendencias atuais estao em `docs/security.md`.
 
 - separar ou limitar ainda mais PII entre partes de um caso;
 - restringir roster de escritorios ou expor equipe publica via RPC minima;
@@ -398,7 +404,7 @@ As maiores pendencias restantes em seguranca/LGPD estao documentadas em
   app, criar canal oficial do titular/DPO, registro de consentimento e politica
   de retencao documentada.
 
-## Como revisar a frente LGPD nessa branch
+## Como revisar a frente LGPD (referencia historica)
 
 Arquivos principais:
 
@@ -412,14 +418,15 @@ Arquivos principais:
 
 Fluxo esperado para ambiente novo:
 
-1. aplicar a baseline com `supabase db push`;
-2. publicar a Function `delete-account`:
+1. conferir o estado com `supabase migration list --linked`;
+2. aplicar a baseline e as migrations incrementais com `supabase db push`;
+3. publicar a Function `delete-account`:
 
 ```bash
 supabase functions deploy delete-account --project-ref rlgtgipxltucrtkyrmag --use-api
 ```
 
-3. testar a exclusao com uma conta descartavel confirmada antes de usar em
+4. testar a exclusao com uma conta descartavel confirmada antes de usar em
    conta real.
 
 ## Revisao da branch e correcao do grant de id (patch 045)
@@ -731,16 +738,18 @@ recusado caia em silencio no card inicial e perdia o motivo. Corrigido:
 - App: `flutter analyze` limpo; suite com 64 testes passando (10 novos cobrindo
   a validacao de arquivo: extensao, magic bytes, vazio e teto de tamanho).
 
-### DECISAO EM ABERTO para voce - quem revisa?
+### DECISAO TOMADA - revisao manual agora, pagina no futuro webapp
 
-Nao construi tela de revisao interna. Hoje o modelo e back-office: quem tem
-service_role (dashboard do Supabase ou uma Edge Function futura) chama
-`approve_*`/`reject_*`. Isso e barato, seguro e normal para o estagio. A
-alternativa e uma tela de revisao dentro do app, mas ela exige um modelo de
-papel de revisor (hoje nao existe) e policies de leitura dos documentos para o
-revisor (hoje o bucket e as tabelas sao leitura so do dono). Nao quis assumir
-isso sozinho porque e decisao de produto/ops. Minha sugestao: manter back-office
-por enquanto e so construir a tela quando o volume de verificacoes justificar.
+Por decisao do Samuel, enquanto o Jurii for apenas app a revisao continua
+manual por um operador privilegiado no SQL Editor do Dashboard do Supabase,
+chamando `approve_*`/`reject_*`. Essas funcoes nao sao executaveis por `anon` ou
+`authenticated`; o grant para backend confiavel e da `service_role`. Nao sera
+criado painel administrativo dentro do Flutter agora.
+
+Quando o Jurii tambem virar webapp, o site ganhara uma subpagina revisora para
+os funcionarios responsaveis. Nessa etapa entram papel global de revisor, fila,
+acesso temporario aos documentos e auditoria nominal. A base atual permanece
+compativel com esse caminho.
 
 Outra limitacao conhecida: se o upload de um documento falhar depois da
 verificacao ja criada, ela fica pendente com documentos faltando (o revisor
@@ -951,3 +960,98 @@ proprio advogado).
 - A sugestao nao mede conversao (quantas viraram conversa/caso). Da para extrair
   de `messages` filtrando `metadata->>'type' = 'lawyer_recommendation'` quando
   isso virar prioridade.
+
+## Hardening de seguranca antes do piloto (14/07/2026)
+
+Depois de fechar recomendacoes/notificacoes, iniciamos a rodada de seguranca na
+ordem combinada: PII, roster, autoridade de ex-membros, conversas/agenda,
+anexos entregues e convite por OAB.
+
+Migration nova:
+`supabase/migrations/20260714220000_security_hardening_round2.sql`.
+
+Estado de deploy: a migration passou localmente e foi aplicada ao remoto em
+14/07/2026. `supabase migration list --linked` confirmou a versao
+`20260714220000` dos dois lados. Ela revoga o contrato antigo de leitura direta
+de `profiles`, portanto o app compativel desta branch deve ser distribuido sem
+manter builds antigos como versoes suportadas.
+
+### PII e perfis
+
+- `authenticated` nao tem mais `SELECT` direto em e-mail, CPF ou telefone de
+  `profiles`; recebe apenas as colunas publicas por grant de coluna.
+- O titular carrega seus dados completos pela RPC `fetch_current_profile()` e
+  grava somente o proprio perfil por `upsert_current_profile()`; ambas fixam o
+  alvo em `auth.uid()`.
+- `fetch_chat_profile()` preserva nome/iniciais/status, mas devolve e-mail vazio;
+  o contato permanece dentro da conversa da Jurii.
+- Perfis publicos de colegas do mesmo escritorio continuam legiveis para montar
+  a equipe, sem liberar PII.
+
+### Escritorios e autoridade
+
+- `law_firm_members` deixou de ser roster publico para qualquer autenticado:
+  usuario ve a propria linha/convite; membro ativo ve a equipe do proprio firm.
+- Helpers de cargos nao aceitam mais UUID arbitrario de terceiro e nao sao
+  executaveis por `anon`.
+- `is_active_law_firm_manager`, `is_active_law_firm_case_manager` e
+  `can_recommend_law_firm_lawyer` usam somente membership ativo. O fallback por
+  verificacao historica aprovada foi removido.
+- O app nao fabrica mais workspace/entrada de escritorio para ex-dono sem
+  membership ativo.
+
+### Conversas, agenda e anexos
+
+- `INSERT/UPDATE` direto em `conversations` foi revogado; o app ja usa as RPCs
+  `start_or_get_*`, que validam o destino.
+- `INSERT/UPDATE` direto em `appointments` foi revogado. A agenda atual e
+  somente leitura; escrita so volta quando houver RPC coerente com conversa ou
+  caso.
+- Upload de anexo ainda pode ser removido no rollback antes do envio. Depois de
+  vinculado a `message_attachments`, o blob fica imutavel ate mesmo se o autor
+  perder acesso posterior a conversa.
+
+### Convite por OAB e recusa
+
+- Para chamada autorizada e OAB bem-formada, cada resposta externa e um UUID
+  opaco novo e a copy do app e generica. Erros de permissao, formato e rate
+  limit continuam explicitos.
+- Os efeitos de retry sao idempotentes: repetir nao duplica membership nem
+  notificacao. A resposta em si muda a cada chamada.
+- Tentativas sao registradas sem guardar a OAB e limitadas a 20 por hora por
+  usuario.
+- A busca parte do `lawyer_profile` aprovado e valida a decisao mais recente do
+  mesmo titular; submissao de terceiro com OAB alheia nao bloqueia o legitimo.
+- Convite e aceite nao alteram `lawyer_status` nem criam `lawyer_profiles`.
+- Aceite revalida a aprovacao para fechar a janela convite -> recusa -> aceite.
+- Recusar uma verificacao invalida convites e suspende o papel profissional em
+  memberships. Papeis administrativos independentes continuam ativos.
+
+O retorno opaco elimina o oraculo direto da RPC, mas o gerente ainda pode
+observar no roster quando um convite real foi criado. Portanto tratamos isso
+como mitigacao forte, com limite de tentativas, e nao como eliminacao absoluta
+de todo canal de enumeracao.
+
+### Testes de banco
+
+Foi criado `supabase/tests/security_hardening_round2_test.sql`, com 61
+assercoes pgTAP e fixtures em transacao/rollback. O arquivo passou integralmente
+contra o Supabase local apos `supabase db reset`, cobrindo grants, RLS, PII,
+roster, ex-dono, conversas/agenda, anexo, OAB, idempotencia, rate limit e recusa.
+
+### Validacao final da rodada
+
+- `supabase db reset --local`: todas as migrations aplicadas do zero;
+- pgTAP por `psql`: 61/61 assercoes passando;
+- smoke concorrente do convite: 25 chamadas paralelas do mesmo manager
+  registraram exatamente 20 tentativas; 20 chamadas paralelas de dois managers
+  para a mesma OAB terminaram com 20 respostas, 1 membership e 1 notificacao;
+- `flutter analyze`: sem issues;
+- `flutter test`: 83/83 testes passando, incluindo os 2 cenarios novos de UI;
+- `supabase db lint --local --level warning`: nenhum alerta nas funcoes novas;
+  permaneceram apenas avisos preexistentes da baseline em
+  `ensure_case_request_client_surfaces`, `submit_lawyer_verification` e
+  `normalize_law_firm_member_roles`;
+- `supabase db push --linked`: hardening aplicado ao projeto remoto;
+- `supabase migration list --linked`: local e remoto sincronizados em
+  `20260714220000`.

@@ -371,7 +371,7 @@ class ProfileScreen extends StatelessWidget {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text(
-                                'A área do escritório será liberada na próxima etapa.',
+                                'Você não possui um vínculo ativo com este escritório.',
                               ),
                             ),
                           );

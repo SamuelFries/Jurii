@@ -83,12 +83,14 @@ flutter run \
 
 1. Crie um projeto no Supabase.
 2. Rode `supabase link --project-ref SEU_PROJECT_REF`.
-3. Aplique a baseline consolidada com `supabase db push`.
-4. Publique a Edge Function LGPD com
+3. Confira o estado do ambiente com `supabase migration list --linked`.
+4. Aplique a baseline consolidada e as migrations incrementais com
+   `supabase db push`.
+5. Publique a Edge Function LGPD com
    `supabase functions deploy delete-account`.
 
 Os antigos `patch_001...045` foram arquivados em
-`supabase/legacy_patches/`. Para setup novo, use a migration baseline em
+`supabase/legacy_patches/`. Para setup novo, use o conjunto versionado em
 `supabase/migrations/`; detalhes em `supabase/README.md`.
 
 A `service_role key` **nunca** entra no app ou no repositório.
@@ -141,7 +143,7 @@ Após o envio, a documentação é analisada pela equipe da Jurii antes da liber
 ### Implementado
 
 - Autenticação (e-mail/senha, Google/Apple OAuth, reset de senha)
-- Banco Supabase completo com RLS (schema + 41 patches)
+- Banco Supabase completo com RLS (baseline consolidada + migrations incrementais)
 - Busca inteligente: termo leigo → área do direito (servidor + fallback local)
 - Mensagens em tempo real com anexos (bucket privado, URL assinada)
 - Casos: solicitação pelo advogado, aceite pelo cliente, atualizações
@@ -150,16 +152,18 @@ Após o envio, a documentação é analisada pela equipe da Jurii antes da liber
 - Notificações com realtime
 - IA de triagem (intake) rule-based local + arquitetura para LLM
   ([docs/ai-intake.md](docs/ai-intake.md))
-- Tema escuro (infra pronta; ativação após migração das telas —
-  [docs/architecture.md](docs/architecture.md))
+- Tema escuro ativo, com preferência persistida
+- Upload real de documentos de verificação, validação e ciclo de recusa
+- Avaliações reais, liberadas somente após caso aceito
+- Recomendações de advogados por escritórios
 - Testes (`flutter test`)
 
 ### Em desenvolvimento / pendente
 
-- Upload real de documentos de verificação (hoje o botão apenas marca enviado)
-- Painel administrativo (aprovação de OAB hoje é manual via SQL)
-- Estado `rejected` da verificação exibido ao advogado
-- Termos de Uso e Política de Privacidade (links do perfil ainda inativos)
+- Aprovação de OAB/escritório manual pelo Supabase durante a fase apenas-app;
+  página revisora será construída no futuro webapp
+- Revisão jurídica final dos Termos de Uso e da Política de Privacidade
+- Consentimento, canal do titular/DPO e política de retenção documental
 - Pendências de segurança/LGPD listadas em [docs/security.md](docs/security.md)
 
 ### Planejado
