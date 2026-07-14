@@ -294,9 +294,7 @@ class _JuriiAppState extends State<JuriiApp> {
     if (profile == null) {
       try {
         await _profileRepository.upsertProfile(
-          id: user.id,
           fullName: fallbackProfile.name,
-          email: fallbackProfile.email,
           cpf: user.userMetadata?['cpf'] as String?,
         );
         profile = await _profileRepository.fetchCurrentProfile();
@@ -397,12 +395,7 @@ class _JuriiAppState extends State<JuriiApp> {
     final user = response.user;
     if (user != null) {
       try {
-        await _profileRepository.upsertProfile(
-          id: user.id,
-          fullName: fullName,
-          email: email,
-          cpf: cpf,
-        );
+        await _profileRepository.upsertProfile(fullName: fullName, cpf: cpf);
       } catch (error) {
         debugPrint('Supabase profile update after sign up failed: $error');
       }
@@ -503,11 +496,12 @@ class _JuriiAppState extends State<JuriiApp> {
   }
 
   void _switchToFirm() {
-    final hasApprovedVerification =
-        _lawFirmVerification?.status == LawFirmVerificationStatus.approved;
     final hasSyncedWorkspace = _firmWorkspace?.fromSupabase == true;
+    final hasLocalDemoWorkspace =
+        !SupabaseConfig.isReady &&
+        _lawFirmVerification?.status == LawFirmVerificationStatus.approved;
 
-    if (!hasApprovedVerification && !hasSyncedWorkspace) {
+    if (!hasSyncedWorkspace && !hasLocalDemoWorkspace) {
       return;
     }
     setState(() {
@@ -732,7 +726,9 @@ class _JuriiAppState extends State<JuriiApp> {
             lawyerVerification: _lawyerVerification,
             lawFirmVerification: _lawFirmVerification,
             onSwitchToLawyer: _switchToLawyer,
-            onSwitchToFirm: _switchToFirm,
+            onSwitchToFirm: _firmWorkspace?.fromSupabase == true
+                ? _switchToFirm
+                : null,
             onVerificationSubmitted: _handleVerificationSubmitted,
             onRefreshLawyerVerification: _refreshLawyerVerification,
             onLawFirmVerificationSubmitted: _handleLawFirmVerificationSubmitted,
@@ -814,7 +810,7 @@ class MainNavigation extends StatefulWidget {
   final LawyerVerification? lawyerVerification;
   final LawFirmVerification? lawFirmVerification;
   final VoidCallback onSwitchToLawyer;
-  final VoidCallback onSwitchToFirm;
+  final VoidCallback? onSwitchToFirm;
   final ValueChanged<LawyerVerification> onVerificationSubmitted;
   final Future<void> Function() onRefreshLawyerVerification;
   final ValueChanged<LawFirmVerification> onLawFirmVerificationSubmitted;

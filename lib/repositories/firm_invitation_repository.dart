@@ -3,7 +3,7 @@ import '../services/supabase_config.dart';
 class FirmInvitationRepository {
   const FirmInvitationRepository();
 
-  Future<String> inviteVerifiedLawyer({
+  Future<void> inviteVerifiedLawyer({
     required String lawFirmId,
     required String oabState,
     required String oabNumber,
@@ -13,7 +13,7 @@ class FirmInvitationRepository {
       throw StateError('A conexão com o Supabase não está ativa.');
     }
 
-    final membershipId = await SupabaseConfig.client.rpc(
+    await SupabaseConfig.client.rpc(
       'invite_verified_lawyer_to_law_firm',
       params: {
         'law_firm_id_value': lawFirmId,
@@ -21,7 +21,5 @@ class FirmInvitationRepository {
         'oab_number_value': oabNumber,
       },
     );
-
-    return membershipId as String;
   }
 }

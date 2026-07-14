@@ -60,18 +60,77 @@ acessíveis pelo perfil e pelos textos de concordância em login/cadastro. O
 conteúdo é uma versão inicial de transparência e ainda deve passar por revisão
 jurídica antes da publicação nas lojas.
 
-## Pendências que dependem de decisão/infra (NÃO resolvidas)
+## Implementado e aplicado na migration de hardening 2 (14/07/2026)
 
-| # | Risco | Detalhe | Proposta |
-| --- | --- | --- | --- |
-| 1 | **PII entre contrapartes** | `can_select_profile` dá a linha inteira de `profiles` (CPF, telefone) ao advogado do caso e vice-versa | Segregar CPF/telefone em tabela própria ou trocar por RPC de campos mínimos |
-| 2 | **Roster de escritórios público** | Qualquer autenticado lê `law_firm_members` de qualquer escritório ativo | Restringir a membros; expor equipe pública via RPC com nome/área apenas |
-| 3 | **Sem papel admin** | Aprovação de OAB/escritório é manual via SQL Editor com service_role; sem trilha de revisão | Painel admin + role de revisor + RPCs auditadas (`reviewer_id` real) |
-| 4 | **Ex-dono retém poderes** | patch_031: quem consta como owner numa verificação aprovada segue gerente mesmo com membership desativado | Basear autoridade só em `law_firm_members` ativo |
-| 5 | **Conversas/agendas arbitrárias** | Cliente pode criar conversa apontando lawyer/caso alheio (spam de inbox) | Exigir criação via RPCs `start_or_get_*` e validar coerência na policy |
-| 6 | **Enumeração de OAB** | RPC de convite responde diferente p/ OAB existente e ainda promove `lawyer_status` no convite não aceito | Resposta genérica + mover upsert de `lawyer_profiles` para o aceite |
-| 7 | **Delete de anexo entregue** | Uploader pode apagar objeto do Storage já vinculado a mensagem (anexo pode ser prova) | Restringir delete a objetos sem linha em `message_attachments` |
-| 8 | **Verificação sem documentos** | Upload de documentos OAB/escritório é placebo (botão marca `uploaded=true`, nada sobe) | Implementar FilePicker + Storage + inserts; exigir docs na aprovação |
+`20260714220000_security_hardening_round2.sql` implementa correções para seis
+achados da auditoria e foi aplicada ao projeto remoto em 14/07/2026:
+
+1. **PII entre contrapartes** — `authenticated` perdeu `SELECT` direto em
+   e-mail, CPF e telefone. Campos públicos continuam disponíveis por coluna;
+   o titular usa `fetch_current_profile()` para carregar a própria linha e
+   `upsert_current_profile()` para gravar somente o próprio perfil. A RPC de
+   perfil do chat não devolve mais e-mail: o contato permanece na Jurii.
+2. **Roster de escritórios** — `law_firm_members` só é visível para o próprio
+   usuário/convite ou para membros ativos daquele escritório. Helpers de cargo
+   não aceitam consultar UUID de terceiro e não são executáveis por `anon`.
+3. **Ex-dono e membership inativo** — autoridade vem exclusivamente de
+   `law_firm_members.status='active'`; uma verificação histórica aprovada não
+   concede mais poderes. O app também deixou de fabricar workspace a partir da
+   verificação quando não existe vínculo ativo.
+4. **Conversas e agenda arbitrárias** — `INSERT/UPDATE` direto foi revogado.
+   Conversas continuam nascendo pelas RPCs `start_or_get_*`; a agenda permanece
+   somente leitura até existir uma RPC que valide conversa/caso.
+5. **Anexo entregue** — o uploader só apaga o blob enquanto ele ainda não tem
+   linha em `message_attachments`. A verificação é `SECURITY DEFINER`, portanto
+   continua bloqueando mesmo se o autor perder acesso posterior à conversa.
+6. **Convite por OAB** — para chamada autorizada e entrada bem-formada, cada
+   retorno é um UUID opaco novo; os efeitos de uma repetição são idempotentes.
+   Erros de autorização, formato e rate limit continuam explícitos. Há limite
+   de 20 tentativas por hora, e a busca parte do perfil profissional aprovado e
+   valida a decisão mais recente do titular. Convite/aceite não promovem status.
+   Uma recusa posterior invalida convites e suspende o papel profissional,
+   mantendo papéis administrativos independentes.
+
+Isso remove o oráculo direto da resposta da RPC e reduz enumeração em massa,
+mas não torna a existência da OAB matematicamente indistinguível: um gerente
+que fez um convite válido ainda pode observar a nova linha no roster do próprio
+escritório. Por isso a medida é registrada como mitigação, combinada com rate
+limit, e não como eliminação absoluta de todo canal lateral.
+
+Validação versionada em
+`supabase/tests/security_hardening_round2_test.sql`: 61 asserções de grants,
+RLS, PII, autoridade, helper de proteção do Storage, convite, rate limit e ciclo
+de recusa, sempre em transação com rollback. O smoke pela Storage API continua
+registrado abaixo como pendência separada.
+
+A migration passou integralmente no Supabase local e foi aplicada ao projeto
+remoto. `supabase migration list --linked` confirmou local e remoto em
+`20260714220000`. Como ela revoga leituras diretas de PII em `profiles`, apenas
+a versão compatível do app, que usa as novas RPCs de leitura e escrita, deve
+permanecer suportada; builds antigos deixam de carregar o perfil.
+
+## Decisão operacional — revisão manual por enquanto
+
+No estágio atual, OAB e escritórios são aprovados/recusados manualmente por um
+operador privilegiado no SQL Editor do Dashboard do Supabase, usando as funções
+`approve_*` e `reject_*`. Elas não são executáveis por `anon` ou
+`authenticated`; o grant para automação de backend confiável é da
+`service_role`. Não será criado painel administrativo dentro do app.
+
+Quando o Jurii também for webapp, o site ganhará uma página revisora para os
+funcionários responsáveis. Nessa etapa serão criados papel global de revisor,
+fila, URLs assinadas de curta duração e auditoria por funcionário. Isso é uma
+decisão de roadmap, não um bloqueio técnico do app atual.
+
+## Pendências reais antes de produção ampla
+
+- Executar a exclusão LGPD ponta a ponta com conta descartável confirmada e
+  conferir Storage, auditoria, soft-delete e bloqueio de login.
+- Revisão jurídica final da Política de Privacidade e dos Termos de Uso.
+- Definir canal oficial do titular/DPO, registro de consentimento e política de
+  retenção para mensagens, anexos e documentos de caso.
+- Criar a futura RPC de agendamento antes de permitir escrita na agenda.
+- Fazer smoke do bloqueio de delete também pela Storage API, além do teste SQL.
 
 ## LGPD — visão geral
 

@@ -78,8 +78,8 @@ class ClientProfileScreen extends StatelessWidget {
             _ProfileSection(
               title: 'Contato',
               child: _ContactRow(
-                icon: Icons.mail_outline,
-                label: profile.email,
+                icon: Icons.lock_outline,
+                label: 'Contato mantido dentro da conversa da Jurii',
               ),
             ),
             const SizedBox(height: 16),

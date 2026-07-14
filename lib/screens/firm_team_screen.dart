@@ -159,7 +159,11 @@ class FirmTeamScreen extends StatelessWidget {
 
     if (invited == true && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Convite enviado ao advogado.')),
+        const SnackBar(
+          content: Text(
+            'Solicitação processada. Se a OAB estiver elegível, o advogado receberá o convite.',
+          ),
+        ),
       );
     }
   }
@@ -554,21 +558,12 @@ class _InviteLawyerSheetState extends State<_InviteLawyerSheet> {
     final message = error.toString();
     final normalizedMessage = message.toLowerCase();
 
-    if (message.contains('Lawyer not found') ||
-        normalizedMessage.contains('not approved')) {
-      return 'Não encontramos um advogado verificado com essa OAB.';
-    }
-
     if (message.contains('Only active office owners')) {
       return 'Apenas donos e admins ativos podem convidar advogados.';
     }
 
-    if (message.contains('Lawyer already active')) {
-      return 'Esse advogado já está ativo neste escritório.';
-    }
-
-    if (message.contains('Lawyer invite already pending')) {
-      return 'Já existe um convite pendente para esse advogado.';
+    if (message.contains('Too many invite attempts')) {
+      return 'Muitas tentativas em pouco tempo. Aguarde antes de tentar novamente.';
     }
 
     if (normalizedMessage.contains('permission denied') &&

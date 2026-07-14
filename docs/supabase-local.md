@@ -1,6 +1,6 @@
 # Supabase local com Docker
 
-Atualizado em: 11/07/2026
+Atualizado em: 14/07/2026
 
 Este documento registra o fluxo local recomendado para testar migrations,
 funcoes SQL e Edge Functions da Jurii sem tocar no projeto remoto.
@@ -14,7 +14,7 @@ funcoes SQL e Edge Functions da Jurii sem tocar no projeto remoto.
 Antes de iniciar, vale conferir:
 
 ```bash
-df -h / /Users/samuelfries
+df -h / "$HOME"
 docker info
 docker system df
 ```
@@ -76,16 +76,36 @@ Para recriar o banco local a partir das migrations:
 supabase db reset
 ```
 
-Isso deve aplicar:
-
-```text
-supabase/migrations/20260711190000_squashed_legacy_baseline.sql
-```
+Isso aplica a baseline e todas as migrations incrementais em ordem. Confira o
+histórico efetivo com `supabase migration list --local`.
 
 Nao rode `supabase db reset` contra o remoto. Esse comando e para o ambiente
 local Docker.
 
-## Smoke tests SQL sugeridos
+## Testes automatizados do banco
+
+Depois do reset, rode os testes pgTAP versionados:
+
+```bash
+supabase test db supabase/tests --local
+```
+
+`security_hardening_round2_test.sql` cria fixtures descartáveis dentro de uma
+transação e cobre grants, RLS, PII, roster, autoridade de escritório,
+conversas/agenda, anexos, convite por OAB, rate limit e recusa. Tudo termina em
+`ROLLBACK`.
+
+Se a imagem `pg_prove` ainda não estiver no Docker, a primeira execução pode
+demorar enquanto a CLI faz o download. Para diagnóstico direto, o mesmo arquivo
+pode ser executado com:
+
+```bash
+psql postgresql://postgres:postgres@127.0.0.1:54322/postgres \
+  -v ON_ERROR_STOP=1 \
+  -f supabase/tests/security_hardening_round2_test.sql
+```
+
+## Smoke tests SQL manuais
 
 Depois do reset, execute consultas simples no banco local:
 
@@ -131,9 +151,13 @@ Para novas alteracoes, nao crie `patch_046...`. Use migrations:
 ```bash
 supabase migration new nome_curto_da_mudanca
 supabase db reset
+supabase test db supabase/tests --local
+supabase migration list --linked
 supabase db push
 ```
 
-Regra pratica: valide localmente com Docker antes de enviar para o remoto,
-principalmente quando a mudanca tocar RLS, Storage, Auth, RPCs, casos,
-conversas ou LGPD.
+Regra pratica: valide localmente com Docker e confira o delta local/remoto antes
+de enviar, principalmente quando a mudanca tocar RLS, Storage, Auth, RPCs,
+casos, conversas ou LGPD. Se a migration revogar um contrato consumido pelo app,
+o `db push` deve fazer parte de uma release coordenada com a versao compativel
+do cliente; nao publique apenas o banco.

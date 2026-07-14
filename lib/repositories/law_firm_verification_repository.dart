@@ -60,9 +60,7 @@ class LawFirmVerificationRepository {
     final existingProfile = await profileRepository.fetchCurrentProfile();
     if (existingProfile == null) {
       await profileRepository.upsertProfile(
-        id: user.id,
         fullName: _nameForUser(user.email, user.userMetadata),
-        email: user.email ?? email,
         cpf: user.userMetadata?['cpf'] as String?,
       );
     }
