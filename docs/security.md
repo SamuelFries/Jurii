@@ -44,14 +44,59 @@ reatribuir casos pessoais do advogado, nem casos vinculados a outro escritório.
 
 `supabase/legacy_patches/patch_044_account_deletion_lgpd.sql` e a Edge
 Function `supabase/functions/delete-account` fecham a exclusão de conta. O SQL
-está consolidado na baseline; a Function ainda precisa ser publicada por
-ambiente. A função roda com `service_role`, apaga Storage sensível de
-verificação/avatar, chama o soft-delete transacional existente, bane o usuário
-em `auth.users` e registra auditoria em `account_deletion_audit`.
+está consolidado na baseline; a Function está ativa no projeto atual e ainda
+precisa ser publicada separadamente nos demais ambientes. A função roda com
+`service_role`, apaga Storage sensível de verificação/avatar, chama o
+soft-delete transacional existente, bane o usuário em `auth.users` e registra
+auditoria em `account_deletion_audit`.
 
 Anexos de chat e documentos de caso não são apagados nessa rotina porque podem
 ser prova/evidência; eles continuam dependendo de uma política de retenção
 própria.
+
+### Teste remoto com conta burner — bloqueio corrigido em 14/07/2026
+
+O fluxo destrutivo foi finalmente exercitado com uma conta confirmada e
+descartável. Antes do POST foram persistidos CPF, telefone, uma verificação
+pendente, um documento no bucket privado e um avatar público.
+
+O `POST /functions/v1/delete-account` retornou `500` e criou corretamente uma
+auditoria `failed`. A falha acontece antes do soft-delete: a Function consulta
+os caminhos pelo REST usando `service_role`, mas esse papel recebe
+`permission denied` ao selecionar:
+
+- `verification_documents`;
+- `law_firm_verification_documents`;
+- `profiles`.
+
+O comportamento de falha foi seguro: perfil, arquivos e login permaneceram
+intactos, evitando uma exclusão parcial silenciosa. Para não deixar a conta de
+teste ativa, o cleanup foi concluído manualmente pelos mesmos componentes:
+Storage zerado, RPC de soft-delete executada, usuário banido, relogin com HTTP
+`400` e token antigo com HTTP `403`.
+
+A correção foi implementada pela migration
+`20260714230000_account_deletion_storage_paths_rpc.sql`. A RPC administrativa
+`get_account_deletion_storage_paths(uuid)` usa `SECURITY DEFINER`, não devolve
+PII e expõe somente `bucket_id` e `storage_path`. `PUBLIC`, `anon` e
+`authenticated` não podem executá-la; apenas `service_role` recebeu `EXECUTE`,
+sem ganhar `SELECT` direto nas tabelas. SQL e Edge Function também descartam
+caminhos que não começam pela pasta exata do titular.
+
+A Function versão 2 foi publicada e um novo teste destrutivo foi executado com
+o perfil descartável `78fad775-0155-477d-9146-c68847ef6d1d`. O resultado foi:
+
+- `POST /functions/v1/delete-account` com HTTP `200` e `ok=true`;
+- auditoria final `completed`, sem warning, com os timestamps de conclusão e
+  banimento preenchidos;
+- documento privado e avatar removidos, ambos com contagem final zero;
+- `deleted_at` preenchido e CPF, telefone e avatar anulados;
+- verificação e metadados do documento removidos;
+- usuário marcado como excluído e banido;
+- novo login com HTTP `400` e token antigo com HTTP `403`.
+
+O contrato da RPC tem oito asserções pgTAP próprias. Junto das 61 asserções da
+rodada anterior, a suíte local passou com 69/69 testes.
 
 ## Corrigido no app — Política e Termos acessíveis
 
@@ -124,8 +169,9 @@ decisão de roadmap, não um bloqueio técnico do app atual.
 
 ## Pendências reais antes de produção ampla
 
-- Executar a exclusão LGPD ponta a ponta com conta descartável confirmada e
-  conferir Storage, auditoria, soft-delete e bloqueio de login.
+- Endurecer também a gravação de `storage_path` para exigir a pasta do titular
+  na origem, paginar pastas com mais de 1.000 objetos e avaliar uma segunda
+  varredura depois do banimento para fechar upload concorrente.
 - Revisão jurídica final da Política de Privacidade e dos Termos de Uso.
 - Definir canal oficial do titular/DPO, registro de consentimento e política de
   retenção para mensagens, anexos e documentos de caso.

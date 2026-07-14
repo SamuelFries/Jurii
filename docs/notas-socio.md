@@ -2,23 +2,29 @@
 
 Atualizado em: 14/07/2026
 Branch atual: `fix/hardening`
-Base atual: `main`/`origin/main` no commit `861590f`
-(`Merge pull request #52 from SamuelFries/fix/notificação`)
+Base atual: `main`/`origin/main` no commit `4ca6e7e`
+(`Merge pull request #53 from SamuelFries/fix/hardening`)
 
 ## Resumo executivo
 
 O historico abaixo comecou na auditoria de busca, casos e LGPD e hoje ja inclui
 verificacao documental real, avaliacoes, recomendacoes e notificacoes, todas
-incorporadas em `main` ate o commit `861590f`.
+incorporadas em `main` ate o commit `4ca6e7e`.
 
-Na branch `fix/hardening`, a frente atual implementou localmente seis grupos de
-controle antes do piloto: PII de perfis, roster privado, autoridade apenas para
-memberships ativos, criacao de conversas por RPC/agenda sem escrita direta,
-imutabilidade de anexo entregue e mitigacao de enumeracao por OAB. A migration
+O PR #53 incorporou seis grupos de controle antes do piloto: PII de perfis,
+roster privado, autoridade apenas para memberships ativos, criacao de conversas
+por RPC/agenda sem escrita direta, imutabilidade de anexo entregue e mitigacao
+de enumeracao por OAB. A migration
 `20260714220000_security_hardening_round2.sql` passou na suite local e foi
-aplicada ao remoto em 14/07/2026. O app compativel com as novas RPCs de perfil
-segue nesta mesma branch para merge imediato; builds antigos nao suportam o
-novo contrato de leitura de `profiles`.
+aplicada ao remoto em 14/07/2026. Builds antigos nao suportam o novo contrato
+de leitura de `profiles`.
+
+Em seguida, a exclusao LGPD foi testada remotamente com conta burner. O
+primeiro teste encontrou falta de privilegio nas leituras administrativas; a
+migration `20260714230000_account_deletion_storage_paths_rpc.sql` substituiu
+essas leituras por uma RPC minima, e o reteste completo terminou com HTTP
+`200`, auditoria `completed`, Storage zerado, perfil anonimizado e login
+bloqueado.
 
 A revisao de OAB/escritorio permanece manual por decisao de produto. Enquanto
 o Jurii for apenas app, um operador privilegiado usa o SQL Editor do Supabase;
@@ -211,6 +217,92 @@ executar `POST /functions/v1/delete-account` nela e conferir:
 - usuario banido em `auth.users`;
 - login posterior bloqueado.
 
+### Teste destrutivo remoto com conta burner (14/07/2026)
+
+O teste pendente acima foi executado com uma conta confirmada criada apenas
+para essa finalidade (`profile_id = 88f6e249-7d95-41f8-95f5-61d597a85007`).
+Foram preparados antes da exclusao:
+
+- CPF e telefone no perfil;
+- verificacao de advogado pendente;
+- documento real no bucket privado `verification-documents` e respectiva linha
+  em `verification_documents`;
+- avatar real no bucket publico `profile-avatars` e URL gravada no perfil.
+
+Resultado do `POST /functions/v1/delete-account`:
+
+- HTTP `500` com resposta publica generica `Account deletion failed`;
+- linha de `account_deletion_audit` criada e finalizada como `failed`;
+- `error_message` registrou `permission denied`;
+- perfil e arquivos permaneceram intactos;
+- login continuou retornando HTTP `200`.
+
+Causa confirmada: o `service_role` usado pela Edge Function consegue operar
+Storage e `account_deletion_audit`, mas nao tem `SELECT` pelo REST nas tres
+tabelas consultadas por `collectDatabaseStoragePaths()`:
+
+- `verification_documents`;
+- `law_firm_verification_documents`;
+- `profiles`.
+
+O cleanup da burner foi concluido manualmente para nao deixar credenciais
+ativas no ambiente remoto:
+
+- documento privado e avatar removidos, ambos com contagem final zero;
+- `delete_current_account()` executada com o JWT do proprio usuario;
+- verificacao e metadado do documento removidos;
+- perfil com `deleted_at`, CPF/telefone/avatar nulos e status `client`;
+- usuario banido e marcado com `deleted_account=true`;
+- logout global retornou `204`, novo login retornou `400` e o token antigo
+  retornou `403`.
+
+Conclusao daquele primeiro teste: os componentes individuais funcionavam, e a
+falha da orquestracao era especifica ao acesso de leitura da Function.
+
+### Correcao por RPC administrativa e reteste aprovado (14/07/2026)
+
+A migration
+`supabase/migrations/20260714230000_account_deletion_storage_paths_rpc.sql`
+criou `public.get_account_deletion_storage_paths(uuid)`. O contrato retorna
+somente `bucket_id` e `storage_path`, usa `SECURITY DEFINER` com `search_path`
+vazio e concede `EXECUTE` apenas ao `service_role`. Nenhum `SELECT` direto foi
+aberto em `profiles`, `verification_documents` ou
+`law_firm_verification_documents`.
+
+Como defesa adicional, a RPC e a Edge Function aceitam somente objetos cujo
+caminho começa por `{profile_id}/`. Assim, um registro adulterado nao pode
+induzir a Function privilegiada a apagar o arquivo de outro usuario. O teste
+pgTAP inclui referencias adulteradas de documento e avatar e confirma que elas
+sao ignoradas.
+
+Depois de `supabase db push --linked`, a migration apareceu sincronizada como
+`20260714230000`, e a Function `delete-account` versao 2 ficou `ACTIVE`. O
+reteste usou outra conta confirmada e descartavel
+(`profile_id = 78fad775-0155-477d-9146-c68847ef6d1d`) com CPF, telefone,
+verificacao pendente, PDF privado e avatar real.
+
+Resultado final:
+
+- RPC administrativa encontrou os dois objetos antes da exclusao;
+- chamada anonima da RPC foi bloqueada com HTTP `401`;
+- `POST /functions/v1/delete-account` retornou HTTP `200` e `ok=true`;
+- auditoria terminou `completed`, sem warning;
+- documento privado e avatar ficaram com contagem zero no Storage;
+- consulta SQL remota confirmou `deleted_at`, CPF/telefone/avatar nulos,
+  status `client` e remocao da verificacao/metadados;
+- usuario foi banido e marcado como excluido;
+- novo login retornou `400` e o token antigo retornou `403`.
+
+Validacao local: `supabase db reset` aplicou todas as migrations e
+`supabase test db` passou com 69/69 assercoes, sendo oito especificas da nova
+RPC. O lint nao encontrou alerta na funcao nova; permaneceram apenas tres
+avisos preexistentes da baseline.
+
+Melhorias futuras registradas, sem bloquear o fluxo validado: endurecer o
+`storage_path` ja no INSERT, paginar pastas acima de 1.000 objetos e avaliar
+uma segunda varredura de Storage depois do banimento para fechar upload
+concorrente.
+
 ## Decisoes tomadas
 
 - Mantivemos a logica transacional sensivel dentro de
@@ -221,6 +313,8 @@ executar `POST /functions/v1/delete-account` nela e conferir:
   prova potencial.
 - Evitamos colocar `service_role` no app; a chave fica apenas no ambiente da
   Edge Function.
+- A Edge Function usa uma RPC administrativa de retorno minimo em vez de
+  receber `SELECT` direto sobre tabelas com PII/documentos.
 - Reescrevemos a Function sem dependencias externas para reduzir risco de deploy
   no bundler remoto.
 

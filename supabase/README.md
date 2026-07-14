@@ -59,10 +59,14 @@ necessário ao recuperar outro ambiente legado que tenha o schema, mas não o
 histórico da CLI.
 
 Em 14/07/2026, `supabase db push --linked` aplicou a migration
-`20260714220000_security_hardening_round2.sql`, e
-`supabase migration list --linked` confirmou local e remoto sincronizados. Ela
-revoga o contrato antigo de leitura direta de PII em `profiles`; por isso apenas
-a versão do app que usa `fetch_current_profile()` e
+`20260714220000_security_hardening_round2.sql` e, depois, a migration
+`20260714230000_account_deletion_storage_paths_rpc.sql`. A segunda adiciona a
+RPC administrativa mínima usada pela exclusão LGPD, sem liberar `SELECT`
+direto para `service_role`. A Edge Function `delete-account` versão 2 também
+foi publicada e validada com uma conta burner completa. O
+`supabase migration list --linked` confirmou local e remoto sincronizados. A
+migration de hardening revoga o contrato antigo de leitura direta de PII em
+`profiles`; por isso apenas a versão do app que usa `fetch_current_profile()` e
 `upsert_current_profile()` deve permanecer suportada. Builds antigos deixam de
 carregar o perfil.
 
@@ -116,6 +120,9 @@ supabase functions deploy delete-account
 Confirme que o ambiente da Function tem acesso a `SUPABASE_URL`,
 `SUPABASE_ANON_KEY` e `SUPABASE_SERVICE_ROLE_KEY`. O app chama a Function
 `delete-account`; a chave `service_role` nunca entra no app nem no repositório.
+A Function acessa os caminhos sensíveis somente por
+`get_account_deletion_storage_paths(uuid)`, executável exclusivamente por
+`service_role`.
 
 ## Operações administrativas úteis
 
