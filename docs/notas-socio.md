@@ -1149,3 +1149,71 @@ roster, ex-dono, conversas/agenda, anexo, OAB, idempotencia, rate limit e recusa
 - `supabase db push --linked`: hardening aplicado ao projeto remoto;
 - `supabase migration list --linked`: local e remoto sincronizados em
   `20260714220000`.
+
+## Login social entrava sem Nome Completo e sem CPF (14/07/2026)
+
+Google e Apple autenticam, mas **nao entregam CPF** — e a Apple, na maioria das
+vezes, nao entrega nem o nome. O gatilho `handle_new_auth_user` entao preenchia
+`full_name` com o **prefixo do e-mail** e deixava `cpf` nulo. Resultado: a conta
+entrava no app sem os dois dados que identificam a parte em contrato e processo.
+
+Nao era teoria: em producao havia **3 perfis ativos sem CPF** (exatamente os que
+entraram por OAuth) e 5 com nome de uma palavra so.
+
+### O gatilho da cobranca e o DADO, nao o provedor
+
+`UserProfile.needsProfileCompletion` = CPF ausente/invalido **ou** nome derivado
+pelo proprio banco (igual ao prefixo do e-mail, ou o fallback "Usuario Jurii").
+
+Escolha deliberada: nao perguntar "veio do Google?". Assim qualquer perfil
+incompleto — inclusive os 3 que ja estao la — se resolve no proximo login, sem
+depender de identificar como a conta foi criada. Quem se cadastrou por e-mail
+(que ja exige nome + CPF no formulario) nunca ve a tela.
+
+### App
+
+- `CompleteProfileScreen`: tela **bloqueante** entre o login e a home. Pede nome
+  completo + CPF, explica por que precisa, e tem "Sair da conta" — ninguem fica
+  preso numa tela sem saida.
+- Nome real do Google entra **pre-preenchido** (o usuario so confere). Nome que
+  veio do prefixo do e-mail abre o campo **vazio** — pre-preencher com
+  "pedro.fries68" seria pior que nada.
+- So libera com o retorno do banco (refaz o `fetch_current_profile`), nao com a
+  suposicao do app.
+- Se o perfil real nao pode ser lido (falha de rede), NAO cobra: o usuario nao e
+  barrado por uma duvida nossa; a cobranca volta no proximo login.
+- Extraidos para reuso: `CpfInputFormatter` (mascara) e `validateFullNameField`
+  ("nome completo" agora significa nome + sobrenome no cadastro tambem).
+
+### Banco (migration `20260714235000_profile_cpf_validation.sql`)
+
+- `is_valid_cpf(text)`: digitos verificadores + rejeita sequencia repetida
+  (espelha o validador do app).
+- `upsert_current_profile`: **recusa CPF invalido** e grava so os 11 digitos. A
+  regra nao pode viver so no cliente — app adulterado gravaria "00000000000" no
+  campo que ancora a identidade da plataforma.
+- O NOME completo fica validado so no app, de proposito: mononimo legitimo
+  existe, e travar no banco criaria bloqueio sem saida. CPF, esse sim, e
+  objetivamente conferivel.
+
+Testado no Docker: perfil recem-criado por OAuth nasce com `full_name` = prefixo
+do e-mail e sem CPF (bug reproduzido); validador aceita mascarado e so-digitos,
+rejeita repetido/digito errado/curto; upsert barra CPF invalido; CPF mascarado
+valido entra limpo (11 digitos) e o nome sai normalizado.
+`flutter analyze` limpo, 93 testes verdes (10 novos).
+
+### DECISAO EM ABERTO para voce - CPF duplicado
+
+Producao tem **1 par de perfis com o mesmo CPF** hoje (provavelmente teste seu).
+Nao criei indice unico em `profiles.cpf` porque ele FALHARIA com o duplicado
+existente. Vale decidir:
+
+- **Unicidade (1 CPF = 1 conta)**: e o que se espera de identidade num
+  marketplace juridico, e fecha a porta para multiplas contas da mesma pessoa.
+  Exige (a) limpar o duplicado e (b) tratar o erro na tela ("este CPF ja esta em
+  uso"), senao a pessoa fica travada sem saida.
+- **Sem unicidade**: mantem simples, mas aceita que a mesma pessoa exista duas
+  vezes — e nao ha como deduplicar depois sem intervencao manual.
+
+Recomendo unicidade, mas depois do piloto: e mudanca que pode travar usuario
+real, e o volume hoje nao justifica a pressa.
