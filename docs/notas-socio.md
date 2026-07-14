@@ -925,11 +925,22 @@ recomendou voce para um cliente em potencial."**
 - **Sem o nome do cliente, de proposito**: nesse momento ele ainda nao e cliente
   daquele advogado (pode nunca escrever) e o advogado nao participa da conversa
   cliente<->escritorio. Metadata so leva `law_firm_id` + `message_id`.
-- Advogado que sugere a si mesmo (legitimo: "fale comigo direto") notifica o
-  cliente mas NAO recebe eco.
+
+**Auto-indicacao tambem notifica** (migration `20260714200000`, correcao no mesmo
+dia): a primeira versao pulava o aviso quando quem sugeria era o proprio advogado
+indicado, para nao gerar eco. Isso barrava o caso COMUM — escritorio de dois
+socios, onde o proprio advogado opera o chat e se indica. Decisao do Samuel:
+notificar sempre. O aviso deixa de ser "alguem te indicou" e vira o registro de
+que o advogado foi posto na frente de um cliente em potencial.
+
+Pegou o Samuel de surpresa no teste em producao (a notificacao "nao chegou" —
+era a guarda funcionando). Diagnostico foi pelo dado: nenhuma linha
+`lawyer_recommended` existia, e `sender_id` da mensagem era igual ao
+`metadata->>'lawyer_id'`.
 
 Testado no Docker: as duas notificacoes caem nos sinos certos (cliente=client,
-advogado=lawyer) e a auto-sugestao gera 1 para o cliente e 0 de eco.
+advogado=lawyer), inclusive na auto-indicacao (1 para o cliente, 1 para o
+proprio advogado).
 
 ### Frentes seguintes (nao feitas)
 
