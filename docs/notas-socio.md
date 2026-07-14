@@ -777,3 +777,69 @@ so cor + iniciais, sem campo de foto — renderizar foto ali e uma frente
 separada (model + repo + todos os cards). A base ja esta pronta:
 `avatar_url` esta salvo e da para levar para `lawyer_profiles.professional_photo_url`
 na aprovacao quando essa frente for encarada.
+
+## Avaliacoes de advogados e escritorios (13/07/2026)
+
+Antes disso a nota exibida era FALSA: os RPCs de advogado cravavam `4.8` no
+hardcode e `lawyer_profiles` nem tinha coluna de rating (law_firms tinha, mas
+sempre 0). Alem de feature faltando, era passivo — mostrar nota fabricada em
+todo profissional engana o cliente. Frente inteira construida e testada.
+
+### Banco (migration `20260713120000_professional_reviews.sql`)
+
+- Colunas `rating`/`reviews_count` adicionadas em `lawyer_profiles` (law_firms
+  ja tinha).
+- Tabela `professional_reviews`: `reviewer_id`, alvo (`lawyer_id` XOR
+  `law_firm_id` com CHECK), `rating` 1-5, `comment`; uma avaliacao por cliente
+  por profissional (indices unicos parciais; submit e upsert).
+- **Gate**: so avalia quem teve pelo menos um CASO ACEITO com aquele
+  profissional. Conversa NAO basta (seria fabrica de nota). Quando o cliente
+  aceita a solicitacao (`respond_to_case_request`), nasce a linha em
+  `legal_cases` com `client_id` + `assigned_lawyer_id` + `law_firm_id` — entao
+  checar `legal_cases` cobre tambem o caso atribuido pelo escritorio
+  (`assign_law_firm_case`). Ha um OR em `case_requests(status='accepted')` como
+  cinto e suspensorio: a FK `legal_case_id` e `on delete set null`, entao apagar
+  um caso nao apaga o direito de avaliar de quem ja foi atendido. Aplicado no RPC.
+- RLS: leitura publica (a nota e publica); escrita NAO tem policy — passa so
+  pelos RPCs SECURITY DEFINER, que aplicam o gate.
+- Trigger `recompute_professional_rating` recalcula media+contagem do alvo a
+  cada insert/update/delete.
+- RPCs: `submit_professional_review` (gate + upsert), `delete_professional_review`,
+  `fetch_professional_reviews` (com `is_mine`, a minha primeiro),
+  `fetch_review_eligibility` (o app decide se mostra o botao + pre-preenche),
+  `can_review_professional`.
+- Reescrita de `fetch_recommended_lawyers` e `fetch_lawyer_public_profile`
+  para devolver a nota REAL (extrai o corpo do baseline verbatim, so as linhas
+  de rating mudaram). Escritorios ja liam `lf.rating` real.
+
+Testado no Supabase local ponta a ponta (`supabase db reset`, migrations do
+zero). Sobre o gate: quem SO conversou foi barrado; quem tem caso aceito com a
+advogada passou; quem tem caso com o escritorio pode avaliar o ESCRITORIO mas
+NAO a advogada (o gate e por profissional, nao vaza). Alem disso: upsert editou
+sem duplicar; media de (3,5)=4.0 apareceu no RPC publico (nao 4.8); apos remover
+uma das duas, virou 5.0/1.
+
+Detalhe de teste que confunde: um SELECT direto em `lawyer_profiles` como
+`authenticated` volta 0 linhas (RLS esconde o advogado de um cliente) — a
+verificacao verdadeira e via os RPCs SECURITY DEFINER, que furam RLS.
+
+### App
+
+- Model `ProfessionalReview` + `ReviewEligibility`; `ReviewRepository`
+  (submit/delete/fetch/eligibility; no-op fora do Supabase).
+- Widget `ReviewsPanel` reutilizavel (estrelas, lista com "Voce" destacado,
+  botao avaliar/editar so quando elegivel, sheet com estrelas + comentario +
+  remover). Ligado no perfil do advogado (accent dourado) e do escritorio
+  (accent roxo). Quem NAO pode avaliar ve a regra explicita ("So clientes com
+  um caso aceito podem avaliar") — explica a ausencia do botao e serve de selo
+  de credibilidade para quem esta so navegando.
+- Removido o fallback `?? 4.8` do `lawyer_profile_repository` (agora `?? 0`).
+  Os `4.8` que restam sao so mock de modo demo.
+- `flutter analyze` limpo; 72 testes verdes (6 novos).
+
+### Frentes seguintes (nao feitas)
+
+- Um caso ACEITO ja libera a avaliacao (nao exige caso CONCLUIDO/fechado). Se
+  no futuro quiser apertar mais, o criterio seria `legal_cases.status='closed'`.
+- A nota so aparece nos PERFIS e nos cards de descoberta. Profissional sem
+  avaliacao mostra "Novo" (nao "0 estrelas"), para nao parecer nota ruim.

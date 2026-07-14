@@ -94,7 +94,7 @@ class LawyerProfileRepository {
       ),
       bio:
           row['bio'] as String? ?? 'Perfil profissional verificado pela Jurii.',
-      rating: (row['rating'] as num?)?.toDouble() ?? 4.8,
+      rating: (row['rating'] as num?)?.toDouble() ?? 0,
       reviews: row['reviews_count'] as int? ?? 0,
       avatarType: row['avatar_type'] as String? ?? 'navy',
     );
