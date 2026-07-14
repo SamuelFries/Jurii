@@ -910,6 +910,27 @@ conversa; estranho, estagiario e advogado de OUTRO escritorio -> BARRADOS.
   mentiria).
 - `flutter analyze` limpo; 81 testes verdes (9 novos).
 
+### Advogado avisado da indicacao (migration `20260714180000`)
+
+Faltava a contrapartida: o cliente era notificado, o advogado indicado nao ficava
+sabendo de nada. Agora ele recebe **"Voce foi recomendado — <Escritorio>
+recomendou voce para um cliente em potencial."**
+
+- Tipo NOVO `lawyer_recommended` (nao reusa `lawyer_recommendation`). Motivo: o
+  sino filtra por ESCOPO, e o escopo e derivado do TIPO
+  (`infer_notification_scope`). Mesmo tipo para os dois lados jogaria a
+  notificacao do advogado no sino do CLIENTE — ele nunca a veria. Os dois tipos
+  agora estao declarados explicitamente na funcao de escopo (antes o do cliente
+  dependia do fallback default).
+- **Sem o nome do cliente, de proposito**: nesse momento ele ainda nao e cliente
+  daquele advogado (pode nunca escrever) e o advogado nao participa da conversa
+  cliente<->escritorio. Metadata so leva `law_firm_id` + `message_id`.
+- Advogado que sugere a si mesmo (legitimo: "fale comigo direto") notifica o
+  cliente mas NAO recebe eco.
+
+Testado no Docker: as duas notificacoes caem nos sinos certos (cliente=client,
+advogado=lawyer) e a auto-sugestao gera 1 para o cliente e 0 de eco.
+
 ### Frentes seguintes (nao feitas)
 
 - A foto real do advogado ainda **nao** aparece na descoberta nem no perfil
