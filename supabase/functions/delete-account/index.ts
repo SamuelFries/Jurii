@@ -29,6 +29,11 @@ type StorageListItem = {
   metadata: JsonBody | null;
 };
 
+type AccountStoragePathRow = {
+  bucket_id: unknown;
+  storage_path: unknown;
+};
+
 type FetchOptions = {
   method?: string;
   key: string;
@@ -223,7 +228,8 @@ async function deleteSensitiveStorage(
   const summary = {} as StorageSummary;
 
   for (const bucket of sensitiveBuckets) {
-    const folderPaths = await listBucketPaths(env, bucket, userId);
+    const folderPaths = (await listBucketPaths(env, bucket, userId))
+      .filter((path) => isOwnedStoragePath(userId, path));
     const paths = new Set<string>([
       ...(dbPaths[bucket] ?? []),
       ...folderPaths,
@@ -265,57 +271,47 @@ async function collectDatabaseStoragePaths(
     "profile-avatars": new Set<string>(),
   };
 
-  const verificationDocs = await supabaseFetch<Array<{ storage_path: unknown }>>(
+  const rows = await supabaseFetch<AccountStoragePathRow[]>(
     env,
-    `/rest/v1/verification_documents?select=storage_path&user_id=eq.${
-      encodeURIComponent(userId)
-    }`,
+    "/rest/v1/rpc/get_account_deletion_storage_paths",
     {
+      method: "POST",
       key: env.serviceRoleKey,
       bearer: env.serviceRoleKey,
-      context: "verification docs lookup",
+      body: { profile_id_value: userId },
+      context: "account storage paths lookup",
     },
   );
-  for (const row of verificationDocs) {
-    addPath(paths["verification-documents"], row.storage_path);
-  }
 
-  const firmDocs = await supabaseFetch<Array<{ storage_path: unknown }>>(
-    env,
-    `/rest/v1/law_firm_verification_documents?select=storage_path&owner_profile_id=eq.${
-      encodeURIComponent(userId)
-    }`,
-    {
-      key: env.serviceRoleKey,
-      bearer: env.serviceRoleKey,
-      context: "firm verification docs lookup",
-    },
-  );
-  for (const row of firmDocs) {
-    addPath(paths["verification-documents"], row.storage_path);
-  }
+  for (const row of rows) {
+    if (!isStorageBucket(row.bucket_id)) {
+      throw new Error("account storage paths returned an unsupported bucket");
+    }
 
-  const profiles = await supabaseFetch<Array<{ avatar_url: unknown }>>(
-    env,
-    `/rest/v1/profiles?select=avatar_url&id=eq.${
-      encodeURIComponent(userId)
-    }&limit=1`,
-    {
-      key: env.serviceRoleKey,
-      bearer: env.serviceRoleKey,
-      context: "profile avatar lookup",
-    },
-  );
-  const avatarPath = storagePathFromPublicUrl(
-    profiles[0]?.avatar_url,
-    "profile-avatars",
-  );
-  addPath(paths["profile-avatars"], avatarPath);
+    const path = row.bucket_id === "profile-avatars"
+      ? decodeStoragePath(row.storage_path)
+      : row.storage_path;
+    addOwnedPath(paths[row.bucket_id], userId, path);
+  }
 
   return {
     "verification-documents": [...paths["verification-documents"]],
     "profile-avatars": [...paths["profile-avatars"]],
   };
+}
+
+function isStorageBucket(value: unknown): value is StorageBucket {
+  return value === "verification-documents" || value === "profile-avatars";
+}
+
+function decodeStoragePath(value: unknown): unknown {
+  if (typeof value !== "string") return value;
+
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
 }
 
 function addPath(paths: Set<string>, value: unknown): void {
@@ -326,15 +322,19 @@ function addPath(paths: Set<string>, value: unknown): void {
   }
 }
 
-function storagePathFromPublicUrl(
+function addOwnedPath(
+  paths: Set<string>,
+  userId: string,
   value: unknown,
-  bucket: StorageBucket,
-): string | null {
-  if (typeof value !== "string") return null;
-  const marker = `/storage/v1/object/public/${bucket}/`;
-  const index = value.indexOf(marker);
-  if (index < 0) return null;
-  return decodeURIComponent(value.slice(index + marker.length));
+): void {
+  if (typeof value !== "string") return;
+  const cleaned = value.trim();
+  if (!isOwnedStoragePath(userId, cleaned)) return;
+  addPath(paths, cleaned);
+}
+
+function isOwnedStoragePath(userId: string, path: string): boolean {
+  return path.startsWith(`${userId}/`);
 }
 
 async function listBucketPaths(

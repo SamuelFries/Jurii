@@ -118,6 +118,7 @@ Consultas uteis:
 ```sql
 select to_regprocedure('public.approve_lawyer_verification(uuid,uuid)');
 select to_regprocedure('public.approve_law_firm_verification(uuid,uuid)');
+select to_regprocedure('public.get_account_deletion_storage_paths(uuid)');
 select to_regclass('public.account_deletion_audit');
 select count(*) > 0 as has_intents from public.legal_search_intents;
 select public.legal_search_term_matches('minha demissao foi sem justa causa', 'iss') as iss_false_positive;
@@ -128,6 +129,7 @@ select id, public from storage.buckets order by id;
 Expectativas principais:
 
 - as funcoes de aprovacao devem existir;
+- a RPC administrativa de caminhos da exclusao deve existir;
 - `account_deletion_audit` deve existir;
 - `legal_search_intents` deve ter linhas;
 - `iss_false_positive` deve retornar `false`;
