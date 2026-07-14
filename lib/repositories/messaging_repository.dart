@@ -229,6 +229,47 @@ class MessagingRepository {
     }
   }
 
+  /// Abre (ou recupera) a conversa com um advogado a partir do id — é o que o
+  /// card de sugestão tem em mãos, sem precisar do perfil inteiro.
+  Future<Conversation> startLawyerConversationById(String lawyerId) async {
+    if (!SupabaseConfig.isReady ||
+        SupabaseConfig.client.auth.currentUser == null) {
+      throw StateError('A conexão com o Supabase não está ativa.');
+    }
+
+    final conversationId = await SupabaseConfig.client.rpc(
+      'start_or_get_lawyer_conversation',
+      params: {
+        'lawyer_profile_id_value': lawyerId,
+        'initial_message_value': '',
+      },
+    );
+
+    return fetchConversationById(conversationId as String);
+  }
+
+  /// Escritório sugere um advogado da organização ao cliente. O servidor grava
+  /// a mensagem com o retrato do advogado e notifica o cliente.
+  Future<void> recommendLawyer({
+    required String conversationId,
+    required String lawyerId,
+    String? note,
+  }) async {
+    if (!SupabaseConfig.isReady ||
+        SupabaseConfig.client.auth.currentUser == null) {
+      throw StateError('A conexão com o Supabase não está ativa.');
+    }
+
+    await SupabaseConfig.client.rpc(
+      'recommend_lawyer_to_client',
+      params: {
+        'conversation_id_value': conversationId,
+        'lawyer_profile_id_value': lawyerId,
+        'note_value': note,
+      },
+    );
+  }
+
   Future<Conversation> fetchConversationById(String conversationId) async {
     try {
       final row = await SupabaseConfig.client

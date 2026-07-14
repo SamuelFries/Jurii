@@ -11,6 +11,11 @@ class LawyerProfileSummary {
   final int reviews;
   final String avatarType;
 
+  /// Foto profissional (bucket público), quando o advogado já enviou uma na
+  /// verificação. Nula para quem se cadastrou antes disso — aí vale o avatar
+  /// de iniciais.
+  final String? photoUrl;
+
   const LawyerProfileSummary({
     required this.id,
     required this.name,
@@ -23,6 +28,7 @@ class LawyerProfileSummary {
     required this.rating,
     required this.reviews,
     required this.avatarType,
+    this.photoUrl,
   });
 
   String get oabLabel => 'OAB/$oabState $oabNumber';

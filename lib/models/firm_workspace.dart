@@ -26,7 +26,8 @@ class FirmWorkspace {
   bool get isOwner => effectiveCurrentUserRoles.hasOwner;
   bool get canManageMembers => effectiveCurrentUserRoles.canManageFirmMembers;
   bool get canAssignCases => effectiveCurrentUserRoles.canAssignFirmCases;
-  bool get canCreateCases => effectiveCurrentUserRoles.canCreateFirmCases;
+  bool get canRecommendLawyers =>
+      effectiveCurrentUserRoles.canRecommendFirmLawyers;
   bool get canAttendAssignedCases =>
       effectiveCurrentUserRoles.canAttendAssignedFirmCases;
 }

@@ -777,3 +777,145 @@ so cor + iniciais, sem campo de foto — renderizar foto ali e uma frente
 separada (model + repo + todos os cards). A base ja esta pronta:
 `avatar_url` esta salvo e da para levar para `lawyer_profiles.professional_photo_url`
 na aprovacao quando essa frente for encarada.
+
+## Avaliacoes de advogados e escritorios (13/07/2026)
+
+Antes disso a nota exibida era FALSA: os RPCs de advogado cravavam `4.8` no
+hardcode e `lawyer_profiles` nem tinha coluna de rating (law_firms tinha, mas
+sempre 0). Alem de feature faltando, era passivo — mostrar nota fabricada em
+todo profissional engana o cliente. Frente inteira construida e testada.
+
+### Banco (migration `20260713120000_professional_reviews.sql`)
+
+- Colunas `rating`/`reviews_count` adicionadas em `lawyer_profiles` (law_firms
+  ja tinha).
+- Tabela `professional_reviews`: `reviewer_id`, alvo (`lawyer_id` XOR
+  `law_firm_id` com CHECK), `rating` 1-5, `comment`; uma avaliacao por cliente
+  por profissional (indices unicos parciais; submit e upsert).
+- **Gate**: so avalia quem teve pelo menos um CASO ACEITO com aquele
+  profissional. Conversa NAO basta (seria fabrica de nota). Quando o cliente
+  aceita a solicitacao (`respond_to_case_request`), nasce a linha em
+  `legal_cases` com `client_id` + `assigned_lawyer_id` + `law_firm_id` — entao
+  checar `legal_cases` cobre tambem o caso atribuido pelo escritorio
+  (`assign_law_firm_case`). Ha um OR em `case_requests(status='accepted')` como
+  cinto e suspensorio: a FK `legal_case_id` e `on delete set null`, entao apagar
+  um caso nao apaga o direito de avaliar de quem ja foi atendido. Aplicado no RPC.
+- RLS: leitura publica (a nota e publica); escrita NAO tem policy — passa so
+  pelos RPCs SECURITY DEFINER, que aplicam o gate.
+- Trigger `recompute_professional_rating` recalcula media+contagem do alvo a
+  cada insert/update/delete.
+- RPCs: `submit_professional_review` (gate + upsert), `delete_professional_review`,
+  `fetch_professional_reviews` (com `is_mine`, a minha primeiro),
+  `fetch_review_eligibility` (o app decide se mostra o botao + pre-preenche),
+  `can_review_professional`.
+- Reescrita de `fetch_recommended_lawyers` e `fetch_lawyer_public_profile`
+  para devolver a nota REAL (extrai o corpo do baseline verbatim, so as linhas
+  de rating mudaram). Escritorios ja liam `lf.rating` real.
+
+Testado no Supabase local ponta a ponta (`supabase db reset`, migrations do
+zero). Sobre o gate: quem SO conversou foi barrado; quem tem caso aceito com a
+advogada passou; quem tem caso com o escritorio pode avaliar o ESCRITORIO mas
+NAO a advogada (o gate e por profissional, nao vaza). Alem disso: upsert editou
+sem duplicar; media de (3,5)=4.0 apareceu no RPC publico (nao 4.8); apos remover
+uma das duas, virou 5.0/1.
+
+Detalhe de teste que confunde: um SELECT direto em `lawyer_profiles` como
+`authenticated` volta 0 linhas (RLS esconde o advogado de um cliente) — a
+verificacao verdadeira e via os RPCs SECURITY DEFINER, que furam RLS.
+
+### App
+
+- Model `ProfessionalReview` + `ReviewEligibility`; `ReviewRepository`
+  (submit/delete/fetch/eligibility; no-op fora do Supabase).
+- Widget `ReviewsPanel` reutilizavel (estrelas, lista com "Voce" destacado,
+  botao avaliar/editar so quando elegivel, sheet com estrelas + comentario +
+  remover). Ligado no perfil do advogado (accent dourado) e do escritorio
+  (accent roxo). Quem NAO pode avaliar ve a regra explicita ("So clientes com
+  um caso aceito podem avaliar") — explica a ausencia do botao e serve de selo
+  de credibilidade para quem esta so navegando.
+- Removido o fallback `?? 4.8` do `lawyer_profile_repository` (agora `?? 0`).
+  Os `4.8` que restam sao so mock de modo demo.
+- `flutter analyze` limpo; 72 testes verdes (6 novos).
+
+### Frentes seguintes (nao feitas)
+
+- Um caso ACEITO ja libera a avaliacao (nao exige caso CONCLUIDO/fechado). Se
+  no futuro quiser apertar mais, o criterio seria `legal_cases.status='closed'`.
+- A nota so aparece nos PERFIS e nos cards de descoberta. Profissional sem
+  avaliacao mostra "Novo" (nao "0 estrelas"), para nao parecer nota ruim.
+
+## Escritorio sugere advogado (em vez de propor caso) — 14/07/2026
+
+Mudanca de fluxo pedida: o escritorio **nao propoe mais caso** ao cliente. Ele
+passa a **sugerir um advogado da organizacao** para o cliente conversar. O caso
+nasce depois, na conversa entre cliente e advogado — proposto pelo advogado.
+
+Ganho: o caso ja nasce com responsavel definido. Antes o escritorio podia criar
+um caso sem advogado ("Sem advogado definido" no painel) e so depois atribuir
+alguem via `assign_law_firm_case`.
+
+### Banco (migration `20260714120000_lawyer_recommendations.sql`)
+
+- `create_case_request`: **so o advogado da conversa propoe**. O ramo que
+  permitia ao escritorio (`is_active_law_firm_case_manager`) foi removido — o
+  bloqueio esta no banco, nao so na UI, entao build velho do app tambem e
+  barrado. Corpo da funcao extraido verbatim do baseline; so o gate mudou.
+- `can_recommend_law_firm_lawyer(firm)`: quem fala pelo escritorio com o cliente
+  — dono, admin, advogado e secretaria. Estagiario nao. (Mesmo conjunto do gate
+  da UI, `canRecommendFirmLawyers`.)
+- `fetch_law_firm_lawyers(firm)`: advogados da lista de sugestao. Filtra pelos
+  mesmos criterios que `start_or_get_lawyer_conversation` exige (vinculo ativo,
+  convite aceito, cadastro aprovado) — sugerir alguem fora disso geraria um card
+  com botao quebrado.
+- `recommend_lawyer_to_client(conversa, advogado)`: grava a sugestao como
+  mensagem de sistema na conversa e notifica o cliente
+  (`type='lawyer_recommendation'`, scope client por default).
+
+**Sem tabela nova.** A sugestao vive na metadata da mensagem: diferente de
+`case_requests`, ela nao tem maquina de estados (nao ha aceite/recusa) — o card
+e so um atalho para conversar. Nome, OAB e foto sao um snapshot lido no servidor
+(nunca vem do cliente); so o `lawyer_id` e usado para agir, e
+`start_or_get_lawyer_conversation` revalida o advogado no clique.
+
+**O escritorio nao perde o caso.** Quando o advogado dele propoe, o
+`law_firm_id` e derivado do vinculo do advogado e gravado no caso — painel do
+escritorio, metricas e avaliacao do ESCRITORIO seguem funcionando igual.
+
+Sutileza do schema que confunde: a conversa cliente<->advogado tambem carrega
+`law_firm_id` (quando o advogado tem escritorio). Quem separa "chat do
+escritorio" de "chat do advogado" e o `lawyer_id` da conversa, nao o `type`
+(ambas sao `client_firm`).
+
+Testado no Supabase local (`supabase db reset`, migrations do zero), 8 cenarios:
+escritorio propondo caso -> BARRADO; advogado propondo -> OK e com `law_firm_id`
+preservado; pode sugerir? dono=sim, advogado=sim, estagiario=nao, de fora=nao;
+lista de advogados so para quem e do escritorio (de fora volta 0 linhas);
+sugestao gera mensagem com metadata + notificacao para o cliente + preview da
+conversa; estranho, estagiario e advogado de OUTRO escritorio -> BARRADOS.
+
+### App
+
+- Botao "Sugerir advogado" no **mesmo lugar** do antigo botao de solicitar caso
+  (acao da barra do topo), so no chat do escritorio com cliente.
+- `RecommendLawyerSheet`: folha com os advogados da equipe (foto, nome, OAB,
+  area), escolhe um e envia.
+- `LawyerRecommendationCard`: o card que aparece no chat, no formato da caixa de
+  aceite de caso, mas como **miniatura de perfil** — foto, nome, OAB, area — e um
+  botao grande "Enviar mensagem". O botao e do CLIENTE; do lado do escritorio o
+  card fica sem botao (e so o registro do que foi sugerido).
+- Foto: vem de `profiles.avatar_url` (bucket publico, preenchido na verificacao).
+  Advogado sem foto cai nas iniciais.
+- `canCreateCases`/`canCreateFirmCases` viraram `canRecommendLawyers`/
+  `canRecommendFirmLawyers` (o escritorio nao cria mais caso — o nome antigo
+  mentiria).
+- `flutter analyze` limpo; 81 testes verdes (9 novos).
+
+### Frentes seguintes (nao feitas)
+
+- A foto real do advogado ainda **nao** aparece na descoberta nem no perfil
+  publico (esses RPCs devolvem so `avatar_type`/iniciais). Se quiser, e so somar
+  `avatar_url` a `fetch_recommended_lawyers` e `fetch_lawyer_public_profile` —
+  o model `LawyerProfileSummary` ja tem o campo `photoUrl`.
+- A sugestao nao mede conversao (quantas viraram conversa/caso). Da para extrair
+  de `messages` filtrando `metadata->>'type' = 'lawyer_recommendation'` quando
+  isso virar prioridade.

@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import '../data/legal_practice_areas.dart';
 import '../models/lawyer_profile_summary.dart';
 import '../repositories/messaging_repository.dart';
+import '../repositories/review_repository.dart';
 import '../theme/app_colors.dart';
+import '../widgets/reviews_panel.dart';
 import 'chat_screen.dart';
 
 class LawyerProfileScreen extends StatefulWidget {
@@ -140,8 +142,9 @@ class _LawyerProfileScreenState extends State<LawyerProfileScreen> {
                       ),
                       _InfoChip(
                         icon: Icons.star,
-                        label:
-                            '${widget.lawyer.rating} (${widget.lawyer.reviews})',
+                        label: widget.lawyer.reviews == 0
+                            ? 'Novo'
+                            : '${widget.lawyer.rating} (${widget.lawyer.reviews})',
                       ),
                       const _InfoChip(
                         icon: Icons.verified_outlined,
@@ -187,6 +190,11 @@ class _LawyerProfileScreenState extends State<LawyerProfileScreen> {
                   ),
                 ],
               ),
+            ),
+            const SizedBox(height: 16),
+            ReviewsPanel(
+              target: ReviewTarget.lawyer,
+              targetId: widget.lawyer.id,
             ),
             const SizedBox(height: 24),
             SizedBox(

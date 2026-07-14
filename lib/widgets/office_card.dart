@@ -87,28 +87,39 @@ class OfficeCard extends StatelessWidget {
                 const SizedBox(height: 6),
                 Row(
                   children: [
-                    Icon(Icons.star, size: 14, color: colors.accent),
-                    const SizedBox(width: 4),
-                    Text(
-                      '$rating',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: colors.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    Flexible(
-                      child: Text(
-                        '($reviews avaliações)',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                    if (reviews == 0)
+                      Text(
+                        'Novo',
                         style: TextStyle(
                           fontSize: 12,
+                          fontWeight: FontWeight.w700,
                           color: colors.textSecondary,
                         ),
+                      )
+                    else ...[
+                      Icon(Icons.star, size: 14, color: colors.accent),
+                      const SizedBox(width: 4),
+                      Text(
+                        '$rating',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: colors.textPrimary,
+                        ),
                       ),
-                    ),
+                      const SizedBox(width: 4),
+                      Flexible(
+                        child: Text(
+                          '($reviews avaliações)',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: colors.textSecondary,
+                          ),
+                        ),
+                      ),
+                    ],
                     const Spacer(),
                     Icon(
                       Icons.location_on_outlined,

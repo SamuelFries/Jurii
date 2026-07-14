@@ -93,16 +93,27 @@ class LawyerProfileCard extends StatelessWidget {
                       ),
                     ),
                     const Spacer(),
-                    Icon(Icons.star, size: 14, color: colors.accent),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${lawyer.rating}',
-                      style: TextStyle(
-                        color: colors.textPrimary,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
+                    if (lawyer.reviews == 0)
+                      Text(
+                        'Novo',
+                        style: TextStyle(
+                          color: colors.textSecondary,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      )
+                    else ...[
+                      Icon(Icons.star, size: 14, color: colors.accent),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${lawyer.rating}',
+                        style: TextStyle(
+                          color: colors.textPrimary,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ],

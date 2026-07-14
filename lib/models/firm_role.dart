@@ -52,7 +52,11 @@ extension FirmRoleCollectionPermissions on Iterable<FirmRole> {
 
   bool get canManageFirmMembers => hasOwner || hasAdmin;
   bool get canAssignFirmCases => hasOwner || hasAdmin || hasSecretary;
-  bool get canCreateFirmCases =>
+
+  /// Quem fala pelo escritório com o cliente e pode indicar um advogado da
+  /// equipe. Estagiário não indica. (Mesmo conjunto do gate no banco,
+  /// `can_recommend_law_firm_lawyer`.)
+  bool get canRecommendFirmLawyers =>
       hasLawyer || hasOwner || hasAdmin || hasSecretary;
   bool get canAttendAssignedFirmCases => hasLawyer;
 

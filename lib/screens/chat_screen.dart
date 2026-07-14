@@ -11,6 +11,7 @@ import '../models/case_request.dart';
 import '../models/chat_attachment.dart';
 import '../models/chat_message.dart';
 import '../models/conversation.dart';
+import '../models/lawyer_recommendation.dart';
 import '../repositories/case_repository.dart';
 import '../repositories/law_firm_repository.dart';
 import '../repositories/lawyer_profile_repository.dart';
@@ -22,6 +23,8 @@ import '../theme/app_colors.dart';
 import '../widgets/jurii_empty_state.dart';
 import '../widgets/jurii_form_motion.dart';
 import '../widgets/jurii_motion.dart';
+import '../widgets/lawyer_recommendation_card.dart';
+import '../widgets/recommend_lawyer_sheet.dart';
 import 'client_profile_screen.dart';
 import 'intake_screen.dart';
 import 'law_firm_profile_screen.dart';
@@ -30,7 +33,14 @@ import 'lawyer_profile_screen.dart';
 class ChatScreen extends StatefulWidget {
   final Conversation conversation;
   final bool isLawyer;
+
+  /// Propor caso é do advogado responsável pela conversa. O escritório não
+  /// propõe mais caso — ele sugere um advogado ([canRecommendLawyer]).
   final bool canRequestCase;
+
+  /// Escritório sugerindo um advogado da organização ao cliente. Ocupa, na
+  /// barra do topo, o lugar do antigo botão de solicitar aceite do caso.
+  final bool canRecommendLawyer;
 
   /// Serviço da triagem IA (injetável para testes; default via factory).
   final IntakeAIService? intakeService;
@@ -45,6 +55,7 @@ class ChatScreen extends StatefulWidget {
     required this.conversation,
     required this.isLawyer,
     this.canRequestCase = true,
+    this.canRecommendLawyer = false,
     this.intakeService,
     this.allowTriage = true,
   });
@@ -72,7 +83,9 @@ class _ChatScreenState extends State<ChatScreen>
   bool _isUploadingAttachment = false;
   bool _isOpeningProfile = false;
   bool _isCreatingCaseRequest = false;
+  bool _isRecommendingLawyer = false;
   String? _respondingCaseRequestId;
+  String? _openingRecommendedLawyerId;
 
   // Menu do botão "+" (anexo/triagem) e dica sutil da triagem.
   late final AnimationController _plusMenuController = AnimationController(
@@ -818,6 +831,74 @@ class _ChatScreenState extends State<ChatScreen>
         widget.conversation.clientId != null;
   }
 
+  bool get _canRecommendLawyer {
+    return widget.canRecommendLawyer &&
+        _usesSupabase &&
+        widget.conversation.lawFirmId != null;
+  }
+
+  Future<void> _openRecommendLawyerSheet() async {
+    final lawFirmId = widget.conversation.lawFirmId;
+    final conversationId = widget.conversation.id;
+    if (_isRecommendingLawyer || lawFirmId == null || conversationId == null) {
+      return;
+    }
+
+    final lawyerId = await showRecommendLawyerSheet(
+      context,
+      lawFirmId: lawFirmId,
+    );
+    if (!mounted || lawyerId == null) return;
+
+    setState(() => _isRecommendingLawyer = true);
+
+    try {
+      await _repository.recommendLawyer(
+        conversationId: conversationId,
+        lawyerId: lawyerId,
+      );
+      await _refreshMessagesSilently();
+      if (!mounted) return;
+      _showSnackBar('Advogado sugerido ao cliente.');
+    } catch (error) {
+      debugPrint('Supabase lawyer recommendation failed: $error');
+      if (!mounted) return;
+      _showSnackBar('Não foi possível sugerir o advogado.');
+    } finally {
+      if (mounted) setState(() => _isRecommendingLawyer = false);
+    }
+  }
+
+  /// O cliente aceitou a sugestão: abre (ou recupera) a conversa com o
+  /// advogado indicado. É lá que o caso será proposto.
+  Future<void> _openRecommendedLawyerChat(
+    LawyerRecommendation recommendation,
+  ) async {
+    if (_openingRecommendedLawyerId != null || !SupabaseConfig.isReady) return;
+
+    setState(() => _openingRecommendedLawyerId = recommendation.lawyerId);
+
+    try {
+      final conversation = await _repository.startLawyerConversationById(
+        recommendation.lawyerId,
+      );
+      if (!mounted) return;
+      setState(() => _openingRecommendedLawyerId = null);
+
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) =>
+              ChatScreen(conversation: conversation, isLawyer: false),
+        ),
+      );
+    } catch (error) {
+      debugPrint('Supabase recommended lawyer conversation failed: $error');
+      if (!mounted) return;
+      setState(() => _openingRecommendedLawyerId = null);
+      _showSnackBar('Não foi possível abrir a conversa com o advogado.');
+    }
+  }
+
   Future<void> _openCaseRequestSheet() async {
     if (_isCreatingCaseRequest) return;
 
@@ -977,6 +1058,20 @@ class _ChatScreenState extends State<ChatScreen>
                   : const Icon(Icons.assignment_add),
               tooltip: 'Enviar solicitação de caso',
             ),
+          if (_canRecommendLawyer)
+            IconButton(
+              onPressed: _isRecommendingLawyer
+                  ? null
+                  : _openRecommendLawyerSheet,
+              icon: _isRecommendingLawyer
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.recommend_outlined),
+              tooltip: 'Sugerir advogado',
+            ),
         ],
       ),
       body: SafeArea(
@@ -1027,6 +1122,15 @@ class _ChatScreenState extends State<ChatScreen>
                             isRespondingCaseRequest:
                                 _respondingCaseRequestId ==
                                 message.caseRequestId,
+                            // Só o cliente aciona o advogado sugerido; para o
+                            // escritório o card é o registro da sugestão.
+                            canMessageRecommendedLawyer: !widget.isLawyer,
+                            isOpeningRecommendedLawyerChat:
+                                _openingRecommendedLawyerId != null &&
+                                _openingRecommendedLawyerId ==
+                                    message.lawyerRecommendation?.lawyerId,
+                            onMessageRecommendedLawyer:
+                                _openRecommendedLawyerChat,
                             onAcceptCaseRequest: () =>
                                 _respondToCaseRequestFromChat(
                                   message,
@@ -1277,6 +1381,9 @@ class _MessageBubble extends StatelessWidget {
   final String counterpartInitials;
   final bool canRespondToCaseRequest;
   final bool isRespondingCaseRequest;
+  final bool canMessageRecommendedLawyer;
+  final bool isOpeningRecommendedLawyerChat;
+  final ValueChanged<LawyerRecommendation> onMessageRecommendedLawyer;
   final VoidCallback onAcceptCaseRequest;
   final VoidCallback onDeclineCaseRequest;
   final ValueChanged<ChatAttachment> onOpenAttachment;
@@ -1287,6 +1394,9 @@ class _MessageBubble extends StatelessWidget {
     required this.counterpartInitials,
     required this.canRespondToCaseRequest,
     required this.isRespondingCaseRequest,
+    required this.canMessageRecommendedLawyer,
+    required this.isOpeningRecommendedLawyerChat,
+    required this.onMessageRecommendedLawyer,
     required this.onAcceptCaseRequest,
     required this.onDeclineCaseRequest,
     required this.onOpenAttachment,
@@ -1303,6 +1413,17 @@ class _MessageBubble extends StatelessWidget {
         isSubmitting: isRespondingCaseRequest,
         onAccept: onAcceptCaseRequest,
         onDecline: onDeclineCaseRequest,
+      );
+    }
+
+    final recommendation = message.lawyerRecommendation;
+    if (recommendation != null) {
+      return LawyerRecommendationCard(
+        recommendation: recommendation,
+        time: message.time,
+        canMessage: canMessageRecommendedLawyer,
+        isOpeningChat: isOpeningRecommendedLawyerChat,
+        onMessage: () => onMessageRecommendedLawyer(recommendation),
       );
     }
 
