@@ -1,4 +1,5 @@
 import 'chat_attachment.dart';
+import 'lawyer_recommendation.dart';
 
 enum MessageAuthor { me, other, system }
 
@@ -55,6 +56,11 @@ class ChatMessage {
 
   bool get isCaseRequest {
     return metadata['type'] == 'case_request' && caseRequestId != null;
+  }
+
+  /// Sugestão de advogado enviada pelo escritório, quando a mensagem é uma.
+  LawyerRecommendation? get lawyerRecommendation {
+    return LawyerRecommendation.fromMetadata(metadata);
   }
 
   bool get hasAttachment {

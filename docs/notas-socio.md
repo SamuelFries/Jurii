@@ -843,3 +843,79 @@ verificacao verdadeira e via os RPCs SECURITY DEFINER, que furam RLS.
   no futuro quiser apertar mais, o criterio seria `legal_cases.status='closed'`.
 - A nota so aparece nos PERFIS e nos cards de descoberta. Profissional sem
   avaliacao mostra "Novo" (nao "0 estrelas"), para nao parecer nota ruim.
+
+## Escritorio sugere advogado (em vez de propor caso) — 14/07/2026
+
+Mudanca de fluxo pedida: o escritorio **nao propoe mais caso** ao cliente. Ele
+passa a **sugerir um advogado da organizacao** para o cliente conversar. O caso
+nasce depois, na conversa entre cliente e advogado — proposto pelo advogado.
+
+Ganho: o caso ja nasce com responsavel definido. Antes o escritorio podia criar
+um caso sem advogado ("Sem advogado definido" no painel) e so depois atribuir
+alguem via `assign_law_firm_case`.
+
+### Banco (migration `20260714120000_lawyer_recommendations.sql`)
+
+- `create_case_request`: **so o advogado da conversa propoe**. O ramo que
+  permitia ao escritorio (`is_active_law_firm_case_manager`) foi removido — o
+  bloqueio esta no banco, nao so na UI, entao build velho do app tambem e
+  barrado. Corpo da funcao extraido verbatim do baseline; so o gate mudou.
+- `can_recommend_law_firm_lawyer(firm)`: quem fala pelo escritorio com o cliente
+  — dono, admin, advogado e secretaria. Estagiario nao. (Mesmo conjunto do gate
+  da UI, `canRecommendFirmLawyers`.)
+- `fetch_law_firm_lawyers(firm)`: advogados da lista de sugestao. Filtra pelos
+  mesmos criterios que `start_or_get_lawyer_conversation` exige (vinculo ativo,
+  convite aceito, cadastro aprovado) — sugerir alguem fora disso geraria um card
+  com botao quebrado.
+- `recommend_lawyer_to_client(conversa, advogado)`: grava a sugestao como
+  mensagem de sistema na conversa e notifica o cliente
+  (`type='lawyer_recommendation'`, scope client por default).
+
+**Sem tabela nova.** A sugestao vive na metadata da mensagem: diferente de
+`case_requests`, ela nao tem maquina de estados (nao ha aceite/recusa) — o card
+e so um atalho para conversar. Nome, OAB e foto sao um snapshot lido no servidor
+(nunca vem do cliente); so o `lawyer_id` e usado para agir, e
+`start_or_get_lawyer_conversation` revalida o advogado no clique.
+
+**O escritorio nao perde o caso.** Quando o advogado dele propoe, o
+`law_firm_id` e derivado do vinculo do advogado e gravado no caso — painel do
+escritorio, metricas e avaliacao do ESCRITORIO seguem funcionando igual.
+
+Sutileza do schema que confunde: a conversa cliente<->advogado tambem carrega
+`law_firm_id` (quando o advogado tem escritorio). Quem separa "chat do
+escritorio" de "chat do advogado" e o `lawyer_id` da conversa, nao o `type`
+(ambas sao `client_firm`).
+
+Testado no Supabase local (`supabase db reset`, migrations do zero), 8 cenarios:
+escritorio propondo caso -> BARRADO; advogado propondo -> OK e com `law_firm_id`
+preservado; pode sugerir? dono=sim, advogado=sim, estagiario=nao, de fora=nao;
+lista de advogados so para quem e do escritorio (de fora volta 0 linhas);
+sugestao gera mensagem com metadata + notificacao para o cliente + preview da
+conversa; estranho, estagiario e advogado de OUTRO escritorio -> BARRADOS.
+
+### App
+
+- Botao "Sugerir advogado" no **mesmo lugar** do antigo botao de solicitar caso
+  (acao da barra do topo), so no chat do escritorio com cliente.
+- `RecommendLawyerSheet`: folha com os advogados da equipe (foto, nome, OAB,
+  area), escolhe um e envia.
+- `LawyerRecommendationCard`: o card que aparece no chat, no formato da caixa de
+  aceite de caso, mas como **miniatura de perfil** — foto, nome, OAB, area — e um
+  botao grande "Enviar mensagem". O botao e do CLIENTE; do lado do escritorio o
+  card fica sem botao (e so o registro do que foi sugerido).
+- Foto: vem de `profiles.avatar_url` (bucket publico, preenchido na verificacao).
+  Advogado sem foto cai nas iniciais.
+- `canCreateCases`/`canCreateFirmCases` viraram `canRecommendLawyers`/
+  `canRecommendFirmLawyers` (o escritorio nao cria mais caso — o nome antigo
+  mentiria).
+- `flutter analyze` limpo; 81 testes verdes (9 novos).
+
+### Frentes seguintes (nao feitas)
+
+- A foto real do advogado ainda **nao** aparece na descoberta nem no perfil
+  publico (esses RPCs devolvem so `avatar_type`/iniciais). Se quiser, e so somar
+  `avatar_url` a `fetch_recommended_lawyers` e `fetch_lawyer_public_profile` —
+  o model `LawyerProfileSummary` ja tem o campo `photoUrl`.
+- A sugestao nao mede conversao (quantas viraram conversa/caso). Da para extrair
+  de `messages` filtrando `metadata->>'type' = 'lawyer_recommendation'` quando
+  isso virar prioridade.

@@ -58,6 +58,28 @@ class LawyerProfileRepository {
     }
   }
 
+  /// Advogados que o escritório pode sugerir a um cliente: vínculo ativo,
+  /// convite aceito e cadastro aprovado. O banco aplica o mesmo filtro e ainda
+  /// exige que quem chama fale pelo escritório.
+  Future<List<LawyerProfileSummary>> fetchLawFirmLawyers(
+    String lawFirmId,
+  ) async {
+    if (!SupabaseConfig.isReady ||
+        SupabaseConfig.client.auth.currentUser == null) {
+      return const [];
+    }
+
+    final rows = await SupabaseConfig.client.rpc(
+      'fetch_law_firm_lawyers',
+      params: {'law_firm_id_value': lawFirmId},
+    );
+
+    return (rows as List<dynamic>)
+        .cast<Map<String, dynamic>>()
+        .map<LawyerProfileSummary>(_fromRow)
+        .toList();
+  }
+
   Future<LawyerProfileSummary?> fetchLawyerById(String lawyerId) async {
     if (!SupabaseConfig.isReady ||
         SupabaseConfig.client.auth.currentUser == null) {
@@ -97,6 +119,7 @@ class LawyerProfileRepository {
       rating: (row['rating'] as num?)?.toDouble() ?? 0,
       reviews: row['reviews_count'] as int? ?? 0,
       avatarType: row['avatar_type'] as String? ?? 'navy',
+      photoUrl: row['avatar_url'] as String?,
     );
   }
 
