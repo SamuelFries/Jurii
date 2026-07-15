@@ -51,3 +51,22 @@ String? validateCpfField(String? value) {
   if (!isValidCpf(value ?? '')) return 'Informe um CPF válido';
   return null;
 }
+
+/// Nome completo = pelo menos dois nomes. Um nome só (o que o login social da
+/// Apple costuma entregar, quando entrega) não identifica ninguém num contrato
+/// ou processo.
+bool isCompleteName(String value) {
+  final parts = value
+      .trim()
+      .split(RegExp(r'\s+'))
+      .where((part) => part.length >= 2)
+      .toList();
+  return parts.length >= 2;
+}
+
+String? validateFullNameField(String? value) {
+  final name = value?.trim() ?? '';
+  if (name.isEmpty) return 'Informe seu nome completo';
+  if (!isCompleteName(name)) return 'Informe nome e sobrenome';
+  return null;
+}

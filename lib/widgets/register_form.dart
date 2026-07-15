@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../theme/app_colors.dart';
 import '../types/auth_callbacks.dart';
+import '../utils/cpf_input_formatter.dart';
 import '../utils/validators.dart';
 import 'jurii_form_motion.dart';
 import 'jurii_motion.dart';
@@ -56,12 +57,7 @@ class _RegisterFormState extends State<RegisterForm> {
                   hintText: 'Nome completo',
                   prefixIcon: Icon(Icons.person_outline),
                 ),
-                validator: (value) {
-                  if (value == null || value.trim().length < 3) {
-                    return 'Informe seu nome completo';
-                  }
-                  return null;
-                },
+                validator: validateFullNameField,
               ),
             ),
           ),
@@ -95,7 +91,7 @@ class _RegisterFormState extends State<RegisterForm> {
                 keyboardType: TextInputType.number,
                 textInputAction: TextInputAction.next,
                 inputFormatters: [
-                  _CpfInputFormatter(),
+                  const CpfInputFormatter(),
                   LengthLimitingTextInputFormatter(14),
                 ],
                 decoration: const InputDecoration(
@@ -288,34 +284,6 @@ class _RegisterFormState extends State<RegisterForm> {
   }
 }
 
-class _CpfInputFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
-    final digits = newValue.text.replaceAll(RegExp(r'\D'), '');
-    final limitedDigits = digits.length > 11 ? digits.substring(0, 11) : digits;
-    final formattedCpf = _formatCpf(limitedDigits);
-    return TextEditingValue(
-      text: formattedCpf,
-      selection: TextSelection.collapsed(offset: formattedCpf.length),
-    );
-  }
-
-  String _formatCpf(String digits) {
-    final buffer = StringBuffer();
-    for (var index = 0; index < digits.length; index++) {
-      if (index == 3 || index == 6) {
-        buffer.write('.');
-      } else if (index == 9) {
-        buffer.write('-');
-      }
-      buffer.write(digits[index]);
-    }
-    return buffer.toString();
-  }
-}
 
 class _PasswordStrengthIndicator extends StatelessWidget {
   const _PasswordStrengthIndicator({required this.strength});

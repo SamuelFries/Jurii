@@ -20,6 +20,7 @@ import 'repositories/law_firm_verification_repository.dart';
 import 'repositories/lawyer_verification_repository.dart';
 import 'repositories/profile_repository.dart';
 import 'screens/agenda_screen.dart';
+import 'screens/complete_profile_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/messages_screen.dart';
 import 'screens/password_reset_screen.dart';
@@ -87,6 +88,7 @@ class _JuriiAppState extends State<JuriiApp> {
   bool _bootstrapFailed = false;
   bool _isPasswordRecovery = false;
   bool _isPasswordRecoveryExpected = false;
+  bool _needsProfileCompletion = false;
   Future<void>? _sessionCompletion;
   UserProfile _currentUser = _guestUser;
   LawyerVerification? _lawyerVerification;
@@ -316,10 +318,40 @@ class _JuriiAppState extends State<JuriiApp> {
       );
       _lawFirmVerification = lawFirmVerification;
       _firmWorkspace = firmWorkspace;
+      // Só cobra os dados quando o perfil REAL foi lido: se a linha não veio
+      // (falha ao criar/recuperar), o usuário não é barrado por uma dúvida
+      // nossa — a cobrança volta no próximo login.
+      _needsProfileCompletion =
+          profile != null && profile.needsProfileCompletion;
       _isLoggedIn = true;
       _bootstrapFailed = false;
       _isPasswordRecovery = false;
       _isBootstrapping = false;
+    });
+  }
+
+  /// Grava nome e CPF de quem entrou por Google/Apple e recarrega o perfil —
+  /// é o retorno do banco que libera o acesso, não a suposição do app.
+  Future<void> _handleCompleteProfile({
+    required String fullName,
+    required String cpf,
+  }) async {
+    if (!SupabaseConfig.isReady) {
+      setState(() {
+        _currentUser = _currentUser.copyWith(name: fullName, cpf: cpf);
+        _needsProfileCompletion = false;
+      });
+      return;
+    }
+
+    await _profileRepository.upsertProfile(fullName: fullName, cpf: cpf);
+
+    final profile = await _profileRepository.fetchCurrentProfile();
+    if (!mounted || profile == null) return;
+
+    setState(() {
+      _currentUser = _userWithLawyerVerification(profile, _lawyerVerification);
+      _needsProfileCompletion = profile.needsProfileCompletion;
     });
   }
 
@@ -357,6 +389,7 @@ class _JuriiAppState extends State<JuriiApp> {
     _bootstrapFailed = false;
     _isPasswordRecovery = false;
     _isPasswordRecoveryExpected = false;
+    _needsProfileCompletion = false;
     _currentUser = _guestUser;
     _lawyerVerification = null;
     _lawFirmVerification = null;
@@ -697,6 +730,14 @@ class _JuriiAppState extends State<JuriiApp> {
             onSocialLogin: _handleSocialLogin,
             onPasswordResetRequested: _handlePasswordResetRequested,
             onRegister: _handleRegister,
+          )
+        // Google/Apple autenticam sem CPF (e a Apple, muitas vezes, sem nome).
+        // Nada do app abre antes desses dados existirem.
+        : _needsProfileCompletion
+        ? CompleteProfileScreen(
+            profile: _currentUser,
+            onSubmit: _handleCompleteProfile,
+            onLogout: _handleLogout,
           )
         : _isFirmMode
         ? FirmNavigation(

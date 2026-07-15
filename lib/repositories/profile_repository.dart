@@ -91,6 +91,9 @@ class ProfileRepository {
       avatarUrl: (row['avatar_url'] as String?)?.trim().isEmpty ?? true
           ? null
           : row['avatar_url'] as String,
+      // Só fetch_current_profile devolve CPF; no perfil de contraparte
+      // (fetch_chat_profile) a coluna nem existe no retorno.
+      cpf: row['cpf'] as String?,
     );
   }
 }
