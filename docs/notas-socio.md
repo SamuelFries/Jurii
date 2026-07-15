@@ -1202,18 +1202,29 @@ rejeita repetido/digito errado/curto; upsert barra CPF invalido; CPF mascarado
 valido entra limpo (11 digitos) e o nome sai normalizado.
 `flutter analyze` limpo, 93 testes verdes (10 novos).
 
-### DECISAO EM ABERTO para voce - CPF duplicado
+### 1 CPF = 1 conta (mesma migration)
 
-Producao tem **1 par de perfis com o mesmo CPF** hoje (provavelmente teste seu).
-Nao criei indice unico em `profiles.cpf` porque ele FALHARIA com o duplicado
-existente. Vale decidir:
+O levantamento achou **5 perfis de teste compartilhando o mesmo CPF** em
+producao (batata, Amo Testar, VS Code, eu testo, Teste Teste — todos cliente,
+zero casos, zero vinculos). Samuel confirmou que eram teste e autorizou apagar:
+apagados pela `auth.users` (nao so a linha de `profiles` — senao o proximo login
+recriaria o perfil e o CPF duplicado voltaria). Sobraram 11 perfis, 0 duplicados.
 
-- **Unicidade (1 CPF = 1 conta)**: e o que se espera de identidade num
-  marketplace juridico, e fecha a porta para multiplas contas da mesma pessoa.
-  Exige (a) limpar o duplicado e (b) tratar o erro na tela ("este CPF ja esta em
-  uso"), senao a pessoa fica travada sem saida.
-- **Sem unicidade**: mantem simples, mas aceita que a mesma pessoa exista duas
-  vezes — e nao ha como deduplicar depois sem intervencao manual.
+Com o caminho livre, a unicidade entrou junto:
 
-Recomendo unicidade, mas depois do piloto: e mudanca que pode travar usuario
-real, e o volume hoje nao justifica a pressa.
+- Indice unico parcial `profiles_cpf_unique` em `cpf where cpf is not null` — e a
+  garantia real, a prova de corrida. Parcial porque quem entrou por Google/Apple
+  ainda nao tem CPF, e conta excluida tem o CPF anulado pela LGPD: nenhum dos
+  dois colide, e o CPF de quem saiu nao fica preso.
+- `upsert_current_profile` recusa CPF de outra conta com erro proprio
+  ('CPF already registered'), para o app poder EXPLICAR em vez de mostrar
+  violacao de constraint. A tela diz "Este CPF ja esta em uso em outra conta".
+- **Armadilha que o indice criaria:** o cadastro por e-mail grava o CPF pelo
+  GATILHO (raw_user_meta_data), nao pela RPC — um CPF repetido faria o insert do
+  gatilho falhar e o `signUp` voltar um "Database error" opaco. Por isso
+  `handle_new_auth_user` passou a IGNORAR CPF invalido/repetido: a conta nasce
+  sem CPF e cai na tela de completar cadastro, que sabe explicar o motivo.
+
+Testado no Docker: cadastro normal grava o CPF; cadastro com CPF repetido nao
+quebra e nasce sem CPF; completar com CPF de outro e barrado com a mensagem
+certa; escrita direta duplicando CPF e barrada pelo indice.

@@ -130,6 +130,32 @@ void main() {
     expect(sentCpf, '52998224725');
   });
 
+  testWidgets('CPF de outra conta explica o motivo, não pede "CPF válido"', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _wrap(
+        CompleteProfileScreen(
+          profile: _profile(cpf: null),
+          onSubmit: ({required String fullName, required String cpf}) async {
+            throw Exception('PostgrestException: CPF already registered');
+          },
+          onLogout: () {},
+        ),
+      ),
+    );
+
+    await tester.enterText(find.byType(TextFormField).last, '529.982.247-25');
+    await tester.tap(find.text('Continuar'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.textContaining('já está em uso em outra conta'),
+      findsOneWidget,
+    );
+    expect(find.text('Informe um CPF válido.'), findsNothing);
+  });
+
   testWidgets('sempre há saída: sair da conta', (tester) async {
     var loggedOut = 0;
 

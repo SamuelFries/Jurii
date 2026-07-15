@@ -79,6 +79,14 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
 
   String _friendlyError(Object error) {
     final message = error.toString().toLowerCase();
+    // Precisa vir antes do teste genérico: a violação do índice único também
+    // menciona "cpf", e mandar "informe um CPF válido" para quem digitou o
+    // próprio CPF certo seria enlouquecedor.
+    if (message.contains('already registered') ||
+        message.contains('profiles_cpf_unique')) {
+      return 'Este CPF já está em uso em outra conta da Jurii. '
+          'Entre com ela para continuar.';
+    }
     if (message.contains('cpf')) return 'Informe um CPF válido.';
     return 'Não foi possível salvar seus dados. Tente novamente.';
   }
