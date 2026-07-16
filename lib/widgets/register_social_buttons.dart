@@ -5,6 +5,7 @@ import '../theme/app_colors.dart';
 import '../types/auth_callbacks.dart';
 import 'jurii_motion.dart';
 import 'legal_agreement_notice.dart';
+import 'social_provider_logo.dart';
 
 /// Botões sociais do cadastro. No Supabase, OAuth de cadastro e de login são
 /// o mesmo fluxo — recebe o mesmo callback usado na tela de login.
@@ -52,7 +53,7 @@ class _RegisterSocialButtonsState extends State<RegisterSocialButtons> {
           index: 2,
           child: _socialButton(
             context: context,
-            icon: Icons.apple,
+            provider: SocialAuthProvider.apple,
             text: 'Continuar com Apple',
             loading: _loadingProvider == SocialAuthProvider.apple,
             onPressed: () => _submitSocial(SocialAuthProvider.apple),
@@ -148,11 +149,9 @@ class _RegisterSocialButtonsState extends State<RegisterSocialButtons> {
                         color: colors.primary,
                       ),
                     )
-                  : Image.asset(
-                      'assets/images/google_logo.png',
+                  : SocialProviderLogo(
                       key: const ValueKey('google_logo'),
-                      width: 20,
-                      height: 20,
+                      provider: SocialAuthProvider.google,
                     ),
             ),
             const SizedBox(width: 12),
@@ -171,7 +170,7 @@ class _RegisterSocialButtonsState extends State<RegisterSocialButtons> {
 
   Widget _socialButton({
     required BuildContext context,
-    required IconData icon,
+    required SocialAuthProvider provider,
     required String text,
     required bool loading,
     required VoidCallback onPressed,
@@ -204,10 +203,9 @@ class _RegisterSocialButtonsState extends State<RegisterSocialButtons> {
                     color: colors.primary,
                   ),
                 )
-              : Icon(
-                  icon,
+              : SocialProviderLogo(
                   key: ValueKey('social_icon_$text'),
-                  color: colors.textPrimary,
+                  provider: provider,
                 ),
         ),
         label: Text(

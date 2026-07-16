@@ -1228,3 +1228,14 @@ Com o caminho livre, a unicidade entrou junto:
 Testado no Docker: cadastro normal grava o CPF; cadastro com CPF repetido nao
 quebra e nasce sem CPF; completar com CPF de outro e barrado com a mensagem
 certa; escrita direta duplicando CPF e barrada pelo indice.
+
+## Logos sociais transparentes no login e cadastro (16/07/2026)
+
+- Os botoes de Google e Apple no login e cadastro usam logos PNG transparentes
+  de 22 px, com antialiasing e filtragem de alta qualidade.
+- O logo da Apple tem margem transparente uniforme e recebe a cor
+  `textPrimary`, adaptando-se aos temas claro e escuro.
+- O componente reutilizavel `SocialProviderLogo` mantem o mesmo comportamento
+  nas duas telas.
+- Validacao: `flutter analyze` sem issues e `flutter test` com 95 testes
+  passando.

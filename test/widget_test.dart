@@ -361,6 +361,50 @@ void main() {
     );
   });
 
+  testWidgets('login uses transparent Google and Apple logo assets', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      _testApp(
+        LoginScreen(
+          onLogin: loginStub,
+          onSocialLogin: socialLoginStub,
+          onPasswordResetRequested: (_) async {},
+          onRegister: registerStub,
+        ),
+      ),
+    );
+
+    final googleImage = tester.widget<Image>(
+      find.descendant(
+        of: find.byKey(const ValueKey('google_logo')),
+        matching: find.byType(Image),
+      ),
+    );
+    final appleImage = tester.widget<Image>(
+      find.descendant(
+        of: find.byKey(const ValueKey('apple_icon')),
+        matching: find.byType(Image),
+      ),
+    );
+
+    expect(
+      (googleImage.image as AssetImage).assetName,
+      'assets/images/google_logo_transparent.png',
+    );
+    expect(
+      (appleImage.image as AssetImage).assetName,
+      'assets/images/apple_logo_transparent.png',
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('apple_icon')),
+        matching: find.byType(ColorFiltered),
+      ),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('password reset screen submits a new password', (
     WidgetTester tester,
   ) async {
