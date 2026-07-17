@@ -5,6 +5,7 @@ import '../models/appointment.dart';
 import '../repositories/appointment_repository.dart';
 import '../services/supabase_config.dart';
 import '../theme/app_colors.dart';
+import '../widgets/appointment_form_sheet.dart';
 import '../widgets/jurii_empty_state.dart';
 import '../widgets/jurii_list_card.dart';
 import '../widgets/jurii_motion.dart';
@@ -25,6 +26,12 @@ class AgendaScreen extends StatefulWidget {
 
 class _AgendaScreenState extends State<AgendaScreen> {
   late Future<List<Appointment>> _appointmentsFuture;
+
+  bool get _isLawyer => widget.role == AppointmentRole.lawyer;
+
+  /// Criar/editar só faz sentido para o advogado, na própria agenda, com
+  /// Supabase ativo (o modo demo é somente leitura de mocks).
+  bool get _canManage => _isLawyer && SupabaseConfig.isReady;
 
   @override
   void initState() {
@@ -50,14 +57,151 @@ class _AgendaScreenState extends State<AgendaScreen> {
     }
   }
 
-  void _retry() {
+  void _reload() {
     setState(() => _appointmentsFuture = _loadAppointments());
+  }
+
+  Future<void> _createAppointment() async {
+    final draft = await showAppointmentFormSheet(context);
+    if (draft == null) return;
+
+    try {
+      await widget.repository.createAppointment(
+        title: draft.title,
+        startsAt: draft.startsAt,
+        endsAt: draft.endsAt,
+        location: draft.location,
+        counterpartName: draft.counterpartName,
+      );
+      if (!mounted) return;
+      _showSnack('Compromisso criado.');
+      _reload();
+    } catch (error) {
+      if (!mounted) return;
+      _showSnack(_friendlyError(error));
+    }
+  }
+
+  Future<void> _editAppointment(Appointment appointment) async {
+    final draft = await showAppointmentFormSheet(context, existing: appointment);
+    if (draft == null) return;
+
+    try {
+      await widget.repository.updateAppointment(
+        id: appointment.id,
+        title: draft.title,
+        startsAt: draft.startsAt,
+        endsAt: draft.endsAt,
+        location: draft.location,
+        counterpartName: draft.counterpartName,
+      );
+      if (!mounted) return;
+      _showSnack('Compromisso atualizado.');
+      _reload();
+    } catch (error) {
+      if (!mounted) return;
+      _showSnack(_friendlyError(error));
+    }
+  }
+
+  Future<void> _cancelAppointment(Appointment appointment) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Cancelar compromisso?'),
+        content: Text('"${appointment.title}" será removido da sua agenda.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Voltar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(
+              foregroundColor: context.jColors.danger,
+            ),
+            child: const Text('Cancelar compromisso'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      await widget.repository.cancelAppointment(appointment.id);
+      if (!mounted) return;
+      _showSnack('Compromisso cancelado.');
+      _reload();
+    } catch (error) {
+      if (!mounted) return;
+      _showSnack(_friendlyError(error));
+    }
+  }
+
+  Future<void> _showActions(Appointment appointment) async {
+    final action = await showModalBottomSheet<_AppointmentAction>(
+      context: context,
+      builder: (context) {
+        final colors = context.jColors;
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: Icon(Icons.edit_outlined, color: colors.primary),
+                title: const Text('Editar'),
+                onTap: () =>
+                    Navigator.of(context).pop(_AppointmentAction.edit),
+              ),
+              ListTile(
+                leading: Icon(Icons.event_busy_outlined, color: colors.danger),
+                title: Text(
+                  'Cancelar compromisso',
+                  style: TextStyle(color: colors.danger),
+                ),
+                onTap: () =>
+                    Navigator.of(context).pop(_AppointmentAction.cancel),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    if (!mounted || action == null) return;
+    switch (action) {
+      case _AppointmentAction.edit:
+        await _editAppointment(appointment);
+      case _AppointmentAction.cancel:
+        await _cancelAppointment(appointment);
+    }
+  }
+
+  String _friendlyError(Object error) {
+    final message = error.toString().toLowerCase();
+    if (message.contains('overlaps')) {
+      return 'Você já tem um compromisso nesse horário.';
+    }
+    if (message.contains('end time must be after')) {
+      return 'O término deve ser depois do início.';
+    }
+    if (message.contains('only lawyers')) {
+      return 'Apenas advogados podem criar compromissos.';
+    }
+    return 'Não foi possível salvar o compromisso. Tente novamente.';
+  }
+
+  void _showSnack(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
   Widget build(BuildContext context) {
     final colors = context.jColors;
-    final isLawyer = widget.role == AppointmentRole.lawyer;
 
     return Scaffold(
       backgroundColor: colors.background,
@@ -65,6 +209,13 @@ class _AgendaScreenState extends State<AgendaScreen> {
         title: const Text('Agenda'),
         backgroundColor: colors.background,
       ),
+      floatingActionButton: _canManage
+          ? FloatingActionButton.extended(
+              onPressed: _createAppointment,
+              icon: const Icon(Icons.add),
+              label: const Text('Novo compromisso'),
+            )
+          : null,
       body: SafeArea(
         child: FutureBuilder<List<Appointment>>(
           future: _appointmentsFuture,
@@ -74,12 +225,12 @@ class _AgendaScreenState extends State<AgendaScreen> {
             return ListView(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
               children: [
-                _AgendaHero(isLawyer: isLawyer),
+                _AgendaHero(isLawyer: _isLawyer),
                 const SizedBox(height: 20),
                 const _DateSelector(),
                 const SizedBox(height: 24),
                 Text(
-                  isLawyer ? 'Compromissos profissionais' : 'Seus compromissos',
+                  _isLawyer ? 'Compromissos profissionais' : 'Seus compromissos',
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
                 const SizedBox(height: 12),
@@ -101,25 +252,28 @@ class _AgendaScreenState extends State<AgendaScreen> {
                         ),
                         const SizedBox(height: 12),
                         OutlinedButton(
-                          onPressed: _retry,
+                          onPressed: _reload,
                           child: const Text('Tentar novamente'),
                         ),
                       ],
                     ),
                   )
                 else if (appointments == null || appointments.isEmpty)
-                  _EmptyAgendaState(isLawyer: isLawyer)
+                  _EmptyAgendaState(isLawyer: _isLawyer)
                 else
                   for (var index = 0; index < appointments.length; index++) ...[
                     JuriiStaggeredItem(
                       index: index,
-                      child: _AppointmentCard(appointment: appointments[index]),
+                      child: _AppointmentCard(
+                        appointment: appointments[index],
+                        onTap: _canManage && appointments[index].isEditable
+                            ? () => _showActions(appointments[index])
+                            : null,
+                      ),
                     ),
                     if (index < appointments.length - 1)
                       const SizedBox(height: 12),
                   ],
-                const SizedBox(height: 24),
-                _AvailabilityCard(isLawyer: isLawyer),
               ],
             );
           },
@@ -128,6 +282,8 @@ class _AgendaScreenState extends State<AgendaScreen> {
     );
   }
 }
+
+enum _AppointmentAction { edit, cancel }
 
 class _AgendaHero extends StatelessWidget {
   final bool isLawyer;
@@ -273,16 +429,17 @@ class _DateSelector extends StatelessWidget {
 
 class _AppointmentCard extends StatelessWidget {
   final Appointment appointment;
+  final VoidCallback? onTap;
 
-  const _AppointmentCard({required this.appointment});
+  const _AppointmentCard({required this.appointment, this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final colors = context.jColors;
     final status = _statusStyle(appointment.status, colors);
 
-    // Sem onTap: o card ainda não tem ação; ripple em card inerte confunde.
     return JuriiListCard(
+      onTap: onTap,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -321,7 +478,12 @@ class _AppointmentCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '${appointment.counterpartName} · ${appointment.area}',
+                  appointment.counterpartName.isEmpty
+                      ? appointment.area.isEmpty
+                            ? 'Compromisso'
+                            : appointment.area
+                      : '${appointment.counterpartName}'
+                            '${appointment.area.isEmpty ? '' : ' · ${appointment.area}'}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(color: colors.textSecondary, fontSize: 12),
@@ -339,6 +501,8 @@ class _AppointmentCard extends StatelessWidget {
               ],
             ),
           ),
+          if (onTap != null)
+            Icon(Icons.more_vert, size: 18, color: colors.textSecondary),
         ],
       ),
     );
@@ -363,6 +527,11 @@ class _AppointmentCard extends StatelessWidget {
         color: colors.textSecondary,
         icon: Icons.done_all,
         label: 'Concluído',
+      ),
+      AppointmentStatus.cancelled => (
+        color: colors.textSecondary,
+        icon: Icons.event_busy_outlined,
+        label: 'Cancelado',
       ),
     };
   }
@@ -408,45 +577,8 @@ class _EmptyAgendaState extends StatelessWidget {
       icon: Icons.calendar_today_outlined,
       title: isLawyer ? 'Agenda profissional livre' : 'Nenhum compromisso',
       message: isLawyer
-          ? 'Quando houver compromissos profissionais, eles aparecerão aqui.'
+          ? 'Toque em Novo compromisso para agendar seu primeiro atendimento, audiência ou prazo.'
           : 'Quando um atendimento for agendado, ele aparecerá aqui.',
-    );
-  }
-}
-
-class _AvailabilityCard extends StatelessWidget {
-  final bool isLawyer;
-
-  const _AvailabilityCard({required this.isLawyer});
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.jColors;
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: colors.warningSurface,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: colors.warningBorder),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.tune_outlined, color: colors.warning),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              isLawyer
-                  ? 'Disponibilidade editável será conectada ao backend na próxima etapa.'
-                  : 'Reagendamentos e confirmações serão ativados na integração.',
-              style: TextStyle(
-                color: colors.warningText,
-                fontWeight: FontWeight.w700,
-                height: 1.4,
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

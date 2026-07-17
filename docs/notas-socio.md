@@ -1239,3 +1239,67 @@ certa; escrita direta duplicando CPF e barrada pelo indice.
   nas duas telas.
 - Validacao: `flutter analyze` sem issues e `flutter test` com 95 testes
   passando.
+
+## Agenda do advogado — CRUD de compromissos (17/07/2026)
+
+A tabela `appointments` existia desde a baseline, mas era ORFA: o hardening round
+2 revogou insert/update direto (e removeu as policies de escrita) e nunca houve
+RPC para popular a agenda. Resultado: schema + leitura + tela, **sem nenhum
+caminho para criar compromisso** (0 registros em producao, cards sem acao). Igual
+ao 4.8 fabricado e ao botao placebo de verificacao — a fundacao existia, faltava
+o motor.
+
+Escopo desta rodada (decisao do Samuel): **agenda PESSOAL do advogado** (ele
+gerencia os proprios compromissos). Agendamento pelo cliente (tipo Calendly) fica
+como frente separada, maior, que depende desta.
+
+### Banco (migration `20260717120000_lawyer_appointments_crud.sql`)
+
+- `client_id` deixou de ser NOT NULL: compromisso do advogado nem sempre tem
+  cliente da plataforma (audiencia, prazo interno). Prod tinha 0 registros, entao
+  soltar a restricao foi trivial. A policy de SELECT ja cobre o dono por
+  `lawyer_id`, entao client_id nulo nao esconde nem vaza nada.
+- `create_appointment` / `update_appointment` / `cancel_appointment`, todas
+  SECURITY DEFINER — a escrita direta esta fechada pelo hardening, entao tudo
+  passa por RPC (que centraliza a regra, e o jeito certo pos-hardening).
+- **Conflito de horario**: `lawyer_has_appointment_conflict` recusa sobreposicao
+  com outro compromisso ATIVO do mesmo advogado. Intervalo semiaberto [inicio,
+  fim): dois encostados (um termina 10h, outro comeca 10h) NAO conflitam.
+- Compromisso vinculado a caso (`case_id`) valida que o caso e do advogado e
+  deriva `client_id` + nome do cliente DO CASO (nunca confia nesses campos vindos
+  do app).
+- `cancel` e soft (`status='cancelled'`): preserva historico e serve ao feed
+  .ics futuro. Cancelado some da agenda mas fica no banco, e libera o horario.
+
+Testado no Docker (10 cenarios): criar solto; vinculado a caso derivando cliente;
+sobreposto BARRADO; encostado OK; fim<=inicio BARRADO; cliente (nao-advogado)
+BARRADO; caso de outro advogado BARRADO; update por nao-dono BARRADO; cancelar
+libera o horario; e RLS isola (um advogado ve 0 linhas da agenda do outro).
+
+### App
+
+- Model `Appointment` ganhou `startsAt`/`endsAt`/`caseId` (opcionais, para nao
+  quebrar os mocks const do modo demo) e `isEditable` (so linha do backend edita).
+- `AppointmentRepository` ganhou `create`/`update`/`cancel` via RPC; o `fetch`
+  agora filtra cancelados.
+- `AppointmentFormSheet` (widget testavel, nao conhece Supabase): titulo, com
+  quem, local, data e horarios (pickers nativos), valida titulo e fim>inicio.
+- `agenda_screen`: FAB "Novo compromisso" (so advogado + Supabase ativo); tap no
+  card abre acoes Editar/Cancelar (com confirmacao); erro de conflito vira
+  "Voce ja tem um compromisso nesse horario". Removido o `_AvailabilityCard`, que
+  prometia disponibilidade (fase futura) e agora seria placebo.
+
+`flutter analyze` limpo; 100 testes verdes (5 novos).
+
+### Frentes seguintes (nao feitas)
+
+- **Feed .ics assinavel** (Fase 2): a Jurii publica um feed por advogado, ele
+  assina uma vez e todo compromisso aparece no Google/Apple/Outlook. Unidirecional
+  Jurii->calendario, cobre os 3 com uma implementacao, sem OAuth de calendario. E
+  o "vai automaticamente pro meu calendario" que o Samuel pediu. Cancelar como
+  soft-delete ja preparou o terreno.
+- **Lembretes** (Fase 3): notificacao X horas antes (in-app agora; push quando a
+  frente de push existir).
+- **Vincular a caso pela UI**: o RPC ja aceita `case_id` e deriva o cliente, mas a
+  folha ainda nao tem o seletor de caso — hoje o "com quem" e texto livre.
+- **Agenda do cliente / agendamento tipo Calendly**: frente maior, separada.
