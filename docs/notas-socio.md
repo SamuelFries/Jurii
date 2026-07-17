@@ -1423,3 +1423,40 @@ retornou 0 (dedup); o cron job aparece em cron.job com o schedule correto.
   disparar o push junto quando essa frente existir.
 - Antecedencia configuravel (hoje 1h fixo) e lembrete tambem para o cliente.
 - Tornar a notificacao clicavel para abrir a agenda.
+
+## Agenda em tempo real (17/07/2026)
+
+A agenda passa a se atualizar sozinha via Supabase Realtime — outro dispositivo
+do advogado, ou um compromisso criado/editado/cancelado, aparecem sem recarregar.
+
+### Banco (migration `20260717180000_appointments_realtime.sql`)
+
+- Publica `public.appointments` na publication `supabase_realtime` (padrao
+  idempotente da baseline, o mesmo de messages/notifications).
+- **Seguranca**: o Realtime respeita RLS. A policy de SELECT ja limita a
+  `client_id = auth.uid() or lawyer_id = auth.uid()`, entao cada usuario so
+  recebe eventos dos proprios compromissos — nao vaza agenda alheia.
+
+### App
+
+- `AgendaScreen` deixou de usar FutureBuilder e passou a ter estado explicito
+  (`_appointments`), para o realtime atualizar a lista SEM piscar o skeleton a
+  cada evento (era o motivo da refatoracao).
+- Assina um canal `agenda_appointments:<uid>` com `PostgresChangeEvent.all`,
+  filtrado por `lawyer_id` (advogado) ou `client_id` (cliente). Qualquer
+  insert/update/delete dispara um refetch silencioso (mantem a lista atual na
+  tela ate a nova chegar). Cancelar e soft-delete (UPDATE), entao chega como
+  update e o refetch tira o cancelado (o fetch ja filtra).
+- Reconexao: ao reassinar depois de uma queda, refaz o fetch (nao perde o que
+  mudou offline) — mesmo padrao do chat.
+- Dispose remove o canal.
+
+Testado: publication contem appointments (Docker); 104 testes verdes; analyze
+limpo. O comportamento realtime em si (dois clientes) e teste manual — nao da
+para cobrir em widget test sem servidor.
+
+### Nota
+
+`notifications` JA esta na publication realtime (desde a baseline). Entao o sino
+em tempo real — incluindo os lembretes da Fase 3 chegando ao vivo — e uma
+extensao facil (assinar notifications como a agenda faz), se virar prioridade.
