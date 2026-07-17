@@ -6,6 +6,7 @@ import '../repositories/appointment_repository.dart';
 import '../services/supabase_config.dart';
 import '../theme/app_colors.dart';
 import '../widgets/appointment_form_sheet.dart';
+import '../widgets/calendar_sync_sheet.dart';
 import '../widgets/jurii_empty_state.dart';
 import '../widgets/jurii_list_card.dart';
 import '../widgets/jurii_motion.dart';
@@ -208,6 +209,14 @@ class _AgendaScreenState extends State<AgendaScreen> {
       appBar: AppBar(
         title: const Text('Agenda'),
         backgroundColor: colors.background,
+        actions: [
+          if (_canManage)
+            IconButton(
+              onPressed: () => showCalendarSyncSheet(context),
+              icon: const Icon(Icons.calendar_month_outlined),
+              tooltip: 'Sincronizar com meu calendário',
+            ),
+        ],
       ),
       floatingActionButton: _canManage
           ? FloatingActionButton.extended(

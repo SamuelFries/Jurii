@@ -386,6 +386,11 @@ deno_version = 2
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
 
+# Feed .ics da agenda: calendarios (Google/Apple/Outlook) nao enviam JWT; a
+# autenticacao e o token secreto na URL, resolvido por RPC service_role.
+[functions.calendar-feed]
+verify_jwt = false
+
 [analytics]
 enabled = true
 port = 54327

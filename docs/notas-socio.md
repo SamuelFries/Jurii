@@ -1303,3 +1303,73 @@ libera o horario; e RLS isola (um advogado ve 0 linhas da agenda do outro).
 - **Vincular a caso pela UI**: o RPC ja aceita `case_id` e deriva o cliente, mas a
   folha ainda nao tem o seletor de caso — hoje o "com quem" e texto livre.
 - **Agenda do cliente / agendamento tipo Calendly**: frente maior, separada.
+
+## Agenda Fase 2 — feed .ics assinavel (17/07/2026)
+
+O "vai automaticamente pro meu calendario" que o Samuel pediu. O advogado assina
+a agenda da Jurii UMA vez no Google/Apple/Outlook e todo compromisso aparece la,
+atualizando no refresh. Unidirecional (Jurii -> calendario), sem OAuth de
+calendario: cobre os tres com uma implementacao so.
+
+Por que .ics e nao OAuth: Google e Apple NAO sao simetricos. Google tem API de
+nuvem (com OAuth de escopo sensivel + verificacao de app); Apple NAO tem
+equivalente publico (so EventKit local no iOS, ou .ics). O feed .ics assinavel
+resolve os dois de uma vez, sem OAuth nenhum. O sync bidirecional (eventos
+externos bloqueando horario na Jurii) fica para depois, se virar dor real.
+
+### Banco (migration `20260717140000_calendar_feed.sql`)
+
+- Coluna `calendar_feed_token uuid unique` em lawyer_profiles. E uma
+  "capability URL": quem tem o link ve a agenda, por isso e aleatorio e
+  revogavel.
+- RPCs `enable`/`reset`/`disable`/`get_calendar_feed_token` (o advogado gere o
+  proprio feed; reset rotaciona e derruba o link antigo).
+- `lawyer_id_for_calendar_feed(token)` e `fetch_appointments_for_feed(lawyer_id)`
+  — SECURITY DEFINER, **grant so para service_role** (a Edge Function). Um
+  cliente autenticado nao pode nem resolver um token nem ler a agenda por elas.
+
+### Edge Function `calendar-feed` (verify_jwt = false)
+
+Calendarios nao mandam Authorization; a auth e o token na URL. A funcao resolve
+o advogado pelo token, busca os compromissos via RPC e serializa iCalendar
+(RFC 5545): escape de `,;\` e quebras, folding de linhas longas, datas em UTC,
+UID estavel, e **STATUS:CANCELLED** nos cancelados (some do calendario de quem
+ja tinha o evento — foi por isso que o cancel da Fase 1 foi soft).
+
+**Armadilha resolvida:** a primeira versao lia a tabela appointments direto via
+PostgREST com service_role e voltava feed VAZIO — service_role NAO tem SELECT em
+appointments (o hardening trancou a tabela). O status 200 + calendario vazio
+enganava; o curl direto no PostgREST revelou o 42501. Corrigido lendo por RPC
+SECURITY DEFINER, como manda a arquitetura pos-hardening. So descobri porque
+testei o feed de verdade (functions serve + curl), nao so a serializacao.
+
+Validado localmente: token certo -> 200 text/calendar com os VEVENTs; escape e
+STATUS:CANCELLED corretos; token aleatorio -> 404; sem token -> 400.
+
+### App
+
+- `CalendarFeedRepository`: enable/reset/disable/fetchToken + monta a URL
+  (`feedUrl` https para colar; `webcalUrl` webcal:// para abrir o dialogo de
+  assinatura).
+- `CalendarSyncSheet`: acionada pelo icone de calendario na AppBar da agenda (so
+  advogado + Supabase ativo). Ativa o feed, mostra o link (copiar + abrir no
+  calendario), avisa da privacidade do link e permite gerar novo link/desativar.
+
+`flutter analyze` limpo; 104 testes verdes (4 novos).
+
+### Deploy (pendente, precisa do Samuel)
+
+- Migration `20260717140000` **nao empurrada** para producao ainda.
+- A Edge Function `calendar-feed` precisa de **deploy** (`supabase functions
+  deploy calendar-feed`) — e a config `verify_jwt = false` (ja no config.toml).
+  Sem o deploy, o link existe mas nao responde.
+- A Fase 1 (`20260717120000`) tambem segue so local.
+
+### Frentes seguintes
+
+- **Lembretes** (Fase 3): notificacao X horas antes (in-app agora; push quando
+  a frente de push existir).
+- **Vincular compromisso a caso pela UI**: o RPC ja aceita case_id e deriva o
+  cliente; falta o seletor de caso na folha.
+- **Sync bidirecional (Google API)**: so se double-booking com agenda externa
+  virar dor real.
