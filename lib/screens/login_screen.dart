@@ -9,6 +9,7 @@ import '../widgets/jurii_form_motion.dart';
 import '../widgets/jurii_motion.dart';
 import '../widgets/legal_agreement_notice.dart';
 import '../widgets/login_logo.dart';
+import '../widgets/social_provider_logo.dart';
 
 class LoginScreen extends StatefulWidget {
   final LoginSubmit onLogin;
@@ -229,11 +230,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                     color: colors.primary,
                                   ),
                                 )
-                              : Image.asset(
-                                  'assets/images/google_logo.png',
+                              : SocialProviderLogo(
                                   key: const ValueKey('google_logo'),
-                                  width: 20,
-                                  height: 20,
+                                  provider: SocialAuthProvider.google,
                                 ),
                         ),
                         const SizedBox(width: 12),
@@ -284,10 +283,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                 color: colors.primary,
                               ),
                             )
-                          : Icon(
-                              Icons.apple,
+                          : SocialProviderLogo(
                               key: ValueKey('apple_icon'),
-                              color: colors.textPrimary,
+                              provider: SocialAuthProvider.apple,
                             ),
                     ),
                     label: Text(
