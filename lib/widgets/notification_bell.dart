@@ -553,6 +553,7 @@ class _NotificationTile extends StatelessWidget {
         Icons.recommend_outlined,
       'firm_case_started' => Icons.business_center_outlined,
       'case_update' => Icons.folder_special_outlined,
+      'appointment_reminder' => Icons.event_available_outlined,
       _ => Icons.notifications_none_outlined,
     };
   }

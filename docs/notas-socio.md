@@ -1373,3 +1373,53 @@ STATUS:CANCELLED corretos; token aleatorio -> 404; sem token -> 400.
   cliente; falta o seletor de caso na folha.
 - **Sync bidirecional (Google API)**: so se double-booking com agenda externa
   virar dor real.
+
+## Agenda Fase 3 — lembretes de compromisso (17/07/2026)
+
+O advogado e avisado ~1h antes de um compromisso, no sino do app. Sem push ainda
+(frente separada), entao o disparo e SERVER-SIDE: lembrete calculado no cliente
+so apareceria com o app aberto — inutil. Um job pg_cron roda a cada 10 min, acha
+os compromissos proximos ainda nao lembrados e cria a notificacao; ela ja espera
+no sino quando o advogado abre o app. Quando push existir, o mesmo job dispara o
+push tambem.
+
+### Banco (migration `20260717160000_appointment_reminders.sql`)
+
+- Coluna `reminder_sent_at` em appointments (marca de "ja lembrado").
+- `dispatch_appointment_reminders()`: compromissos confirmados que comecam na
+  proxima 1h e ainda nao lembrados. Numa passada so, marca `reminder_sent_at` E
+  cria a notificacao no MESMO statement (data-modifying CTEs, mesmo snapshot) —
+  sem janela para lembrar duas vezes nem marcar sem notificar. Retorna quantos.
+- **Escopo**: `appointment_reminder` declarado como 'lawyer' em
+  `infer_notification_scope`. MESMA armadilha das rodadas anteriores — sem isso o
+  lembrete cairia no sino do cliente e o advogado nunca o veria.
+- `pg_cron` habilitado + `cron.schedule('appointment-reminders', '*/10 * * * *',
+  ...)`. cron.schedule faz upsert por nome (reaplicar nao duplica o job).
+- Body do lembrete no fuso America/Sao_Paulo, com o local quando houver.
+
+Testado no Docker: 4 compromissos (30min / 2h / ja passou / cancelado). So o de
+30min gerou lembrete, no escopo lawyer, com horario e local certos; a 2a passada
+retornou 0 (dedup); o cron job aparece em cron.job com o schedule correto.
+
+### App
+
+- Icone `event_available_outlined` para `appointment_reminder` no sino. O
+  lembrete e uma notificacao comum (o NotificationRepository ja busca por escopo
+  lawyer), entao nao precisou de UI nova. 104 testes verdes, analyze limpo.
+
+### Deploy (pendente) — ATENCAO ao pg_cron
+
+- Migration `20260717160000` NAO empurrada.
+- **Risco especifico**: `create extension pg_cron` em producao pode exigir
+  habilitar a extensao ANTES pelo dashboard (Database > Extensions) — nem todo
+  projeto Supabase deixa criar pg_cron so por SQL. Se o push falhar nessa linha,
+  habilitar no dashboard e reempurrar. Verificar tambem se o job aparece em
+  `cron.job` no remoto apos o push (o cron so roda no database `postgres`).
+
+### Frentes seguintes
+
+- **Push** (a que fecha o ciclo): hoje o lembrete so aparece quando o advogado
+  abre o app. Push (FCM/APNs) e o que avisa de fato. O job ja esta pronto para
+  disparar o push junto quando essa frente existir.
+- Antecedencia configuravel (hoje 1h fixo) e lembrete tambem para o cliente.
+- Tornar a notificacao clicavel para abrir a agenda.
