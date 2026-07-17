@@ -9,13 +9,84 @@ class AppointmentRepository {
         .from('appointments')
         .select()
         .eq('role', role == AppointmentRole.lawyer ? 'lawyer' : 'client')
+        // Cancelados somem da agenda, mas ficam no banco (histórico + .ics).
+        .neq('status', 'cancelled')
         .order('starts_at');
 
     return rows.map<Appointment>(_fromRow).toList();
   }
 
+  Future<String> createAppointment({
+    required String title,
+    required DateTime startsAt,
+    required DateTime endsAt,
+    String? location,
+    String? area,
+    String? counterpartName,
+    String? caseId,
+  }) async {
+    _ensureReady();
+
+    final id = await SupabaseConfig.client.rpc(
+      'create_appointment',
+      params: {
+        'title_value': title,
+        'starts_at_value': startsAt.toUtc().toIso8601String(),
+        'ends_at_value': endsAt.toUtc().toIso8601String(),
+        'location_value': location,
+        'area_value': area,
+        'counterpart_name_value': counterpartName,
+        'case_id_value': caseId,
+      },
+    );
+
+    return id as String;
+  }
+
+  Future<void> updateAppointment({
+    required String id,
+    required String title,
+    required DateTime startsAt,
+    required DateTime endsAt,
+    String? location,
+    String? area,
+    String? counterpartName,
+  }) async {
+    _ensureReady();
+
+    await SupabaseConfig.client.rpc(
+      'update_appointment',
+      params: {
+        'appointment_id_value': id,
+        'title_value': title,
+        'starts_at_value': startsAt.toUtc().toIso8601String(),
+        'ends_at_value': endsAt.toUtc().toIso8601String(),
+        'location_value': location,
+        'area_value': area,
+        'counterpart_name_value': counterpartName,
+      },
+    );
+  }
+
+  Future<void> cancelAppointment(String id) async {
+    _ensureReady();
+
+    await SupabaseConfig.client.rpc(
+      'cancel_appointment',
+      params: {'appointment_id_value': id},
+    );
+  }
+
+  void _ensureReady() {
+    if (!SupabaseConfig.isReady ||
+        SupabaseConfig.client.auth.currentUser == null) {
+      throw StateError('A conexão com o Supabase não está ativa.');
+    }
+  }
+
   Appointment _fromRow(Map<String, dynamic> row) {
     final startsAt = DateTime.tryParse(row['starts_at'] as String? ?? '');
+    final endsAt = DateTime.tryParse(row['ends_at'] as String? ?? '');
 
     return Appointment(
       id: row['id'] as String,
@@ -24,11 +95,14 @@ class AppointmentRepository {
           : AppointmentRole.client,
       title: row['title'] as String,
       counterpartName: row['counterpart_name'] as String,
-      area: row['area'] as String,
+      area: row['area'] as String? ?? '',
       dateLabel: _dateLabel(startsAt),
       timeLabel: _timeLabel(startsAt),
       location: row['location'] as String,
       status: _statusFromRow(row['status'] as String?),
+      startsAt: startsAt?.toLocal(),
+      endsAt: endsAt?.toLocal(),
+      caseId: row['case_id'] as String?,
     );
   }
 
@@ -36,6 +110,7 @@ class AppointmentRepository {
     return switch (status) {
       'confirmed' => AppointmentStatus.confirmed,
       'done' => AppointmentStatus.done,
+      'cancelled' => AppointmentStatus.cancelled,
       _ => AppointmentStatus.pending,
     };
   }

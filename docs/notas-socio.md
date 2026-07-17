@@ -1239,3 +1239,137 @@ certa; escrita direta duplicando CPF e barrada pelo indice.
   nas duas telas.
 - Validacao: `flutter analyze` sem issues e `flutter test` com 95 testes
   passando.
+
+## Agenda do advogado — CRUD de compromissos (17/07/2026)
+
+A tabela `appointments` existia desde a baseline, mas era ORFA: o hardening round
+2 revogou insert/update direto (e removeu as policies de escrita) e nunca houve
+RPC para popular a agenda. Resultado: schema + leitura + tela, **sem nenhum
+caminho para criar compromisso** (0 registros em producao, cards sem acao). Igual
+ao 4.8 fabricado e ao botao placebo de verificacao — a fundacao existia, faltava
+o motor.
+
+Escopo desta rodada (decisao do Samuel): **agenda PESSOAL do advogado** (ele
+gerencia os proprios compromissos). Agendamento pelo cliente (tipo Calendly) fica
+como frente separada, maior, que depende desta.
+
+### Banco (migration `20260717120000_lawyer_appointments_crud.sql`)
+
+- `client_id` deixou de ser NOT NULL: compromisso do advogado nem sempre tem
+  cliente da plataforma (audiencia, prazo interno). Prod tinha 0 registros, entao
+  soltar a restricao foi trivial. A policy de SELECT ja cobre o dono por
+  `lawyer_id`, entao client_id nulo nao esconde nem vaza nada.
+- `create_appointment` / `update_appointment` / `cancel_appointment`, todas
+  SECURITY DEFINER — a escrita direta esta fechada pelo hardening, entao tudo
+  passa por RPC (que centraliza a regra, e o jeito certo pos-hardening).
+- **Conflito de horario**: `lawyer_has_appointment_conflict` recusa sobreposicao
+  com outro compromisso ATIVO do mesmo advogado. Intervalo semiaberto [inicio,
+  fim): dois encostados (um termina 10h, outro comeca 10h) NAO conflitam.
+- Compromisso vinculado a caso (`case_id`) valida que o caso e do advogado e
+  deriva `client_id` + nome do cliente DO CASO (nunca confia nesses campos vindos
+  do app).
+- `cancel` e soft (`status='cancelled'`): preserva historico e serve ao feed
+  .ics futuro. Cancelado some da agenda mas fica no banco, e libera o horario.
+
+Testado no Docker (10 cenarios): criar solto; vinculado a caso derivando cliente;
+sobreposto BARRADO; encostado OK; fim<=inicio BARRADO; cliente (nao-advogado)
+BARRADO; caso de outro advogado BARRADO; update por nao-dono BARRADO; cancelar
+libera o horario; e RLS isola (um advogado ve 0 linhas da agenda do outro).
+
+### App
+
+- Model `Appointment` ganhou `startsAt`/`endsAt`/`caseId` (opcionais, para nao
+  quebrar os mocks const do modo demo) e `isEditable` (so linha do backend edita).
+- `AppointmentRepository` ganhou `create`/`update`/`cancel` via RPC; o `fetch`
+  agora filtra cancelados.
+- `AppointmentFormSheet` (widget testavel, nao conhece Supabase): titulo, com
+  quem, local, data e horarios (pickers nativos), valida titulo e fim>inicio.
+- `agenda_screen`: FAB "Novo compromisso" (so advogado + Supabase ativo); tap no
+  card abre acoes Editar/Cancelar (com confirmacao); erro de conflito vira
+  "Voce ja tem um compromisso nesse horario". Removido o `_AvailabilityCard`, que
+  prometia disponibilidade (fase futura) e agora seria placebo.
+
+`flutter analyze` limpo; 100 testes verdes (5 novos).
+
+### Frentes seguintes (nao feitas)
+
+- **Feed .ics assinavel** (Fase 2): a Jurii publica um feed por advogado, ele
+  assina uma vez e todo compromisso aparece no Google/Apple/Outlook. Unidirecional
+  Jurii->calendario, cobre os 3 com uma implementacao, sem OAuth de calendario. E
+  o "vai automaticamente pro meu calendario" que o Samuel pediu. Cancelar como
+  soft-delete ja preparou o terreno.
+- **Lembretes** (Fase 3): notificacao X horas antes (in-app agora; push quando a
+  frente de push existir).
+- **Vincular a caso pela UI**: o RPC ja aceita `case_id` e deriva o cliente, mas a
+  folha ainda nao tem o seletor de caso — hoje o "com quem" e texto livre.
+- **Agenda do cliente / agendamento tipo Calendly**: frente maior, separada.
+
+## Agenda Fase 2 — feed .ics assinavel (17/07/2026)
+
+O "vai automaticamente pro meu calendario" que o Samuel pediu. O advogado assina
+a agenda da Jurii UMA vez no Google/Apple/Outlook e todo compromisso aparece la,
+atualizando no refresh. Unidirecional (Jurii -> calendario), sem OAuth de
+calendario: cobre os tres com uma implementacao so.
+
+Por que .ics e nao OAuth: Google e Apple NAO sao simetricos. Google tem API de
+nuvem (com OAuth de escopo sensivel + verificacao de app); Apple NAO tem
+equivalente publico (so EventKit local no iOS, ou .ics). O feed .ics assinavel
+resolve os dois de uma vez, sem OAuth nenhum. O sync bidirecional (eventos
+externos bloqueando horario na Jurii) fica para depois, se virar dor real.
+
+### Banco (migration `20260717140000_calendar_feed.sql`)
+
+- Coluna `calendar_feed_token uuid unique` em lawyer_profiles. E uma
+  "capability URL": quem tem o link ve a agenda, por isso e aleatorio e
+  revogavel.
+- RPCs `enable`/`reset`/`disable`/`get_calendar_feed_token` (o advogado gere o
+  proprio feed; reset rotaciona e derruba o link antigo).
+- `lawyer_id_for_calendar_feed(token)` e `fetch_appointments_for_feed(lawyer_id)`
+  — SECURITY DEFINER, **grant so para service_role** (a Edge Function). Um
+  cliente autenticado nao pode nem resolver um token nem ler a agenda por elas.
+
+### Edge Function `calendar-feed` (verify_jwt = false)
+
+Calendarios nao mandam Authorization; a auth e o token na URL. A funcao resolve
+o advogado pelo token, busca os compromissos via RPC e serializa iCalendar
+(RFC 5545): escape de `,;\` e quebras, folding de linhas longas, datas em UTC,
+UID estavel, e **STATUS:CANCELLED** nos cancelados (some do calendario de quem
+ja tinha o evento — foi por isso que o cancel da Fase 1 foi soft).
+
+**Armadilha resolvida:** a primeira versao lia a tabela appointments direto via
+PostgREST com service_role e voltava feed VAZIO — service_role NAO tem SELECT em
+appointments (o hardening trancou a tabela). O status 200 + calendario vazio
+enganava; o curl direto no PostgREST revelou o 42501. Corrigido lendo por RPC
+SECURITY DEFINER, como manda a arquitetura pos-hardening. So descobri porque
+testei o feed de verdade (functions serve + curl), nao so a serializacao.
+
+Validado localmente: token certo -> 200 text/calendar com os VEVENTs; escape e
+STATUS:CANCELLED corretos; token aleatorio -> 404; sem token -> 400.
+
+### App
+
+- `CalendarFeedRepository`: enable/reset/disable/fetchToken + monta a URL
+  (`feedUrl` https para colar; `webcalUrl` webcal:// para abrir o dialogo de
+  assinatura).
+- `CalendarSyncSheet`: acionada pelo icone de calendario na AppBar da agenda (so
+  advogado + Supabase ativo). Ativa o feed, mostra o link (copiar + abrir no
+  calendario), avisa da privacidade do link e permite gerar novo link/desativar.
+
+`flutter analyze` limpo; 104 testes verdes (4 novos).
+
+### Deploy (pendente, precisa do Samuel)
+
+- Migration `20260717140000` **nao empurrada** para producao ainda.
+- A Edge Function `calendar-feed` precisa de **deploy** (`supabase functions
+  deploy calendar-feed`) — e a config `verify_jwt = false` (ja no config.toml).
+  Sem o deploy, o link existe mas nao responde.
+- A Fase 1 (`20260717120000`) tambem segue so local.
+
+### Frentes seguintes
+
+- **Lembretes** (Fase 3): notificacao X horas antes (in-app agora; push quando
+  a frente de push existir).
+- **Vincular compromisso a caso pela UI**: o RPC ja aceita case_id e deriva o
+  cliente; falta o seletor de caso na folha.
+- **Sync bidirecional (Google API)**: so se double-booking com agenda externa
+  virar dor real.
