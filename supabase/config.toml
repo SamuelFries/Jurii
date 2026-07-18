@@ -391,6 +391,11 @@ deno_version = 2
 [functions.calendar-feed]
 verify_jwt = false
 
+# Envio de push: chamada server-to-server pelo trigger em notifications (pg_net),
+# que passa a service_role key no Authorization (validada dentro da funcao).
+[functions.send-push]
+verify_jwt = false
+
 [analytics]
 enabled = true
 port = 54327

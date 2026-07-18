@@ -1392,3 +1392,66 @@ Agora o `_NotificationSheet` tambem assina realtime.
 `notifications` ja estava na publication realtime desde a baseline — nao precisou
 de migration, so app. analyze limpo, 104 testes verdes. O comportamento ao vivo
 (painel aberto recebendo evento) e teste manual, como os outros realtimes.
+
+## Notificacoes push - fundacao server-side (18/07/2026)
+
+Push e o que faz o lembrete da agenda e a recomendacao CHEGAREM sem o app aberto.
+Depende de um projeto Firebase (FCM) que so o Samuel provê; esta rodada entrega
+tudo que NAO depende do Firebase, testado, esperando as credenciais.
+
+Decisao (Samuel, 18/07): fazer a fundacao server-side agora; app + config nativa
+quando o Firebase existir.
+
+### Banco
+
+- `20260718120000_push_tokens.sql`: tabela `push_tokens` (profile_id, token
+  UNICO, platform) + RPCs `register_push_token` / `unregister_push_token`
+  (authenticated) + `fetch_push_tokens_for_recipient` (service_role only). RLS
+  ligado SEM policy — tudo por RPC. **Token e unico**: se o aparelho troca de
+  conta, o token e reatribuido ao novo dono (senao o push de um vazaria pro
+  outro). Testado no Docker (8 cenarios: registrar, reatribuir, remover so o
+  proprio, platform invalida, service_role lê, authenticated barrado).
+- `20260718140000_push_dispatch_trigger.sql`: trigger AFTER INSERT em
+  `notifications` chama a Edge Function send-push via pg_net. **Central**: todo
+  tipo de notificacao ganha push sem codigo extra. URL e service_role key vêm do
+  **Vault** (nao do git). **NO-OP se o Vault nao tiver os secrets** — as
+  notificacoes continuam sendo criadas normalmente, so nao sai push. Isso deixa
+  a fundacao segura em prod antes do Firebase. Testado: vault vazio nao quebra o
+  insert; vault populado enfileira o http_post sem bloquear.
+
+### Edge Function `send-push` (verify_jwt=false)
+
+Recebe a notificacao (do trigger), busca os tokens do destinatario e envia via
+FCM HTTP v1. Gera o OAuth token da service account com Web Crypto (RS256), sem
+libs. Auth: compara o bearer com a service_role key. Sem FCM_SERVICE_ACCOUNT
+responde 503 (esperado ate o Firebase existir). Escrita e pronta; o envio real
+so valida com credenciais.
+
+### CHECKLIST DO SAMUEL para ligar o push (Fase 2)
+
+Nada disso da pra eu fazer — precisa das suas contas:
+
+1. **Criar projeto no Firebase Console** (https://console.firebase.google.com).
+2. **Android**: baixar `google-services.json` -> `android/app/`.
+3. **iOS**: baixar `GoogleService-Info.plist` -> `ios/Runner/`; criar uma **APNs
+   Authentication Key** no Apple Developer e subir no Firebase (Project Settings
+   > Cloud Messaging). Sem a APNs key, iOS NAO recebe push.
+4. **Service account**: Firebase Console > Project Settings > Service accounts >
+   Generate new private key (JSON).
+5. **Deploy da funcao**: `supabase functions deploy send-push` e setar o secret:
+   `supabase secrets set FCM_SERVICE_ACCOUNT="$(cat service-account.json)"`.
+6. **Popular o Vault** (em prod, via SQL Editor — NUNCA no git):
+   `select vault.create_secret('https://<ref>.supabase.co/functions/v1/send-push','push_hook_url');`
+   `select vault.create_secret('<SERVICE_ROLE_KEY>','push_hook_service_key');`
+7. Me avisar: eu faco a Fase 2 do app (firebase_messaging: permissao, registro
+   do token via register_push_token, handlers de mensagem) + a config nativa.
+
+Quando 1-6 estiverem prontos, o push ja comeca a sair para QUALQUER notificacao
+(o trigger dispara), mesmo antes do app registrar tokens — bastando haver tokens.
+O app (passo 7) e o que popula os tokens.
+
+### Fora de escopo (fase 2+)
+
+- App: firebase_messaging + permissao + register/unregister no login/logout.
+- Config nativa iOS (entitlements, background modes) e Android.
+- Housekeeping: remover token quando o FCM responde UNREGISTERED (hoje so loga).
