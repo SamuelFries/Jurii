@@ -128,16 +128,20 @@ class LawyerVerificationRepository {
         .firstOrNull;
     if (photo == null) return;
 
+    String? uploadedAvatarPath;
     try {
-      final url = await documentStorage.uploadAvatar(
+      uploadedAvatarPath = await documentStorage.uploadAvatar(
         userId: userId,
         file: photo,
       );
-      await SupabaseConfig.client
-          .from('profiles')
-          .update({'avatar_url': url})
-          .eq('id', userId);
+      await SupabaseConfig.client.rpc(
+        'set_current_profile_avatar',
+        params: {'storage_path_value': uploadedAvatarPath},
+      );
     } catch (error) {
+      if (uploadedAvatarPath != null) {
+        await documentStorage.removeAvatar(uploadedAvatarPath);
+      }
       debugPrint('Falha ao definir avatar da foto profissional: $error');
     }
   }

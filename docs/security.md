@@ -105,6 +105,46 @@ acessíveis pelo perfil e pelos textos de concordância em login/cadastro. O
 conteúdo é uma versão inicial de transparência e ainda deve passar por revisão
 jurídica antes da publicação nas lojas.
 
+## Implementado no diff — customização segura do perfil pessoal
+
+O lápis do cabeçalho e o item `Dados Pessoais` abrem a mesma tela de edição.
+Somente nome, telefone e avatar são mutáveis nesse fluxo; e-mail e CPF ficam
+visíveis apenas para conferência e em modo somente leitura. Alterar e-mail
+exigiria o fluxo próprio do provedor de autenticação, e o CPF permanece fora da
+edição comum por ser identificador protegido.
+
+O avatar continua no bucket público `profile-avatars`, portanto sua exposição
+deve permanecer informada na Política de Privacidade. Antes do upload, o app:
+
+- aceita apenas JPG/JPEG, PNG ou WEBP;
+- compara extensão/MIME com a assinatura real do arquivo (magic bytes);
+- limita a seleção a 5 MB;
+- grava o objeto em `{auth.uid()}/` com nome único.
+
+A troca envia o objeto primeiro e confirma nome, telefone e avatar na RPC
+transacional `update_current_profile_customization()`. `avatar_url` não possui
+mais `UPDATE` direto: `set_current_profile_avatar()` verifica a existência do
+objeto em `profile-avatars/{auth.uid()}/` e deriva a origem do issuer assinado do
+JWT, impedindo URL externa escolhida por cliente adulterado. Só depois o app
+tenta limpar a URL anterior quando ela resolve para a própria pasta. A migration
+`20260718160000_profile_customization.sql` adiciona a policy de `DELETE` limitada
+a essa pasta e restringe o bucket aos MIME types permitidos, com limite de 10 MB
+como defesa adicional do servidor. O app remove o objeto recém-enviado se a
+persistência da URL falhar, evitando órfão nesse caminho de erro.
+
+A mesma migration endurece `upsert_current_profile()`: o telefone é normalizado
+para 10 ou 11 dígitos nacionais, aceita `+55`, rejeita letras, usa `NULL` para
+preservar o valor existente e string vazia para removê-lo. CPF válido pode ser
+definido em perfil incompleto, mas torna-se imutável depois do primeiro
+preenchimento. Em 18/07/2026, `supabase migration list --linked` confirmou a
+migration como pendente no remoto. O push foi adiado de propósito: a revogação
+do `UPDATE (avatar_url)` exige promover o app compatível na mesma janela para não
+interromper o fluxo de foto profissional do build atual.
+
+O escopo atual é exclusivamente o perfil pessoal. Bio, áreas de atuação e
+outros dados do perfil profissional ficam para uma etapa futura, com RPCs,
+validação e autorização específicas.
+
 ## Implementado e aplicado na migration de hardening 2 (14/07/2026)
 
 `20260714220000_security_hardening_round2.sql` implementa correções para seis

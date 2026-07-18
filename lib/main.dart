@@ -14,6 +14,7 @@ import 'models/law_firm_verification.dart';
 import 'models/law_firm_verification_status.dart';
 import 'models/lawyer_status.dart';
 import 'models/lawyer_verification.dart';
+import 'models/profile_avatar_file.dart';
 import 'models/firm_role.dart';
 import 'models/firm_workspace.dart';
 import 'models/social_auth_provider.dart';
@@ -26,6 +27,7 @@ import 'repositories/lawyer_verification_repository.dart';
 import 'repositories/profile_repository.dart';
 import 'screens/agenda_screen.dart';
 import 'screens/complete_profile_screen.dart';
+import 'screens/edit_profile_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/messages_screen.dart';
 import 'screens/password_reset_screen.dart';
@@ -377,6 +379,53 @@ class _JuriiAppState extends State<JuriiApp> {
       _currentUser = _userWithLawyerVerification(profile, _lawyerVerification);
       _needsProfileCompletion = profile.needsProfileCompletion;
     });
+  }
+
+  Future<void> _handleProfileEdit({
+    required String fullName,
+    required String phone,
+    ProfileAvatarFile? avatar,
+    required bool removeAvatar,
+  }) async {
+    final normalizedName = fullName.trim().replaceAll(RegExp(r'\s+'), ' ');
+
+    if (!SupabaseConfig.isReady) {
+      setState(() {
+        _currentUser = _currentUser.copyWith(
+          name: normalizedName,
+          initials: _initialsForName(normalizedName),
+          phone: phone.isEmpty ? null : phone,
+          clearPhone: phone.isEmpty,
+          clearAvatarUrl: removeAvatar,
+        );
+      });
+      return;
+    }
+
+    final profile = await _profileRepository.updateCustomization(
+      fullName: normalizedName,
+      phone: phone,
+      previousAvatarUrl: _currentUser.avatarUrl,
+      avatar: avatar,
+      removeAvatar: removeAvatar,
+    );
+    if (!mounted) return;
+
+    var updated = _userWithLawyerVerification(profile, _lawyerVerification);
+    if (updated.oabNumber == null && _currentUser.oabNumber != null) {
+      updated = updated.copyWith(oabNumber: _currentUser.oabNumber);
+    }
+    setState(() => _currentUser = updated);
+  }
+
+  String _initialsForName(String value) {
+    final parts = value
+        .split(RegExp(r'\s+'))
+        .where((part) => part.isNotEmpty)
+        .toList();
+    if (parts.isEmpty) return 'UJ';
+    if (parts.length == 1) return parts.first[0].toUpperCase();
+    return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
   }
 
   /// Uma nova tentativa cobre falhas transitórias de rede; se ambas falharem,
@@ -789,6 +838,7 @@ class _JuriiAppState extends State<JuriiApp> {
             onSwitchToClient: _switchToClient,
             onLogout: _handleLogout,
             onDeleteAccount: _handleDeleteAccount,
+            onEditProfile: _handleProfileEdit,
           )
         : MainNavigation(
             user: _currentUser,
@@ -804,6 +854,7 @@ class _JuriiAppState extends State<JuriiApp> {
             onRefreshLawFirmVerification: _refreshLawFirmVerification,
             onLogout: _handleLogout,
             onDeleteAccount: _handleDeleteAccount,
+            onEditProfile: _handleProfileEdit,
           );
   }
 }
@@ -886,6 +937,7 @@ class MainNavigation extends StatefulWidget {
   final Future<void> Function() onRefreshLawFirmVerification;
   final VoidCallback onLogout;
   final Future<void> Function() onDeleteAccount;
+  final ProfileEditSubmit onEditProfile;
 
   const MainNavigation({
     super.key,
@@ -900,6 +952,7 @@ class MainNavigation extends StatefulWidget {
     required this.onRefreshLawFirmVerification,
     required this.onLogout,
     required this.onDeleteAccount,
+    required this.onEditProfile,
   });
 
   @override
@@ -930,6 +983,7 @@ class _MainNavigationState extends State<MainNavigation> {
         onOpenAgenda: () => _openAgenda(AppointmentRole.client),
         onLogout: widget.onLogout,
         onDeleteAccount: widget.onDeleteAccount,
+        onEditProfile: widget.onEditProfile,
       ),
     ];
 
@@ -1047,6 +1101,7 @@ class LawyerNavigation extends StatefulWidget {
   final VoidCallback onSwitchToClient;
   final VoidCallback onLogout;
   final Future<void> Function() onDeleteAccount;
+  final ProfileEditSubmit onEditProfile;
 
   const LawyerNavigation({
     super.key,
@@ -1057,6 +1112,7 @@ class LawyerNavigation extends StatefulWidget {
     required this.onSwitchToClient,
     required this.onLogout,
     required this.onDeleteAccount,
+    required this.onEditProfile,
   });
 
   @override
@@ -1089,6 +1145,7 @@ class _LawyerNavigationState extends State<LawyerNavigation> {
         onOpenAgenda: () => _openAgenda(AppointmentRole.lawyer),
         onLogout: widget.onLogout,
         onDeleteAccount: widget.onDeleteAccount,
+        onEditProfile: widget.onEditProfile,
       ),
     ];
 

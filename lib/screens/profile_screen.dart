@@ -6,6 +6,7 @@ import '../models/law_firm_verification_status.dart';
 import '../models/lawyer_verification.dart';
 import '../models/user_profile.dart';
 import '../data/legal_documents.dart';
+import 'edit_profile_screen.dart';
 import 'law_firm_verification_screen.dart';
 import 'lawyer_verification_screen.dart';
 import 'legal_document_screen.dart';
@@ -36,6 +37,7 @@ class ProfileScreen extends StatelessWidget {
   final VoidCallback? onOpenAgenda;
   final VoidCallback? onLogout;
   final Future<void> Function()? onDeleteAccount;
+  final ProfileEditSubmit? onEditProfile;
 
   const ProfileScreen({
     super.key,
@@ -55,7 +57,23 @@ class ProfileScreen extends StatelessWidget {
     this.onOpenAgenda,
     this.onLogout,
     this.onDeleteAccount,
+    this.onEditProfile,
   });
+
+  Future<void> _openEditProfile(BuildContext context) async {
+    final submit = onEditProfile;
+    if (submit == null) return;
+
+    final updated = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => EditProfileScreen(profile: user, onSubmit: submit),
+      ),
+    );
+    if (updated != true || !context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Perfil atualizado com sucesso.')),
+    );
+  }
 
   Future<void> _openSecuritySettings(BuildContext context) async {
     final colors = context.jColors;
@@ -298,7 +316,9 @@ class ProfileScreen extends StatelessWidget {
                 memberSince: isLawyerMode
                     ? user.oabNumber ?? 'Perfil profissional'
                     : user.memberSince,
-                onEditTap: () {},
+                onEditTap: onEditProfile == null
+                    ? null
+                    : () => _openEditProfile(context),
               ),
 
               const SizedBox(height: 16),
@@ -509,7 +529,9 @@ class ProfileScreen extends StatelessWidget {
                         iconColor: colors.textSecondary,
                         label: 'Dados Pessoais',
                         subtitle: 'Atualize suas informações',
-                        onTap: () {},
+                        onTap: onEditProfile == null
+                            ? null
+                            : () => _openEditProfile(context),
                       ),
                       ProfileMenuItem(
                         icon: Icons.lock_outline,

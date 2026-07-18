@@ -144,8 +144,11 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                       textInputAction: TextInputAction.next,
                       textCapitalization: TextCapitalization.words,
                       autofillHints: const [AutofillHints.name],
+                      maxLength: kMaxFullNameCharacters,
+                      maxLengthEnforcement: MaxLengthEnforcement.enforced,
                       decoration: const InputDecoration(
                         hintText: 'Nome completo',
+                        counterText: '',
                         prefixIcon: Icon(Icons.person_outline),
                       ),
                       validator: validateFullNameField,
@@ -210,7 +213,11 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
-          BoxShadow(color: colors.softShadow, blurRadius: 8, offset: Offset(0, 2)),
+          BoxShadow(
+            color: colors.softShadow,
+            blurRadius: 8,
+            offset: Offset(0, 2),
+          ),
         ],
       ),
       child: child,

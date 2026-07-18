@@ -10,6 +10,7 @@ class UserProfile {
   final String? oabNumber;
   final LawyerStatus lawyerStatus;
   final String? avatarUrl;
+  final String? phone;
 
   /// Só vem preenchido no perfil do PRÓPRIO usuário (`fetch_current_profile`).
   /// Perfis de contrapartes não expõem PII, então aqui chega nulo — por isso
@@ -26,6 +27,7 @@ class UserProfile {
     this.oabNumber,
     this.avatarUrl,
     this.cpf,
+    this.phone,
   });
 
   /// Google e Apple não entregam CPF, e a Apple frequentemente não entrega nem
@@ -61,6 +63,9 @@ class UserProfile {
     LawyerStatus? lawyerStatus,
     String? avatarUrl,
     String? cpf,
+    String? phone,
+    bool clearAvatarUrl = false,
+    bool clearPhone = false,
   }) {
     return UserProfile(
       id: id ?? this.id,
@@ -70,8 +75,9 @@ class UserProfile {
       memberSince: memberSince ?? this.memberSince,
       oabNumber: oabNumber ?? this.oabNumber,
       lawyerStatus: lawyerStatus ?? this.lawyerStatus,
-      avatarUrl: avatarUrl ?? this.avatarUrl,
+      avatarUrl: clearAvatarUrl ? null : avatarUrl ?? this.avatarUrl,
       cpf: cpf ?? this.cpf,
+      phone: clearPhone ? null : phone ?? this.phone,
     );
   }
 }

@@ -36,7 +36,7 @@ class VerificationDocumentStorage {
     return path;
   }
 
-  /// Sobe a foto profissional como avatar público e retorna a URL pública.
+  /// Sobe a foto profissional como avatar público e retorna o caminho.
   ///
   /// Vai para o bucket `profile-avatars` (leitura pública, escrita na pasta
   /// própria `{uid}/...`), separado dos documentos privados de verificação.
@@ -53,7 +53,15 @@ class VerificationDocumentStorage {
           file.bytes,
           fileOptions: FileOptions(contentType: file.mimeType, upsert: true),
         );
-    return SupabaseConfig.client.storage.from(avatarBucket).getPublicUrl(path);
+    return path;
+  }
+
+  Future<void> removeAvatar(String path) async {
+    try {
+      await SupabaseConfig.client.storage.from(avatarBucket).remove([path]);
+    } catch (error) {
+      debugPrint('VerificationDocumentStorage.removeAvatar falhou: $error');
+    }
   }
 
   /// Remove caminhos já enviados (rollback quando o submit falha no meio).
@@ -86,6 +94,13 @@ class VerificationDocumentStorage {
         .replaceAll(RegExp(r'[^A-Za-z0-9._-]+'), '_')
         .replaceAll(RegExp(r'_+'), '_')
         .trim();
-    return sanitized.isEmpty ? 'documento' : sanitized;
+    if (sanitized.isEmpty) return 'documento';
+    if (sanitized.length <= 160) return sanitized;
+
+    final dot = sanitized.lastIndexOf('.');
+    final extension = dot > 0 && sanitized.length - dot <= 12
+        ? sanitized.substring(dot)
+        : '';
+    return '${sanitized.substring(0, 160 - extension.length)}$extension';
   }
 }

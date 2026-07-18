@@ -70,6 +70,26 @@ migration de hardening revoga o contrato antigo de leitura direta de PII em
 `upsert_current_profile()` deve permanecer suportada. Builds antigos deixam de
 carregar o perfil.
 
+A migration `20260718160000_profile_customization.sql` foi adicionada ao
+repositório para a edição do perfil pessoal. Em 18/07/2026,
+`supabase migration list --linked` confirmou que ela ainda está pendente no
+projeto remoto. Ela atualiza `upsert_current_profile()`
+para validar/remover telefone e tornar CPF preenchido imutável; adiciona as RPCs
+`update_current_profile_customization()` e `set_current_profile_avatar()`;
+revoga `UPDATE` direto de `avatar_url`; restringe tamanho e MIME types do bucket
+`profile-avatars`; e permite `DELETE` somente na pasta do próprio usuário. O
+push foi adiado deliberadamente: aplique pelo fluxo normal de `supabase db push`
+na mesma janela da versão compatível do app, pois o build anterior ainda usa o
+`UPDATE` direto no fluxo de foto profissional.
+
+No app, o lápis do cabeçalho e `Dados Pessoais` levam à mesma tela. Nome,
+telefone e avatar são editáveis; e-mail e CPF são somente leitura. A validação
+local do avatar aceita JPG/JPEG, PNG e WEBP, confere magic bytes e limita a foto
+a 5 MB, enquanto o bucket aplica limite de 10 MB como barreira de servidor. A
+URL pública é derivada no banco de um objeto na pasta do próprio usuário. A
+edição de bio, áreas e demais dados profissionais permanece fora desta migration
+e deverá ter contrato próprio.
+
 Para registrar apenas o histórico da migration no remoto atual:
 
 ```bash

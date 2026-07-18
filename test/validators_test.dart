@@ -56,4 +56,28 @@ void main() {
       expect(digitsOnly('529.982.247-25'), '52998224725');
     });
   });
+
+  group('validateOptionalPhoneField', () {
+    test('aceita vazio e telefones brasileiros com DDD', () {
+      expect(validateOptionalPhoneField(''), isNull);
+      expect(validateOptionalPhoneField('(51) 3333-4444'), isNull);
+      expect(validateOptionalPhoneField('(51) 99999-8888'), isNull);
+      expect(validateOptionalPhoneField('+55 (51) 99999-8888'), isNull);
+    });
+
+    test('rejeita telefone incompleto', () {
+      expect(validateOptionalPhoneField('(51) 9999'), isNotNull);
+    });
+  });
+
+  group('validateFullNameField', () {
+    test('rejeita nome acima do limite compartilhado', () {
+      final longName = 'Ana ${List.filled(kMaxFullNameCharacters, 'S').join()}';
+
+      expect(
+        validateFullNameField(longName),
+        'Use no máximo $kMaxFullNameCharacters caracteres',
+      );
+    });
+  });
 }
