@@ -71,16 +71,16 @@ migration de hardening revoga o contrato antigo de leitura direta de PII em
 carregar o perfil.
 
 A migration `20260718160000_profile_customization.sql` foi adicionada ao
-repositório para a edição do perfil pessoal. Em 18/07/2026,
-`supabase migration list --linked` confirmou que ela ainda está pendente no
-projeto remoto. Ela atualiza `upsert_current_profile()`
+repositório para a edição do perfil pessoal e aplicada ao projeto remoto em
+18/07/2026 com `supabase db push --linked`. A conferência posterior por
+`supabase migration list --linked` confirmou local e remoto sincronizados. Ela
+atualiza `upsert_current_profile()`
 para validar/remover telefone e tornar CPF preenchido imutável; adiciona as RPCs
 `update_current_profile_customization()` e `set_current_profile_avatar()`;
 revoga `UPDATE` direto de `avatar_url`; restringe tamanho e MIME types do bucket
-`profile-avatars`; e permite `DELETE` somente na pasta do próprio usuário. O
-push foi adiado deliberadamente: aplique pelo fluxo normal de `supabase db push`
-na mesma janela da versão compatível do app, pois o build anterior ainda usa o
-`UPDATE` direto no fluxo de foto profissional.
+`profile-avatars`; e permite `DELETE` somente na pasta do próprio usuário. Como
+o build anterior ainda usa `UPDATE` direto no fluxo de foto profissional, o app
+compatível com as novas RPCs deve ser promovido após este push.
 
 No app, o lápis do cabeçalho e `Dados Pessoais` levam à mesma tela. Nome,
 telefone e avatar são editáveis; e-mail e CPF são somente leitura. A validação
@@ -89,6 +89,33 @@ a 5 MB, enquanto o bucket aplica limite de 10 MB como barreira de servidor. A
 URL pública é derivada no banco de um objeto na pasta do próprio usuário. A
 edição de bio, áreas e demais dados profissionais permanece fora desta migration
 e deverá ter contrato próprio.
+
+A migration `20260718180000_profile_avatar_surfaces.sql` leva o `avatar_url`
+público aos contratos de recomendação, mini perfil e conversa sem ampliar o
+acesso a PII. Ela recria `fetch_recommended_lawyers()`,
+`fetch_lawyer_public_profile()`, `fetch_chat_profile()`,
+`fetch_conversation_for_current_user()` e
+`fetch_conversations_for_current_user()` porque a adição de uma coluna em
+`RETURNS TABLE` exige `DROP FUNCTION` antes da nova assinatura de retorno. Os
+grants são restaurados somente para `authenticated`; `anon` permanece sem
+`EXECUTE`.
+
+Para conversas, a URL devolvida pertence à contraparte individual. Cliente com
+escritório e chat interno de equipe retornam `NULL`, já que o modelo de
+`law_firms` ainda não possui logo e a conversa pode reunir vários remetentes.
+O teste `supabase/tests/profile_avatar_surfaces_test.sql` cobre grants e os dois
+lados de uma conversa cliente-advogado com rollback.
+
+A mesma migration neutraliza `avatar_url` legado: o helper interno
+`safe_profile_avatar_url()` aceita somente caminho da pasta do titular com
+objeto existente em `profile-avatars`, remove qualquer host armazenado e devolve
+um caminho público relativo. `set_current_profile_avatar()` passa a persistir o
+mesmo formato. O app monta a URL absoluta com o `SUPABASE_URL` configurado; uma
+URL externa sem objeto local é descartada e usa o fallback de iniciais.
+
+Em 18/07/2026, `supabase db push --linked` aplicou
+`20260718180000_profile_avatar_surfaces.sql` no projeto remoto e
+`supabase migration list --linked` confirmou o histórico sincronizado.
 
 Para registrar apenas o histórico da migration no remoto atual:
 

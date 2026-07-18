@@ -6,6 +6,7 @@ import '../theme/app_colors.dart';
 import 'jurii_empty_state.dart';
 import 'jurii_form_motion.dart';
 import 'jurii_motion.dart';
+import 'profile_avatar.dart';
 
 /// Folha em que o escritório escolhe qual advogado da organização vai sugerir
 /// ao cliente. Devolve o id do advogado escolhido, ou `null` se desistiu.
@@ -209,15 +210,14 @@ class _LawyerOption extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: colors.officePurpleSurface,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: _photo(colors),
+            ProfileAvatar(
+              imageUrl: lawyer.photoUrl,
+              initials: lawyer.initials,
+              size: 48,
+              backgroundColor: colors.officePurpleSurface,
+              foregroundColor: colors.officePurple,
+              borderRadius: BorderRadius.circular(14),
+              fontSize: 15,
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -257,36 +257,6 @@ class _LawyerOption extends StatelessWidget {
               size: 22,
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _photo(AppColors colors) {
-    final url = lawyer.photoUrl;
-    if (url == null || url.isEmpty) return _initials(colors);
-
-    return Image.network(
-      url,
-      width: 48,
-      height: 48,
-      fit: BoxFit.cover,
-      loadingBuilder: (context, child, progress) {
-        if (progress == null) return child;
-        return _initials(colors);
-      },
-      errorBuilder: (context, error, stackTrace) => _initials(colors),
-    );
-  }
-
-  Widget _initials(AppColors colors) {
-    return Center(
-      child: Text(
-        lawyer.initials,
-        style: TextStyle(
-          color: colors.officePurple,
-          fontWeight: FontWeight.w900,
-          fontSize: 15,
         ),
       ),
     );

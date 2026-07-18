@@ -13,6 +13,7 @@ import '../theme/app_colors.dart';
 import '../widgets/jurii_list_card.dart';
 import '../widgets/jurii_motion.dart';
 import '../widgets/notification_bell.dart';
+import '../widgets/profile_avatar.dart';
 
 class LawyerHomeScreen extends StatefulWidget {
   final UserProfile user;
@@ -1028,13 +1029,13 @@ class _NewContactTile extends StatelessWidget {
     final colors = context.jColors;
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-      leading: CircleAvatar(
-        radius: 20,
+      leading: ProfileAvatar(
+        imageUrl: conversation.avatarUrl,
+        initials: conversation.initials,
+        size: 40,
         backgroundColor: colors.lightGold,
-        child: Text(
-          conversation.initials,
-          style: TextStyle(color: colors.accent, fontWeight: FontWeight.w900),
-        ),
+        foregroundColor: colors.accent,
+        borderRadius: BorderRadius.circular(20),
       ),
       title: Text(
         conversation.officeName,

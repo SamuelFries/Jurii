@@ -4,6 +4,7 @@ import '../data/legal_practice_areas.dart';
 import '../models/lawyer_profile_summary.dart';
 import '../theme/app_colors.dart';
 import 'jurii_list_card.dart';
+import 'profile_avatar.dart';
 
 class LawyerProfileCard extends StatelessWidget {
   const LawyerProfileCard({super.key, required this.lawyer, this.onTap});
@@ -31,23 +32,15 @@ class LawyerProfileCard extends StatelessWidget {
       borderColor: colors.lightGoldBorder,
       child: Row(
         children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: _avatarColor(colors),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Center(
-              child: Text(
-                lawyer.initials,
-                style: TextStyle(
-                  color: _avatarTextColor(colors),
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
-              ),
-            ),
+          ProfileAvatar(
+            imageUrl: lawyer.photoUrl,
+            initials: lawyer.initials,
+            size: 48,
+            backgroundColor: _avatarColor(colors),
+            foregroundColor: _avatarTextColor(colors),
+            borderRadius: BorderRadius.circular(12),
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
           ),
           const SizedBox(width: 12),
           Expanded(

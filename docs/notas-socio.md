@@ -1690,17 +1690,56 @@ com comportamentos diferentes para os mesmos dados.
   terceiros.
 
 A migration esta versionada no repositorio com testes pgTAP proprios. Em
-18/07/2026, `supabase migration list --linked` confirmou que ela ainda esta
-pendente no projeto remoto. O push foi deliberadamente adiado: como ela revoga o
-`UPDATE` direto de `avatar_url`, banco e app compativel devem entrar na mesma
-janela de release para nao quebrar a foto profissional do build atual.
+18/07/2026, o push foi autorizado e `supabase db push --linked` aplicou
+`20260718160000` no projeto remoto. A verificacao posterior com
+`supabase migration list --linked` confirmou local e remoto sincronizados.
+Como ela revoga o `UPDATE` direto de `avatar_url`, somente o app compativel com
+as novas RPCs deve ser promovido/suportado a partir deste estado do banco.
+
+### Foto do usuario fora do proprio perfil
+
+A foto personalizada agora acompanha a pessoa nos cards de advogado, cards de
+conversa, contatos recentes, equipe do escritorio e selecao de responsavel por
+caso. Ela tambem aparece nos mini perfis de cliente/advogado e no cabecalho do
+chat. Todos esses pontos usam o mesmo componente, com iniciais como fallback
+durante o carregamento, em URL ausente ou se a imagem falhar.
+
+A migration `20260718180000_profile_avatar_surfaces.sql` acrescenta somente o
+campo publico `avatar_url` as RPCs ja autorizadas de recomendacao, perfil e
+conversa. Ela nao reabre email, CPF ou telefone de contrapartes. Na conversa, o
+avatar e calculado do ponto de vista de quem consulta: cliente ve a foto do
+advogado, enquanto advogado/escritorio ve a foto do cliente. Conversas do
+cliente com um escritorio e o chat interno da equipe continuam com iniciais,
+pois `law_firms` ainda nao possui logo e uma unica foto representaria
+incorretamente varios funcionarios.
+
+Essa migration tambem fecha o legado anterior ao hardening: valores antigos de
+`avatar_url` sao preservados apenas quando o caminho pertence ao perfil e
+corresponde a um objeto real no bucket. O host armazenado e descartado; o banco
+mantem somente `/storage/v1/object/public/profile-avatars/{userId}/arquivo` e o
+app resolve esse caminho contra a URL configurada do proprio Supabase. URL
+externa sem objeto local vira `NULL` e cai para as iniciais. Novas trocas de
+foto passam a persistir diretamente esse formato relativo seguro.
+
+Em 18/07/2026, `supabase db push --linked` aplicou a migration `20260718180000`
+no projeto remoto. `supabase migration list --linked` confirmou o histórico
+local/remoto sincronizado. O CLI emitiu apenas o aviso não bloqueante já
+conhecido ao tentar montar o cache auxiliar do `pg-delta`; a migration foi
+registrada como aplicada.
+
+Fotos nao foram adicionadas as bolhas normais nesta rodada. Em atendimentos de
+escritorio, cada mensagem pode ter um remetente diferente; implementar isso
+corretamente exige preservar `sender_id` na camada visual e resolver os perfis
+dos autores em lote, em vez de repetir o avatar geral da conversa.
 
 ### Validacao
 
 - `flutter analyze`: sem issues;
-- `flutter test`: 133 testes aprovados;
+- `flutter test`: 143 testes aprovados;
 - `supabase db reset`: ambiente reconstruido do zero com a nova migration;
-- `supabase test db supabase/tests --local`: 97 assercoes pgTAP aprovadas.
+- `supabase migration up --local`: migration de propagacao de avatar aplicada;
+- `supabase test db supabase/tests`: 117 assercoes pgTAP aprovadas;
+- `supabase db lint --local --schema public --level error`: sem erros.
 
 ### Limites e proxima etapa
 

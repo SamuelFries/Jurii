@@ -136,14 +136,45 @@ A mesma migration endurece `upsert_current_profile()`: o telefone é normalizado
 para 10 ou 11 dígitos nacionais, aceita `+55`, rejeita letras, usa `NULL` para
 preservar o valor existente e string vazia para removê-lo. CPF válido pode ser
 definido em perfil incompleto, mas torna-se imutável depois do primeiro
-preenchimento. Em 18/07/2026, `supabase migration list --linked` confirmou a
-migration como pendente no remoto. O push foi adiado de propósito: a revogação
-do `UPDATE (avatar_url)` exige promover o app compatível na mesma janela para não
-interromper o fluxo de foto profissional do build atual.
+preenchimento. Em 18/07/2026, `supabase db push --linked` aplicou a migration no
+remoto e `supabase migration list --linked` confirmou o histórico sincronizado.
+Como o `UPDATE (avatar_url)` direto foi revogado, o app compatível com
+`set_current_profile_avatar()` deve ser promovido para manter o fluxo de foto
+profissional funcional.
 
 O escopo atual é exclusivamente o perfil pessoal. Bio, áreas de atuação e
 outros dados do perfil profissional ficam para uma etapa futura, com RPCs,
 validação e autorização específicas.
+
+## Avatar público nas superfícies de usuário
+
+A migration `20260718180000_profile_avatar_surfaces.sql` propaga
+`profiles.avatar_url` apenas por RPCs que já validavam a relação ou a
+visibilidade do perfil: recomendação de advogado, mini perfil autorizado e
+conversas do usuário atual. Os contratos continuam sem expor CPF e telefone; a
+RPC do mini perfil mantém o e-mail vazio. `anon` continua sem `EXECUTE` nessas
+funções.
+
+O avatar de uma conversa é sempre o da contraparte individual: advogado para o
+cliente e cliente para advogado/escritório. A resposta é nula em conversa com
+escritório e no canal interno da equipe, evitando atribuir a foto de um único
+funcionário a uma organização ou a vários remetentes. Pelo mesmo motivo, as
+bolhas de mensagem continuam sem foto até existir resolução segura por
+`sender_id`. O app usa iniciais como fallback para URL ausente, carregando ou
+inválida.
+
+Como existia escrita direta antes da migration de customização, URLs legadas
+podiam apontar para hosts externos. A migration de superfícies normaliza todas
+as linhas existentes: só preserva o caminho quando ele pertence ao perfil e há
+um objeto correspondente em `storage.objects`; o host é removido. A RPC de
+gravação também passa a persistir apenas o caminho público relativo. O
+`ProfileAvatar` reconstrói a URL usando exclusivamente o `SUPABASE_URL`
+configurado e rejeita qualquer valor sem um caminho válido do bucket, impedindo
+requisição de rastreamento para host arbitrário mesmo em metadado legado.
+
+Em 18/07/2026, a migration foi aplicada ao projeto remoto e a conferência por
+`supabase migration list --linked` mostrou `20260718180000` presente tanto no
+histórico local quanto no remoto.
 
 ## Implementado e aplicado na migration de hardening 2 (14/07/2026)
 

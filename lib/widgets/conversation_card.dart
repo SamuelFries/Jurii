@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/conversation.dart';
 import '../theme/app_colors.dart';
 import 'jurii_list_card.dart';
+import 'profile_avatar.dart';
 
 class ConversationCard extends StatelessWidget {
   final Conversation conversation;
@@ -23,22 +24,14 @@ class ConversationCard extends StatelessWidget {
       borderRadius: 20,
       child: Row(
         children: [
-          Container(
-            width: 52,
-            height: 52,
-            decoration: BoxDecoration(
-              color: colors.primary,
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Center(
-              child: Text(
-                conversation.initials,
-                style: TextStyle(
-                  color: colors.card,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
+          ProfileAvatar(
+            imageUrl: conversation.avatarUrl,
+            initials: conversation.initials,
+            size: 52,
+            backgroundColor: colors.primary,
+            foregroundColor: colors.card,
+            borderRadius: BorderRadius.circular(14),
+            fontWeight: FontWeight.bold,
           ),
           const SizedBox(width: 12),
           Expanded(

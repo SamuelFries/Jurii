@@ -24,6 +24,7 @@ import '../widgets/jurii_empty_state.dart';
 import '../widgets/jurii_form_motion.dart';
 import '../widgets/jurii_motion.dart';
 import '../widgets/lawyer_recommendation_card.dart';
+import '../widgets/profile_avatar.dart';
 import '../widgets/recommend_lawyer_sheet.dart';
 import 'client_profile_screen.dart';
 import 'intake_screen.dart';
@@ -986,28 +987,32 @@ class _ChatScreenState extends State<ChatScreen>
             padding: const EdgeInsets.symmetric(vertical: 4),
             child: Row(
               children: [
-                CircleAvatar(
-                  radius: 18,
-                  backgroundColor: widget.isLawyer
-                      ? colors.lightGold
-                      : colors.lightBlue,
-                  child: _isOpeningProfile
-                      ? const SizedBox(
-                          width: 14,
-                          height: 14,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : Text(
-                          widget.conversation.initials,
-                          style: TextStyle(
-                            color: widget.isLawyer
-                                ? colors.accent
-                                : colors.primary,
-                            fontWeight: FontWeight.w900,
-                            fontSize: 12,
-                          ),
-                        ),
-                ),
+                if (_isOpeningProfile)
+                  CircleAvatar(
+                    radius: 18,
+                    backgroundColor: widget.isLawyer
+                        ? colors.lightGold
+                        : colors.lightBlue,
+                    child: const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  )
+                else
+                  ProfileAvatar(
+                    imageUrl: widget.conversation.avatarUrl,
+                    initials: widget.conversation.initials,
+                    size: 36,
+                    backgroundColor: widget.isLawyer
+                        ? colors.lightGold
+                        : colors.lightBlue,
+                    foregroundColor: widget.isLawyer
+                        ? colors.accent
+                        : colors.primary,
+                    borderRadius: BorderRadius.circular(18),
+                    fontSize: 12,
+                  ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Column(

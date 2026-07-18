@@ -37,7 +37,9 @@ void main() {
           email: 'ana@jurii.dev',
           initials: 'AS',
           memberSince: 'Perfil profissional',
-          avatarUrl: 'https://example.com/avatar.jpg',
+          avatarUrl:
+              '/storage/v1/object/public/profile-avatars/'
+              '92000000-0000-0000-0000-000000000001/avatar.jpg',
         ),
       ),
     );
