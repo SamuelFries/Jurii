@@ -11,6 +11,7 @@ import '../widgets/jurii_empty_state.dart';
 import '../widgets/jurii_form_motion.dart';
 import '../widgets/jurii_list_card.dart';
 import '../widgets/jurii_motion.dart';
+import '../widgets/profile_avatar.dart';
 import 'case_details_screen.dart';
 
 class FirmCasesScreen extends StatefulWidget {
@@ -440,26 +441,17 @@ class _AssignLawyerSheet extends StatelessWidget {
                   shadowOffset: const Offset(0, 4),
                   child: Row(
                     children: [
-                      Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: selected
-                              ? colors.officePurple
-                              : colors.officePurpleSurface,
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: Center(
-                          child: Text(
-                            lawyer.initials,
-                            style: TextStyle(
-                              color: selected
-                                  ? colors.card
-                                  : colors.officePurple,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                        ),
+                      ProfileAvatar(
+                        imageUrl: lawyer.avatarUrl,
+                        initials: lawyer.initials,
+                        size: 44,
+                        backgroundColor: selected
+                            ? colors.officePurple
+                            : colors.officePurpleSurface,
+                        foregroundColor: selected
+                            ? colors.card
+                            : colors.officePurple,
+                        borderRadius: BorderRadius.circular(14),
                       ),
                       const SizedBox(width: 12),
                       Expanded(

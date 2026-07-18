@@ -299,6 +299,7 @@ class MessagingRepository {
     return Conversation(
       id: row['id'] as String?,
       initials: initials,
+      avatarUrl: _optionalText(row['avatar_url']),
       officeName: title,
       specialty: row['specialty'] as String? ?? 'Atendimento jurídico',
       lastMessage: row['last_message'] as String? ?? 'Conversa iniciada.',
@@ -440,6 +441,11 @@ class MessagingRepository {
     return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
   }
 
+  String? _optionalText(Object? value) {
+    final text = value is String ? value.trim() : '';
+    return text.isEmpty ? null : text;
+  }
+
   Conversation _fallbackLawFirmConversation(LawFirm lawFirm) {
     return Conversation(
       initials: lawFirm.initials,
@@ -456,6 +462,7 @@ class MessagingRepository {
   Conversation _fallbackLawyerConversation(LawyerProfileSummary lawyer) {
     return Conversation(
       initials: lawyer.initials,
+      avatarUrl: lawyer.photoUrl,
       officeName: lawyer.name,
       specialty: lawyer.primaryArea,
       lastMessage: 'Conversa iniciada.',

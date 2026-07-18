@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/user_profile.dart';
 import '../theme/app_colors.dart';
+import '../widgets/profile_avatar.dart';
 
 class ClientProfileScreen extends StatelessWidget {
   const ClientProfileScreen({super.key, required this.profile});
@@ -27,23 +28,14 @@ class ClientProfileScreen extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  Container(
-                    width: 64,
-                    height: 64,
-                    decoration: BoxDecoration(
-                      color: colors.lightBlue,
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                    child: Center(
-                      child: Text(
-                        profile.initials,
-                        style: TextStyle(
-                          color: colors.primary,
-                          fontSize: 20,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ),
+                  ProfileAvatar(
+                    imageUrl: profile.avatarUrl,
+                    initials: profile.initials,
+                    size: 64,
+                    backgroundColor: colors.lightBlue,
+                    foregroundColor: colors.primary,
+                    borderRadius: BorderRadius.circular(18),
+                    fontSize: 20,
                   ),
                   const SizedBox(width: 14),
                   Expanded(

@@ -4,6 +4,7 @@ class FirmTeamMember {
   final String id;
   final String name;
   final String initials;
+  final String? avatarUrl;
   final FirmRole role;
   final List<FirmRole> roles;
   final String specialty;
@@ -16,6 +17,7 @@ class FirmTeamMember {
     required this.id,
     required this.name,
     required this.initials,
+    this.avatarUrl,
     required this.role,
     this.roles = const [],
     required this.specialty,

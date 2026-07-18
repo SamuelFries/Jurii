@@ -8,6 +8,7 @@ import '../theme/app_colors.dart';
 import '../widgets/jurii_form_motion.dart';
 import '../widgets/jurii_list_card.dart';
 import '../widgets/jurii_motion.dart';
+import '../widgets/profile_avatar.dart';
 
 class FirmTeamScreen extends StatelessWidget {
   const FirmTeamScreen({
@@ -693,24 +694,15 @@ class _TeamMemberCard extends StatelessWidget {
       borderColor: colors.officePurpleBorder,
       child: Row(
         children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: member.available
-                  ? colors.officePurple
-                  : colors.textSecondary,
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Center(
-              child: Text(
-                member.initials,
-                style: TextStyle(
-                  color: colors.card,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ),
+          ProfileAvatar(
+            imageUrl: member.avatarUrl,
+            initials: member.initials,
+            size: 48,
+            backgroundColor: member.available
+                ? colors.officePurple
+                : colors.textSecondary,
+            foregroundColor: colors.card,
+            borderRadius: BorderRadius.circular(14),
           ),
           const SizedBox(width: 12),
           Expanded(

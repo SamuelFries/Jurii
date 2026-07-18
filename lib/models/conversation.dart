@@ -1,6 +1,7 @@
 class Conversation {
   final String? id;
   final String initials;
+  final String? avatarUrl;
   final String officeName;
   final String specialty;
   final String lastMessage;
@@ -14,6 +15,7 @@ class Conversation {
   const Conversation({
     this.id,
     required this.initials,
+    this.avatarUrl,
     required this.officeName,
     required this.specialty,
     required this.lastMessage,

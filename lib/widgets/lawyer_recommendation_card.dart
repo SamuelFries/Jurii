@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/lawyer_recommendation.dart';
 import '../theme/app_colors.dart';
+import 'profile_avatar.dart';
 
 /// Miniatura do perfil do advogado sugerido pelo escritório, exibida no chat
 /// como um card (o mesmo lugar que a caixa de aceite de caso ocupava).
@@ -87,15 +88,14 @@ class LawyerRecommendationCard extends StatelessWidget {
               const SizedBox(height: 14),
               Row(
                 children: [
-                  Container(
-                    width: 64,
-                    height: 64,
-                    decoration: BoxDecoration(
-                      color: colors.officePurpleSurface,
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    child: _photo(colors),
+                  ProfileAvatar(
+                    imageUrl: recommendation.photoUrl,
+                    initials: recommendation.initials,
+                    size: 64,
+                    backgroundColor: colors.officePurpleSurface,
+                    foregroundColor: colors.officePurple,
+                    borderRadius: BorderRadius.circular(18),
+                    fontSize: 18,
                   ),
                   const SizedBox(width: 14),
                   Expanded(
@@ -185,36 +185,6 @@ class LawyerRecommendationCard extends StatelessWidget {
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _photo(AppColors colors) {
-    final url = recommendation.photoUrl;
-    if (url == null) return _initials(colors);
-
-    return Image.network(
-      url,
-      width: 64,
-      height: 64,
-      fit: BoxFit.cover,
-      loadingBuilder: (context, child, progress) {
-        if (progress == null) return child;
-        return _initials(colors);
-      },
-      errorBuilder: (context, error, stackTrace) => _initials(colors),
-    );
-  }
-
-  Widget _initials(AppColors colors) {
-    return Center(
-      child: Text(
-        recommendation.initials,
-        style: TextStyle(
-          color: colors.officePurple,
-          fontWeight: FontWeight.w900,
-          fontSize: 18,
         ),
       ),
     );

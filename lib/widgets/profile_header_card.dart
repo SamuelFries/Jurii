@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
+import 'profile_avatar.dart';
 
 class ProfileHeaderCard extends StatelessWidget {
   final String name;
@@ -42,7 +43,16 @@ class ProfileHeaderCard extends StatelessWidget {
               border: Border.all(color: colors.card.withValues(alpha: 0.35)),
             ),
             clipBehavior: Clip.antiAlias,
-            child: _avatar(colors),
+            child: ProfileAvatar(
+              imageUrl: avatarUrl,
+              initials: initials,
+              size: 56,
+              backgroundColor: colors.accent,
+              foregroundColor: colors.card,
+              borderRadius: BorderRadius.circular(12),
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -111,36 +121,6 @@ class ProfileHeaderCard extends StatelessWidget {
             icon: const Icon(Icons.edit_outlined, size: 18),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _avatar(AppColors colors) {
-    final url = avatarUrl;
-    if (url == null || url.isEmpty) return _initials(colors);
-
-    return Image.network(
-      url,
-      width: 56,
-      height: 56,
-      fit: BoxFit.cover,
-      loadingBuilder: (context, child, progress) {
-        if (progress == null) return child;
-        return _initials(colors);
-      },
-      errorBuilder: (context, error, stackTrace) => _initials(colors),
-    );
-  }
-
-  Widget _initials(AppColors colors) {
-    return Center(
-      child: Text(
-        initials,
-        style: TextStyle(
-          color: colors.card,
-          fontWeight: FontWeight.bold,
-          fontSize: 18,
-        ),
       ),
     );
   }

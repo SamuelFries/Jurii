@@ -169,6 +169,9 @@ class FirmWorkspaceRepository {
         final profileInitials = profileRow is Map<String, dynamic>
             ? profileRow['initials'] as String?
             : null;
+        final profileAvatarUrl = profileRow is Map<String, dynamic>
+            ? _optionalText(profileRow['avatar_url'])
+            : null;
 
         return FirmTeamMember(
           id: profileId.isEmpty ? 'member_${rows.indexOf(row)}' : profileId,
@@ -176,6 +179,7 @@ class FirmWorkspaceRepository {
           initials: isCurrentUser
               ? 'VC'
               : profileInitials ?? _roleInitials(role),
+          avatarUrl: profileAvatarUrl,
           role: role,
           roles: effectiveRoles,
           specialty: status == 'invited'
@@ -203,7 +207,7 @@ class FirmWorkspaceRepository {
       final rows = await SupabaseConfig.client
           .from('law_firm_members')
           .select(
-            'profile_id, lawyer_id, roles, member_role, role, status, profiles(full_name, initials)',
+            'profile_id, lawyer_id, roles, member_role, role, status, profiles(full_name, initials, avatar_url)',
           )
           .eq('law_firm_id', lawFirmId)
           .neq('status', 'disabled');
@@ -213,7 +217,7 @@ class FirmWorkspaceRepository {
       final rows = await SupabaseConfig.client
           .from('law_firm_members')
           .select(
-            'profile_id, lawyer_id, member_role, role, status, profiles(full_name, initials)',
+            'profile_id, lawyer_id, member_role, role, status, profiles(full_name, initials, avatar_url)',
           )
           .eq('law_firm_id', lawFirmId)
           .neq('status', 'disabled');
@@ -391,5 +395,10 @@ class FirmWorkspaceRepository {
     if (parts.isEmpty) return 'JE';
     if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
     return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
+  }
+
+  String? _optionalText(Object? value) {
+    final text = value is String ? value.trim() : '';
+    return text.isEmpty ? null : text;
   }
 }

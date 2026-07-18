@@ -10,6 +10,7 @@ import '../utils/phone_input_formatter.dart';
 import '../utils/profile_avatar_validation.dart';
 import '../utils/validators.dart';
 import '../widgets/jurii_form_motion.dart';
+import '../widgets/profile_avatar.dart';
 
 typedef ProfileEditSubmit =
     Future<void> Function({
@@ -380,27 +381,14 @@ class _AvatarEditor extends StatelessWidget {
     if (selected != null) {
       return Image.memory(selected.bytes, fit: BoxFit.cover);
     }
-    final url = profile.avatarUrl;
-    if (!removeAvatar && url != null && url.trim().isNotEmpty) {
-      return Image.network(
-        url,
-        fit: BoxFit.cover,
-        errorBuilder: (_, _, _) => _initials(colors),
-      );
-    }
-    return _initials(colors);
-  }
-
-  Widget _initials(AppColors colors) {
-    return Center(
-      child: Text(
-        profile.initials,
-        style: TextStyle(
-          color: colors.card,
-          fontSize: 30,
-          fontWeight: FontWeight.w900,
-        ),
-      ),
+    return ProfileAvatar(
+      imageUrl: removeAvatar ? null : profile.avatarUrl,
+      initials: profile.initials,
+      size: 104,
+      backgroundColor: colors.primary,
+      foregroundColor: colors.card,
+      borderRadius: BorderRadius.circular(52),
+      fontSize: 30,
     );
   }
 }

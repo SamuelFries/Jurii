@@ -256,7 +256,7 @@ select is(
     from public.profiles
     where id = '91000000-0000-0000-0000-000000000001'
   ),
-  'Maria Perfil|MP|51999998888|http://127.0.0.1:54321/storage/v1/object/public/profile-avatars/91000000-0000-0000-0000-000000000001/avatar-source.png',
+  'Maria Perfil|MP|51999998888|/storage/v1/object/public/profile-avatars/91000000-0000-0000-0000-000000000001/avatar-source.png',
   'RPC persiste dados e deriva a URL do issuer assinado'
 );
 
