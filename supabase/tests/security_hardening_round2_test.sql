@@ -230,13 +230,13 @@ select ok(
   'update direto de email foi revogado'
 );
 select ok(
-  has_column_privilege(
+  not has_column_privilege(
     'authenticated',
     'public.profiles',
     'avatar_url',
     'UPDATE'
   ),
-  'update direto do proprio avatar continua disponivel'
+  'update direto de avatar foi substituido por RPC validada'
 );
 select ok(
   not has_table_privilege('authenticated', 'public.conversations', 'INSERT'),
@@ -470,18 +470,20 @@ select is(
   '11999999999',
   'atualizacao parcial preserva telefone existente'
 );
-select lives_ok(
+select throws_ok(
   $$
     update public.profiles
     set avatar_url = 'https://example.invalid/avatar.png'
     where id = '10000000-0000-0000-0000-000000000004'
   $$,
-  'titular ativo atualiza o proprio avatar'
+  '42501',
+  'permission denied for table profiles',
+  'titular nao aponta avatar diretamente para URL externa'
 );
 select is(
   (select avatar_url from public.fetch_current_profile()),
-  'https://example.invalid/avatar.png',
-  'avatar atualizado fica disponivel no proprio perfil'
+  null::text,
+  'tentativa direta nao altera o avatar'
 );
 select ok(
   public.can_delete_unlinked_chat_attachment(
@@ -521,13 +523,15 @@ select throws_ok(
   'Deleted profile cannot be restored',
   'RPC nao reativa perfil excluido'
 );
-select lives_ok(
+select throws_ok(
   $$
     update public.profiles
     set avatar_url = 'https://example.invalid/restored.png'
     where id = '10000000-0000-0000-0000-000000000004'
   $$,
-  'update de avatar em perfil excluido nao revela a linha'
+  '42501',
+  'permission denied for table profiles',
+  'update direto de avatar em perfil excluido nao revela a linha'
 );
 
 reset role;

@@ -53,8 +53,11 @@ class _RegisterFormState extends State<RegisterForm> {
                 controller: _nameController,
                 textInputAction: TextInputAction.next,
                 textCapitalization: TextCapitalization.words,
+                maxLength: kMaxFullNameCharacters,
+                maxLengthEnforcement: MaxLengthEnforcement.enforced,
                 decoration: const InputDecoration(
                   hintText: 'Nome completo',
+                  counterText: '',
                   prefixIcon: Icon(Icons.person_outline),
                 ),
                 validator: validateFullNameField,
@@ -283,7 +286,6 @@ class _RegisterFormState extends State<RegisterForm> {
     return strength;
   }
 }
-
 
 class _PasswordStrengthIndicator extends StatelessWidget {
   const _PasswordStrengthIndicator({required this.strength});

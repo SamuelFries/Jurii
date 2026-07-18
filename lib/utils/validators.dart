@@ -4,6 +4,7 @@ library;
 /// Tamanho mínimo de senha em todo o app — alinhar com a política
 /// configurada no Supabase Auth (Authentication → Providers → Email).
 const int kMinPasswordLength = 8;
+const int kMaxFullNameCharacters = 100;
 
 final RegExp _emailPattern = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
 
@@ -52,6 +53,18 @@ String? validateCpfField(String? value) {
   return null;
 }
 
+String? validateOptionalPhoneField(String? value) {
+  var phone = digitsOnly(value ?? '');
+  if ((phone.length == 12 || phone.length == 13) && phone.startsWith('55')) {
+    phone = phone.substring(2);
+  }
+  if (phone.isEmpty) return null;
+  if (phone.length != 10 && phone.length != 11) {
+    return 'Informe um telefone com DDD';
+  }
+  return null;
+}
+
 /// Nome completo = pelo menos dois nomes. Um nome só (o que o login social da
 /// Apple costuma entregar, quando entrega) não identifica ninguém num contrato
 /// ou processo.
@@ -67,6 +80,9 @@ bool isCompleteName(String value) {
 String? validateFullNameField(String? value) {
   final name = value?.trim() ?? '';
   if (name.isEmpty) return 'Informe seu nome completo';
+  if (name.length > kMaxFullNameCharacters) {
+    return 'Use no máximo $kMaxFullNameCharacters caracteres';
+  }
   if (!isCompleteName(name)) return 'Informe nome e sobrenome';
   return null;
 }

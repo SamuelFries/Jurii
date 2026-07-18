@@ -45,4 +45,28 @@ void main() {
     // Antes do erro de rede (offline no teste), a Image está na árvore.
     expect(find.byType(Image), findsOneWidget);
   });
+
+  testWidgets('lápis expõe acessibilidade e dispara edição', (tester) async {
+    var editCount = 0;
+
+    await tester.pumpWidget(
+      _wrap(
+        ProfileHeaderCard(
+          name: 'Ana Souza',
+          email: 'ana@jurii.dev',
+          initials: 'AS',
+          memberSince: 'Cliente desde 2026',
+          onEditTap: () => editCount++,
+        ),
+      ),
+    );
+
+    final editButton = find.byKey(const Key('profile_edit_button'));
+    expect(editButton, findsOneWidget);
+    expect(find.byTooltip('Editar perfil'), findsOneWidget);
+
+    await tester.tap(editButton);
+
+    expect(editCount, 1);
+  });
 }

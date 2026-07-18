@@ -11,25 +11,25 @@ class CpfInputFormatter extends TextInputFormatter {
     TextEditingValue oldValue,
     TextEditingValue newValue,
   ) {
-    final digits = newValue.text.replaceAll(RegExp(r'\D'), '');
-    final limitedDigits = digits.length > 11 ? digits.substring(0, 11) : digits;
-    final formattedCpf = _formatCpf(limitedDigits);
+    final formattedCpf = formatCpf(newValue.text);
     return TextEditingValue(
       text: formattedCpf,
       selection: TextSelection.collapsed(offset: formattedCpf.length),
     );
   }
+}
 
-  String _formatCpf(String digits) {
-    final buffer = StringBuffer();
-    for (var index = 0; index < digits.length; index++) {
-      if (index == 3 || index == 6) {
-        buffer.write('.');
-      } else if (index == 9) {
-        buffer.write('-');
-      }
-      buffer.write(digits[index]);
+String formatCpf(String value) {
+  final rawDigits = value.replaceAll(RegExp(r'\D'), '');
+  final digits = rawDigits.length > 11 ? rawDigits.substring(0, 11) : rawDigits;
+  final buffer = StringBuffer();
+  for (var index = 0; index < digits.length; index++) {
+    if (index == 3 || index == 6) {
+      buffer.write('.');
+    } else if (index == 9) {
+      buffer.write('-');
     }
-    return buffer.toString();
+    buffer.write(digits[index]);
   }
+  return buffer.toString();
 }

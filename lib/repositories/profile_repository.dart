@@ -1,8 +1,10 @@
 import 'package:flutter/foundation.dart';
 
 import '../models/lawyer_status.dart';
+import '../models/profile_avatar_file.dart';
 import '../models/user_profile.dart';
 import '../services/supabase_config.dart';
+import 'profile_avatar_storage.dart';
 
 class DeletedAccountException implements Exception {
   const DeletedAccountException();
@@ -12,7 +14,9 @@ class DeletedAccountException implements Exception {
 }
 
 class ProfileRepository {
-  const ProfileRepository();
+  const ProfileRepository({this.avatarStorage = const ProfileAvatarStorage()});
+
+  final ProfileAvatarStorage avatarStorage;
 
   Future<UserProfile?> fetchCurrentProfile() async {
     final user = SupabaseConfig.client.auth.currentUser;
@@ -73,6 +77,75 @@ class ProfileRepository {
     }
   }
 
+  Future<UserProfile> updateCustomization({
+    required String fullName,
+    required String phone,
+    required String? previousAvatarUrl,
+    ProfileAvatarFile? avatar,
+    required bool removeAvatar,
+  }) async {
+    final user = SupabaseConfig.client.auth.currentUser;
+    if (user == null) {
+      throw StateError('É necessário estar autenticado para editar o perfil.');
+    }
+
+    StoredProfileAvatar? stored;
+    if (avatar != null) {
+      stored = await avatarStorage.upload(userId: user.id, file: avatar);
+    }
+
+    final avatarAction = stored != null
+        ? 'replace'
+        : removeAvatar
+        ? 'remove'
+        : 'preserve';
+
+    Map<String, dynamic> row;
+    try {
+      row = await SupabaseConfig.client
+          .rpc(
+            'update_current_profile_customization',
+            params: {
+              'full_name_value': fullName,
+              'phone_value': phone,
+              'avatar_action_value': avatarAction,
+              'avatar_storage_path_value': stored?.path,
+            },
+          )
+          .single();
+    } catch (_) {
+      if (stored != null) {
+        try {
+          await avatarStorage.removePath(stored.path);
+        } catch (_) {
+          // A falha original de persistência é mais útil para o chamador.
+        }
+      }
+      rethrow;
+    }
+
+    if (stored != null || removeAvatar) {
+      await _removeOldAvatar(previousAvatarUrl, userId: user.id);
+    }
+    return _fromRow(row);
+  }
+
+  Future<void> _removeOldAvatar(
+    String? publicUrl, {
+    required String userId,
+  }) async {
+    final path = avatarStorage.ownedPathFromPublicUrl(
+      publicUrl,
+      userId: userId,
+    );
+    if (path == null) return;
+    try {
+      await avatarStorage.removePath(path);
+    } catch (error) {
+      debugPrint('Old profile avatar cleanup failed: $error');
+    }
+  }
+
   UserProfile _fromRow(Map<String, dynamic> row) {
     final status = switch (row['lawyer_status'] as String? ?? 'client') {
       'pending' => LawyerStatus.pending,
@@ -94,6 +167,7 @@ class ProfileRepository {
       // Só fetch_current_profile devolve CPF; no perfil de contraparte
       // (fetch_chat_profile) a coluna nem existe no retorno.
       cpf: row['cpf'] as String?,
+      phone: row['phone'] as String?,
     );
   }
 }

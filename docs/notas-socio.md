@@ -1639,3 +1639,74 @@ estava em producao desde a rodada anterior. Esta fase e so app.
   foreground, precisa flutter_local_notifications.
 - Navegar ao tocar na notificacao (onMessageOpenedApp) — hoje so abre o app.
 - Housekeeping de tokens mortos (FCM UNREGISTERED) na send-push.
+
+## Customizacao do perfil pessoal (18/07/2026)
+
+O botao de lapis do cabecalho deixou de ser decorativo. Ele e o item
+`Dados Pessoais` agora abrem a mesma tela `Editar perfil`, evitando dois fluxos
+com comportamentos diferentes para os mesmos dados.
+
+### App
+
+- Nome completo, telefone e avatar sao editaveis. Nome fica limitado a 100
+  caracteres em cadastro, conclusao e edicao para impedir entradas gigantes e
+  overflow. Ao salvar, uma RPC devolve o perfil persistido para atualizar
+  imediatamente nome, iniciais, telefone e foto no cabecalho, sem tratar
+  `UPDATE` sem linha como sucesso.
+- Telefone e opcional, recebe mascara no formulario e e enviado ao banco apenas
+  com digitos. Numeros vindos do autofill com `+55` perdem corretamente o codigo
+  do pais. O campo aceita no maximo 11 digitos nacionais/15 caracteres com
+  mascara e ignora novos digitos ou colagens gigantes sem causar overflow nem
+  transformar a entrada em outro telefone valido.
+- E-mail e CPF aparecem para conferencia, mas ficam somente leitura. O e-mail
+  pertence ao metodo de autenticacao e o CPF continua tratado como identificador
+  protegido; nenhum dos dois pode ser alterado por essa tela.
+- A selecao de avatar aceita JPG/JPEG, PNG e WEBP, valida extensao, assinatura
+  real do arquivo (magic bytes), metadado e tamanho real dos bytes, limitando a
+  foto a 5 MB antes do upload.
+- A troca usa um novo nome de objeto, confirma nome/telefone/avatar de forma
+  atomica no banco pela RPC `update_current_profile_customization()` e tenta
+  remover a foto anterior somente quando a URL aponta para a pasta do proprio
+  usuario. Se a transacao falhar, o novo objeto e removido como rollback.
+
+### Banco e Storage (migration `20260718160000_profile_customization.sql`)
+
+- `upsert_current_profile()` normaliza o nome e as iniciais, aceita apenas
+  telefone nacional com 10 ou 11 digitos (aceitando a entrada `+55`) e
+  diferencia `NULL` (preservar o telefone atual) de string vazia (remover o
+  telefone). CPF valido pode ser preenchido uma vez; depois disso nem chamada
+  direta da RPC consegue substitui-lo.
+- `avatar_url` perdeu o privilegio de `UPDATE` direto. A RPC
+  `set_current_profile_avatar()` exige um objeto existente em
+  `profile-avatars/{auth.uid()}/` e deriva a URL da origem assinada do JWT, sem
+  aceitar host externo escolhido pelo cliente. O fluxo de foto profissional foi
+  migrado para o mesmo contrato.
+- O bucket publico `profile-avatars` fica restrito no banco aos MIME types
+  `image/jpeg`, `image/png` e `image/webp`, com teto de 10 MB. O limite de 5 MB
+  do app e deliberadamente mais restritivo; o limite do bucket e uma segunda
+  barreira para clientes diretos/antigos.
+- A policy `profile_avatars_own_folder_delete` permite apagar objetos apenas em
+  `{auth.uid()}/`, viabilizando troca/remocao sem abrir delete de avatares de
+  terceiros.
+
+A migration esta versionada no repositorio com testes pgTAP proprios. Em
+18/07/2026, `supabase migration list --linked` confirmou que ela ainda esta
+pendente no projeto remoto. O push foi deliberadamente adiado: como ela revoga o
+`UPDATE` direto de `avatar_url`, banco e app compativel devem entrar na mesma
+janela de release para nao quebrar a foto profissional do build atual.
+
+### Validacao
+
+- `flutter analyze`: sem issues;
+- `flutter test`: 133 testes aprovados;
+- `supabase db reset`: ambiente reconstruido do zero com a nova migration;
+- `supabase test db supabase/tests --local`: 97 assercoes pgTAP aprovadas.
+
+### Limites e proxima etapa
+
+Esta rodada customiza somente o perfil pessoal. Edicao do perfil profissional
+(bio, areas de atuacao e demais dados publicos do advogado/escritorio) permanece
+como frente futura e deve ter contrato e autorizacao proprios. Alteracao de
+e-mail tambem exige um fluxo especifico de Auth com reverificacao; alteracao de
+CPF exige um fluxo administrativo separado, com decisao de produto, auditoria
+e regras adicionais de identidade; a RPC comum agora impede sua troca.

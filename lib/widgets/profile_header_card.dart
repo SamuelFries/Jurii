@@ -96,17 +96,19 @@ class ProfileHeaderCard extends StatelessWidget {
               ],
             ),
           ),
-          GestureDetector(
-            onTap: onEditTap,
-            child: Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: colors.card.withValues(alpha: 0.15),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(Icons.edit_outlined, color: colors.card, size: 18),
+          IconButton(
+            key: const Key('profile_edit_button'),
+            tooltip: 'Editar perfil',
+            onPressed: onEditTap,
+            constraints: const BoxConstraints.tightFor(width: 36, height: 36),
+            padding: EdgeInsets.zero,
+            style: IconButton.styleFrom(
+              backgroundColor: colors.card.withValues(alpha: 0.15),
+              foregroundColor: colors.card,
+              disabledBackgroundColor: colors.card.withValues(alpha: 0.08),
+              disabledForegroundColor: colors.card.withValues(alpha: 0.5),
             ),
+            icon: const Icon(Icons.edit_outlined, size: 18),
           ),
         ],
       ),
