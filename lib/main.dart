@@ -1,8 +1,13 @@
 import 'dart:async';
 
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart'
     show AuthChangeEvent, AuthState, User;
+
+import 'firebase_options.dart';
+import 'services/push_notification_service.dart';
 
 import 'models/appointment.dart';
 import 'models/law_firm_verification.dart';
@@ -49,7 +54,21 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await SupabaseConfig.initialize();
   await ThemeController.instance.load();
+  await _initFirebase();
   runApp(const JuriiApp());
+}
+
+/// Inicializa o Firebase (para o push). Best-effort: se falhar, o app segue sem
+/// push em vez de nao abrir.
+Future<void> _initFirebase() async {
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+  } catch (error) {
+    debugPrint('Firebase init failed: $error');
+  }
 }
 
 class JuriiApp extends StatefulWidget {
@@ -68,6 +87,7 @@ class _JuriiAppState extends State<JuriiApp> {
       const LawFirmVerificationRepository();
   final FirmWorkspaceRepository _firmWorkspaceRepository =
       const FirmWorkspaceRepository();
+  final PushNotificationService _pushService = PushNotificationService();
   final FirmInvitationRepository _firmInvitationRepository =
       const FirmInvitationRepository();
   StreamSubscription<AuthState>? _authSubscription;
@@ -328,6 +348,10 @@ class _JuriiAppState extends State<JuriiApp> {
       _isPasswordRecovery = false;
       _isBootstrapping = false;
     });
+
+    // Registra o token de push deste dispositivo. Best-effort — nao bloqueia
+    // nem derruba a sessao se o push falhar.
+    unawaited(_pushService.registerForCurrentUser());
   }
 
   /// Grava nome e CPF de quem entrou por Google/Apple e recarrega o perfil —
@@ -375,6 +399,7 @@ class _JuriiAppState extends State<JuriiApp> {
       return;
     }
 
+    await _pushService.disableForCurrentUser();
     await _profileRepository.deleteCurrentAccount();
     await _authRepository.signOut();
     if (!mounted) return;
@@ -506,6 +531,9 @@ class _JuriiAppState extends State<JuriiApp> {
   Future<void> _handleLogout() async {
     try {
       if (SupabaseConfig.isConfigured) {
+        // Remove o token ANTES do signOut (o unregister depende de auth.uid()),
+        // para o aparelho nao receber push apos sair.
+        await _pushService.disableForCurrentUser();
         await _authRepository.signOut();
       }
     } catch (error) {

@@ -57,17 +57,17 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyBaUEyf5pSCXEW9qK4zRnaZNt6pRc0wefU',
-    appId: '1:927486469276:android:105e427b12aa7d745fb959',
+    appId: '1:927486469276:android:e1b904b9f01ad21f5fb959',
     messagingSenderId: '927486469276',
     projectId: 'jurii-push',
     storageBucket: 'jurii-push.firebasestorage.app',
   );
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyCxZblMb3x4AZB1hcc9pEOW6dkZyep6pXs',
-    appId: '1:927486469276:ios:633694c189890b315fb959',
+    appId: '1:927486469276:ios:0752821eb75003435fb959',
     messagingSenderId: '927486469276',
     projectId: 'jurii-push',
     storageBucket: 'jurii-push.firebasestorage.app',
-    iosBundleId: 'com.example.jurii',
+    iosBundleId: 'br.com.jurii.app',
   );
 }

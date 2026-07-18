@@ -7,9 +7,9 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:927486469276:android:105e427b12aa7d745fb959",
+        "mobilesdk_app_id": "1:927486469276:android:e1b904b9f01ad21f5fb959",
         "android_client_info": {
-          "package_name": "com.example.jurii"
+          "package_name": "br.com.jurii.app"
         }
       },
       "oauth_client": [],
