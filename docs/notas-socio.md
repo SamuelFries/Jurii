@@ -1373,3 +1373,22 @@ STATUS:CANCELLED corretos; token aleatorio -> 404; sem token -> 400.
   cliente; falta o seletor de caso na folha.
 - **Sync bidirecional (Google API)**: so se double-booking com agenda externa
   virar dor real.
+
+## Sino em tempo real — lista aberta (17/07/2026)
+
+O BADGE do sino ja era realtime (o NotificationBell ja assinava notifications).
+O gap era a LISTA aberta: com o painel de notificacoes aberto, uma notificacao
+nova (um lembrete da agenda, uma recomendacao) so aparecia ao fechar e reabrir.
+Agora o `_NotificationSheet` tambem assina realtime.
+
+- Canal `notifications_sheet:<scope>:<uid>`, `PostgresChangeEvent.all` filtrado
+  por `recipient_profile_id` (o RLS ja restringe ao dono; o refetch reaplica o
+  filtro de escopo). Insert/update/delete -> refetch da lista.
+- **Marcar-lido coerente**: com o painel aberto, o que chega ja conta como visto
+  — marca lido e exibe sem destaque. E ao FECHAR o painel, marca lido de novo
+  antes de recontar, senao o badge "ressuscitaria" com as que chegaram durante.
+- Dispose remove o canal.
+
+`notifications` ja estava na publication realtime desde a baseline — nao precisou
+de migration, so app. analyze limpo, 104 testes verdes. O comportamento ao vivo
+(painel aberto recebendo evento) e teste manual, como os outros realtimes.

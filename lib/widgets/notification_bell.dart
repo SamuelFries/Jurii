@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -143,6 +145,13 @@ class _NotificationBellState extends State<NotificationBell> {
     );
 
     if (!mounted) return;
+    // Notificações que chegaram com o painel aberto também contam como vistas —
+    // marca de novo antes de recontar, senão o badge "ressuscitaria" ao fechar.
+    await widget.repository.markAllAsRead(
+      scope: widget.scope,
+      lawFirmId: widget.lawFirmId,
+    );
+    if (!mounted) return;
     await _loadCount();
     await widget.onChanged?.call();
   }
@@ -243,11 +252,74 @@ class _NotificationSheet extends StatefulWidget {
 
 class _NotificationSheetState extends State<_NotificationSheet> {
   late List<JuriiNotification> _notifications;
+  RealtimeChannel? _channel;
 
   @override
   void initState() {
     super.initState();
     _notifications = widget.notifications;
+    _subscribeToRealtime();
+  }
+
+  @override
+  void dispose() {
+    final channel = _channel;
+    if (channel != null && SupabaseConfig.isReady) {
+      SupabaseConfig.client.removeChannel(channel);
+    }
+    super.dispose();
+  }
+
+  void _subscribeToRealtime() {
+    if (!SupabaseConfig.isReady) return;
+    final userId = SupabaseConfig.client.auth.currentUser?.id;
+    if (userId == null) return;
+
+    // Enquanto o painel está aberto, uma notificação nova (ou removida em outro
+    // dispositivo) precisa aparecer sem fechar e reabrir. O RLS já restringe ao
+    // recipient; o refetch reaplica o filtro de escopo.
+    _channel = SupabaseConfig.client
+        .channel('notifications_sheet:${widget.scope.databaseValue}:$userId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'notifications',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'recipient_profile_id',
+            value: userId,
+          ),
+          callback: (_) => unawaited(_onRealtimeChange()),
+        )
+        .subscribe();
+  }
+
+  Future<void> _onRealtimeChange() async {
+    final fresh = await widget.repository.fetchLatest(
+      scope: widget.scope,
+      lawFirmId: widget.lawFirmId,
+    );
+    if (!mounted) return;
+
+    // Painel aberto = o usuário está vendo; o que chegou já conta como lido.
+    if (fresh.any((notification) => notification.isUnread)) {
+      final now = DateTime.now();
+      setState(
+        () => _notifications = fresh
+            .map(
+              (notification) => notification.isUnread
+                  ? notification.copyWith(readAt: now)
+                  : notification,
+            )
+            .toList(),
+      );
+      await widget.repository.markAllAsRead(
+        scope: widget.scope,
+        lawFirmId: widget.lawFirmId,
+      );
+    } else {
+      setState(() => _notifications = fresh);
+    }
   }
 
   Future<void> _reload() async {
