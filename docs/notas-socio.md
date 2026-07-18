@@ -1541,3 +1541,54 @@ O app (passo 7) e o que popula os tokens.
 - App: firebase_messaging + permissao + register/unregister no login/logout.
 - Config nativa iOS (entitlements, background modes) e Android.
 - Housekeeping: remover token quando o FCM responde UNREGISTERED (hoje so loga).
+
+## Push - server-side ATIVADO em producao (18/07/2026)
+
+O Samuel criou o projeto Firebase (jurii-push), gerou a service account e
+adicionou firebase_core + firebase_messaging ao pubspec. Com isso, configurei
+TODO o server-side em producao. **Sem Apple Developer pago, iOS nao recebe push
+por enquanto (sem APNs key); Android funciona sem APNs.** Fica pronto para o iOS
+ligar sozinho no dia que tiver a APNs.
+
+### O que ESTA em producao (verificado)
+
+- Migrations 20260718120000 (push_tokens) + 20260718140000 (trigger) aplicadas.
+  Objetos conferidos: tabela, RPCs, grants (service_role lê tokens, authenticated
+  nao), pg_net, trigger notifications_push_dispatch.
+- Edge Function send-push deployada. Smoke test: sem segredo -> 401 (auth ok).
+- Secrets: FCM_SERVICE_ACCOUNT (do JSON da service account, NUNCA commitado — lido
+  por caminho absoluto fora do repo) + PUSH_HOOK_SECRET (segredo dedicado gerado).
+- Vault: push_hook_url + push_hook_secret populados -> **trigger ATIVO**. Toda
+  notificacao criada ja chama a send-push. Sem tokens ainda, ela retorna sent:0
+  (nao ha app registrando tokens). Quando a Fase 2 do app entrar, o push sai
+  sozinho (Android).
+
+Ajuste de seguranca desta rodada: o webhook autentica por um segredo dedicado
+(PUSH_HOOK_SECRET / vault push_hook_secret), nao pela service_role key — menor
+privilegio, e nao precisei extrair a service_role key de producao.
+
+### O que FALTA (Fase 2, precisa do Samuel + de mim)
+
+- **google-services.json** (Android) -> `android/app/`. O Samuel baixa do Firebase
+  Console. Sem ele o app Android nao inicializa o Firebase.
+- **APNs key** (iOS) -> so quando tiver Apple Developer pago. Sem ela, iOS nao
+  recebe push (mas nao quebra nada; o FCM so falha para tokens iOS e a send-push
+  loga).
+- **Codigo do app (eu faco quando tiver o google-services.json)**: inicializar o
+  Firebase no boot, pedir permissao de notificacao, registrar o token via
+  register_push_token no login e remover no logout, tratar mensagens recebidas.
+- GoogleService-Info.plist (iOS) fica para junto da APNs.
+
+### INCIDENTE corrigido nesta rodada: merge do PR #57 perdeu 2 commits
+
+O merge do PR #57 (agenda) NAO levou para a main os commits c0b0643 (lembretes)
+e 0161c5a (realtime da agenda) — eles ficaram so em origin/feat/agenda. Efeito:
+as migrations 20260717160000/180000 estavam APLICADAS no banco mas os arquivos
+sumiram do git, e o realtime da agenda + o icone/escopo de lembrete NAO estavam
+na main (agenda_screen na versao FutureBuilder). Producao funcionava, o git é que
+estava dessincronizado — e o db push travou por causa disso.
+
+Corrigido por cherry-pick dos dois commits (93b79f6 lembretes, 91959db realtime),
+resolvendo conflito de docs. **Licao**: conferir, apos mergear um PR, que os
+commits esperados entraram na main (git log origin/main) — um PR aberto num SHA
+antigo e atualizado depois pode nao levar tudo no merge.
