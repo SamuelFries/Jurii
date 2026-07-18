@@ -158,10 +158,12 @@ Deno.serve(async (request) => {
     return new Response("Method not allowed", { status: 405, headers: corsHeaders });
   }
 
-  // So o trigger (com a service_role key) chama esta funcao.
+  // So o trigger chama esta funcao. Autentica por um segredo dedicado (menor
+  // privilegio que a service_role key), compartilhado entre o Vault e o secret
+  // PUSH_HOOK_SECRET desta funcao.
   const auth = request.headers.get("Authorization") ?? "";
-  const expected = `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""}`;
-  if (auth !== expected || expected === "Bearer ") {
+  const hookSecret = Deno.env.get("PUSH_HOOK_SECRET") ?? "";
+  if (hookSecret === "" || auth !== `Bearer ${hookSecret}`) {
     return new Response("Unauthorized", { status: 401, headers: corsHeaders });
   }
 

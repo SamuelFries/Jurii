@@ -4,11 +4,11 @@
 -- send-push (via pg_net). Assim TODO tipo de notificacao (lembrete da agenda,
 -- recomendacao, mensagem) ganha push sem codigo extra em cada lugar.
 --
--- Configuracao vem do Vault (nao do git): a URL da funcao e a service_role key
--- ficam em vault.secrets, populados pelo Samuel em producao. Enquanto nao
--- estiverem la, o trigger e NO-OP — as notificacoes continuam sendo criadas
--- normalmente, so nao sai push. Isso deixa a fundacao segura para ir a prod
--- antes do Firebase existir.
+-- Configuracao vem do Vault (nao do git): a URL da funcao e um SEGREDO dedicado
+-- do webhook (push_hook_secret, tambem no secret PUSH_HOOK_SECRET da funcao)
+-- ficam em vault.secrets, populados em producao. Enquanto nao estiverem la, o
+-- trigger e NO-OP — as notificacoes continuam sendo criadas normalmente, so nao
+-- sai push. Isso deixa a fundacao segura para ir a prod antes do Firebase.
 
 create extension if not exists pg_net;
 
@@ -26,7 +26,7 @@ begin
   from vault.decrypted_secrets where name = 'push_hook_url';
 
   select decrypted_secret into service_key
-  from vault.decrypted_secrets where name = 'push_hook_service_key';
+  from vault.decrypted_secrets where name = 'push_hook_secret';
 
   -- Push ainda nao configurado (sem os secrets): nao faz nada e, sobretudo, nao
   -- impede a criacao da notificacao.
