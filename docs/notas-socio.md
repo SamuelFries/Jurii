@@ -1592,3 +1592,50 @@ Corrigido por cherry-pick dos dois commits (93b79f6 lembretes, 91959db realtime)
 resolvendo conflito de docs. **Licao**: conferir, apos mergear um PR, que os
 commits esperados entraram na main (git log origin/main) — um PR aberto num SHA
 antigo e atualizado depois pode nao levar tudo no merge.
+
+## Push - Fase 2: app (18/07/2026)
+
+Com o Firebase reconfigurado para br.com.jurii.app (Samuel rodou flutterfire
+configure: google-services.json, GoogleService-Info.plist, firebase_options.dart
+e firebase.json atualizados; config nativa — plugin gradle google-services no
+Android, plist no target iOS — feita pelo flutterfire), liguei o app ao FCM.
+
+### App
+
+- `PushTokenRepository`: register/unregister do token via as RPCs
+  register_push_token / unregister_push_token. No-op fora do Supabase.
+- `PushNotificationService`: apos o login, pede permissao, pega o token FCM e
+  registra (plataforma ios/android/web; outras ignoradas). Escuta onTokenRefresh
+  e re-registra. No logout (antes do signOut, enquanto ha auth.uid()) remove o
+  token. Tudo best-effort — nunca derruba login/logout se o push falhar. Token
+  nulo (ex.: iOS sem APNs) e tratado sem erro.
+- `firebaseMessagingBackgroundHandler` top-level (o SO exibe a notificacao do
+  payload automaticamente em background/app fechado).
+- `main`: Firebase.initializeApp no boot (best-effort, try-catch — se falhar, o
+  app abre sem push); registra o token ao concluir a sessao; remove no
+  logout e no delete de conta.
+- analysis_options ja excluia build/. analyze limpo, 107 testes verdes (3 novos
+  do PushTokenRepository; o service em si depende do FCM nativo, nao testavel em
+  unit — validacao real e em device).
+
+### Nao precisou de banco
+
+Todo o server-side (push_tokens, RPCs, trigger, send-push, secrets, Vault) ja
+estava em producao desde a rodada anterior. Esta fase e so app.
+
+### Estado do push agora
+
+- **Android**: funcional assim que rodar num device real (registra token ->
+  trigger -> send-push -> FCM). Falta so o teste em device.
+- **iOS**: NAO recebe ate ter APNs key (sem Apple Developer pago). O codigo ja
+  trata (getToken retorna null, nao registra, nao quebra). Liga quando a APNs
+  key for adicionada no Firebase.
+
+### Follow-ups (nao feitos)
+
+- Testar em device Android real (token -> push chegando).
+- Notificacao em FOREGROUND: hoje o SO so exibe em background/fechado; em
+  foreground o realtime do sino ja atualiza a UI, mas se quiser banner nativo em
+  foreground, precisa flutter_local_notifications.
+- Navegar ao tocar na notificacao (onMessageOpenedApp) — hoje so abre o app.
+- Housekeeping de tokens mortos (FCM UNREGISTERED) na send-push.
