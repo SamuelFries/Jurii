@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../data/mock/mock_appointments.dart';
 import '../models/appointment.dart';
@@ -26,7 +29,12 @@ class AgendaScreen extends StatefulWidget {
 }
 
 class _AgendaScreenState extends State<AgendaScreen> {
-  late Future<List<Appointment>> _appointmentsFuture;
+  // Estado explicito (em vez de FutureBuilder) para o realtime atualizar a lista
+  // sem piscar o skeleton a cada evento.
+  List<Appointment>? _appointments;
+  bool _loadFailed = false;
+  RealtimeChannel? _channel;
+  bool _hasSubscribedOnce = false;
 
   bool get _isLawyer => widget.role == AppointmentRole.lawyer;
 
@@ -37,29 +45,89 @@ class _AgendaScreenState extends State<AgendaScreen> {
   @override
   void initState() {
     super.initState();
-    _appointmentsFuture = _loadAppointments();
+    _load();
+    _subscribeToRealtime();
   }
 
-  Future<List<Appointment>> _loadAppointments() async {
-    final fallback = widget.role == AppointmentRole.lawyer
-        ? mockLawyerAppointments
-        : mockClientAppointments;
+  @override
+  void dispose() {
+    final channel = _channel;
+    if (channel != null && SupabaseConfig.isReady) {
+      SupabaseConfig.client.removeChannel(channel);
+    }
+    super.dispose();
+  }
 
+  Future<List<Appointment>> _fetchOrMock() {
     if (!SupabaseConfig.isReady ||
         SupabaseConfig.client.auth.currentUser == null) {
-      return fallback;
+      return Future.value(
+        _isLawyer ? mockLawyerAppointments : mockClientAppointments,
+      );
     }
+    return widget.repository.fetchAppointments(widget.role);
+  }
 
+  Future<void> _load() async {
+    setState(() => _loadFailed = false);
     try {
-      return await widget.repository.fetchAppointments(widget.role);
+      final list = await _fetchOrMock();
+      if (!mounted) return;
+      setState(() => _appointments = list);
     } catch (error) {
       debugPrint('Supabase appointments fetch failed: $error');
-      rethrow;
+      if (!mounted) return;
+      // Só vira tela de erro se nunca carregou; com dados na tela, mantém.
+      setState(() => _loadFailed = _appointments == null);
     }
   }
 
-  void _reload() {
-    setState(() => _appointmentsFuture = _loadAppointments());
+  /// Recarrega mantendo a lista atual visível (sem skeleton). Usado pelo
+  /// realtime e depois de criar/editar/cancelar.
+  Future<void> _reloadSilently() async {
+    try {
+      final list = await _fetchOrMock();
+      if (!mounted) return;
+      setState(() {
+        _appointments = list;
+        _loadFailed = false;
+      });
+    } catch (error) {
+      debugPrint('Supabase appointments reload failed: $error');
+    }
+  }
+
+  void _subscribeToRealtime() {
+    final userId = SupabaseConfig.isReady
+        ? SupabaseConfig.client.auth.currentUser?.id
+        : null;
+    if (userId == null) return;
+
+    // RLS ja restringe as linhas ao usuario; o filtro por coluna corta o
+    // trafego para so o que interessa nesta agenda (advogado x cliente).
+    final column = _isLawyer ? 'lawyer_id' : 'client_id';
+
+    _channel = SupabaseConfig.client
+        .channel('agenda_appointments:$userId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'appointments',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: column,
+            value: userId,
+          ),
+          callback: (_) => unawaited(_reloadSilently()),
+        )
+        .subscribe((status, [error]) {
+          // Reassinou depois de uma queda: refaz o fetch para não perder o que
+          // mudou enquanto o canal esteve fora.
+          if (status == RealtimeSubscribeStatus.subscribed) {
+            if (_hasSubscribedOnce) unawaited(_reloadSilently());
+            _hasSubscribedOnce = true;
+          }
+        });
   }
 
   Future<void> _createAppointment() async {
@@ -76,7 +144,7 @@ class _AgendaScreenState extends State<AgendaScreen> {
       );
       if (!mounted) return;
       _showSnack('Compromisso criado.');
-      _reload();
+      _reloadSilently();
     } catch (error) {
       if (!mounted) return;
       _showSnack(_friendlyError(error));
@@ -98,7 +166,7 @@ class _AgendaScreenState extends State<AgendaScreen> {
       );
       if (!mounted) return;
       _showSnack('Compromisso atualizado.');
-      _reload();
+      _reloadSilently();
     } catch (error) {
       if (!mounted) return;
       _showSnack(_friendlyError(error));
@@ -133,7 +201,7 @@ class _AgendaScreenState extends State<AgendaScreen> {
       await widget.repository.cancelAppointment(appointment.id);
       if (!mounted) return;
       _showSnack('Compromisso cancelado.');
-      _reload();
+      _reloadSilently();
     } catch (error) {
       if (!mounted) return;
       _showSnack(_friendlyError(error));
@@ -226,69 +294,79 @@ class _AgendaScreenState extends State<AgendaScreen> {
             )
           : null,
       body: SafeArea(
-        child: FutureBuilder<List<Appointment>>(
-          future: _appointmentsFuture,
-          builder: (context, snapshot) {
-            final appointments = snapshot.data;
-
-            return ListView(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
-              children: [
-                _AgendaHero(isLawyer: _isLawyer),
-                const SizedBox(height: 20),
-                const _DateSelector(),
-                const SizedBox(height: 24),
-                Text(
-                  _isLawyer ? 'Compromissos profissionais' : 'Seus compromissos',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const SizedBox(height: 12),
-                if (snapshot.connectionState == ConnectionState.waiting &&
-                    appointments == null)
-                  const JuriiSkeletonList(itemCount: 3, itemHeight: 112)
-                else if (snapshot.hasError && appointments == null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 16),
-                    child: Column(
-                      children: [
-                        Text(
-                          'Não foi possível carregar seus compromissos.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: colors.textSecondary,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        OutlinedButton(
-                          onPressed: _reload,
-                          child: const Text('Tentar novamente'),
-                        ),
-                      ],
-                    ),
-                  )
-                else if (appointments == null || appointments.isEmpty)
-                  _EmptyAgendaState(isLawyer: _isLawyer)
-                else
-                  for (var index = 0; index < appointments.length; index++) ...[
-                    JuriiStaggeredItem(
-                      index: index,
-                      child: _AppointmentCard(
-                        appointment: appointments[index],
-                        onTap: _canManage && appointments[index].isEditable
-                            ? () => _showActions(appointments[index])
-                            : null,
-                      ),
-                    ),
-                    if (index < appointments.length - 1)
-                      const SizedBox(height: 12),
-                  ],
-              ],
-            );
-          },
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
+          children: [
+            _AgendaHero(isLawyer: _isLawyer),
+            const SizedBox(height: 20),
+            const _DateSelector(),
+            const SizedBox(height: 24),
+            Text(
+              _isLawyer ? 'Compromissos profissionais' : 'Seus compromissos',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 12),
+            ..._buildList(colors),
+          ],
         ),
       ),
     );
+  }
+
+  List<Widget> _buildList(AppColors colors) {
+    final appointments = _appointments;
+
+    if (appointments == null && !_loadFailed) {
+      return const [JuriiSkeletonList(itemCount: 3, itemHeight: 112)];
+    }
+
+    if (_loadFailed && appointments == null) {
+      return [
+        Padding(
+          padding: const EdgeInsets.only(top: 16),
+          child: Column(
+            children: [
+              Text(
+                'Não foi possível carregar seus compromissos.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: colors.textSecondary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton(
+                onPressed: _load,
+                child: const Text('Tentar novamente'),
+              ),
+            ],
+          ),
+        ),
+      ];
+    }
+
+    if (appointments == null || appointments.isEmpty) {
+      return [_EmptyAgendaState(isLawyer: _isLawyer)];
+    }
+
+    final widgets = <Widget>[];
+    for (var index = 0; index < appointments.length; index++) {
+      widgets.add(
+        JuriiStaggeredItem(
+          index: index,
+          child: _AppointmentCard(
+            appointment: appointments[index],
+            onTap: _canManage && appointments[index].isEditable
+                ? () => _showActions(appointments[index])
+                : null,
+          ),
+        ),
+      );
+      if (index < appointments.length - 1) {
+        widgets.add(const SizedBox(height: 12));
+      }
+    }
+    return widgets;
   }
 }
 

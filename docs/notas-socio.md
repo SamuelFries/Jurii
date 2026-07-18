@@ -1374,6 +1374,92 @@ STATUS:CANCELLED corretos; token aleatorio -> 404; sem token -> 400.
 - **Sync bidirecional (Google API)**: so se double-booking com agenda externa
   virar dor real.
 
+## Agenda Fase 3 — lembretes de compromisso (17/07/2026)
+
+O advogado e avisado ~1h antes de um compromisso, no sino do app. Sem push ainda
+(frente separada), entao o disparo e SERVER-SIDE: lembrete calculado no cliente
+so apareceria com o app aberto — inutil. Um job pg_cron roda a cada 10 min, acha
+os compromissos proximos ainda nao lembrados e cria a notificacao; ela ja espera
+no sino quando o advogado abre o app. Quando push existir, o mesmo job dispara o
+push tambem.
+
+### Banco (migration `20260717160000_appointment_reminders.sql`)
+
+- Coluna `reminder_sent_at` em appointments (marca de "ja lembrado").
+- `dispatch_appointment_reminders()`: compromissos confirmados que comecam na
+  proxima 1h e ainda nao lembrados. Numa passada so, marca `reminder_sent_at` E
+  cria a notificacao no MESMO statement (data-modifying CTEs, mesmo snapshot) —
+  sem janela para lembrar duas vezes nem marcar sem notificar. Retorna quantos.
+- **Escopo**: `appointment_reminder` declarado como 'lawyer' em
+  `infer_notification_scope`. MESMA armadilha das rodadas anteriores — sem isso o
+  lembrete cairia no sino do cliente e o advogado nunca o veria.
+- `pg_cron` habilitado + `cron.schedule('appointment-reminders', '*/10 * * * *',
+  ...)`. cron.schedule faz upsert por nome (reaplicar nao duplica o job).
+- Body do lembrete no fuso America/Sao_Paulo, com o local quando houver.
+
+Testado no Docker: 4 compromissos (30min / 2h / ja passou / cancelado). So o de
+30min gerou lembrete, no escopo lawyer, com horario e local certos; a 2a passada
+retornou 0 (dedup); o cron job aparece em cron.job com o schedule correto.
+
+### App
+
+- Icone `event_available_outlined` para `appointment_reminder` no sino. O
+  lembrete e uma notificacao comum (o NotificationRepository ja busca por escopo
+  lawyer), entao nao precisou de UI nova. 104 testes verdes, analyze limpo.
+
+### Deploy (pendente) — ATENCAO ao pg_cron
+
+- Migration `20260717160000` NAO empurrada.
+- **Risco especifico**: `create extension pg_cron` em producao pode exigir
+  habilitar a extensao ANTES pelo dashboard (Database > Extensions) — nem todo
+  projeto Supabase deixa criar pg_cron so por SQL. Se o push falhar nessa linha,
+  habilitar no dashboard e reempurrar. Verificar tambem se o job aparece em
+  `cron.job` no remoto apos o push (o cron so roda no database `postgres`).
+
+### Frentes seguintes
+
+- **Push** (a que fecha o ciclo): hoje o lembrete so aparece quando o advogado
+  abre o app. Push (FCM/APNs) e o que avisa de fato. O job ja esta pronto para
+  disparar o push junto quando essa frente existir.
+- Antecedencia configuravel (hoje 1h fixo) e lembrete tambem para o cliente.
+- Tornar a notificacao clicavel para abrir a agenda.
+
+## Agenda em tempo real (17/07/2026)
+
+A agenda passa a se atualizar sozinha via Supabase Realtime — outro dispositivo
+do advogado, ou um compromisso criado/editado/cancelado, aparecem sem recarregar.
+
+### Banco (migration `20260717180000_appointments_realtime.sql`)
+
+- Publica `public.appointments` na publication `supabase_realtime` (padrao
+  idempotente da baseline, o mesmo de messages/notifications).
+- **Seguranca**: o Realtime respeita RLS. A policy de SELECT ja limita a
+  `client_id = auth.uid() or lawyer_id = auth.uid()`, entao cada usuario so
+  recebe eventos dos proprios compromissos — nao vaza agenda alheia.
+
+### App
+
+- `AgendaScreen` deixou de usar FutureBuilder e passou a ter estado explicito
+  (`_appointments`), para o realtime atualizar a lista SEM piscar o skeleton a
+  cada evento (era o motivo da refatoracao).
+- Assina um canal `agenda_appointments:<uid>` com `PostgresChangeEvent.all`,
+  filtrado por `lawyer_id` (advogado) ou `client_id` (cliente). Qualquer
+  insert/update/delete dispara um refetch silencioso (mantem a lista atual na
+  tela ate a nova chegar). Cancelar e soft-delete (UPDATE), entao chega como
+  update e o refetch tira o cancelado (o fetch ja filtra).
+- Reconexao: ao reassinar depois de uma queda, refaz o fetch (nao perde o que
+  mudou offline) — mesmo padrao do chat.
+- Dispose remove o canal.
+
+Testado: publication contem appointments (Docker); 104 testes verdes; analyze
+limpo. O comportamento realtime em si (dois clientes) e teste manual — nao da
+para cobrir em widget test sem servidor.
+
+### Nota
+
+`notifications` JA esta na publication realtime (desde a baseline). Entao o sino
+em tempo real — incluindo os lembretes da Fase 3 chegando ao vivo — e uma
+extensao facil (assinar notifications como a agenda faz), se virar prioridade.
 ## Sino em tempo real — lista aberta (17/07/2026)
 
 O BADGE do sino ja era realtime (o NotificationBell ja assinava notifications).
@@ -1392,3 +1478,117 @@ Agora o `_NotificationSheet` tambem assina realtime.
 `notifications` ja estava na publication realtime desde a baseline — nao precisou
 de migration, so app. analyze limpo, 104 testes verdes. O comportamento ao vivo
 (painel aberto recebendo evento) e teste manual, como os outros realtimes.
+
+## Notificacoes push - fundacao server-side (18/07/2026)
+
+Push e o que faz o lembrete da agenda e a recomendacao CHEGAREM sem o app aberto.
+Depende de um projeto Firebase (FCM) que so o Samuel provê; esta rodada entrega
+tudo que NAO depende do Firebase, testado, esperando as credenciais.
+
+Decisao (Samuel, 18/07): fazer a fundacao server-side agora; app + config nativa
+quando o Firebase existir.
+
+### Banco
+
+- `20260718120000_push_tokens.sql`: tabela `push_tokens` (profile_id, token
+  UNICO, platform) + RPCs `register_push_token` / `unregister_push_token`
+  (authenticated) + `fetch_push_tokens_for_recipient` (service_role only). RLS
+  ligado SEM policy — tudo por RPC. **Token e unico**: se o aparelho troca de
+  conta, o token e reatribuido ao novo dono (senao o push de um vazaria pro
+  outro). Testado no Docker (8 cenarios: registrar, reatribuir, remover so o
+  proprio, platform invalida, service_role lê, authenticated barrado).
+- `20260718140000_push_dispatch_trigger.sql`: trigger AFTER INSERT em
+  `notifications` chama a Edge Function send-push via pg_net. **Central**: todo
+  tipo de notificacao ganha push sem codigo extra. URL e service_role key vêm do
+  **Vault** (nao do git). **NO-OP se o Vault nao tiver os secrets** — as
+  notificacoes continuam sendo criadas normalmente, so nao sai push. Isso deixa
+  a fundacao segura em prod antes do Firebase. Testado: vault vazio nao quebra o
+  insert; vault populado enfileira o http_post sem bloquear.
+
+### Edge Function `send-push` (verify_jwt=false)
+
+Recebe a notificacao (do trigger), busca os tokens do destinatario e envia via
+FCM HTTP v1. Gera o OAuth token da service account com Web Crypto (RS256), sem
+libs. Auth: compara o bearer com a service_role key. Sem FCM_SERVICE_ACCOUNT
+responde 503 (esperado ate o Firebase existir). Escrita e pronta; o envio real
+so valida com credenciais.
+
+### CHECKLIST DO SAMUEL para ligar o push (Fase 2)
+
+Nada disso da pra eu fazer — precisa das suas contas:
+
+1. **Criar projeto no Firebase Console** (https://console.firebase.google.com).
+2. **Android**: baixar `google-services.json` -> `android/app/`.
+3. **iOS**: baixar `GoogleService-Info.plist` -> `ios/Runner/`; criar uma **APNs
+   Authentication Key** no Apple Developer e subir no Firebase (Project Settings
+   > Cloud Messaging). Sem a APNs key, iOS NAO recebe push.
+4. **Service account**: Firebase Console > Project Settings > Service accounts >
+   Generate new private key (JSON).
+5. **Deploy da funcao**: `supabase functions deploy send-push` e setar o secret:
+   `supabase secrets set FCM_SERVICE_ACCOUNT="$(cat service-account.json)"`.
+6. **Popular o Vault** (em prod, via SQL Editor — NUNCA no git):
+   `select vault.create_secret('https://<ref>.supabase.co/functions/v1/send-push','push_hook_url');`
+   `select vault.create_secret('<SERVICE_ROLE_KEY>','push_hook_service_key');`
+7. Me avisar: eu faco a Fase 2 do app (firebase_messaging: permissao, registro
+   do token via register_push_token, handlers de mensagem) + a config nativa.
+
+Quando 1-6 estiverem prontos, o push ja comeca a sair para QUALQUER notificacao
+(o trigger dispara), mesmo antes do app registrar tokens — bastando haver tokens.
+O app (passo 7) e o que popula os tokens.
+
+### Fora de escopo (fase 2+)
+
+- App: firebase_messaging + permissao + register/unregister no login/logout.
+- Config nativa iOS (entitlements, background modes) e Android.
+- Housekeeping: remover token quando o FCM responde UNREGISTERED (hoje so loga).
+
+## Push - server-side ATIVADO em producao (18/07/2026)
+
+O Samuel criou o projeto Firebase (jurii-push), gerou a service account e
+adicionou firebase_core + firebase_messaging ao pubspec. Com isso, configurei
+TODO o server-side em producao. **Sem Apple Developer pago, iOS nao recebe push
+por enquanto (sem APNs key); Android funciona sem APNs.** Fica pronto para o iOS
+ligar sozinho no dia que tiver a APNs.
+
+### O que ESTA em producao (verificado)
+
+- Migrations 20260718120000 (push_tokens) + 20260718140000 (trigger) aplicadas.
+  Objetos conferidos: tabela, RPCs, grants (service_role lê tokens, authenticated
+  nao), pg_net, trigger notifications_push_dispatch.
+- Edge Function send-push deployada. Smoke test: sem segredo -> 401 (auth ok).
+- Secrets: FCM_SERVICE_ACCOUNT (do JSON da service account, NUNCA commitado — lido
+  por caminho absoluto fora do repo) + PUSH_HOOK_SECRET (segredo dedicado gerado).
+- Vault: push_hook_url + push_hook_secret populados -> **trigger ATIVO**. Toda
+  notificacao criada ja chama a send-push. Sem tokens ainda, ela retorna sent:0
+  (nao ha app registrando tokens). Quando a Fase 2 do app entrar, o push sai
+  sozinho (Android).
+
+Ajuste de seguranca desta rodada: o webhook autentica por um segredo dedicado
+(PUSH_HOOK_SECRET / vault push_hook_secret), nao pela service_role key — menor
+privilegio, e nao precisei extrair a service_role key de producao.
+
+### O que FALTA (Fase 2, precisa do Samuel + de mim)
+
+- **google-services.json** (Android) -> `android/app/`. O Samuel baixa do Firebase
+  Console. Sem ele o app Android nao inicializa o Firebase.
+- **APNs key** (iOS) -> so quando tiver Apple Developer pago. Sem ela, iOS nao
+  recebe push (mas nao quebra nada; o FCM so falha para tokens iOS e a send-push
+  loga).
+- **Codigo do app (eu faco quando tiver o google-services.json)**: inicializar o
+  Firebase no boot, pedir permissao de notificacao, registrar o token via
+  register_push_token no login e remover no logout, tratar mensagens recebidas.
+- GoogleService-Info.plist (iOS) fica para junto da APNs.
+
+### INCIDENTE corrigido nesta rodada: merge do PR #57 perdeu 2 commits
+
+O merge do PR #57 (agenda) NAO levou para a main os commits c0b0643 (lembretes)
+e 0161c5a (realtime da agenda) — eles ficaram so em origin/feat/agenda. Efeito:
+as migrations 20260717160000/180000 estavam APLICADAS no banco mas os arquivos
+sumiram do git, e o realtime da agenda + o icone/escopo de lembrete NAO estavam
+na main (agenda_screen na versao FutureBuilder). Producao funcionava, o git é que
+estava dessincronizado — e o db push travou por causa disso.
+
+Corrigido por cherry-pick dos dois commits (93b79f6 lembretes, 91959db realtime),
+resolvendo conflito de docs. **Licao**: conferir, apos mergear um PR, que os
+commits esperados entraram na main (git log origin/main) — um PR aberto num SHA
+antigo e atualizado depois pode nao levar tudo no merge.

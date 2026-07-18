@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "927486469276",
+    "project_id": "jurii-push",
+    "storage_bucket": "jurii-push.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:927486469276:android:105e427b12aa7d745fb959",
+        "android_client_info": {
+          "package_name": "com.example.jurii"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBaUEyf5pSCXEW9qK4zRnaZNt6pRc0wefU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
