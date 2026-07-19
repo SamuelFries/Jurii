@@ -1,6 +1,9 @@
 type JsonBody = Record<string, unknown>;
 
-type StorageBucket = "verification-documents" | "profile-avatars";
+type StorageBucket =
+  | "verification-documents"
+  | "profile-avatars"
+  | "law-firm-avatars";
 
 type StorageSummary = Record<
   StorageBucket,
@@ -53,6 +56,7 @@ const corsHeaders = {
 const sensitiveBuckets = [
   "verification-documents",
   "profile-avatars",
+  "law-firm-avatars",
 ] as const;
 
 Deno.serve(async (request) => {
@@ -228,8 +232,13 @@ async function deleteSensitiveStorage(
   const summary = {} as StorageSummary;
 
   for (const bucket of sensitiveBuckets) {
-    const folderPaths = (await listBucketPaths(env, bucket, userId))
-      .filter((path) => isOwnedStoragePath(userId, path));
+    // O avatar de um escritorio aprovado pertence a organizacao, nao mais a
+    // conta que iniciou a verificacao. Por isso este bucket nao sofre varredura
+    // por pasta: a RPC devolve apenas os objetos de verificacoes nao aprovadas.
+    const folderPaths = bucket === "law-firm-avatars"
+      ? []
+      : (await listBucketPaths(env, bucket, userId))
+        .filter((path) => isOwnedStoragePath(userId, path));
     const paths = new Set<string>([
       ...(dbPaths[bucket] ?? []),
       ...folderPaths,
@@ -269,6 +278,7 @@ async function collectDatabaseStoragePaths(
   const paths: Record<StorageBucket, Set<string>> = {
     "verification-documents": new Set<string>(),
     "profile-avatars": new Set<string>(),
+    "law-firm-avatars": new Set<string>(),
   };
 
   const rows = await supabaseFetch<AccountStoragePathRow[]>(
@@ -297,11 +307,14 @@ async function collectDatabaseStoragePaths(
   return {
     "verification-documents": [...paths["verification-documents"]],
     "profile-avatars": [...paths["profile-avatars"]],
+    "law-firm-avatars": [...paths["law-firm-avatars"]],
   };
 }
 
 function isStorageBucket(value: unknown): value is StorageBucket {
-  return value === "verification-documents" || value === "profile-avatars";
+  return value === "verification-documents" ||
+    value === "profile-avatars" ||
+    value === "law-firm-avatars";
 }
 
 function decodeStoragePath(value: unknown): unknown {

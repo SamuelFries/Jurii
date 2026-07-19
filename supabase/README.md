@@ -100,11 +100,12 @@ acesso a PII. Ela recria `fetch_recommended_lawyers()`,
 grants são restaurados somente para `authenticated`; `anon` permanece sem
 `EXECUTE`.
 
-Para conversas, a URL devolvida pertence à contraparte individual. Cliente com
-escritório e chat interno de equipe retornam `NULL`, já que o modelo de
-`law_firms` ainda não possui logo e a conversa pode reunir vários remetentes.
-O teste `supabase/tests/profile_avatar_surfaces_test.sql` cobre grants e os dois
-lados de uma conversa cliente-advogado com rollback.
+Na migration `20260718180000`, a URL devolvida pertencia apenas à contraparte
+individual. Cliente com escritório e chat interno de equipe retornavam `NULL`,
+porque `law_firms` ainda não possuía foto própria. O teste
+`supabase/tests/profile_avatar_surfaces_test.sql` cobre grants e os dois lados
+de uma conversa cliente-advogado com rollback; a migration corporativa descrita
+abaixo passa a preencher apenas o ramo cliente-escritório.
 
 A mesma migration neutraliza `avatar_url` legado: o helper interno
 `safe_profile_avatar_url()` aceita somente caminho da pasta do titular com
@@ -116,6 +117,38 @@ URL externa sem objeto local é descartada e usa o fallback de iniciais.
 Em 18/07/2026, `supabase db push --linked` aplicou
 `20260718180000_profile_avatar_surfaces.sql` no projeto remoto e
 `supabase migration list --linked` confirmou o histórico sincronizado.
+
+A migration seguinte,
+`20260718200000_law_firm_profile_avatar.sql`, adiciona a foto publica e opcional
+do escritorio. Ela cria o bucket dedicado `law-firm-avatars`, as colunas
+nullable `law_firm_verifications.avatar_storage_path` e
+`law_firms.avatar_url`, e a RPC autenticada
+`set_current_law_firm_verification_avatar()`. O caminho precisa seguir
+`{auth.uid()}/{verificationId}/{arquivo}`, apontar para um objeto real e
+pertencer a uma verificacao rascunho/pendente do titular. A aprovacao
+administrativa valida a referencia novamente antes de publicar a URL relativa
+no escritorio; sem foto, o fluxo continua inalterado e a UI usa iniciais.
+
+`fetch_recommended_law_firms()` e as RPCs de conversa passam a devolver esse
+avatar quando o cliente esta vendo um escritorio. O bucket e separado de
+`profile-avatars` para que a exclusao da conta do responsavel nao remova a marca
+de uma organizacao ja aprovada. `get_account_deletion_storage_paths()` inclui
+somente imagens de verificacoes ainda nao aprovadas, e a Edge Function nao faz
+folder sweep em `law-firm-avatars`.
+
+A mesma migration revoga `INSERT/UPDATE` amplo em
+`law_firm_verifications`: `authenticated` so recebe as colunas do formulario;
+vinculo com escritorio, caminho do avatar e campos de revisao ficam reservados
+as RPCs apropriadas. A foto e publica por natureza e, no app, o usuario e
+informado disso antes de escolher o arquivo.
+
+Em 18/07/2026, `supabase db push --linked` aplicou `20260718200000` no projeto
+remoto e `supabase migration list --linked` confirmou o historico sincronizado.
+A Edge Function `delete-account` foi publicada em seguida na versao 4 e ficou
+`ACTIVE`, evitando incompatibilidade entre a nova resposta da RPC de limpeza e
+o conjunto de buckets reconhecido pela Function. Localmente, o pgTAP focado
+passou com 39/39 assercoes, a suite completa com 156/156 e o lint do schema
+publico nao encontrou erros.
 
 Para registrar apenas o histórico da migration no remoto atual:
 

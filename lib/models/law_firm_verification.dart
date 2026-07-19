@@ -5,6 +5,7 @@ class LawFirmVerification {
   final String? id;
   final String ownerProfileId;
   final String? lawFirmId;
+  final String? avatarStoragePath;
   final String firmName;
   final String cnpj;
   final String phone;
@@ -21,6 +22,7 @@ class LawFirmVerification {
     this.id,
     required this.ownerProfileId,
     this.lawFirmId,
+    this.avatarStoragePath,
     required this.firmName,
     required this.cnpj,
     required this.phone,
@@ -38,6 +40,7 @@ class LawFirmVerification {
     String? id,
     String? ownerProfileId,
     String? lawFirmId,
+    String? avatarStoragePath,
     String? firmName,
     String? cnpj,
     String? phone,
@@ -54,6 +57,7 @@ class LawFirmVerification {
       id: id ?? this.id,
       ownerProfileId: ownerProfileId ?? this.ownerProfileId,
       lawFirmId: lawFirmId ?? this.lawFirmId,
+      avatarStoragePath: avatarStoragePath ?? this.avatarStoragePath,
       firmName: firmName ?? this.firmName,
       cnpj: cnpj ?? this.cnpj,
       phone: phone ?? this.phone,

@@ -39,6 +39,7 @@ class LawFirmVerificationRepository {
     required List<String> practiceAreas,
     required List<LawFirmVerificationDocument> documents,
     List<PendingVerificationUpload> uploads = const [],
+    PendingVerificationUpload? profilePhoto,
   }) async {
     final user = SupabaseConfig.client.auth.currentUser;
     if (user == null) {
@@ -89,9 +90,18 @@ class LawFirmVerificationRepository {
       );
     }
 
+    final avatarStoragePath = verificationId == null || profilePhoto == null
+        ? null
+        : await _persistProfilePhoto(
+            ownerProfileId: user.id,
+            verificationId: verificationId,
+            profilePhoto: profilePhoto,
+          );
+
     return LawFirmVerification(
       id: verificationId,
       ownerProfileId: user.id,
+      avatarStoragePath: avatarStoragePath,
       firmName: firmName,
       cnpj: cnpj,
       phone: phone,
@@ -101,6 +111,34 @@ class LawFirmVerificationRepository {
       documents: documents,
       status: LawFirmVerificationStatus.pending,
     );
+  }
+
+  Future<String> _persistProfilePhoto({
+    required String ownerProfileId,
+    required String verificationId,
+    required PendingVerificationUpload profilePhoto,
+  }) async {
+    String? uploadedPath;
+    try {
+      uploadedPath = await documentStorage.uploadLawFirmAvatar(
+        userId: ownerProfileId,
+        verificationId: verificationId,
+        file: profilePhoto,
+      );
+      await SupabaseConfig.client.rpc(
+        'set_current_law_firm_verification_avatar',
+        params: {
+          'verification_id_value': verificationId,
+          'storage_path_value': uploadedPath,
+        },
+      );
+      return uploadedPath;
+    } catch (_) {
+      if (uploadedPath != null) {
+        await documentStorage.removeLawFirmAvatar(uploadedPath);
+      }
+      rethrow;
+    }
   }
 
   /// Sobe cada documento ao Storage e grava a linha em
@@ -142,6 +180,7 @@ class LawFirmVerificationRepository {
       id: row['id'] as String?,
       ownerProfileId: row['owner_profile_id'] as String,
       lawFirmId: row['law_firm_id'] as String?,
+      avatarStoragePath: row['avatar_storage_path'] as String?,
       firmName: row['firm_name'] as String? ?? 'Escritório',
       cnpj: row['cnpj'] as String? ?? '',
       phone: row['phone'] as String? ?? '',

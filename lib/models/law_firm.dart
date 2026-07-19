@@ -8,6 +8,7 @@ class LawFirm {
   final List<String> practiceAreas;
   final int reviews;
   final String avatarType;
+  final String? avatarUrl;
   final String? description;
   final String? phone;
   final String? email;
@@ -24,6 +25,7 @@ class LawFirm {
     required this.practiceAreas,
     required this.reviews,
     required this.avatarType,
+    this.avatarUrl,
     this.description,
     this.phone,
     this.email,

@@ -155,13 +155,14 @@ conversas do usuário atual. Os contratos continuam sem expor CPF e telefone; a
 RPC do mini perfil mantém o e-mail vazio. `anon` continua sem `EXECUTE` nessas
 funções.
 
-O avatar de uma conversa é sempre o da contraparte individual: advogado para o
-cliente e cliente para advogado/escritório. A resposta é nula em conversa com
-escritório e no canal interno da equipe, evitando atribuir a foto de um único
-funcionário a uma organização ou a vários remetentes. Pelo mesmo motivo, as
-bolhas de mensagem continuam sem foto até existir resolução segura por
-`sender_id`. O app usa iniciais como fallback para URL ausente, carregando ou
-inválida.
+Na migration `20260718180000`, o avatar de uma conversa era apenas o da
+contraparte individual: advogado para o cliente e cliente para
+advogado/escritório. A resposta ainda era nula em conversa com escritório e no
+canal interno da equipe, evitando atribuir a foto de um funcionário à
+organização. A migration corporativa descrita abaixo passa a preencher somente
+o ramo cliente-escritório com a foto própria da organização. As bolhas de
+mensagem continuam sem foto até existir resolução segura por `sender_id`, e o
+app mantém iniciais como fallback para URL ausente, carregando ou inválida.
 
 Como existia escrita direta antes da migration de customização, URLs legadas
 podiam apontar para hosts externos. A migration de superfícies normaliza todas
@@ -175,6 +176,49 @@ requisição de rastreamento para host arbitrário mesmo em metadado legado.
 Em 18/07/2026, a migration foi aplicada ao projeto remoto e a conferência por
 `supabase migration list --linked` mostrou `20260718180000` presente tanto no
 histórico local quanto no remoto.
+
+## Avatar publico e opcional do escritorio
+
+A foto pedida na verificacao do escritorio nao e comprovante e nao e
+obrigatoria. Ela nao entra no bucket privado `verification-documents` nem no
+bucket pessoal `profile-avatars`: a migration
+`20260718200000_law_firm_profile_avatar.sql` usa o bucket publico dedicado
+`law-firm-avatars`, com MIME restrito a JPEG/PNG/WEBP e limite de 10 MB. O app
+aplica um limite menor de 5 MB e valida os magic bytes antes do upload.
+
+O namespace obrigatorio e
+`{auth.uid()}/{verificationId}/{arquivo}`. A policy de `INSERT` exige que o
+segundo segmento identifique uma verificacao rascunho/pendente do proprio
+usuario. Nao existe `UPDATE` de objeto. O `DELETE` autenticado fica limitado a
+verificacoes ainda nao aprovadas, evitando que o antigo responsavel apague o
+avatar de uma organizacao ja validada.
+
+O caminho tambem nao possui escrita direta na tabela. A RPC
+`set_current_law_firm_verification_avatar()` trava a verificacao, confirma
+titularidade/status, valida formato e existencia do objeto e so entao preenche
+`avatar_storage_path`. Na aprovacao, a referencia e validada outra vez e a URL
+relativa e copiada para `law_firms.avatar_url`; URL externa escolhida pelo
+cliente nao e aceita. Ausencia da foto deixa ambas as colunas nulas e preserva o
+fallback por iniciais.
+
+As RPCs de recomendacao e conversa expõem somente esse avatar corporativo
+validado. A conversa cliente-escritorio recebe a foto da organizacao; o lado do
+escritorio continua recebendo o avatar do cliente e o canal interno da equipe
+continua sem um avatar geral incorreto.
+
+A migration tambem fecha um privilegio anterior em
+`law_firm_verifications`: `authenticated` perde `INSERT/UPDATE` amplo e recebe
+somente as colunas do formulario. `law_firm_id`, `avatar_storage_path`, revisor,
+datas e motivo de recusa nao podem ser forjados pelo app. A rotina LGPD passa a
+devolver fotos corporativas somente para verificacoes nao aprovadas. A Edge
+Function apaga exatamente esses caminhos e nao varre a pasta corporativa, de
+modo que o avatar de um escritorio aprovado sobrevive a transferencia do dono.
+
+Em 18/07/2026, a migration foi aplicada no projeto remoto e o historico
+local/remoto confirmou `20260718200000`. A Edge Function `delete-account` foi
+publicada na versao 4 e ficou `ACTIVE`. A validacao local passou com 39/39
+assercoes pgTAP focadas, 156/156 na suite completa e lint do schema publico sem
+erros.
 
 ## Implementado e aplicado na migration de hardening 2 (14/07/2026)
 

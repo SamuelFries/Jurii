@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
 import 'jurii_list_card.dart';
+import 'profile_avatar.dart';
 
 class OfficeCard extends StatelessWidget {
   final String initials;
@@ -11,6 +12,7 @@ class OfficeCard extends StatelessWidget {
   final String specialty;
   final int reviews;
   final String avatarType;
+  final String? avatarUrl;
   final VoidCallback? onTap;
 
   const OfficeCard({
@@ -22,6 +24,7 @@ class OfficeCard extends StatelessWidget {
     required this.specialty,
     required this.reviews,
     required this.avatarType,
+    this.avatarUrl,
     this.onTap,
   });
 
@@ -44,23 +47,15 @@ class OfficeCard extends StatelessWidget {
       semanticLabel: officeName,
       child: Row(
         children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: _avatarColor(colors),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Center(
-              child: Text(
-                initials,
-                style: TextStyle(
-                  color: _avatarTextColor(colors),
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
-              ),
-            ),
+          ProfileAvatar(
+            imageUrl: avatarUrl,
+            initials: initials,
+            size: 48,
+            backgroundColor: _avatarColor(colors),
+            foregroundColor: _avatarTextColor(colors),
+            borderRadius: BorderRadius.circular(12),
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
           ),
           const SizedBox(width: 12),
           Expanded(

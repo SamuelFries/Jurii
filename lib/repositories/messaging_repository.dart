@@ -449,6 +449,7 @@ class MessagingRepository {
   Conversation _fallbackLawFirmConversation(LawFirm lawFirm) {
     return Conversation(
       initials: lawFirm.initials,
+      avatarUrl: lawFirm.avatarUrl,
       officeName: lawFirm.name,
       specialty: lawFirm.specialty,
       lastMessage: 'Conversa iniciada.',

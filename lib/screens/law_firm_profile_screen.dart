@@ -5,6 +5,7 @@ import '../models/law_firm.dart';
 import '../repositories/messaging_repository.dart';
 import '../repositories/review_repository.dart';
 import '../theme/app_colors.dart';
+import '../widgets/profile_avatar.dart';
 import '../widgets/reviews_panel.dart';
 import 'chat_screen.dart';
 
@@ -89,23 +90,14 @@ class _LawFirmProfileScreenState extends State<LawFirmProfileScreen> {
                 children: [
                   Row(
                     children: [
-                      Container(
-                        width: 64,
-                        height: 64,
-                        decoration: BoxDecoration(
-                          color: _avatarColor(colors),
-                          borderRadius: BorderRadius.circular(18),
-                        ),
-                        child: Center(
-                          child: Text(
-                            widget.lawFirm.initials,
-                            style: TextStyle(
-                              color: _avatarTextColor(colors),
-                              fontSize: 20,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                        ),
+                      ProfileAvatar(
+                        imageUrl: widget.lawFirm.avatarUrl,
+                        initials: widget.lawFirm.initials,
+                        size: 64,
+                        backgroundColor: _avatarColor(colors),
+                        foregroundColor: _avatarTextColor(colors),
+                        borderRadius: BorderRadius.circular(18),
+                        fontSize: 20,
                       ),
                       const SizedBox(width: 14),
                       Expanded(
