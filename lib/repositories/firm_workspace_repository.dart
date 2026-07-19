@@ -240,6 +240,7 @@ class FirmWorkspaceRepository {
       practiceAreas: verification.practiceAreas,
       reviews: 0,
       avatarType: 'purple',
+      avatarUrl: _lawFirmAvatarUrl(verification.avatarStoragePath),
     );
 
     return FirmWorkspace(
@@ -287,7 +288,14 @@ class FirmWorkspaceRepository {
       ),
       reviews: row['reviews_count'] as int? ?? 0,
       avatarType: row['avatar_type'] as String? ?? 'purple',
+      avatarUrl: _optionalText(row['avatar_url']),
     );
+  }
+
+  String? _lawFirmAvatarUrl(String? storagePath) {
+    final path = _optionalText(storagePath);
+    if (path == null) return null;
+    return '/storage/v1/object/public/law-firm-avatars/$path';
   }
 
   List<String> _practiceAreasFromRow(Object? value, {List<String>? fallback}) {

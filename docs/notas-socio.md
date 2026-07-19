@@ -1708,10 +1708,11 @@ A migration `20260718180000_profile_avatar_surfaces.sql` acrescenta somente o
 campo publico `avatar_url` as RPCs ja autorizadas de recomendacao, perfil e
 conversa. Ela nao reabre email, CPF ou telefone de contrapartes. Na conversa, o
 avatar e calculado do ponto de vista de quem consulta: cliente ve a foto do
-advogado, enquanto advogado/escritorio ve a foto do cliente. Conversas do
-cliente com um escritorio e o chat interno da equipe continuam com iniciais,
-pois `law_firms` ainda nao possui logo e uma unica foto representaria
-incorretamente varios funcionarios.
+advogado, enquanto advogado/escritorio ve a foto do cliente. Na migration
+`20260718180000`, conversas do cliente com um escritorio e o chat interno da
+equipe ainda usavam iniciais, pois `law_firms` nao possuia foto propria. A
+rodada corporativa registrada abaixo substitui apenas o primeiro caso pela foto
+do escritorio e mantem o canal interno sem avatar geral.
 
 Essa migration tambem fecha o legado anterior ao hardening: valores antigos de
 `avatar_url` sao preservados apenas quando o caminho pertence ao perfil e
@@ -1749,3 +1750,65 @@ como frente futura e deve ter contrato e autorizacao proprios. Alteracao de
 e-mail tambem exige um fluxo especifico de Auth com reverificacao; alteracao de
 CPF exige um fluxo administrativo separado, com decisao de produto, auditoria
 e regras adicionais de identidade; a RPC comum agora impede sua troca.
+
+## Foto opcional no cadastro do escritorio (18/07/2026)
+
+A etapa `Documentos` da verificacao do escritorio agora oferece uma `Foto de
+perfil do escritorio` marcada explicitamente como `Opcional`. Ela fica fora das
+dez etapas obrigatorias: nao altera o progresso, nao gera erro quando ausente e
+o cadastro continua podendo ser enviado apenas com os quatro documentos
+comprobatorios. A tela anterior ao formulario tambem avisa que a foto e
+opcional.
+
+Quando escolhida, a imagem:
+
+- aceita somente JPG/JPEG, PNG ou WEBP;
+- passa pela mesma validacao de assinatura real usada no avatar pessoal;
+- fica limitada a 5 MB no app e 10 MB no Storage;
+- fica em bucket publico desde o upload, mas so e vinculada e exibida no perfil
+  do escritorio depois da aprovacao do cadastro.
+
+A foto nao foi misturada com os documentos privados nem com o avatar pessoal do
+responsavel. A migration `20260718200000_law_firm_profile_avatar.sql` cria o
+bucket publico dedicado `law-firm-avatars` e salva o objeto em
+`{ownerId}/{verificationId}/arquivo`. A RPC
+`set_current_law_firm_verification_avatar()` aceita apenas uma verificacao
+rascunho/pendente do usuario atual, confere o namespace e exige que o objeto
+exista. A coluna `avatar_storage_path` permanece nula quando o usuario pula a
+foto.
+
+Na aprovacao administrativa, `approve_law_firm_verification()` valida novamente
+o objeto e grava somente uma URL relativa segura em `law_firms.avatar_url`.
+Assim, escritorios antigos e novos cadastros sem foto continuam usando iniciais.
+Quando existe foto aprovada, ela aparece nos cards de escritorio, perfil
+publico, area interna do escritorio e conversa vista pelo cliente. Conversas da
+equipe continuam representando a contraparte adequada, sem atribuir a foto do
+escritorio a uma pessoa.
+
+O bucket corporativo separado tambem resolve o ciclo de exclusao: a limpeza
+LGPD remove a imagem de verificacoes ainda nao aprovadas, mas nao faz varredura
+da pasta corporativa. Uma foto ja vinculada a um escritorio ativo sobrevive a
+exclusao ou transferencia da conta que iniciou o cadastro.
+
+O mesmo hardening removeu `INSERT/UPDATE` amplo em
+`law_firm_verifications`: o app so pode escrever as colunas do formulario e nao
+consegue escolher `law_firm_id`, revisor, data de revisao, motivo ou caminho do
+avatar diretamente. A vinculacao da foto e a decisao continuam em RPCs com
+contratos separados.
+
+### Aplicacao e validacao
+
+- `flutter analyze`: sem issues;
+- `flutter test`: 152 testes aprovados;
+- testes Flutter focados em foto/verificacao/superficies: 13 aprovados;
+- `supabase db reset --local`: todas as migrations aplicadas do zero;
+- pgTAP focado do avatar de escritorio: 39/39;
+- suite pgTAP completa: 156/156;
+- `supabase db lint --local --schema public --level error`: sem erros;
+- `supabase db push --linked`: migration `20260718200000` aplicada no remoto;
+- `supabase migration list --linked`: historico local/remoto sincronizado;
+- Edge Function `delete-account` publicada na versao 4 e confirmada como
+  `ACTIVE`.
+
+O push exibiu apenas o aviso nao bloqueante ja conhecido do cache auxiliar do
+`pg-delta`; a migration foi aplicada e registrada normalmente.

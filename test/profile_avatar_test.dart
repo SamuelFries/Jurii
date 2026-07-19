@@ -73,4 +73,20 @@ void main() {
       '${SupabaseConfig.url}$_avatarPath',
     );
   });
+
+  testWidgets(
+    'avatar de escritório fora do namespace da verificação é recusado',
+    (tester) async {
+      await tester.pumpWidget(
+        _app(
+          imageUrl:
+              '/storage/v1/object/public/law-firm-avatars/'
+              '92000000-0000-0000-0000-000000000001/avatar.png',
+        ),
+      );
+
+      expect(find.text('AS'), findsOneWidget);
+      expect(find.byType(Image), findsNothing);
+    },
+  );
 }

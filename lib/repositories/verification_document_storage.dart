@@ -20,6 +20,9 @@ class VerificationDocumentStorage {
   /// Bucket público das fotos de perfil.
   static const String avatarBucket = 'profile-avatars';
 
+  /// Bucket público das fotos dos escritórios.
+  static const String lawFirmAvatarBucket = 'law-firm-avatars';
+
   /// Sobe um documento e retorna o caminho salvo no Storage.
   Future<String> upload({
     required String userId,
@@ -64,6 +67,41 @@ class VerificationDocumentStorage {
     }
   }
 
+  /// Sobe a foto opcional do escritório para uma pasta isolada por verificação.
+  Future<String> uploadLawFirmAvatar({
+    required String userId,
+    required String verificationId,
+    required PendingVerificationUpload file,
+  }) async {
+    final timestamp = DateTime.now().toUtc().microsecondsSinceEpoch;
+    final fileNamePrefix = 'avatar-$timestamp-';
+    final safeFileName = _safeFileName(
+      file.fileName,
+      maxLength: 160 - fileNamePrefix.length,
+    );
+    final path = '$userId/$verificationId/$fileNamePrefix$safeFileName';
+    await SupabaseConfig.client.storage
+        .from(lawFirmAvatarBucket)
+        .uploadBinary(
+          path,
+          file.bytes,
+          fileOptions: FileOptions(contentType: file.mimeType, upsert: false),
+        );
+    return path;
+  }
+
+  Future<void> removeLawFirmAvatar(String path) async {
+    try {
+      await SupabaseConfig.client.storage.from(lawFirmAvatarBucket).remove([
+        path,
+      ]);
+    } catch (error) {
+      debugPrint(
+        'VerificationDocumentStorage.removeLawFirmAvatar falhou: $error',
+      );
+    }
+  }
+
   /// Remove caminhos já enviados (rollback quando o submit falha no meio).
   Future<void> remove(List<String> paths) async {
     if (paths.isEmpty) return;
@@ -85,7 +123,7 @@ class VerificationDocumentStorage {
     return '$userId/${file.documentType}-$timestamp-$safeName';
   }
 
-  String _safeFileName(String fileName) {
+  String _safeFileName(String fileName, {int maxLength = 160}) {
     final name = fileName
         .split(RegExp(r'[\\/]'))
         .where((part) => part.trim().isNotEmpty)
@@ -95,12 +133,12 @@ class VerificationDocumentStorage {
         .replaceAll(RegExp(r'_+'), '_')
         .trim();
     if (sanitized.isEmpty) return 'documento';
-    if (sanitized.length <= 160) return sanitized;
+    if (sanitized.length <= maxLength) return sanitized;
 
     final dot = sanitized.lastIndexOf('.');
     final extension = dot > 0 && sanitized.length - dot <= 12
         ? sanitized.substring(dot)
         : '';
-    return '${sanitized.substring(0, 160 - extension.length)}$extension';
+    return '${sanitized.substring(0, maxLength - extension.length)}$extension';
   }
 }

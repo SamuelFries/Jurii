@@ -33,7 +33,7 @@ LegalDocument legalDocumentFor(LegalDocumentType type) {
 const privacyPolicyDocument = LegalDocument(
   type: LegalDocumentType.privacyPolicy,
   title: 'Política de Privacidade',
-  updatedAt: 'Atualizada em 06/07/2026',
+  updatedAt: 'Atualizada em 18/07/2026',
   summary:
       'Esta política explica como a Jurii trata dados pessoais no app, '
       'incluindo cadastro, triagem, conversas, documentos e verificações.',
@@ -57,8 +57,9 @@ const privacyPolicyDocument = LegalDocument(
             'senha criptografada, provedores sociais usados no login e dados '
             'técnicos da sessão.',
         'Dados de perfil profissional, como OAB, áreas de atuação, vínculo com '
-            'escritório, documentos de verificação, CNPJ e dados do responsável '
-            'legal quando aplicável.',
+            'escritório, fotos escolhidas para perfis pessoais ou de escritório, '
+            'documentos de verificação, CNPJ e dados do responsável legal quando '
+            'aplicável.',
         'Dados de uso do serviço, como relatos jurídicos, respostas da triagem, '
             'categorias sugeridas, conversas, anexos, documentos enviados, '
             'casos, solicitações, reuniões e notificações.',
@@ -103,6 +104,9 @@ const privacyPolicyDocument = LegalDocument(
         'Compartilhamos dados com advogados ou escritórios quando isso for '
             'necessário para o atendimento solicitado pelo usuário ou para a '
             'análise de uma solicitação de caso.',
+        'Fotos escolhidas como avatar são públicas e podem aparecer em cards, '
+            'perfis e conversas. A foto opcional de um escritório só é '
+            'associada ao perfil da organização depois da aprovação do cadastro.',
         'Também usamos provedores de tecnologia, autenticação, banco de dados, '
             'armazenamento, notificações e observabilidade. Esses operadores '
             'devem tratar os dados conforme nossas instruções e medidas de '
@@ -131,8 +135,10 @@ const privacyPolicyDocument = LegalDocument(
             'e exercer direitos em processos administrativos, judiciais ou '
             'arbitrais.',
         'Quando o usuário solicita exclusão de conta, removemos dados sensíveis '
-            'de verificação e avatar, fazemos o soft-delete da conta, banimos o '
-            'usuário no Auth e registramos auditoria técnica.',
+            'de verificação e o avatar pessoal, fazemos o soft-delete da conta, '
+            'banimos o usuário no Auth e registramos auditoria técnica. O avatar '
+            'de um escritório já aprovado pode permanecer ligado à organização '
+            'quando ela continuar ativa sob outro responsável.',
         'Anexos de chat e documentos de caso podem ser preservados quando '
             'necessários como prova, evidência, histórico do atendimento ou '
             'cumprimento de obrigação legal. Essa retenção deve seguir política '
@@ -277,8 +283,10 @@ const termsOfUseDocument = LegalDocument(
       title: '9. Exclusão de conta',
       body: [
         'Você pode solicitar exclusão de conta pelo app. A rotina remove dados '
-            'sensíveis de verificação/avatar, desativa dados pessoais de perfil '
-            'e bane o usuário no Auth para impedir novo acesso pela mesma conta.',
+            'sensíveis de verificação e o avatar pessoal, desativa dados pessoais '
+            'de perfil e bane o usuário no Auth para impedir novo acesso pela '
+            'mesma conta. O avatar de escritório já aprovado pode ser preservado '
+            'como dado da organização quando ela continuar ativa.',
         'Alguns registros podem ser mantidos quando necessários por lei, '
             'segurança, auditoria, prevenção de fraude, evidência ou exercício '
             'regular de direitos.',

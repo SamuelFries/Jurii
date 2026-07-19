@@ -3,8 +3,13 @@ import 'package:flutter/material.dart';
 import '../services/supabase_config.dart';
 
 const _publicAvatarMarker = '/storage/v1/object/public/profile-avatars/';
+const _publicLawFirmAvatarMarker =
+    '/storage/v1/object/public/law-firm-avatars/';
 final _profileAvatarPathPattern = RegExp(
   r'^[0-9a-fA-F-]{36}/[A-Za-z0-9._-]{1,240}$',
+);
+final _lawFirmAvatarPathPattern = RegExp(
+  r'^[0-9a-fA-F-]{36}/[0-9a-fA-F-]{36}/[A-Za-z0-9._-]{1,160}$',
 );
 
 /// Avatar de perfil com foto remota e fallback consistente para as iniciais.
@@ -79,11 +84,18 @@ class ProfileAvatar extends StatelessWidget {
     final raw = value?.trim();
     if (raw == null || raw.isEmpty) return null;
 
-    final markerIndex = raw.indexOf(_publicAvatarMarker);
+    final isLawFirmAvatar = raw.contains(_publicLawFirmAvatarMarker);
+    final marker = isLawFirmAvatar
+        ? _publicLawFirmAvatarMarker
+        : _publicAvatarMarker;
+    final pathPattern = isLawFirmAvatar
+        ? _lawFirmAvatarPathPattern
+        : _profileAvatarPathPattern;
+    final markerIndex = raw.indexOf(marker);
     if (markerIndex < 0) return null;
 
     final encodedPath = raw
-        .substring(markerIndex + _publicAvatarMarker.length)
+        .substring(markerIndex + marker.length)
         .split(RegExp(r'[?#]'))
         .first;
     String storagePath;
@@ -92,7 +104,7 @@ class ProfileAvatar extends StatelessWidget {
     } catch (_) {
       return null;
     }
-    if (!_profileAvatarPathPattern.hasMatch(storagePath)) return null;
+    if (!pathPattern.hasMatch(storagePath)) return null;
 
     final projectUri = Uri.tryParse(SupabaseConfig.url.trim());
     if (projectUri == null ||
@@ -104,7 +116,7 @@ class ProfileAvatar extends StatelessWidget {
 
     final port = projectUri.hasPort ? ':${projectUri.port}' : '';
     final origin = '${projectUri.scheme}://${projectUri.host}$port';
-    return '$origin$_publicAvatarMarker$storagePath';
+    return '$origin$marker$storagePath';
   }
 }
 

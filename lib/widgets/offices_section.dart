@@ -146,6 +146,7 @@ class _OfficesSectionState extends State<OfficesSection> {
                       specialty: practiceAreaSummary(office.practiceAreas),
                       reviews: office.reviews,
                       avatarType: office.avatarType,
+                      avatarUrl: office.avatarUrl,
                       onTap: () {
                         Navigator.of(context).push(
                           MaterialPageRoute(

@@ -91,6 +91,10 @@ class LawFirmVerificationScreen extends StatelessWidget {
                     Icons.badge_outlined,
                     'Documento do responsável legal',
                   ),
+                  _RequirementLine(
+                    Icons.photo_camera_outlined,
+                    'Foto de perfil do escritório (opcional)',
+                  ),
                 ],
               ),
               const SizedBox(height: 20),

@@ -56,12 +56,18 @@ class LawFirmRepository {
       ),
       reviews: row['reviews_count'] as int? ?? 0,
       avatarType: row['avatar_type'] as String? ?? 'blue',
+      avatarUrl: _optionalText(row['avatar_url']),
       description: row['description'] as String?,
       phone: row['phone'] as String?,
       email: row['email'] as String?,
       websiteUrl: row['website_url'] as String?,
       address: row['address'] as String?,
     );
+  }
+
+  String? _optionalText(Object? value) {
+    final text = value is String ? value.trim() : '';
+    return text.isEmpty ? null : text;
   }
 
   List<LawFirm> _filterLawFirms(List<LawFirm> lawFirms, String query) {

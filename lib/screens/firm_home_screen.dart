@@ -8,6 +8,7 @@ import '../services/supabase_config.dart';
 import '../theme/app_colors.dart';
 import '../widgets/jurii_motion.dart';
 import '../widgets/notification_bell.dart';
+import '../widgets/profile_avatar.dart';
 
 class FirmHomeScreen extends StatefulWidget {
   const FirmHomeScreen({
@@ -100,17 +101,14 @@ class _FirmHomeScreenState extends State<FirmHomeScreen> {
             ),
             child: Row(
               children: [
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: colors.card.withValues(alpha: 0.14),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: colors.card.withValues(alpha: 0.35),
-                    ),
-                  ),
-                  child: Icon(Icons.apartment_outlined, color: colors.card),
+                ProfileAvatar(
+                  imageUrl: widget.workspace?.firm.avatarUrl,
+                  initials: widget.workspace?.firm.initials ?? 'JE',
+                  size: 48,
+                  backgroundColor: colors.card.withValues(alpha: 0.14),
+                  foregroundColor: colors.card,
+                  borderRadius: BorderRadius.circular(14),
+                  fontSize: 16,
                 ),
                 const SizedBox(width: 14),
                 Expanded(

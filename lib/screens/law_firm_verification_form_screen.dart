@@ -13,6 +13,7 @@ import '../repositories/law_firm_verification_repository.dart';
 import '../services/supabase_config.dart';
 import '../theme/app_colors.dart';
 import '../utils/document_file_validation.dart';
+import '../utils/profile_avatar_validation.dart';
 import '../widgets/jurii_form_motion.dart';
 import '../widgets/jurii_motion.dart';
 import '../widgets/practice_area_selector.dart';
@@ -48,6 +49,8 @@ class _LawFirmVerificationFormScreenState
   List<String> selectedAreas = const [];
   late List<LawFirmVerificationDocument> documents;
   final Map<String, PendingVerificationUpload> _pickedFiles = {};
+  PendingVerificationUpload? _profilePhoto;
+  bool _demoProfilePhotoSelected = false;
 
   bool get formIsValid {
     return _dataStepComplete &&
@@ -253,6 +256,8 @@ class _LawFirmVerificationFormScreenState
                 accentColor: colors.officePurple,
               ),
               const SizedBox(height: 16),
+              _profilePhotoUploadCard(onTap: _pickProfilePhoto),
+              const SizedBox(height: 14),
               for (var index = 0; index < documents.length; index++) ...[
                 _uploadCard(
                   document: documents[index],
@@ -408,6 +413,95 @@ class _LawFirmVerificationFormScreenState
     );
   }
 
+  Widget _profilePhotoUploadCard({required VoidCallback onTap}) {
+    final colors = context.jColors;
+    final selected = _profilePhoto != null || _demoProfilePhotoSelected;
+
+    return AnimatedContainer(
+      key: const ValueKey('law_firm_profile_photo_card'),
+      duration: JuriiMotion.fast,
+      curve: JuriiMotion.ease,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: colors.card,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: selected ? colors.success : colors.lightBlueBorder,
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: colors.softShadow,
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.photo_camera_outlined, color: colors.officePurple),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Foto de perfil do escritório',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+                Text(
+                  'Opcional',
+                  style: TextStyle(
+                    color: colors.officePurple,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                Text(
+                  _profilePhoto?.fileName ??
+                      (selected
+                          ? 'Foto adicionada'
+                          : 'JPG, PNG ou WEBP de até 5 MB · exibida no perfil após aprovação'),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: selected ? colors.success : colors.textSecondary,
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          SizedBox(
+            width: 120,
+            height: 42,
+            child: OutlinedButton(
+              style: OutlinedButton.styleFrom(
+                padding: EdgeInsets.zero,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                side: BorderSide(
+                  color: selected ? colors.success : colors.lightBlueBorder,
+                ),
+              ),
+              onPressed: onTap,
+              child: Text(
+                selected ? 'Trocar foto' : 'Adicionar foto',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: selected ? colors.success : colors.textPrimary,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _submit() async {
     if (!formIsValid) {
       setState(() {
@@ -433,6 +527,7 @@ class _LawFirmVerificationFormScreenState
               practiceAreas: selectedAreas,
               documents: documents,
               uploads: _pickedFiles.values.toList(),
+              profilePhoto: _profilePhoto,
             )
           : LawFirmVerification(
               ownerProfileId: widget.user.id,
@@ -507,6 +602,45 @@ class _LawFirmVerificationFormScreenState
         bytes: file.bytes!,
       );
       documents[index] = document.copyWith(uploaded: true);
+    });
+  }
+
+  Future<void> _pickProfilePhoto() async {
+    if (!SupabaseConfig.isReady) {
+      setState(() => _demoProfilePhotoSelected = true);
+      return;
+    }
+
+    final picked = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowMultiple: false,
+      withData: true,
+      allowedExtensions: profileAvatarAllowedExtensions,
+    );
+    final file = picked?.files.single;
+    if (file == null) return;
+
+    final validation = validateProfileAvatar(
+      fileName: file.name,
+      bytes: file.bytes,
+      sizeBytes: file.size,
+    );
+    if (!mounted) return;
+    if (!validation.isValid) {
+      setState(() => errorMessage = validation.error);
+      return;
+    }
+
+    setState(() {
+      errorMessage = null;
+      _profilePhoto = PendingVerificationUpload(
+        documentId: 'profile_photo',
+        documentType: 'profile_photo',
+        title: 'Foto de perfil do escritório',
+        fileName: file.name,
+        mimeType: validation.mimeType!,
+        bytes: file.bytes!,
+      );
     });
   }
 

@@ -7,6 +7,7 @@ import '../theme/app_colors.dart';
 import '../theme/theme_controller.dart';
 import '../widgets/profile_menu_item.dart';
 import '../widgets/profile_menu_section.dart';
+import '../widgets/profile_avatar.dart';
 import '../widgets/theme_mode_sheet.dart';
 
 class FirmProfileScreen extends StatelessWidget {
@@ -133,14 +134,14 @@ class FirmProfileScreen extends StatelessWidget {
             ),
             child: Row(
               children: [
-                Container(
-                  width: 52,
-                  height: 52,
-                  decoration: BoxDecoration(
-                    color: colors.card.withValues(alpha: 0.16),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Icon(Icons.apartment_outlined, color: colors.card),
+                ProfileAvatar(
+                  imageUrl: workspace?.firm.avatarUrl,
+                  initials: workspace?.firm.initials ?? 'JE',
+                  size: 52,
+                  backgroundColor: colors.card.withValues(alpha: 0.16),
+                  foregroundColor: colors.card,
+                  borderRadius: BorderRadius.circular(14),
+                  fontSize: 17,
                 ),
                 const SizedBox(width: 14),
                 Expanded(
