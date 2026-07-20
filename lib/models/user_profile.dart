@@ -39,9 +39,11 @@ class UserProfile {
   /// O critério é o DADO que falta, não o provedor de login: assim qualquer
   /// perfil incompleto (inclusive os 3 que já entraram por OAuth) se resolve no
   /// próximo login, sem depender de saber como a conta foi criada.
-  bool get needsProfileCompletion {
-    return !isValidCpf(cpf ?? '') || _nameCameFromLoginProvider;
-  }
+  bool get needsCpfCompletion => !isValidCpf(cpf ?? '');
+
+  bool get needsNameCompletion => _nameCameFromLoginProvider;
+
+  bool get needsProfileCompletion => needsCpfCompletion || needsNameCompletion;
 
   /// Nome que o banco derivou sozinho por falta de dado do provedor.
   bool get _nameCameFromLoginProvider {

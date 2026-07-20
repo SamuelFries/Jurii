@@ -46,7 +46,10 @@ void main() {
     });
 
     test('login social sem CPF é barrado (Google entrega nome, não CPF)', () {
-      expect(_profile(cpf: null).needsProfileCompletion, isTrue);
+      final profile = _profile(cpf: null);
+      expect(profile.needsCpfCompletion, isTrue);
+      expect(profile.needsNameCompletion, isFalse);
+      expect(profile.needsProfileCompletion, isTrue);
     });
 
     test('CPF inválido é barrado', () {
@@ -58,6 +61,8 @@ void main() {
         name: 'pedro.fries68',
         email: 'pedro.fries68@icloud.com',
       );
+      expect(profile.needsCpfCompletion, isFalse);
+      expect(profile.needsNameCompletion, isTrue);
       expect(profile.needsProfileCompletion, isTrue);
     });
 
@@ -74,8 +79,12 @@ void main() {
     await tester.pumpWidget(
       _wrap(
         CompleteProfileScreen(
-          profile: _profile(name: 'pedro', email: 'pedro@icloud.com', cpf: null),
-          onSubmit: ({required String fullName, required String cpf}) async =>
+          profile: _profile(
+            name: 'pedro',
+            email: 'pedro@icloud.com',
+            cpf: null,
+          ),
+          onSubmit: ({required String fullName, required String? cpf}) async =>
               submits++,
           onLogout: () {},
         ),
@@ -110,7 +119,7 @@ void main() {
       _wrap(
         CompleteProfileScreen(
           profile: _profile(name: 'Maria Silva', cpf: null),
-          onSubmit: ({required String fullName, required String cpf}) async {
+          onSubmit: ({required String fullName, required String? cpf}) async {
             sentName = fullName;
             sentCpf = cpf;
           },
@@ -130,6 +139,40 @@ void main() {
     expect(sentCpf, '52998224725');
   });
 
+  testWidgets('CPF existente não é solicitado nem reenviado ao corrigir nome', (
+    tester,
+  ) async {
+    String? sentName;
+    String? sentCpf = 'não enviado';
+
+    await tester.pumpWidget(
+      _wrap(
+        CompleteProfileScreen(
+          profile: _profile(
+            name: 'pedro.fries68',
+            email: 'pedro.fries68@icloud.com',
+          ),
+          onSubmit: ({required String fullName, required String? cpf}) async {
+            sentName = fullName;
+            sentCpf = cpf;
+          },
+          onLogout: () {},
+        ),
+      ),
+    );
+
+    expect(find.byType(TextFormField), findsOneWidget);
+    expect(find.text('Seu CPF'), findsNothing);
+    expect(find.textContaining('confirmar seu nome completo'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextFormField), 'Pedro Fries');
+    await tester.tap(find.text('Continuar'));
+    await tester.pumpAndSettle();
+
+    expect(sentName, 'Pedro Fries');
+    expect(sentCpf, isNull);
+  });
+
   testWidgets('CPF de outra conta explica o motivo, não pede "CPF válido"', (
     tester,
   ) async {
@@ -137,7 +180,7 @@ void main() {
       _wrap(
         CompleteProfileScreen(
           profile: _profile(cpf: null),
-          onSubmit: ({required String fullName, required String cpf}) async {
+          onSubmit: ({required String fullName, required String? cpf}) async {
             throw Exception('PostgrestException: CPF already registered');
           },
           onLogout: () {},
@@ -156,6 +199,27 @@ void main() {
     expect(find.text('Informe um CPF válido.'), findsNothing);
   });
 
+  testWidgets('CPF imutável não aparece como CPF inválido', (tester) async {
+    await tester.pumpWidget(
+      _wrap(
+        CompleteProfileScreen(
+          profile: _profile(cpf: null),
+          onSubmit: ({required String fullName, required String? cpf}) async {
+            throw Exception('PostgrestException: CPF cannot be changed');
+          },
+          onLogout: () {},
+        ),
+      ),
+    );
+
+    await tester.enterText(find.byType(TextFormField).last, '529.982.247-25');
+    await tester.tap(find.text('Continuar'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('já foi definido'), findsOneWidget);
+    expect(find.text('Informe um CPF válido.'), findsNothing);
+  });
+
   testWidgets('sempre há saída: sair da conta', (tester) async {
     var loggedOut = 0;
 
@@ -163,7 +227,7 @@ void main() {
       _wrap(
         CompleteProfileScreen(
           profile: _profile(cpf: null),
-          onSubmit: ({required String fullName, required String cpf}) async {},
+          onSubmit: ({required String fullName, required String? cpf}) async {},
           onLogout: () => loggedOut++,
         ),
       ),

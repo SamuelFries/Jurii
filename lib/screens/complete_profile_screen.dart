@@ -66,7 +66,9 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
     try {
       await widget.onSubmit(
         fullName: _nameController.text.trim(),
-        cpf: digitsOnly(_cpfController.text),
+        cpf: widget.profile.needsCpfCompletion
+            ? digitsOnly(_cpfController.text)
+            : null,
       );
     } catch (error) {
       debugPrint('Profile completion failed: $error');
@@ -86,6 +88,9 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
         message.contains('profiles_cpf_unique')) {
       return 'Este CPF já está em uso em outra conta da Jurii. '
           'Entre com ela para continuar.';
+    }
+    if (message.contains('cannot be changed')) {
+      return 'O CPF desta conta já foi definido e não pode ser alterado.';
     }
     if (message.contains('cpf')) return 'Informe um CPF válido.';
     return 'Não foi possível salvar seus dados. Tente novamente.';
@@ -124,9 +129,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                 JuriiStaggeredItem(
                   index: 2,
                   child: Text(
-                    'Falta pouco. Precisamos do seu nome completo e CPF: são '
-                    'eles que identificam você nos contratos e processos '
-                    'conduzidos pela Jurii.',
+                    _completionDescription,
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: colors.textSecondary,
@@ -155,27 +158,29 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 14),
-                JuriiStaggeredItem(
-                  index: 4,
-                  child: _shadowedField(
-                    child: TextFormField(
-                      controller: _cpfController,
-                      keyboardType: TextInputType.number,
-                      textInputAction: TextInputAction.done,
-                      inputFormatters: [
-                        const CpfInputFormatter(),
-                        LengthLimitingTextInputFormatter(14),
-                      ],
-                      decoration: const InputDecoration(
-                        hintText: 'Seu CPF',
-                        prefixIcon: Icon(Icons.badge_outlined),
+                if (widget.profile.needsCpfCompletion) ...[
+                  const SizedBox(height: 14),
+                  JuriiStaggeredItem(
+                    index: 4,
+                    child: _shadowedField(
+                      child: TextFormField(
+                        controller: _cpfController,
+                        keyboardType: TextInputType.number,
+                        textInputAction: TextInputAction.done,
+                        inputFormatters: [
+                          const CpfInputFormatter(),
+                          LengthLimitingTextInputFormatter(14),
+                        ],
+                        decoration: const InputDecoration(
+                          hintText: 'Seu CPF',
+                          prefixIcon: Icon(Icons.badge_outlined),
+                        ),
+                        validator: validateCpfField,
+                        onFieldSubmitted: (_) => _submit(),
                       ),
-                      validator: validateCpfField,
-                      onFieldSubmitted: (_) => _submit(),
                     ),
                   ),
-                ),
+                ],
                 const SizedBox(height: 22),
                 JuriiStaggeredItem(
                   index: 5,
@@ -205,6 +210,21 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
         ),
       ),
     );
+  }
+
+  String get _completionDescription {
+    if (widget.profile.needsCpfCompletion &&
+        widget.profile.needsNameCompletion) {
+      return 'Falta pouco. Precisamos do seu nome completo e CPF: são eles '
+          'que identificam você nos contratos e processos conduzidos pela '
+          'Jurii.';
+    }
+    if (widget.profile.needsCpfCompletion) {
+      return 'Falta pouco. Precisamos do seu CPF para identificar você nos '
+          'contratos e processos conduzidos pela Jurii.';
+    }
+    return 'Falta pouco. Precisamos confirmar seu nome completo para '
+        'identificar você nos contratos e processos conduzidos pela Jurii.';
   }
 
   Widget _shadowedField({required Widget child}) {

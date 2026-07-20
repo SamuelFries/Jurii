@@ -21,4 +21,4 @@ typedef RegisterSubmit =
 /// Completa o cadastro de quem entrou por Google/Apple, que chegam sem CPF (e,
 /// no caso da Apple, muitas vezes sem nome).
 typedef ProfileCompletionSubmit =
-    Future<void> Function({required String fullName, required String cpf});
+    Future<void> Function({required String fullName, required String? cpf});
