@@ -360,7 +360,7 @@ class _JuriiAppState extends State<JuriiApp> {
   /// é o retorno do banco que libera o acesso, não a suposição do app.
   Future<void> _handleCompleteProfile({
     required String fullName,
-    required String cpf,
+    required String? cpf,
   }) async {
     if (!SupabaseConfig.isReady) {
       setState(() {

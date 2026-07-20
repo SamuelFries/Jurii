@@ -1812,3 +1812,20 @@ contratos separados.
 
 O push exibiu apenas o aviso nao bloqueante ja conhecido do cache auxiliar do
 `pg-delta`; a migration foi aplicada e registrada normalmente.
+
+## CPF na conclusao do cadastro social (20/07/2026)
+
+O perfil social podia abrir a tela de conclusao apenas porque o nome estava
+incompleto, mesmo quando a conta ja possuia um CPF valido. Como a tela sempre
+exigia outro CPF, a RPC recusava o envio com `CPF cannot be changed`; o app
+traduzia esse retorno incorretamente como `Informe um CPF valido`.
+
+O modelo agora separa pendencia de nome e de CPF. A tela solicita somente os
+dados ausentes e, quando o CPF ja existe, envia `null` para a RPC preservar o
+valor imutavel. Os retornos de CPF invalido, duplicado e ja definido tambem
+possuem mensagens distintas. A regra do banco de um CPF por conta e CPF
+imutavel foi mantida, sem nova migration.
+
+Validacao: `flutter analyze` sem issues e `flutter test` com 154 testes
+aprovados, incluindo os cenarios de CPF ausente, CPF existente com nome
+incompleto, duplicidade e tentativa de alteracao.
