@@ -1926,3 +1926,48 @@ milhares de perfis, trocar por `id in (select ... where <fk> is not null ...)`
   checkout quando houver gateway).
 - Metricas de conversao do destaque (impressao -> contato) para PROVAR o valor
   ao pagante — hoje da para medir contatos por conversas iniciadas.
+
+## Identidade visual aplicada no app (21/07/2026)
+
+O Samuel gerou o kit da marca (conceito: duas hastes iguais = cliente e
+advogado; a ponte dourada acima = a Jurii, a conexao de valor — le-se "ii",
+le-se ponte, le-se acordo) e adicionou em `assets/brand/` (svg/ + png/ +
+LEIA-ME com grid de construcao, cores e tamanhos minimos).
+
+### Como foi aplicado
+
+- **Tela de login/cadastro/reset/completar** (`LoginLogo`): o lockup empilhado
+  substituiu a wordmark de texto "Jurii•". Tema-aware (PNG claro/escuro segue o
+  brightness). Com errorBuilder de fallback para a wordmark de texto.
+- **PNG, nao SVG, por decisao de producao**: os SVGs do kit dependem da fonte
+  Sora via @import (Google Fonts), que o Flutter nao resolve — os SVGs sao o
+  MASTER (assets/brand/svg), o app empacota so os 2 PNGs que exibe. Sem
+  dependencia nova (nada de flutter_svg).
+- **Bundle enxuto**: o pubspec declara APENAS os 2 lockups usados, nao a pasta
+  inteira — o kit completo (mono, escritorios, tagline...) fica versionado sem
+  inchar o app.
+- **App icons das 4 plataformas** gerados do master 1024px com
+  flutter_launcher_icons (config em `flutter_launcher_icons.yaml`; regerar com
+  `dart run flutter_launcher_icons` apos qualquer mudanca na marca):
+  - iOS: full-bleed — os cantos transparentes do master foram compostos sobre
+    o proprio navy (#0A1C3B), como o iOS exige (inspecionado visualmente).
+  - Android: adaptive icon (foreground = simbolo, background navy via
+    colors.xml; simbolo dentro da zona segura do recorte) + mipmaps legados.
+  - Web: favicon + Icon-192/512 (+ maskable); theme_color navy.
+  - macOS: appiconset completo.
+
+### Ajuste de teste
+
+O lockup e ~95px mais alto que a wordmark de texto; nas telas de formulario o
+botao de submit desceu para fora do viewport do widget test e os taps passaram
+a errar o alvo (warnings de hit-test). Fix nos testes (`ensureVisible` antes de
+cada tap em profile_completion_test) — o app estava certo, a tela rola.
+
+159 testes verdes, analyze limpo.
+
+### Pendencias da marca (fora desta rodada)
+
+- Splash/launch screen nativa (iOS LaunchImage / android launch_background)
+  ainda e a padrao do Flutter — trocar pelo simbolo quando quisermos.
+- Antes de submeter as lojas: converter o texto "Jur" dos SVGs master em curvas
+  (nota do LEIA-ME) — nao afeta o app, so o kit.
