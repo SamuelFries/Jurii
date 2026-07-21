@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../data/legal_practice_areas.dart';
 import '../models/lawyer_profile_summary.dart';
 import '../theme/app_colors.dart';
+import 'featured_badge.dart';
 import 'jurii_list_card.dart';
 import 'profile_avatar.dart';
 
@@ -47,15 +48,25 @@ class LawyerProfileCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  lawyer.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: colors.textPrimary,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                  ),
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        lawyer.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: colors.textPrimary,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    if (lawyer.isFeatured) ...[
+                      const SizedBox(width: 6),
+                      const FeaturedBadge(),
+                    ],
+                  ],
                 ),
                 const SizedBox(height: 2),
                 Text(

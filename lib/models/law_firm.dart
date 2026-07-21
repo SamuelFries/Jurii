@@ -15,6 +15,11 @@ class LawFirm {
   final String? websiteUrl;
   final String? address;
 
+  /// Posição patrocinada ativa na descoberta (destaque pago/cortesia).
+  /// Vem de `is_featured` no RPC de descoberta; default false para mocks e
+  /// para caminhos que não expõem o campo (ex.: fallback de leitura direta).
+  final bool isFeatured;
+
   const LawFirm({
     required this.id,
     required this.name,
@@ -31,5 +36,6 @@ class LawFirm {
     this.email,
     this.websiteUrl,
     this.address,
+    this.isFeatured = false,
   });
 }

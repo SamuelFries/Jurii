@@ -120,6 +120,7 @@ class LawyerProfileRepository {
       reviews: row['reviews_count'] as int? ?? 0,
       avatarType: row['avatar_type'] as String? ?? 'navy',
       photoUrl: row['avatar_url'] as String?,
+      isFeatured: row['is_featured'] as bool? ?? false,
     );
   }
 
