@@ -62,6 +62,8 @@ class LawFirmRepository {
       email: row['email'] as String?,
       websiteUrl: row['website_url'] as String?,
       address: row['address'] as String?,
+      // Ausente no fallback de leitura direta da tabela — vira false, sem selo.
+      isFeatured: row['is_featured'] as bool? ?? false,
     );
   }
 

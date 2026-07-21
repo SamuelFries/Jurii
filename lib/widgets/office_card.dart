@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
+import 'featured_badge.dart';
 import 'jurii_list_card.dart';
 import 'profile_avatar.dart';
 
@@ -13,6 +14,7 @@ class OfficeCard extends StatelessWidget {
   final int reviews;
   final String avatarType;
   final String? avatarUrl;
+  final bool isFeatured;
   final VoidCallback? onTap;
 
   const OfficeCard({
@@ -25,6 +27,7 @@ class OfficeCard extends StatelessWidget {
     required this.reviews,
     required this.avatarType,
     this.avatarUrl,
+    this.isFeatured = false,
     this.onTap,
   });
 
@@ -62,15 +65,25 @@ class OfficeCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  officeName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: colors.textPrimary,
-                  ),
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        officeName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: colors.textPrimary,
+                        ),
+                      ),
+                    ),
+                    if (isFeatured) ...[
+                      const SizedBox(width: 6),
+                      const FeaturedBadge(),
+                    ],
+                  ],
                 ),
                 const SizedBox(height: 2),
                 Text(

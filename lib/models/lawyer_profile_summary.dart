@@ -16,6 +16,11 @@ class LawyerProfileSummary {
   /// de iniciais.
   final String? photoUrl;
 
+  /// Posição patrocinada ativa na descoberta (destaque pago/cortesia).
+  /// Vem de `is_featured` nos RPCs de descoberta; default false para os mocks
+  /// e para RPCs que não expõem o campo (ex.: fetch_law_firm_lawyers).
+  final bool isFeatured;
+
   const LawyerProfileSummary({
     required this.id,
     required this.name,
@@ -29,6 +34,7 @@ class LawyerProfileSummary {
     required this.reviews,
     required this.avatarType,
     this.photoUrl,
+    this.isFeatured = false,
   });
 
   String get oabLabel => 'OAB/$oabState $oabNumber';

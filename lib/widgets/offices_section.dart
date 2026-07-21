@@ -147,6 +147,7 @@ class _OfficesSectionState extends State<OfficesSection> {
                       reviews: office.reviews,
                       avatarType: office.avatarType,
                       avatarUrl: office.avatarUrl,
+                      isFeatured: office.isFeatured,
                       onTap: () {
                         Navigator.of(context).push(
                           MaterialPageRoute(

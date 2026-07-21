@@ -1829,3 +1829,100 @@ imutavel foi mantida, sem nova migration.
 Validacao: `flutter analyze` sem issues e `flutter test` com 154 testes
 aprovados, incluindo os cenarios de CPF ausente, CPF existente com nome
 incompleto, duplicidade e tentativa de alteracao.
+
+## Monetizacao, fase 1: destaque pago na descoberta (21/07/2026)
+
+O modelo de negocio do Jurii sempre foi advogado/escritorio pagarem por
+destaque na descoberta — e ate hoje NAO havia nada disso no produto. Esta
+rodada constroi a infraestrutura tecnica do destaque; a cobranca (gateway) e a
+fase 2, que depende de decisao comercial (Stripe/Pagar.me/MercadoPago, preco,
+assinatura vs avulso). Com a fase 1, o back-office ja pode ativar destaque
+manualmente para os primeiros parceiros do piloto (cortesia ou contrato por
+fora) e MEDIR se o boost gera contatos antes de investir no encanamento de
+pagamento.
+
+### Desenho (as decisoes e seus porques)
+
+- **Tabela-razao `featured_placements`**: cada concessao e uma LINHA (renovar =
+  nova linha; revogar = soft, revoked_at). Nada se apaga — e dinheiro, o rastro
+  vira historico de cobranca na fase 2. RLS ligado sem policy: cliente nao le o
+  razao; o selo chega pelo RPC de descoberta.
+- **Ate 2 POSICOES patrocinadas por lista** — a descoberta nao pode virar so
+  anuncio. O SELO nao tem teto: todo destacado e identificado como "Destaque",
+  mesmo fora do slot (transparencia; quem paga e identificado).
+- **Destaque respeita a busca**: o slot patrocinado so e preenchido por quem
+  passa o MESMO filtro de relevancia da query. Quem busca "penal" nunca ve
+  patrocinado trabalhista furando o resultado (testado).
+- **Rotacao horaria**: havendo mais pagantes que vagas, a escolha dos 2 gira a
+  cada hora (md5 deterministico de id+hora) — nenhum pagante fica
+  permanentemente invisivel, e a lista e estavel dentro da hora.
+- Corpos de fetch_recommended_lawyers/law_firms extraidos VERBATIM das versoes
+  vigentes (20260718180000/20260718200000) — avatar_url/safe_profile_avatar_url
+  preservados; so o destaque foi somado. Drop+recreate (return type mudou) com
+  re-grant.
+
+### Como ativar destaque para um parceiro do piloto (back-office)
+
+No SQL Editor do Supabase (service_role), 30 dias de exemplo:
+
+    select public.grant_featured_placement(
+      'lawyer',                                   -- ou 'law_firm'
+      '<uuid do lawyer_profile ou law_firm>',
+      30,                                         -- dias (1..366)
+      'cortesia piloto'                           -- nota livre p/ auditoria
+    );
+
+Revogar antes do prazo:
+
+    select public.revoke_featured_placement('lawyer', '<uuid>');
+
+Conferir quem esta destacado:
+
+    select target_type, coalesce(lawyer_id, law_firm_id) as alvo, starts_at,
+           ends_at, note
+    from featured_placements
+    where revoked_at is null and now() < ends_at;
+
+### App
+
+- `isFeatured` nos models (default false — mocks const seguem validos; fallback
+  de leitura direta do law_firm_repository tambem, so sem selo).
+- `FeaturedBadge` (widget unico): chip "Destaque" lightGold+textPrimary (mesmo
+  par do _InfoChip dos perfis, seguro nos dois temas), ao lado do nome nos
+  cards de advogado e de escritorio da descoberta.
+
+Testado no Docker (11 cenarios: organica, boost, teto 2 com selo em 3, busca
+nao furada, destacado relevante no topo, expiracao, revoke, authenticated
+barrado no grant e na leitura do razao, firms, validacoes de input).
+`flutter analyze` limpo; 159 testes (5 novos).
+
+### Revisao adversarial (16 agentes) e o que mudou
+
+Rodada de revisao com 4 dimensoes (seguranca SQL, correcao do ranking, app,
+consistencia) + verificador cetico por achado: 12 achados brutos, 8 refutados,
+4 confirmados. Aplicados:
+
+- **Razao com duas camadas**: alem do RLS sem policy, revoke de tabela para
+  public/anon/authenticated (padrao account_deletion_audit) — um "disable row
+  level security" acidental nao expoe o razao de monetizacao. Testado
+  (has_table_privilege = false).
+- **Grant recusa alvo invisivel**: destacar advogado indisponivel/escritorio
+  inativo retornava sucesso e o parceiro nunca aparecia — sucesso falso num
+  razao de cobranca. Agora e exception (nao notice: PostgREST nao repassa
+  notice). Testado.
+
+Registrado sem aplicar (follow-up sob demanda): o EXISTS de is_featured e um
+probe por linha do pool (confirmado com EXPLAIN; os indices parciais servem
+bem). Irrelevante no volume do piloto; se a descoberta chegar a dezenas de
+milhares de perfis, trocar por `id in (select ... where <fk> is not null ...)`
+— o `is not null` e obrigatorio (NULL no IN tornaria is_featured NULL).
+
+### Fase 2 (nao feita) — cobranca
+
+- Escolher gateway BR e modelo (assinatura mensal? avulso 30 dias?). Decisao
+  comercial do Samuel; a tabela-razao ja comporta (basta somar colunas de
+  pagamento/gateway_ref quando existir).
+- Tela "Impulsionar meu perfil" no app do advogado/escritorio (interesse +
+  checkout quando houver gateway).
+- Metricas de conversao do destaque (impressao -> contato) para PROVAR o valor
+  ao pagante — hoje da para medir contatos por conversas iniciadas.
