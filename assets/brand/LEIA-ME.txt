@@ -1,0 +1,32 @@
+JURII — IDENTIDADE VISUAL (v1)
+==============================
+
+CONCEITO
+As duas hastes são as duas partes — cliente e advogado — iguais em altura
+(equilíbrio). A ponte dourada acima é a Jurii: a conexão de valor entre elas.
+Lê-se "ii" de Jurii; lê-se ponte; lê-se acordo.
+
+CONSTRUÇÃO
+Módulo M = largura da haste (16 unidades no viewBox).
+Símbolo = 3M de largura × 5M de altura. Ponte = 3M × 1M. Todos os vãos = 1M.
+Raio de canto = M/2. Área de proteção: 1M em toda a volta, sempre.
+
+CORES
+Navy #0A1C3B (base) · Dourado #B8972A (a ponte) · Roxo #3B2A6D (segmento
+escritórios) · Off-white #F7F8FC (fundo claro) · Fundo escuro #0A1120.
+A ponte é sempre dourada (roxa apenas em Jurii Escritórios). Nas versões
+monocromáticas, tudo em uma única cor.
+
+TAMANHOS MÍNIMOS
+Símbolo 16 px de altura · lockup horizontal 96 px de largura · lockup
+empilhado 64 px de largura · impresso: símbolo >= 5 mm.
+
+TIPOGRAFIA
+Wordmark: Sora SemiBold, com os dois "i" sem ponto e a ponte dourada
+compartilhada (mesma peça do símbolo). Tagline: Sora Regular.
+
+NOTA DE PRODUÇÃO
+Os arquivos de wordmark/lockup referenciam a fonte Sora via @import (Google
+Fonts) — funcionam no navegador. Antes do uso final (app stores, gráfica),
+converter o texto "Jur" em curvas no Illustrator/Figma e reexportar.
+A tagline é opcional: removê-la não altera o lockup.

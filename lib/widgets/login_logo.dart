@@ -13,32 +13,35 @@ class LoginLogo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.jColors;
+    // Lockup empilhado da marca (símbolo + wordmark). PNG por decisão de
+    // produção: os SVGs do kit dependem da fonte Sora via @import, que o
+    // Flutter não resolve — os SVGs são o master (assets/brand/svg), o app
+    // empacota só os PNGs prontos. A versão acompanha o tema.
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final lockup = isDark
+        ? 'assets/brand/png/jurii-lockup-empilhado-escuro.png'
+        : 'assets/brand/png/jurii-lockup-empilhado-claro.png';
+
     return Column(
       children: [
-        RichText(
-          text: TextSpan(
-            children: [
-              TextSpan(
-                text: 'Jurii',
-                style: TextStyle(
-                  fontSize: 46,
-                  fontWeight: FontWeight.bold,
-                  color: colors.primary,
-                ),
-              ),
-              TextSpan(
-                text: '•',
-                style: TextStyle(
-                  fontSize: 46,
-                  fontWeight: FontWeight.bold,
-                  color: colors.accent,
-                ),
-              ),
-            ],
+        Image.asset(
+          lockup,
+          height: 148,
+          fit: BoxFit.contain,
+          semanticLabel: 'Jurii',
+          // Se o asset faltar num build quebrado, a wordmark de texto segura
+          // o login em vez de um quadrado cinza de erro.
+          errorBuilder: (context, error, stackTrace) => Text(
+            'Jurii',
+            style: TextStyle(
+              fontSize: 46,
+              fontWeight: FontWeight.bold,
+              color: colors.primary,
+            ),
           ),
         ),
 
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
 
         Text(
           subtitle,

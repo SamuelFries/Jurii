@@ -1,0 +1,24 @@
+# Ícones do app gerados a partir do master da marca (assets/brand).
+# Regerar após qualquer mudança na identidade: dart run flutter_launcher_icons
+#
+# O master (jurii-app-icon.png, 1024x1024) tem cantos arredondados
+# transparentes; como o fundo do ícone É navy, compor sobre navy
+# (background_color_ios / adaptive_icon_background) produz o quadrado
+# full-bleed que iOS exige e mantém o símbolo na zona segura do adaptive
+# icon do Android.
+flutter_launcher_icons:
+  image_path: "assets/brand/png/jurii-app-icon.png"
+  android: true
+  ios: true
+  remove_alpha_ios: true
+  background_color_ios: "#0A1C3B"
+  adaptive_icon_background: "#0A1C3B"
+  adaptive_icon_foreground: "assets/brand/png/jurii-app-icon.png"
+  web:
+    generate: true
+    image_path: "assets/brand/png/jurii-app-icon.png"
+    background_color: "#0A1C3B"
+    theme_color: "#0A1C3B"
+  macos:
+    generate: true
+    image_path: "assets/brand/png/jurii-app-icon.png"

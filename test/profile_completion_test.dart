@@ -94,6 +94,7 @@ void main() {
     // Nome derivado do e-mail não pré-preenche o campo.
     expect(find.text('pedro'), findsNothing);
 
+    await tester.ensureVisible(find.text('Continuar'));
     await tester.tap(find.text('Continuar'));
     await tester.pumpAndSettle();
 
@@ -103,6 +104,7 @@ void main() {
 
     await tester.enterText(find.byType(TextFormField).first, 'Pedro');
     await tester.enterText(find.byType(TextFormField).last, '111.111.111-11');
+    await tester.ensureVisible(find.text('Continuar'));
     await tester.tap(find.text('Continuar'));
     await tester.pumpAndSettle();
 
@@ -132,6 +134,7 @@ void main() {
     expect(find.text('Maria Silva'), findsOneWidget);
 
     await tester.enterText(find.byType(TextFormField).last, '529.982.247-25');
+    await tester.ensureVisible(find.text('Continuar'));
     await tester.tap(find.text('Continuar'));
     await tester.pumpAndSettle();
 
@@ -166,6 +169,7 @@ void main() {
     expect(find.textContaining('confirmar seu nome completo'), findsOneWidget);
 
     await tester.enterText(find.byType(TextFormField), 'Pedro Fries');
+    await tester.ensureVisible(find.text('Continuar'));
     await tester.tap(find.text('Continuar'));
     await tester.pumpAndSettle();
 
@@ -189,6 +193,7 @@ void main() {
     );
 
     await tester.enterText(find.byType(TextFormField).last, '529.982.247-25');
+    await tester.ensureVisible(find.text('Continuar'));
     await tester.tap(find.text('Continuar'));
     await tester.pumpAndSettle();
 
@@ -213,6 +218,7 @@ void main() {
     );
 
     await tester.enterText(find.byType(TextFormField).last, '529.982.247-25');
+    await tester.ensureVisible(find.text('Continuar'));
     await tester.tap(find.text('Continuar'));
     await tester.pumpAndSettle();
 
@@ -233,6 +239,7 @@ void main() {
       ),
     );
 
+    await tester.ensureVisible(find.text('Sair da conta'));
     await tester.tap(find.text('Sair da conta'));
     expect(loggedOut, 1);
   });
