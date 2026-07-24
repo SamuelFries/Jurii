@@ -10,6 +10,7 @@ import '../models/law_firm_verification_status.dart';
 import '../models/pending_verification_upload.dart';
 import '../models/user_profile.dart';
 import '../repositories/law_firm_verification_repository.dart';
+import '../services/cep_service.dart';
 import '../services/supabase_config.dart';
 import '../theme/app_colors.dart';
 import '../utils/document_file_validation.dart';
@@ -43,6 +44,7 @@ class _LawFirmVerificationFormScreenState
   final phoneController = TextEditingController();
   final emailController = TextEditingController();
   final addressController = TextEditingController();
+  final cepController = TextEditingController();
   bool showErrors = false;
   bool isSubmitting = false;
   String? errorMessage;
@@ -63,8 +65,11 @@ class _LawFirmVerificationFormScreenState
         _onlyDigits(cnpjController.text).length == 14 &&
         _isValidPhone(phoneController.text) &&
         emailController.text.trim().contains('@') &&
-        addressController.text.trim().length >= 8;
+        addressController.text.trim().length >= 8 &&
+        _cepIsValid;
   }
+
+  bool get _cepIsValid => _onlyDigits(cepController.text).length == 8;
 
   int get _completedSteps {
     var completed = 0;
@@ -73,12 +78,13 @@ class _LawFirmVerificationFormScreenState
     if (_isValidPhone(phoneController.text)) completed++;
     if (emailController.text.trim().contains('@')) completed++;
     if (addressController.text.trim().length >= 8) completed++;
+    if (_cepIsValid) completed++;
     if (selectedAreas.isNotEmpty) completed++;
     completed += documents.where((document) => document.uploaded).length;
     return completed;
   }
 
-  int get _totalSteps => 6 + documents.length;
+  int get _totalSteps => 7 + documents.length;
 
   @override
   void initState() {
@@ -101,6 +107,7 @@ class _LawFirmVerificationFormScreenState
     phoneController.dispose();
     emailController.dispose();
     addressController.dispose();
+    cepController.dispose();
     super.dispose();
   }
 
@@ -110,6 +117,7 @@ class _LawFirmVerificationFormScreenState
     phoneController,
     emailController,
     addressController,
+    cepController,
   ];
 
   void _handleTextChanged() => setState(() {});
@@ -230,6 +238,23 @@ class _LawFirmVerificationFormScreenState
                   errorText:
                       showErrors && addressController.text.trim().length < 8
                       ? 'Informe o endereço do escritório'
+                      : null,
+                ),
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: cepController,
+                keyboardType: TextInputType.number,
+                inputFormatters: [
+                  _CepInputFormatter(),
+                  LengthLimitingTextInputFormatter(9),
+                ],
+                decoration: InputDecoration(
+                  hintText: 'CEP do escritório',
+                  helperText:
+                      'Usado para mostrar a distância até clientes próximos.',
+                  errorText: showErrors && !_cepIsValid
+                      ? 'Informe um CEP válido'
                       : null,
                 ),
               ),
@@ -517,6 +542,14 @@ class _LawFirmVerificationFormScreenState
     });
 
     try {
+      // Geocodifica o CEP (BrasilAPI) para a distância na descoberta.
+      // Best-effort: sem coordenadas o cadastro segue — o comprovante de
+      // endereço já cobre a conferência humana.
+      final cepDigits = _onlyDigits(cepController.text);
+      final coordinates = SupabaseConfig.isReady
+          ? await const CepService().lookup(cepDigits)
+          : null;
+
       final verification = SupabaseConfig.isReady
           ? await widget.repository.submitVerification(
               firmName: firmNameController.text.trim(),
@@ -528,6 +561,9 @@ class _LawFirmVerificationFormScreenState
               documents: documents,
               uploads: _pickedFiles.values.toList(),
               profilePhoto: _profilePhoto,
+              cep: cepDigits,
+              latitude: coordinates?.latitude,
+              longitude: coordinates?.longitude,
             )
           : LawFirmVerification(
               ownerProfileId: widget.user.id,
@@ -750,5 +786,26 @@ class _PhoneInputFormatter extends TextInputFormatter {
       buffer.write(digits[index]);
     }
     return buffer.toString();
+  }
+}
+
+class _CepInputFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final digits = newValue.text.replaceAll(RegExp(r'\D'), '');
+    final limitedDigits = digits.length > 8 ? digits.substring(0, 8) : digits;
+    final buffer = StringBuffer();
+    for (var index = 0; index < limitedDigits.length; index++) {
+      if (index == 5) buffer.write('-');
+      buffer.write(limitedDigits[index]);
+    }
+    final formatted = buffer.toString();
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
   }
 }

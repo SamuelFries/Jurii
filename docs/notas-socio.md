@@ -1971,3 +1971,85 @@ cada tap em profile_completion_test) — o app estava certo, a tela rola.
   ainda e a padrao do Flutter — trocar pelo simbolo quando quisermos.
 - Antes de submeter as lojas: converter o texto "Jur" dos SVGs master em curvas
   (nota do LEIA-ME) — nao afeta o app, so o kit.
+
+## Localizacao: distancia real ate o escritorio (24/07/2026)
+
+A "distancia" exibida ate hoje era FAKE: law_firms.distance_label e um texto
+que so os 3 escritorios demo do seed possuem ("1,8 km" fixo); toda firma real
+nascia com '' e nada nunca calculou nada — havia ate um bug: o card da
+descoberta mostrava o pin com texto vazio. Esta rodada constroi o sistema real.
+
+### PRIVACIDADE (decisao de arquitetura)
+
+**A posicao do cliente NUNCA sai do aparelho.** O banco guarda apenas as
+coordenadas do ESCRITORIO (dado publico de estabelecimento, derivado do CEP);
+o RPC as devolve e o app calcula a distancia localmente (Haversine). Nenhuma
+localizacao de usuario e trafegada nem armazenada — zero superficie LGPD nova.
+Distancia e INFORMACAO, nao criterio de ranking (o ranking segue destaque pago
++ relevancia).
+
+### Banco (migration `20260724120000_law_firm_geolocation.sql`)
+
+- `cep` + `latitude`/`longitude` em law_firm_verifications e law_firms, com
+  sanidade (cep 8 digitos; lat/lng em faixa e AOS PARES — nada de
+  meia-coordenada).
+- Grants por coluna (aditivos) para o formulario gravar os campos novos.
+- `approve_law_firm_verification` copia cep/lat/lng (INSERT e UPDATE) —
+  extraida verbatim da vigente (20260718200000, preservando avatar).
+- `fetch_recommended_law_firms` devolve latitude/longitude — extraida verbatim
+  da vigente (20260721120000, preservando is_featured/slots). Return type
+  mudou: drop + create + re-grant.
+
+Testado no Docker: submit com coords, approve copiando, fetch devolvendo (com
+is_featured preservado), sanidade barrando (lat 91, meia-coordenada, cep
+malformado), firma sem coords seguindo normal.
+
+### Como o escritorio ganha coordenadas
+
+O cadastro de verificacao ganhou campo **CEP (obrigatorio, mascara
+00000-000)**; no submit o app geocodifica via **BrasilAPI /cep/v2** (gratuita,
+sem chave) e envia cep + lat/lng. Best-effort: sem coordenadas o cadastro
+segue — o comprovante de endereco (que ja fazia parte da verificacao) cobre a
+conferencia humana. Progresso do formulario: 11 passos (7 dados + 4 docs).
+
+### Cliente
+
+- **Permissao so por gesto**: chip discreto "Ver distancias" no header da
+  secao de escritorios. Se a permissao JA foi dada antes, as distancias
+  aparecem direto (sem dialogo); nunca ha popup nao solicitado; negou -> o
+  chip some na sessao, sem insistir. Textos de permissao (Info.plist)
+  explicam: "nunca sai do seu aparelho".
+- `LocationService`: cache de sessao, precisao baixa (basta p/ km), nunca
+  lanca — qualquer falha vira "sem distancia", como o app sempre funcionou.
+- `geo_distance.dart`: Haversine + formato BR ("850 m", "3,2 km", "12 km").
+- Card e perfil mostram a distancia CALCULADA; o distance_label fake morreu em
+  producao (os repos devolvem '' — o valor legado sobrevive so nos mocks do
+  modo demo). Bug do pin orfao consertado (sem distancia, sem pin).
+- Deps novas: geolocator + http. Permissoes: NSLocationWhenInUseUsageDescription
+  (iOS) e ACCESS_COARSE/FINE_LOCATION (Android — o usuario pode escolher
+  "aproximada" no 12+).
+
+### RUNBOOK — dar coordenadas aos escritorios EXISTENTES (ex.: PIKA LAW)
+
+Escritorio aprovado antes desta rodada nao tem CEP/coords. No SQL Editor:
+
+    -- 1. descobrir as coordenadas do CEP (uma vez, no navegador):
+    --    https://brasilapi.com.br/api/cep/v2/<CEP_SO_DIGITOS>
+    -- 2. gravar:
+    update law_firms
+    set cep = '<8 digitos>', latitude = <lat>, longitude = <lng>
+    where id = '<uuid do escritorio>';
+
+Sem isso o escritorio simplesmente nao mostra distancia (fallback de sempre).
+
+### Fora de escopo (proximas fatias)
+
+- Advogado individual nao tem endereco (so oab_state) — distancia e feature de
+  ESCRITORIO por ora; decisao de produto se advogado tera.
+- Ordenar/filtrar por proximidade ("mais perto primeiro") — decisao de produto
+  (mexeria no ranking com destaque pago).
+- Editar CEP de escritorio ja aprovado pelo app (hoje: nova verificacao ou
+  runbook acima; nao ha tela de edicao de endereco).
+
+168 testes verdes (9 novos: Haversine, formato BR, parse BrasilAPI), analyze
+limpo. Ajustes de teste: CEP no preenchimento + contadores 0/11-11/11.

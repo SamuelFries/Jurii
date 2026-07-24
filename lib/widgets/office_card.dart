@@ -129,19 +129,24 @@ class OfficeCard extends StatelessWidget {
                       ),
                     ],
                     const Spacer(),
-                    Icon(
-                      Icons.location_on_outlined,
-                      size: 14,
-                      color: colors.textSecondary,
-                    ),
-                    const SizedBox(width: 2),
-                    Text(
-                      distance,
-                      style: TextStyle(
-                        fontSize: 12,
+                    // Sem distância calculada, nada de pin órfão (era um bug:
+                    // escritórios reais nasciam com distance '' e o card
+                    // mostrava o ícone com texto em branco).
+                    if (distance.isNotEmpty) ...[
+                      Icon(
+                        Icons.location_on_outlined,
+                        size: 14,
                         color: colors.textSecondary,
                       ),
-                    ),
+                      const SizedBox(width: 2),
+                      Text(
+                        distance,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: colors.textSecondary,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ],

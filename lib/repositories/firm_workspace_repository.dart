@@ -280,7 +280,8 @@ class FirmWorkspaceRepository {
           row['initials'] as String? ??
           _initialsFor(row['name'] as String? ?? ''),
       rating: (row['rating'] as num?)?.toDouble() ?? 0,
-      distance: row['distance_label'] as String? ?? '',
+      // distance_label é legado fake (ver law_firm_repository); sem exibição.
+      distance: '',
       specialty: row['specialty'] as String? ?? 'Escritório jurídico',
       practiceAreas: _practiceAreasFromRow(
         row['practice_areas'],

@@ -28,6 +28,7 @@ Future<void> _fillRequiredFirmData(WidgetTester tester) async {
     find.byType(TextField).at(4),
     'Avenida Paulista, 1000',
   );
+  await tester.enterText(find.byType(TextField).at(5), '01310100');
 
   await tester.ensureVisible(find.text('Direito Trabalhista'));
   await tester.tap(find.text('Direito Trabalhista'));
@@ -54,7 +55,8 @@ void main() {
     expect(find.text('Foto de perfil do escritório'), findsOneWidget);
     expect(find.text('Opcional'), findsOneWidget);
     expect(find.text('Adicionar foto'), findsOneWidget);
-    expect(find.text('0/10'), findsOneWidget);
+    // 11 passos desde o CEP obrigatório (7 dados + 4 documentos).
+    expect(find.text('0/11'), findsOneWidget);
   });
 
   testWidgets('envia verificação completa sem selecionar a foto opcional', (
@@ -74,7 +76,7 @@ void main() {
     await _attachFourRequiredDocuments(tester);
 
     expect(find.text('Tudo pronto para análise'), findsOneWidget);
-    expect(find.text('10/10'), findsOneWidget);
+    expect(find.text('11/11'), findsOneWidget);
     expect(find.text('Adicionar foto'), findsOneWidget);
 
     await tester.ensureVisible(find.text('Enviar para análise'));
@@ -92,7 +94,8 @@ void main() {
   ) async {
     await tester.pumpWidget(_testApp());
 
-    expect(find.text('0/10'), findsOneWidget);
+    // 11 passos desde o CEP obrigatório (7 dados + 4 documentos).
+    expect(find.text('0/11'), findsOneWidget);
 
     await tester.ensureVisible(find.text('Adicionar foto'));
     await tester.tap(find.text('Adicionar foto'));
@@ -101,6 +104,7 @@ void main() {
     expect(find.text('Adicionar foto'), findsNothing);
     expect(find.text('Foto adicionada'), findsOneWidget);
     expect(find.text('Trocar foto'), findsOneWidget);
-    expect(find.text('0/10'), findsOneWidget);
+    // 11 passos desde o CEP obrigatório (7 dados + 4 documentos).
+    expect(find.text('0/11'), findsOneWidget);
   });
 }

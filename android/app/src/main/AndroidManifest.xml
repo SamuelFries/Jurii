@@ -1,4 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Distância até os escritórios: calculada no aparelho; a posição nunca
+         é enviada ao servidor. FINE+COARSE declaradas para o usuário poder
+         escolher "aproximada" no Android 12+. -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <application
         android:label="jurii"
         android:name="${applicationName}"

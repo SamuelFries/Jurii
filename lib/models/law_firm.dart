@@ -20,6 +20,13 @@ class LawFirm {
   /// para caminhos que não expõem o campo (ex.: fallback de leitura direta).
   final bool isFeatured;
 
+  /// Coordenadas do escritório (derivadas do CEP no cadastro). Nulas quando o
+  /// escritório ainda não informou CEP — sem elas não há distância, e o app
+  /// mostra o fallback de sempre. A distância em si é calculada NO APARELHO
+  /// (a posição do usuário nunca sai do device).
+  final double? latitude;
+  final double? longitude;
+
   const LawFirm({
     required this.id,
     required this.name,
@@ -37,5 +44,9 @@ class LawFirm {
     this.websiteUrl,
     this.address,
     this.isFeatured = false,
+    this.latitude,
+    this.longitude,
   });
+
+  bool get hasCoordinates => latitude != null && longitude != null;
 }

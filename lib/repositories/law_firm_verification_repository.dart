@@ -40,6 +40,9 @@ class LawFirmVerificationRepository {
     required List<LawFirmVerificationDocument> documents,
     List<PendingVerificationUpload> uploads = const [],
     PendingVerificationUpload? profilePhoto,
+    String? cep,
+    double? latitude,
+    double? longitude,
   }) async {
     final user = SupabaseConfig.client.auth.currentUser;
     if (user == null) {
@@ -75,6 +78,14 @@ class LawFirmVerificationRepository {
           'phone': phone,
           'email': email,
           'address': address,
+          // CEP + coordenadas (BrasilAPI no submit). Best-effort: sem eles o
+          // cadastro segue; o escritório só fica sem distância na descoberta.
+          // O check do banco exige lat/lng aos pares.
+          if (cep != null && cep.isNotEmpty) 'cep': cep,
+          if (latitude != null && longitude != null) ...{
+            'latitude': latitude,
+            'longitude': longitude,
+          },
           'practice_areas': practiceAreas,
           'status': 'pending',
         })

@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
+
 import '../data/legal_practice_areas.dart';
 import '../data/mock/mock_law_firms.dart';
 import '../models/law_firm.dart';
 import '../repositories/law_firm_repository.dart';
 import '../screens/law_firm_profile_screen.dart';
+import '../services/location_service.dart';
 import '../services/supabase_config.dart';
 import '../theme/app_colors.dart';
+import '../utils/geo_distance.dart';
 import 'jurii_empty_state.dart';
 import 'jurii_motion.dart';
 import 'office_card.dart';
@@ -26,6 +30,9 @@ class OfficesSection extends StatefulWidget {
 
 class _OfficesSectionState extends State<OfficesSection> {
   late Future<List<LawFirm>> _lawFirmsFuture;
+  Position? _userPosition;
+  bool _locationChipDismissed = false;
+  bool _isLocating = false;
 
   bool get _shouldUseMock {
     if (!SupabaseConfig.isReady) return true;
@@ -36,7 +43,50 @@ class _OfficesSectionState extends State<OfficesSection> {
   void initState() {
     super.initState();
     _lawFirmsFuture = _loadLawFirms();
+    // Se a permissão JÁ foi concedida antes, mostra as distâncias direto —
+    // sem nunca abrir diálogo por conta própria (isso é do chip).
+    if (!_shouldUseMock) {
+      LocationService.instance.refreshIfPermitted().then((position) {
+        if (mounted && position != null) {
+          setState(() => _userPosition = position);
+        }
+      });
+    }
   }
+
+  Future<void> _enableDistances() async {
+    setState(() => _isLocating = true);
+    final position = await LocationService.instance.requestAndRefresh();
+    if (!mounted) return;
+    setState(() {
+      _isLocating = false;
+      _userPosition = position;
+      // Negou (ou serviço desligado): o chip some nesta sessão — pedir de
+      // novo a cada rebuild seria insistência.
+      if (position == null) _locationChipDismissed = true;
+    });
+  }
+
+  /// Distância calculada NO APARELHO. Em produção, só distância real: o
+  /// distance_label legado do banco (fake, herdado do seed) não é exibido —
+  /// ele sobrevive apenas no modo demo (mocks).
+  String _distanceLabelFor(LawFirm office) {
+    if (_shouldUseMock) return office.distance;
+    final position = _userPosition;
+    if (position == null || !office.hasCoordinates) return '';
+    final km = haversineKm(
+      lat1: position.latitude,
+      lon1: position.longitude,
+      lat2: office.latitude!,
+      lon2: office.longitude!,
+    );
+    return formatDistanceBr(km);
+  }
+
+  bool get _showLocationChip =>
+      !_shouldUseMock &&
+      _userPosition == null &&
+      !_locationChipDismissed;
 
   @override
   void didUpdateWidget(covariant OfficesSection oldWidget) {
@@ -78,9 +128,17 @@ class _OfficesSectionState extends State<OfficesSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Escritórios recomendados',
-          style: Theme.of(context).textTheme.titleLarge,
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                'Escritórios recomendados',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+            ),
+            if (_showLocationChip)
+              _DistanceChip(isLocating: _isLocating, onTap: _enableDistances),
+          ],
         ),
         const SizedBox(height: 16),
         FutureBuilder<List<LawFirm>>(
@@ -142,7 +200,7 @@ class _OfficesSectionState extends State<OfficesSection> {
                       initials: office.initials,
                       officeName: office.name,
                       rating: office.rating,
-                      distance: office.distance,
+                      distance: _distanceLabelFor(office),
                       specialty: practiceAreaSummary(office.practiceAreas),
                       reviews: office.reviews,
                       avatarType: office.avatarType,
@@ -164,6 +222,59 @@ class _OfficesSectionState extends State<OfficesSection> {
           },
         ),
       ],
+    );
+  }
+}
+
+/// Chip discreto que pede a localização só por gesto do usuário — nunca há
+/// popup de permissão não solicitado. Some após a resposta (concedida vira
+/// distâncias; negada não insiste).
+class _DistanceChip extends StatelessWidget {
+  const _DistanceChip({required this.isLocating, required this.onTap});
+
+  final bool isLocating;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.jColors;
+    return JuriiPressable(
+      onTap: isLocating ? null : onTap,
+      borderRadius: BorderRadius.circular(999),
+      semanticLabel: 'Ver distâncias até os escritórios',
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: colors.lightBlue,
+          border: Border.all(color: colors.lightBlueBorder),
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (isLocating)
+              SizedBox(
+                width: 12,
+                height: 12,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: colors.primary,
+                ),
+              )
+            else
+              Icon(Icons.near_me_outlined, size: 14, color: colors.primary),
+            const SizedBox(width: 6),
+            Text(
+              'Ver distâncias',
+              style: TextStyle(
+                color: colors.primary,
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
