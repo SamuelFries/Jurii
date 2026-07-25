@@ -24,6 +24,7 @@ class JuriiPressable extends StatefulWidget {
     this.borderRadius = const BorderRadius.all(Radius.circular(16)),
     this.pressedScale = 0.985,
     this.semanticLabel,
+    this.semanticSelected,
     this.clipBehavior = Clip.hardEdge,
   });
 
@@ -32,6 +33,11 @@ class JuriiPressable extends StatefulWidget {
   final BorderRadius borderRadius;
   final double pressedScale;
   final String? semanticLabel;
+
+  /// Estado de seleção exposto a leitores de tela (chips/cards de filtro).
+  /// Nulo = o controle não expressa seleção.
+  final bool? semanticSelected;
+
   final Clip clipBehavior;
 
   @override
@@ -56,6 +62,7 @@ class _JuriiPressableState extends State<JuriiPressable> {
     return Semantics(
       button: _enabled,
       enabled: _enabled,
+      selected: widget.semanticSelected,
       label: widget.semanticLabel,
       child: MouseRegion(
         cursor: _enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
