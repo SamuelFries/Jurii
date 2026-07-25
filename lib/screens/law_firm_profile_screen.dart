@@ -4,7 +4,9 @@ import '../data/legal_practice_areas.dart';
 import '../models/law_firm.dart';
 import '../repositories/messaging_repository.dart';
 import '../repositories/review_repository.dart';
+import '../services/location_service.dart';
 import '../theme/app_colors.dart';
+import '../utils/geo_distance.dart';
 import '../widgets/profile_avatar.dart';
 import '../widgets/reviews_panel.dart';
 import 'chat_screen.dart';
@@ -37,6 +39,26 @@ class _LawFirmProfileScreenState extends State<LawFirmProfileScreen> {
         'navy' || 'gold' => colors.card,
         _ => colors.primary,
       };
+
+  /// Distância calculada no aparelho (posição em cache da sessão, obtida na
+  /// descoberta). Sem posição ou sem coordenadas do escritório, cai no rótulo
+  /// de sempre — o campo distance do model só carrega valor no modo demo.
+  String _distanceChipLabel() {
+    final position = LocationService.instance.cachedPosition;
+    if (position != null && widget.lawFirm.hasCoordinates) {
+      return formatDistanceBr(
+        haversineKm(
+          lat1: position.latitude,
+          lon1: position.longitude,
+          lat2: widget.lawFirm.latitude!,
+          lon2: widget.lawFirm.longitude!,
+        ),
+      );
+    }
+    return widget.lawFirm.distance.isEmpty
+        ? 'Atendimento online'
+        : widget.lawFirm.distance;
+  }
 
   Future<void> _openChat() async {
     if (_isOpeningChat) return;
@@ -140,9 +162,7 @@ class _LawFirmProfileScreenState extends State<LawFirmProfileScreen> {
                       ),
                       _InfoChip(
                         icon: Icons.location_on_outlined,
-                        label: widget.lawFirm.distance.isEmpty
-                            ? 'Atendimento online'
-                            : widget.lawFirm.distance,
+                        label: _distanceChipLabel(),
                       ),
                       const _InfoChip(
                         icon: Icons.verified_outlined,

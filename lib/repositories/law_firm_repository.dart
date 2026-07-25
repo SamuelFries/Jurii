@@ -48,7 +48,11 @@ class LawFirmRepository {
       name: row['name'] as String,
       initials: row['initials'] as String,
       rating: (row['rating'] as num).toDouble(),
-      distance: row['distance_label'] as String? ?? '',
+      // distance_label era um rótulo FAKE herdado do seed (só os 3 demos têm
+      // valor). Distância agora é calculada no aparelho a partir de
+      // latitude/longitude; o campo legado não é mais exibido em produção
+      // (os mocks do modo demo mantêm o valor via construtor const).
+      distance: '',
       specialty: specialty,
       practiceAreas: _practiceAreasFromRow(
         row['practice_areas'],
@@ -64,6 +68,8 @@ class LawFirmRepository {
       address: row['address'] as String?,
       // Ausente no fallback de leitura direta da tabela — vira false, sem selo.
       isFeatured: row['is_featured'] as bool? ?? false,
+      latitude: (row['latitude'] as num?)?.toDouble(),
+      longitude: (row['longitude'] as num?)?.toDouble(),
     );
   }
 

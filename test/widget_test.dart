@@ -513,6 +513,7 @@ void main() {
       find.byType(TextField).at(4),
       'Avenida Paulista, 1000',
     );
+    await tester.enterText(find.byType(TextField).at(5), '01310100');
     await tester.pump();
     expect(find.text('Quantidade de advogados'), findsNothing);
     await tester.ensureVisible(find.text('Direito Trabalhista'));
