@@ -27,20 +27,23 @@ class AppointmentDraft {
 Future<AppointmentDraft?> showAppointmentFormSheet(
   BuildContext context, {
   Appointment? existing,
+  DateTime Function()? nowProvider,
 }) {
   return showModalBottomSheet<AppointmentDraft>(
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
     backgroundColor: Colors.transparent,
-    builder: (_) => AppointmentFormSheet(existing: existing),
+    builder: (_) =>
+        AppointmentFormSheet(existing: existing, nowProvider: nowProvider),
   );
 }
 
 class AppointmentFormSheet extends StatefulWidget {
-  const AppointmentFormSheet({super.key, this.existing});
+  const AppointmentFormSheet({super.key, this.existing, this.nowProvider});
 
   final Appointment? existing;
+  final DateTime Function()? nowProvider;
 
   @override
   State<AppointmentFormSheet> createState() => _AppointmentFormSheetState();
@@ -55,15 +58,17 @@ class _AppointmentFormSheetState extends State<AppointmentFormSheet> {
   late DateTime _date;
   late TimeOfDay _start;
   late TimeOfDay _end;
+  late int _endDayOffset;
   String? _timeError;
 
   bool get _isEditing => widget.existing != null;
+  DateTime _now() => widget.nowProvider?.call() ?? DateTime.now();
 
   @override
   void initState() {
     super.initState();
     final existing = widget.existing;
-    final start = existing?.startsAt ?? _nextRoundedHour();
+    final start = existing?.startsAt ?? _nextRoundedHour(_now());
     final end = existing?.endsAt ?? start.add(const Duration(hours: 1));
 
     _titleController = TextEditingController(text: existing?.title ?? '');
@@ -74,10 +79,12 @@ class _AppointmentFormSheetState extends State<AppointmentFormSheet> {
     _date = DateTime(start.year, start.month, start.day);
     _start = TimeOfDay(hour: start.hour, minute: start.minute);
     _end = TimeOfDay(hour: end.hour, minute: end.minute);
+    final endDate = DateTime(end.year, end.month, end.day);
+    _endDayOffset = endDate.difference(_date).inDays;
+    if (_endDayOffset < 0) _endDayOffset = 0;
   }
 
-  static DateTime _nextRoundedHour() {
-    final now = DateTime.now();
+  static DateTime _nextRoundedHour(DateTime now) {
     return DateTime(now.year, now.month, now.day, now.hour + 1);
   }
 
@@ -93,8 +100,17 @@ class _AppointmentFormSheetState extends State<AppointmentFormSheet> {
     return DateTime(_date.year, _date.month, _date.day, time.hour, time.minute);
   }
 
+  DateTime _combineEnd() {
+    return _combine(_end).add(Duration(days: _endDayOffset));
+  }
+
+  int _dayOffsetFromBase(DateTime value) {
+    final valueDate = DateTime(value.year, value.month, value.day);
+    return valueDate.difference(_date).inDays;
+  }
+
   Future<void> _pickDate() async {
-    final now = DateTime.now();
+    final now = _now();
     final picked = await showDatePicker(
       context: context,
       initialDate: _date,
@@ -113,13 +129,21 @@ class _AppointmentFormSheetState extends State<AppointmentFormSheet> {
     setState(() {
       if (isStart) {
         _start = picked;
-        // Fim acompanha o início (mantém 1h) enquanto ainda não for válido.
-        if (_minutesOf(_end) <= _minutesOf(_start)) {
-          final bumped = _minutesOf(_start) + 60;
-          _end = TimeOfDay(hour: (bumped ~/ 60) % 24, minute: bumped % 60);
+        // Preserva o término atual quando ele continua válido. Se o novo
+        // início o alcança, mantém a duração padrão de 1h, inclusive quando
+        // isso cruza a meia-noite.
+        final startsAt = _combine(_start);
+        if (!_combineEnd().isAfter(startsAt)) {
+          final bumped = startsAt.add(const Duration(hours: 1));
+          _end = TimeOfDay(hour: bumped.hour, minute: bumped.minute);
+          _endDayOffset = _dayOffsetFromBase(bumped);
         }
       } else {
         _end = picked;
+        // Um horário de término menor que o início representa o dia seguinte.
+        // Horários iguais continuam inválidos para evitar criar, sem intenção,
+        // um compromisso de 24 horas.
+        _endDayOffset = _minutesOf(_end) < _minutesOf(_start) ? 1 : 0;
       }
       _timeError = null;
     });
@@ -132,7 +156,7 @@ class _AppointmentFormSheetState extends State<AppointmentFormSheet> {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
     final startsAt = _combine(_start);
-    final endsAt = _combine(_end);
+    final endsAt = _combineEnd();
     if (!endsAt.isAfter(startsAt)) {
       setState(() => _timeError = 'O término deve ser depois do início.');
       return;
@@ -179,8 +203,9 @@ class _AppointmentFormSheetState extends State<AppointmentFormSheet> {
                 labelText: 'Título',
                 hintText: 'Ex.: Audiência trabalhista',
               ),
-              validator: (value) =>
-                  (value == null || value.trim().isEmpty) ? 'Informe um título' : null,
+              validator: (value) => (value == null || value.trim().isEmpty)
+                  ? 'Informe um título'
+                  : null,
             ),
             const SizedBox(height: 12),
             TextFormField(
@@ -223,7 +248,11 @@ class _AppointmentFormSheetState extends State<AppointmentFormSheet> {
                   child: _PickerRow(
                     icon: Icons.schedule_outlined,
                     label: 'Término',
-                    value: _end.format(context),
+                    value: _endDayOffset > 0
+                        ? '${_end.format(context)} '
+                              '(+$_endDayOffset '
+                              '${_endDayOffset == 1 ? 'dia' : 'dias'})'
+                        : _end.format(context),
                     onTap: () => _pickTime(isStart: false),
                   ),
                 ),
@@ -253,9 +282,13 @@ class _AppointmentFormSheetState extends State<AppointmentFormSheet> {
   }
 
   String _dateLabel(DateTime date) {
-    final now = DateTime.now();
+    final now = _now();
     final today = DateTime(now.year, now.month, now.day);
-    final diff = DateTime(date.year, date.month, date.day).difference(today).inDays;
+    final diff = DateTime(
+      date.year,
+      date.month,
+      date.day,
+    ).difference(today).inDays;
     if (diff == 0) return 'Hoje';
     if (diff == 1) return 'Amanhã';
     const weekdays = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];

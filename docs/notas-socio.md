@@ -2084,3 +2084,27 @@ sort; nada no app assume a ordem do servidor.
 
 168 testes verdes (9 novos: Haversine, formato BR, parse BrasilAPI), analyze
 limpo. Ajustes de teste: CEP no preenchimento + contadores 0/11-11/11.
+
+## Agenda: compromissos atravessando a meia-noite (24/07/2026)
+
+Uma execução noturna da suíte revelou um bug dependente do relógio: por volta
+das 22h, o formulário sugeria início às 23h e término às 00h. Embora o término
+real fosse no dia seguinte, a tela reconstruía os dois horários com a mesma
+data e recusava o compromisso como se `00:00` viesse antes de `23:00`.
+
+O formulário agora preserva explicitamente o deslocamento de dias do término:
+
+- a duração padrão de uma hora continua correta ao cruzar a meia-noite;
+- compromissos existentes que começam em um dia e terminam no seguinte podem
+  ser editados sem perder a data final;
+- escolher um término com horário menor que o início representa o dia
+  seguinte, enquanto horários iguais continuam inválidos;
+- a interface sinaliza o deslocamento, por exemplo `00:00 (+1 dia)`.
+
+O relógio também passou a ser injetável no formulário. Os testes usam datas
+fixas e não mudam de resultado conforme o horário da máquina. Foram adicionados
+cenários para criação às 23h e edição de um compromisso já salvo atravessando a
+meia-noite.
+
+Validação final: `flutter analyze` sem issues, teste focado da agenda com 7
+cenários aprovados e suíte Flutter completa com 178 testes aprovados.
