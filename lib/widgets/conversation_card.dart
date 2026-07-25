@@ -58,6 +58,10 @@ class ConversationCard extends StatelessWidget {
                   ),
                   child: Text(
                     conversation.specialty,
+                    // O subtítulo pode vir composto ("Advogada · Área") no
+                    // painel do escritório — uma linha, sem chip de 2 andares.
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(fontSize: 11, color: colors.primary),
                   ),
                 ),

@@ -2148,5 +2148,13 @@ bugs da mesma familia no app:
 Nota dos prints: os cards de sugestao apareciam naquela conversa porque o
 OPERADOR do escritorio os enviou nela — no painel firmClient as conversas do
 mesmo cliente sao indistinguiveis (ambas mostram so o nome do cliente).
-**Follow-up anotado**: subtitulo no painel do escritorio indicando o advogado
-responsavel da conversa, para o operador nao errar o destino da sugestao.
+**Follow-up FEITO (25/07, migration `20260725150000_firm_panel_conversation_lawyer.sql`)**:
+o subtitulo (specialty) do painel do escritorio agora prefixa o advogado
+responsavel quando a conversa e direta com um advogado — "Juliana Advogada ·
+Direito Empresarial" vs "Direito Empresarial" — nas DUAS RPCs (lista
+firmClient e chat aberto por operador). O prefixo NUNCA aparece para o cliente
+(que ja ve o advogado no titulo) nem para o proprio advogado; e como quem
+propoe caso e o proprio advogado, a "Area juridica" da solicitacao segue pura.
+Zero Dart de logica (o app ja exibia specialty); so ellipsis no chip do card
+de conversa para o subtitulo composto nao virar chip de 2 linhas. Testado no
+Docker nos 4 pontos de vista (painel, chat da operadora, cliente, advogada).
