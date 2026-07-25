@@ -122,8 +122,11 @@ class _ChatScreenState extends State<ChatScreen>
       _messages.isEmpty &&
       !_everHadMessages;
 
+  // O interlocutor é o advogado sempre que a conversa tem lawyer_id — o type
+  // é 'client_firm' até em conversa direta com advogado (herança do schema),
+  // então decidir por ele rotularia o composer como "escritório".
   String get _triageCounterpartLabel =>
-      widget.conversation.type == 'client_lawyer' ? 'advogado' : 'escritório';
+      widget.conversation.lawyerId != null ? 'advogado' : 'escritório';
 
   @override
   void initState() {
@@ -888,6 +891,14 @@ class _ChatScreenState extends State<ChatScreen>
       );
       if (!mounted) return;
       setState(() => _openingRecommendedLawyerId = null);
+
+      // A conversa com o advogado pode ser ESTA aqui (ex.: a sugestão foi
+      // enviada dentro da própria conversa dele). Empilhar outra tela igual
+      // criaria uma pilha infinita de chats idênticos.
+      if (conversation.id == widget.conversation.id) {
+        _showSnackBar('Você já está na conversa com este advogado.');
+        return;
+      }
 
       await Navigator.of(context).push(
         MaterialPageRoute(

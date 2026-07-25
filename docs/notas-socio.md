@@ -2131,3 +2131,22 @@ das definicoes vigentes (20260718200000); apenas a ordem dos WHENs mudou.
 Testado no Docker no cenario exato (advogado DONO de escritorio): cabecalho e
 lista do cliente mostram o advogado; conversa pura com o escritorio segue
 mostrando o escritorio; painel firmClient segue vendo o nome do cliente.
+
+**Round 2 (mesmo dia, apos prints do Samuel)** — o teste dele revelou que a
+migration ainda nao estava em prod (subida e verificada agora) E mais dois
+bugs da mesma familia no app:
+
+- O hint do composer ("Mensagem para o escritorio") decidia pelo TYPE da
+  conversa — que e 'client_firm' ate em conversa direta com advogado. Agora
+  decide por lawyer_id (mesma regra de precedencia).
+- O botao "Enviar mensagem" do card de sugestao EMPILHAVA chats identicos
+  quando a conversa do advogado era a propria conversa aberta (caso real dos
+  prints: o escritorio enviou a sugestao DENTRO da conversa da advogada).
+  Agora ha guard: mesma conversa -> "Voce ja esta na conversa com este
+  advogado", sem push.
+
+Nota dos prints: os cards de sugestao apareciam naquela conversa porque o
+OPERADOR do escritorio os enviou nela — no painel firmClient as conversas do
+mesmo cliente sao indistinguiveis (ambas mostram so o nome do cliente).
+**Follow-up anotado**: subtitulo no painel do escritorio indicando o advogado
+responsavel da conversa, para o operador nao errar o destino da sugestao.
