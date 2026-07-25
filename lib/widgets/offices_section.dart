@@ -93,9 +93,7 @@ class _OfficesSectionState extends State<OfficesSection> {
   }
 
   bool get _showLocationChip =>
-      !_shouldUseMock &&
-      _userPosition == null &&
-      !_locationChipDismissed;
+      !_shouldUseMock && _userPosition == null && !_locationChipDismissed;
 
   /// Troca de ordenação em tempo real: o sort é client-side sobre a lista já
   /// carregada — nenhuma ida ao servidor, a lista reordena na hora.
@@ -129,9 +127,7 @@ class _OfficesSectionState extends State<OfficesSection> {
         });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text(
-              'Ative a localização para ordenar por distância.',
-            ),
+            content: Text('Ative a localização para ordenar por distância.'),
           ),
         );
         return; // mantém a ordenação atual
@@ -326,50 +322,45 @@ class _SortChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.jColors;
-    return Semantics(
-      selected: selected,
-      button: true,
-      child: JuriiPressable(
-        onTap: busy ? null : onTap,
-        borderRadius: BorderRadius.circular(999),
-        semanticLabel: 'Ordenar por $label',
-        child: AnimatedContainer(
-          duration: JuriiMotion.fast,
-          curve: JuriiMotion.ease,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: selected ? colors.lightGold : colors.card,
-            border: Border.all(
-              color: selected
-                  ? colors.lightGoldBorder
-                  : colors.lightBlueBorder,
-            ),
-            borderRadius: BorderRadius.circular(999),
+    return JuriiPressable(
+      onTap: busy ? null : onTap,
+      borderRadius: BorderRadius.circular(999),
+      semanticSelected: selected,
+      semanticLabel: 'Ordenar por $label',
+      child: AnimatedContainer(
+        duration: JuriiMotion.fast,
+        curve: JuriiMotion.ease,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: selected ? colors.lightGold : colors.card,
+          border: Border.all(
+            color: selected ? colors.lightGoldBorder : colors.lightBlueBorder,
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (busy) ...[
-                SizedBox(
-                  width: 11,
-                  height: 11,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: colors.accent,
-                  ),
-                ),
-                const SizedBox(width: 6),
-              ],
-              Text(
-                label,
-                style: TextStyle(
-                  color: selected ? colors.textPrimary : colors.textSecondary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (busy) ...[
+              SizedBox(
+                width: 11,
+                height: 11,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: colors.accent,
                 ),
               ),
+              const SizedBox(width: 6),
             ],
-          ),
+            Text(
+              label,
+              style: TextStyle(
+                color: selected ? colors.textPrimary : colors.textSecondary,
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
         ),
       ),
     );

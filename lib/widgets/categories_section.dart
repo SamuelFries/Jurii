@@ -3,6 +3,7 @@ import '../data/legal_practice_areas.dart';
 import '../data/mock/mock_categories.dart';
 import '../models/legal_category.dart';
 import '../repositories/category_repository.dart';
+import '../theme/app_colors.dart';
 import 'category_card.dart';
 import 'jurii_motion.dart';
 
@@ -43,12 +44,19 @@ class _CategoriesSectionState extends State<CategoriesSection> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.jColors;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           'Categorias populares',
           style: Theme.of(context).textTheme.titleLarge,
+        ),
+        const SizedBox(height: 4),
+        // O toggle de filtro é invisível sem isto — o gesto precisa ser dito.
+        Text(
+          'Toque para filtrar advogados e escritórios.',
+          style: TextStyle(color: colors.textSecondary, fontSize: 13),
         ),
         const SizedBox(height: 16),
         FutureBuilder<List<LegalCategory>>(
@@ -72,10 +80,14 @@ class _CategoriesSectionState extends State<CategoriesSection> {
                 ),
                 itemBuilder: (context, index) {
                   final category = categories[index];
-                  final practiceArea = practiceAreaForCategory(
-                    id: category.id,
-                    title: category.title,
-                  );
+                  // A área canônica vem do banco (practice_area); a
+                  // heurística por id/título fica só para dados antigos.
+                  final practiceArea =
+                      category.practiceArea ??
+                      practiceAreaForCategory(
+                        id: category.id,
+                        title: category.title,
+                      );
                   final selected = isPracticeAreaSelectedForQuery(
                     area: practiceArea,
                     query: widget.searchQuery,
@@ -85,7 +97,6 @@ class _CategoriesSectionState extends State<CategoriesSection> {
                     index: index,
                     child: CategoryCard(
                       title: category.title,
-                      isGold: category.isGold,
                       selected: selected,
                       iconName: category.iconName,
                       onTap: () =>

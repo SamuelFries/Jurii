@@ -2158,3 +2158,50 @@ propoe caso e o proprio advogado, a "Area juridica" da solicitacao segue pura.
 Zero Dart de logica (o app ja exibia specialty); so ellipsis no chip do card
 de conversa para o subtitulo composto nao virar chip de 2 linhas. Testado no
 Docker nos 4 pontos de vista (painel, chat da operadora, cliente, advogada).
+
+## Categorias populares: canonizacao + polimento (26/07/2026)
+
+O Samuel perguntou por que so uma categoria era amarela — e a investigacao
+revelou que a home estava mostrando DRIFT de dados, nao design: prod carregava
+um seed antigo (5 categorias, ids em ingles, 1 com is_highlighted) divergente
+do repo (6, ids em portugues, 3 highlighted). O dourado era uma flag
+arbitraria que nao comunicava nada e colidia com a linguagem premium do app.
+
+### O que mudou (migration `20260726120000_canonical_legal_categories.sql`)
+
+- **Conjunto canonico de 6 categorias** (grid 3x2 completo), as areas de maior
+  demanda B2C: Divorcio e Familia, Trabalhista, Consumidor, Imobiliario,
+  Previdenciario, Acidente de Transito. Upsert + delete do que esta fora
+  (limpa o drift; a unica FK — law_firm_categories, on delete restrict — e
+  limpada antes; vazia em prod).
+- **Coluna practice_area**: a area juridica CANONICA que o tap aplica como
+  filtro. Antes o app inferia por heuristica de id/titulo (fragil — os ids de
+  prod em ingles so filtravam por acaso do titulo casar). A heuristica fica
+  como fallback p/ dados antigos. Testado com o caso "Previdenciario", que a
+  heuristica nao conhece.
+- **O dourado agora significa UMA coisa: filtro ativo.** is_highlighted
+  deixou de ser lido (coluna fica no banco, sem efeito); isGold saiu do
+  modelo/mocks/card. Selecionado = superficie lightGold + borda accent +
+  peso de fonte; par seguro nos dois temas.
+- **Card polido**: icone em badge circular (surface do card + sombra sutil),
+  rotulo acessivel dinamico ("Filtrar por X" / "Remover filtro X"),
+  Semantics(selected) via novo param `semanticSelected` do JuriiPressable
+  (os sort chips da descoberta migraram pro mesmo mecanismo — um no de
+  semantics unico em vez de wrapper duplicado).
+- **Subtitulo na secao**: "Toque para filtrar advogados e escritorios." — o
+  toggle de filtro era um gesto invisivel.
+
+### Validacao
+
+- Docker: reset + SIMULACAO DO DRIFT DE PROD (linhas antigas em ingles +
+  vinculo orfao inseridos, migration re-rodada por cima) → 6 canonicas,
+  antigas removidas, vinculo orfao limpo, FK nao quebrou.
+- 181 testes Flutter (3 novos: grid canonico, prioridade do practice_area
+  sobre a heuristica, selecionado-dourado + semantics), analyze limpo.
+- Licao de teste: JuriiStaggeredItem comeca em opacity 0 — sem pumpAndSettle
+  os cards nem ENTRAM na arvore de semantics (bySemanticsLabel acha 0).
+
+### Pendente
+
+- db push (a migration DELETA as 5 linhas antigas de prod — pedir
+  autorizacao) + PR/merge.

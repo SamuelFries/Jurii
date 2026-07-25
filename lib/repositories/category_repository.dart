@@ -17,8 +17,8 @@ class CategoryRepository {
     return LegalCategory(
       id: row['id'] as String,
       title: row['title'] as String,
-      isGold: row['is_highlighted'] as bool? ?? false,
       iconName: row['icon_name'] as String?,
+      practiceArea: row['practice_area'] as String?,
     );
   }
 }

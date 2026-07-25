@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import 'jurii_motion.dart';
 
+/// Card de categoria da home. O dourado aqui tem UM significado: filtro
+/// ativo. (Antes vinha de legal_categories.is_highlighted, um destaque
+/// arbitrário que colidia com a linguagem de "pago/premium" do resto do app.)
 class CategoryCard extends StatelessWidget {
   final String title;
-  final bool isGold;
   final bool selected;
   final String? iconName;
   final VoidCallback? onTap;
@@ -12,7 +14,6 @@ class CategoryCard extends StatelessWidget {
   const CategoryCard({
     super.key,
     required this.title,
-    required this.isGold,
     this.selected = false,
     this.iconName,
     this.onTap,
@@ -40,38 +41,56 @@ class CategoryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.jColors;
-    final accentColor = isGold ? colors.accent : colors.primary;
+    final accentColor = selected ? colors.accent : colors.primary;
 
     return JuriiPressable(
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
-      semanticLabel: title,
+      semanticSelected: selected,
+      semanticLabel: selected ? 'Remover filtro $title' : 'Filtrar por $title',
       child: AnimatedContainer(
         duration: JuriiMotion.fast,
         curve: JuriiMotion.ease,
         decoration: BoxDecoration(
-          color: isGold ? colors.lightGold : colors.lightBlue,
+          color: selected ? colors.lightGold : colors.lightBlue,
           border: Border.all(
-            color: selected
-                ? accentColor
-                : isGold
-                ? colors.lightGoldBorder
-                : colors.lightBlueBorder,
-            width: selected ? 2 : 1.5,
+            color: selected ? colors.accent : colors.lightBlueBorder,
+            width: selected ? 1.8 : 1.5,
           ),
           borderRadius: BorderRadius.circular(16),
         ),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(_categoryIcon, size: 28, color: accentColor),
+            AnimatedContainer(
+              duration: JuriiMotion.fast,
+              curve: JuriiMotion.ease,
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: colors.card,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: colors.primary.withValues(alpha: 0.06),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Icon(_categoryIcon, size: 21, color: accentColor),
+            ),
             const SizedBox(height: 8),
             Text(
               title,
               textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontSize: 11,
-                fontWeight: FontWeight.w600,
+                height: 1.2,
+                fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
                 color: colors.textPrimary,
               ),
             ),
@@ -87,7 +106,8 @@ class CategoryCard extends StatelessWidget {
 
     final normalizedTitle = title.replaceAll('\n', ' ').toLowerCase();
 
-    if (normalizedTitle.contains('divórcio')) {
+    if (normalizedTitle.contains('divórcio') ||
+        normalizedTitle.contains('família')) {
       return Icons.family_restroom;
     }
     if (normalizedTitle.contains('pensão')) {
@@ -104,6 +124,9 @@ class CategoryCard extends StatelessWidget {
     }
     if (normalizedTitle.contains('consumidor')) {
       return Icons.shopping_bag_outlined;
+    }
+    if (normalizedTitle.contains('previdenci')) {
+      return Icons.elderly_outlined;
     }
 
     return Icons.balance_outlined;
