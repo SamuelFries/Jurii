@@ -2108,3 +2108,45 @@ meia-noite.
 
 Validação final: `flutter analyze` sem issues, teste focado da agenda com 7
 cenários aprovados e suíte Flutter completa com 178 testes aprovados.
+
+## Fix: conversa com advogado mostrava o escritorio dele (25/07/2026)
+
+Bug reportado pelo Samuel: cliente tocava "Enviar mensagem" no perfil de um
+advogado recomendado e o chat abria "do escritorio" do qual o advogado e dono.
+
+**Diagnostico**: a conversa criada estava CERTA (lawyer_id do advogado). Mas a
+conversa cliente<->advogado tambem carrega o law_firm_id do vinculo (de
+proposito — e o que faz a conversa aparecer no painel do escritorio), e os
+CASEs de titulo/iniciais/avatar das RPCs de conversa testavam law_firm_id
+ANTES de lawyer_id para o cliente. O cabecalho exibia nome, iniciais e logo do
+ESCRITORIO numa conversa que era com o advogado. O tap no cabecalho do chat
+tinha a mesma precedencia invertida (abria o perfil do escritorio).
+
+**Fix** (migration `20260725120000_client_lawyer_conversation_identity.sql` +
+chat_screen): para o cliente, lawyer_id tem precedencia — conversa com
+advogado mostra o ADVOGADO (nome/iniciais/avatar e o perfil no tap);
+escritorio so quando nao ha advogado na conversa. Corpos extraidos verbatim
+das definicoes vigentes (20260718200000); apenas a ordem dos WHENs mudou.
+
+Testado no Docker no cenario exato (advogado DONO de escritorio): cabecalho e
+lista do cliente mostram o advogado; conversa pura com o escritorio segue
+mostrando o escritorio; painel firmClient segue vendo o nome do cliente.
+
+**Round 2 (mesmo dia, apos prints do Samuel)** — o teste dele revelou que a
+migration ainda nao estava em prod (subida e verificada agora) E mais dois
+bugs da mesma familia no app:
+
+- O hint do composer ("Mensagem para o escritorio") decidia pelo TYPE da
+  conversa — que e 'client_firm' ate em conversa direta com advogado. Agora
+  decide por lawyer_id (mesma regra de precedencia).
+- O botao "Enviar mensagem" do card de sugestao EMPILHAVA chats identicos
+  quando a conversa do advogado era a propria conversa aberta (caso real dos
+  prints: o escritorio enviou a sugestao DENTRO da conversa da advogada).
+  Agora ha guard: mesma conversa -> "Voce ja esta na conversa com este
+  advogado", sem push.
+
+Nota dos prints: os cards de sugestao apareciam naquela conversa porque o
+OPERADOR do escritorio os enviou nela — no painel firmClient as conversas do
+mesmo cliente sao indistinguiveis (ambas mostram so o nome do cliente).
+**Follow-up anotado**: subtitulo no painel do escritorio indicando o advogado
+responsavel da conversa, para o operador nao errar o destino da sugestao.
