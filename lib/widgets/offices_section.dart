@@ -10,6 +10,7 @@ import '../services/location_service.dart';
 import '../services/supabase_config.dart';
 import '../theme/app_colors.dart';
 import '../utils/geo_distance.dart';
+import '../utils/office_sorting.dart';
 import 'jurii_empty_state.dart';
 import 'jurii_motion.dart';
 import 'office_card.dart';
@@ -33,6 +34,14 @@ class _OfficesSectionState extends State<OfficesSection> {
   Position? _userPosition;
   bool _locationChipDismissed = false;
   bool _isLocating = false;
+
+  /// Padrão: relevância (a ordem do servidor, onde vive o destaque pago).
+  OfficeSort _sort = OfficeSort.relevance;
+
+  /// Incrementado a cada gesto de ordenação. Um await de GPS que terminar
+  /// depois de o usuário já ter escolhido OUTRO método não pode sobrescrever
+  /// a escolha mais recente.
+  int _sortGesture = 0;
 
   bool get _shouldUseMock {
     if (!SupabaseConfig.isReady) return true;
@@ -88,6 +97,56 @@ class _OfficesSectionState extends State<OfficesSection> {
       _userPosition == null &&
       !_locationChipDismissed;
 
+  /// Troca de ordenação em tempo real: o sort é client-side sobre a lista já
+  /// carregada — nenhuma ida ao servidor, a lista reordena na hora.
+  Future<void> _changeSort(OfficeSort sort) async {
+    if (sort == _sort) return;
+    final gesture = ++_sortGesture;
+
+    // "Distância" precisa da posição; escolher a opção É o gesto do usuário
+    // que autoriza pedir a permissão. No modo demo (mocks sem coordenadas)
+    // não há o que pedir: seleciona e segue — nada de diálogo de permissão
+    // real por um sort que não muda nada.
+    if (sort == OfficeSort.distance &&
+        _userPosition == null &&
+        !_shouldUseMock) {
+      setState(() => _isLocating = true);
+      final position = await LocationService.instance.requestAndRefresh();
+      if (!mounted) return;
+      // O usuário escolheu outro método enquanto o GPS respondia: a posição
+      // ainda vale (guarda), mas a escolha mais recente vence.
+      if (gesture != _sortGesture) {
+        setState(() {
+          _isLocating = false;
+          if (position != null) _userPosition = position;
+        });
+        return;
+      }
+      if (position == null) {
+        setState(() {
+          _isLocating = false;
+          _locationChipDismissed = true;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Ative a localização para ordenar por distância.',
+            ),
+          ),
+        );
+        return; // mantém a ordenação atual
+      }
+      setState(() {
+        _isLocating = false;
+        _userPosition = position;
+        _sort = sort;
+      });
+      return;
+    }
+
+    setState(() => _sort = sort);
+  }
+
   @override
   void didUpdateWidget(covariant OfficesSection oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -140,6 +199,22 @@ class _OfficesSectionState extends State<OfficesSection> {
               _DistanceChip(isLocating: _isLocating, onTap: _enableDistances),
           ],
         ),
+        const SizedBox(height: 10),
+        // Ordenação: relevância (padrão, com o destaque pago), avaliação ou
+        // distância. Troca em tempo real — sort local, sem novo fetch.
+        Row(
+          children: [
+            for (final sort in OfficeSort.values) ...[
+              _SortChip(
+                label: sort.label,
+                selected: _sort == sort,
+                busy: _isLocating && sort == OfficeSort.distance,
+                onTap: () => _changeSort(sort),
+              ),
+              if (sort != OfficeSort.values.last) const SizedBox(width: 8),
+            ],
+          ],
+        ),
         const SizedBox(height: 16),
         FutureBuilder<List<LawFirm>>(
           future: _lawFirmsFuture,
@@ -168,9 +243,15 @@ class _OfficesSectionState extends State<OfficesSection> {
               );
             }
 
-            final lawFirms =
+            final loaded =
                 snapshot.data ??
                 (shouldUseMock ? _filterMockLawFirms() : const <LawFirm>[]);
+            final lawFirms = sortLawFirms(
+              loaded,
+              _sort,
+              userLatitude: _userPosition?.latitude,
+              userLongitude: _userPosition?.longitude,
+            );
 
             if (lawFirms.isEmpty) {
               return const JuriiFadeThroughSwitcher(
@@ -184,7 +265,7 @@ class _OfficesSectionState extends State<OfficesSection> {
             return JuriiFadeThroughSwitcher(
               child: ListView.separated(
                 key: ValueKey(
-                  'offices_${widget.searchQuery}_${lawFirms.map((lawFirm) => lawFirm.id).join('|')}',
+                  'offices_${widget.searchQuery}_${_sort.name}_${lawFirms.map((lawFirm) => lawFirm.id).join('|')}',
                 ),
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
@@ -222,6 +303,75 @@ class _OfficesSectionState extends State<OfficesSection> {
           },
         ),
       ],
+    );
+  }
+}
+
+/// Chip de método de ordenação (relevância/avaliação/distância). Selecionado
+/// usa o par lightGold + accent, o mesmo do FilterChip da home — seguro nos
+/// dois temas.
+class _SortChip extends StatelessWidget {
+  const _SortChip({
+    required this.label,
+    required this.selected,
+    required this.busy,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final bool busy;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.jColors;
+    return Semantics(
+      selected: selected,
+      button: true,
+      child: JuriiPressable(
+        onTap: busy ? null : onTap,
+        borderRadius: BorderRadius.circular(999),
+        semanticLabel: 'Ordenar por $label',
+        child: AnimatedContainer(
+          duration: JuriiMotion.fast,
+          curve: JuriiMotion.ease,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: selected ? colors.lightGold : colors.card,
+            border: Border.all(
+              color: selected
+                  ? colors.lightGoldBorder
+                  : colors.lightBlueBorder,
+            ),
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (busy) ...[
+                SizedBox(
+                  width: 11,
+                  height: 11,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: colors.accent,
+                  ),
+                ),
+                const SizedBox(width: 6),
+              ],
+              Text(
+                label,
+                style: TextStyle(
+                  color: selected ? colors.textPrimary : colors.textSecondary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

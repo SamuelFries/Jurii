@@ -2042,12 +2042,43 @@ Escritorio aprovado antes desta rodada nao tem CEP/coords. No SQL Editor:
 
 Sem isso o escritorio simplesmente nao mostra distancia (fallback de sempre).
 
+### Ordenacao da descoberta (mesma rodada, 24/07)
+
+Decisao do Samuel: o usuario escolhe o metodo de ordenacao dos escritorios —
+**Relevancia (padrao) / Avaliacao / Distancia** — com troca em TEMPO REAL
+(sort client-side sobre a lista ja carregada, nenhuma ida ao servidor).
+
+- **Relevancia** = a ordem do servidor (slots patrocinados + relevancia da
+  busca + nota). E onde o destaque pago vive.
+- **Avaliacao** = nota desc, desempate por volume de reviews; "Novo" vai pro
+  fim.
+- **Distancia** = mais perto primeiro; escritorio sem CEP vai pro fim.
+  Escolher esta opcao sem posicao PEDE a permissao nesse gesto; negada,
+  snackbar e mantem a ordenacao atual.
+
+**Decisao de produto — patrocinado nao fura ordenacao explicita**: o boost de
+posicao do destaque pago vale APENAS na relevancia. Quando o usuario pede um
+criterio objetivo (avaliacao/distancia), a lista obedece o criterio; o selo
+"Destaque" continua visivel no card. Transparencia primeiro — e o pagante nao
+compra uma nota que nao tem.
+
+Implementacao: lib/utils/office_sorting.dart (puro) + seletor de chips em
+offices_section. Sem banco novo.
+
+Revisao adversarial (3 finders; verificadores cairam em session limit e a
+verificacao foi feita inline): 4 fixes aplicados — (1) sort ESTAVEL garantido
+(List.sort do Dart nao promete estabilidade; empate agora desempata pela
+posicao original, com teste de 40 itens empatados); (2) corrida corrigida
+(escolher outro metodo enquanto o GPS respondia nao e mais sobrescrito pelo
+callback tardio — token de gesto); (3) modo demo nao dispara dialogo real de
+permissao para um sort que nada mudaria (mocks sem coords); (4) chips expoem
+estado "selecionado" para leitores de tela. Confirmado pelos revisores:
+patrocinado nao fura ordenacao explicita; a distancia do card bate com a do
+sort; nada no app assume a ordem do servidor.
+
 ### Fora de escopo (proximas fatias)
 
-- Advogado individual nao tem endereco (so oab_state) — distancia e feature de
-  ESCRITORIO por ora; decisao de produto se advogado tera.
-- Ordenar/filtrar por proximidade ("mais perto primeiro") — decisao de produto
-  (mexeria no ranking com destaque pago).
+- **Distancia para advogado individual: DECIDIDO NAO FAZER** (Samuel, 24/07).
 - Editar CEP de escritorio ja aprovado pelo app (hoje: nova verificacao ou
   runbook acima; nao ha tela de edicao de endereco).
 
