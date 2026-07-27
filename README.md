@@ -203,7 +203,7 @@ Nenhuma parte deste software pode ser reproduzida, distribuída, modificada ou u
 
 ## 🌐 Website
 
-Em breve.
+jurii.com.br
 
 ---
 
