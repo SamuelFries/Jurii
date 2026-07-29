@@ -87,7 +87,7 @@ void main() {
       'minha compra não chegou': 'Direito do Consumidor',
       'meu benefício do INSS foi cortado': 'Direito Previdenciário',
       'inquilino não paga aluguel': 'Direito Imobiliário',
-      'bateram no meu carro': 'Acidente de Trânsito',
+      'bateram no meu carro': 'Direito Cível',
       'briga com sócio da empresa': 'Direito Empresarial',
       'cobrança da Receita Federal': 'Direito Tributário',
       'levei calote': 'Direito Cível',
