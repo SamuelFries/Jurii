@@ -38,6 +38,6 @@ const mockCategories = [
     id: 'acidente-transito',
     title: 'Acidente de Trânsito',
     iconName: 'directions_car_outlined',
-    practiceArea: 'Acidente de Trânsito',
+    practiceArea: 'Direito Cível',
   ),
 ];

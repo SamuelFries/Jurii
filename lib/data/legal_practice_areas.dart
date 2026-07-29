@@ -9,7 +9,6 @@ const legalPracticeAreas = [
   'Direito Tributário',
   'Direito Cível',
   'Direito Digital',
-  'Acidente de Trânsito',
 ];
 
 class LegalSearchIntentRule {
@@ -478,8 +477,12 @@ const legalSearchIntentRules = [
       'barulho de vizinho',
     ],
   ),
+  // "Acidente de trânsito" não é como advogado nenhum se autoclassifica —
+  // na prática todos marcam Direito Cível no cadastro. Mantido como regra
+  // separada (não fundida com a de baixo) só para os termos de trânsito
+  // ficarem fáceis de achar e editar.
   LegalSearchIntentRule(
-    practiceAreas: ['Acidente de Trânsito'],
+    practiceAreas: ['Direito Cível'],
     terms: [
       'advogado de trânsito',
       'direito de trânsito',
@@ -757,7 +760,7 @@ String practiceAreaForCategory({required String id, required String title}) {
   }
   if (normalizedId.contains('acidente') ||
       normalizedTitle.contains('acidente')) {
-    return 'Acidente de Trânsito';
+    return 'Direito Cível';
   }
 
   return title.replaceAll('\n', ' ').trim();
