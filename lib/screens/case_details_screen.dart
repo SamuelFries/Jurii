@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../models/case_movement.dart';
 import '../models/case_update.dart';
 import '../repositories/case_repository.dart';
 import '../theme/app_colors.dart';
+import '../utils/cnj_input_formatter.dart';
+import '../utils/validators.dart';
 import '../widgets/jurii_empty_state.dart';
 import '../widgets/jurii_form_motion.dart';
 import '../widgets/jurii_motion.dart';
@@ -14,6 +17,7 @@ class CaseDetailsScreen extends StatefulWidget {
     required this.title,
     required this.subtitle,
     required this.canAddUpdates,
+    this.cnjNumber,
     this.repository = const CaseRepository(),
   });
 
@@ -21,6 +25,10 @@ class CaseDetailsScreen extends StatefulWidget {
   final String title;
   final String subtitle;
   final bool canAddUpdates;
+
+  /// Número do processo (padrão CNJ, 20 dígitos) quando já informado.
+  final String? cnjNumber;
+
   final CaseRepository repository;
 
   @override
@@ -29,12 +37,60 @@ class CaseDetailsScreen extends StatefulWidget {
 
 class _CaseDetailsScreenState extends State<CaseDetailsScreen> {
   late Future<List<CaseUpdate>> _updatesFuture;
+  Future<List<CaseMovement>>? _movementsFuture;
+  String? _cnjNumber;
   bool _isSubmitting = false;
 
   @override
   void initState() {
     super.initState();
     _updatesFuture = widget.repository.fetchCaseUpdates(widget.caseId);
+    _cnjNumber = widget.cnjNumber;
+    if (_cnjNumber != null) {
+      _movementsFuture = widget.repository.fetchCaseMovements(widget.caseId);
+    }
+  }
+
+  Future<void> _openCnjSheet() async {
+    final result = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _CnjNumberSheet(initialCnjNumber: _cnjNumber),
+    );
+
+    if (result == null || _isSubmitting) return;
+    setState(() => _isSubmitting = true);
+
+    try {
+      await widget.repository.setCaseCnjNumber(
+        caseId: widget.caseId,
+        cnjNumber: result,
+      );
+      if (!mounted) return;
+      setState(() {
+        _cnjNumber = result;
+        _movementsFuture = widget.repository.fetchCaseMovements(widget.caseId);
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Número do processo salvo. O andamento passa a ser acompanhado '
+            'automaticamente.',
+          ),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Não foi possível salvar o número do processo.'),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
   }
 
   Future<void> _openAddUpdateSheet() async {
@@ -108,6 +164,51 @@ class _CaseDetailsScreenState extends State<CaseDetailsScreen> {
               padding: const EdgeInsets.fromLTRB(24, 24, 24, 96),
               children: [
                 _CaseHeader(title: widget.title, subtitle: widget.subtitle),
+                // Cliente em caso sem processo não tem nada aqui: nem o
+                // espaçamento (senão vira vão morto no fluxo mais comum).
+                if (_cnjNumber != null || widget.canAddUpdates) ...[
+                  const SizedBox(height: 12),
+                  _ProcessNumberCard(
+                    cnjNumber: _cnjNumber,
+                    canEdit: widget.canAddUpdates,
+                    onEdit: _isSubmitting ? null : _openCnjSheet,
+                  ),
+                ],
+                if (_cnjNumber != null) ...[
+                  const SizedBox(height: 24),
+                  Text(
+                    'Andamento do processo',
+                    style: TextStyle(
+                      color: colors.textPrimary,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Fonte oficial: DataJud (CNJ). Atualiza sozinho e pode '
+                    'levar alguns dias.',
+                    style: TextStyle(
+                      color: colors.textSecondary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  // Key pelo número: trocar o número descarta o snapshot da
+                  // future anterior (senão a timeline do processo antigo
+                  // ficaria visível durante o carregamento do novo).
+                  KeyedSubtree(
+                    key: ValueKey('movements_$_cnjNumber'),
+                    child: _CaseMovementsSection(
+                      movementsFuture: _movementsFuture,
+                      onRetry: () => setState(() {
+                        _movementsFuture = widget.repository
+                            .fetchCaseMovements(widget.caseId);
+                      }),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 24),
                 Text(
                   'Atualizações',
@@ -201,6 +302,364 @@ class _CaseHeader extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Número do processo no detalhe do caso. Sem número: profissional vê o
+/// convite para adicionar (tom neutro; caso sem processo é o estado normal),
+/// cliente não vê nada. Com número: todos veem, profissional pode editar.
+class _ProcessNumberCard extends StatelessWidget {
+  const _ProcessNumberCard({
+    required this.cnjNumber,
+    required this.canEdit,
+    required this.onEdit,
+  });
+
+  final String? cnjNumber;
+  final bool canEdit;
+  final VoidCallback? onEdit;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.jColors;
+
+    if (cnjNumber == null && !canEdit) return const SizedBox.shrink();
+
+    if (cnjNumber == null) {
+      return Align(
+        alignment: Alignment.centerLeft,
+        child: OutlinedButton.icon(
+          onPressed: onEdit,
+          icon: const Icon(Icons.tag, size: 18),
+          label: const Text('Adicionar número do processo'),
+        ),
+      );
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: colors.card,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: colors.lightBlueBorder),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.tag, size: 18, color: colors.textSecondary),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Processo',
+                  style: TextStyle(
+                    color: colors.textSecondary,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.4,
+                  ),
+                ),
+                Text(
+                  formatCnj(cnjNumber!),
+                  style: TextStyle(
+                    color: colors.textPrimary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (canEdit)
+            IconButton(
+              onPressed: onEdit,
+              icon: const Icon(Icons.edit_outlined, size: 18),
+              color: colors.textSecondary,
+              tooltip: 'Editar número do processo',
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CaseMovementsSection extends StatelessWidget {
+  const _CaseMovementsSection({
+    required this.movementsFuture,
+    required this.onRetry,
+  });
+
+  final Future<List<CaseMovement>>? movementsFuture;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<CaseMovement>>(
+      future: movementsFuture,
+      builder: (context, snapshot) {
+        final movements = snapshot.data;
+
+        if (snapshot.connectionState == ConnectionState.waiting &&
+            movements == null) {
+          return const Padding(
+            padding: EdgeInsets.only(top: 8),
+            child: JuriiSkeletonList(itemCount: 2, itemHeight: 76),
+          );
+        }
+        if (snapshot.hasError) {
+          return _MovementsErrorState(onRetry: onRetry);
+        }
+        if (movements == null || movements.isEmpty) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: JuriiEmptyState(
+              icon: Icons.gavel_outlined,
+              title: 'Nenhuma movimentação pública ainda',
+              message:
+                  'Assim que houver andamento público, ele aparece aqui. '
+                  'Processos em segredo de justiça não aparecem em '
+                  'consultas públicas.',
+            ),
+          );
+        }
+
+        return Column(
+          children: [
+            for (var index = 0; index < movements.length; index++)
+              JuriiStaggeredItem(
+                key: ValueKey('case_movement_${movements[index].id}'),
+                index: index,
+                child: _MovementTimelineItem(
+                  movement: movements[index],
+                  isLast: index == movements.length - 1,
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _MovementTimelineItem extends StatelessWidget {
+  const _MovementTimelineItem({required this.movement, required this.isLast});
+
+  final CaseMovement movement;
+  final bool isLast;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.jColors;
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Column(
+            children: [
+              Container(
+                width: 12,
+                height: 12,
+                margin: const EdgeInsets.only(top: 18),
+                decoration: BoxDecoration(
+                  color: colors.primary,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: colors.lightBlueBorder, width: 2),
+                ),
+              ),
+              if (!isLast)
+                Expanded(
+                  child: Container(
+                    width: 2,
+                    margin: const EdgeInsets.symmetric(vertical: 6),
+                    decoration: BoxDecoration(
+                      color: colors.lightBlueBorder,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.only(bottom: isLast ? 0 : 12),
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: colors.card,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: colors.lightBlueBorder),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            movement.title,
+                            style: TextStyle(
+                              color: colors.textPrimary,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          movement.dateLabel,
+                          style: TextStyle(
+                            color: colors.textSecondary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (movement.body.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        movement.body,
+                        style: TextStyle(
+                          color: colors.textSecondary,
+                          height: 1.35,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MovementsErrorState extends StatelessWidget {
+  const _MovementsErrorState({required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.jColors;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: colors.card,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: colors.lightBlueBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Não foi possível carregar o andamento do processo.',
+            style: TextStyle(
+              color: colors.textSecondary,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton(
+            onPressed: onRetry,
+            child: const Text('Tentar novamente'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CnjNumberSheet extends StatefulWidget {
+  const _CnjNumberSheet({required this.initialCnjNumber});
+
+  final String? initialCnjNumber;
+
+  @override
+  State<_CnjNumberSheet> createState() => _CnjNumberSheetState();
+}
+
+class _CnjNumberSheetState extends State<_CnjNumberSheet> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _cnjController;
+
+  @override
+  void initState() {
+    super.initState();
+    _cnjController = TextEditingController(
+      text: formatCnj(widget.initialCnjNumber ?? ''),
+    );
+  }
+
+  @override
+  void dispose() {
+    _cnjController.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+    Navigator.of(context).pop(digitsOnly(_cnjController.text));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.jColors;
+    return JuriiModalSheetScaffold(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Número do processo',
+              style: TextStyle(
+                color: colors.textPrimary,
+                fontSize: 22,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'O padrão CNJ está na capa do processo e nas intimações. Com '
+              'ele, o Jurii acompanha o andamento público automaticamente e '
+              'avisa o cliente quando o processo andar.',
+              style: TextStyle(
+                color: colors.textSecondary,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _cnjController,
+              keyboardType: TextInputType.number,
+              inputFormatters: const [CnjInputFormatter()],
+              validator: validateCnjField,
+              autovalidateMode: AutovalidateMode.onUserInteraction,
+              decoration: const InputDecoration(
+                labelText: 'Número (padrão CNJ)',
+                hintText: '0000000-00.0000.0.00.0000',
+              ),
+            ),
+            const SizedBox(height: 16),
+            JuriiLoadingButton(
+              label: 'Salvar número',
+              onPressed: _submit,
+              shadow: false,
+            ),
+          ],
+        ),
       ),
     );
   }

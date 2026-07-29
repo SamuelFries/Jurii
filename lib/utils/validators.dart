@@ -33,6 +33,30 @@ bool isValidCpf(String value) {
       checkDigit(10) == int.parse(cpf[10]);
 }
 
+/// Valida número de processo no padrão CNJ (NNNNNNN-DD.AAAA.J.TR.OOOO,
+/// Res. CNJ 65/2008), com ou sem máscara. Espelha `public.is_valid_cnj` no
+/// banco: mod 97 estilo ISO 7064 da sequência NNNNNNN AAAA J TR OOOO DD
+/// deve ser 1.
+bool isValidCnj(String value) {
+  final cnj = digitsOnly(value);
+  if (cnj.length != 20) return false;
+
+  final rearranged = cnj.substring(0, 7) + cnj.substring(9) + cnj.substring(7, 9);
+  var remainder = 0;
+  for (final unit in rearranged.codeUnits) {
+    remainder = (remainder * 10 + (unit - 0x30)) % 97;
+  }
+  return remainder == 1;
+}
+
+String? validateCnjField(String? value) {
+  if (digitsOnly(value ?? '').isEmpty) return 'Informe o número do processo';
+  if (!isValidCnj(value ?? '')) {
+    return 'Número inválido. Confira com o padrão 0000000-00.0000.0.00.0000';
+  }
+  return null;
+}
+
 String? validateEmailField(String? value) {
   final email = value?.trim() ?? '';
   if (email.isEmpty) return 'Informe seu e-mail';

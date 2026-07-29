@@ -28,6 +28,36 @@ void main() {
     });
   });
 
+  group('isValidCnj', () {
+    test('aceita números reais com e sem máscara', () {
+      // Processos reais retornados pela API pública do DataJud (29/07/2026).
+      expect(isValidCnj('0000842-67.2023.8.21.7000'), isTrue);
+      expect(isValidCnj('00008426720238217000'), isTrue);
+      expect(isValidCnj('50144802820258219000'), isTrue);
+      expect(isValidCnj('0020731-06.2020.5.04.0252'), isTrue);
+    });
+
+    test('rejeita dígito verificador errado', () {
+      expect(isValidCnj('00008426720238217001'), isFalse);
+      expect(isValidCnj('0000842-68.2023.8.21.7000'), isFalse);
+    });
+
+    test('rejeita tamanhos errados e vazio', () {
+      expect(isValidCnj(''), isFalse);
+      expect(isValidCnj('123'), isFalse);
+      expect(isValidCnj('000084267202382170001'), isFalse);
+    });
+  });
+
+  group('validateCnjField', () {
+    test('vazio pede o número; inválido explica o padrão', () {
+      expect(validateCnjField(''), 'Informe o número do processo');
+      expect(validateCnjField(null), 'Informe o número do processo');
+      expect(validateCnjField('123'), contains('padrão'));
+      expect(validateCnjField('0000842-67.2023.8.21.7000'), isNull);
+    });
+  });
+
   group('isValidEmail', () {
     test('aceita e-mails comuns', () {
       expect(isValidEmail('samuel@jurii.com.br'), isTrue);
