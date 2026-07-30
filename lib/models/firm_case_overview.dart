@@ -10,6 +10,13 @@ class FirmCaseOverview {
   final String nextStep;
   final bool urgent;
 
+  /// Número do processo no padrão CNJ (20 dígitos, sem máscara). Nulo quando
+  /// o caso ainda não virou processo judicial, o que é normal.
+  final String? cnjNumber;
+
+  /// O caso tem prazo registrado mas ainda não tem número de processo.
+  final bool needsCnjNumber;
+
   const FirmCaseOverview({
     required this.id,
     required this.title,
@@ -21,5 +28,7 @@ class FirmCaseOverview {
     required this.statusLabel,
     required this.nextStep,
     required this.urgent,
+    this.cnjNumber,
+    this.needsCnjNumber = false,
   });
 }

@@ -1,3 +1,4 @@
+import '../models/case_movement.dart';
 import '../models/case_request.dart';
 import '../models/case_update.dart';
 import '../models/cases.dart';
@@ -148,6 +149,41 @@ class CaseRepository {
     );
   }
 
+  /// Timeline do andamento processual (DataJud), já traduzida pelo banco.
+  Future<List<CaseMovement>> fetchCaseMovements(String caseId) async {
+    if (!SupabaseConfig.isReady ||
+        SupabaseConfig.client.auth.currentUser == null) {
+      return const [];
+    }
+
+    final rows = await SupabaseConfig.client.rpc(
+      'fetch_case_movements',
+      params: {'case_id_value': caseId},
+    );
+
+    return (rows as List<dynamic>)
+        .cast<Map<String, dynamic>>()
+        .map<CaseMovement>(_caseMovementFromRow)
+        .toList();
+  }
+
+  /// Grava o número CNJ do processo (só advogado/escritório do caso; o banco
+  /// valida papel e dígito verificador). Passar nulo limpa o número.
+  Future<void> setCaseCnjNumber({
+    required String caseId,
+    required String? cnjNumber,
+  }) async {
+    if (!SupabaseConfig.isReady ||
+        SupabaseConfig.client.auth.currentUser == null) {
+      throw StateError('A conexão com o Supabase não está ativa.');
+    }
+
+    await SupabaseConfig.client.rpc(
+      'set_case_cnj_number',
+      params: {'case_id_value': caseId, 'cnj_value': cnjNumber},
+    );
+  }
+
   LegalCase _clientCaseFromRow(Map<String, dynamic> row) {
     return LegalCase(
       id: row['id'].toString(),
@@ -155,6 +191,7 @@ class CaseRepository {
       area: row['area'] as String? ?? 'Atendimento jurídico',
       status: row['status_label'] as String? ?? 'Em andamento',
       lastUpdate: row['last_update_label'] as String? ?? 'Atualizado hoje',
+      cnjNumber: row['cnj_number'] as String?,
     );
   }
 
@@ -167,6 +204,8 @@ class CaseRepository {
       area: row['area'] as String? ?? 'Atendimento jurídico',
       lastUpdate: row['last_update_label'] as String? ?? 'Atualizado hoje',
       status: _statusFromRow(row['status'] as String?),
+      cnjNumber: row['cnj_number'] as String?,
+      needsCnjNumber: row['needs_cnj_number'] as bool? ?? false,
     );
   }
 
@@ -183,6 +222,17 @@ class CaseRepository {
       statusLabel: row['status_label'] as String? ?? 'Em andamento',
       nextStep: row['next_step'] as String? ?? 'Atualizado hoje',
       urgent: row['urgent'] as bool? ?? false,
+      cnjNumber: row['cnj_number'] as String?,
+      needsCnjNumber: row['needs_cnj_number'] as bool? ?? false,
+    );
+  }
+
+  CaseMovement _caseMovementFromRow(Map<String, dynamic> row) {
+    return CaseMovement(
+      id: row['id'].toString(),
+      title: row['title'] as String? ?? 'Movimentação',
+      body: row['body'] as String? ?? '',
+      dateLabel: _movementDate(row['occurred_at'] as String?),
     );
   }
 
@@ -217,6 +267,16 @@ class CaseRepository {
       'deadline' => LawyerCaseStatus.deadline,
       _ => LawyerCaseStatus.updated,
     };
+  }
+
+  /// Data completa (dd/MM/aaaa): movimentos processuais podem ter anos, o
+  /// formato relativo de [_relativeTime] esconderia o ano.
+  String _movementDate(String? value) {
+    final date = DateTime.tryParse(value ?? '')?.toLocal();
+    if (date == null) return '';
+    final day = date.day.toString().padLeft(2, '0');
+    final month = date.month.toString().padLeft(2, '0');
+    return '$day/$month/${date.year}';
   }
 
   String _relativeTime(String? value) {

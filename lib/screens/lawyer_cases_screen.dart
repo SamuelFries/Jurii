@@ -55,6 +55,7 @@ class _LawyerCasesScreenState extends State<LawyerCasesScreen> {
           title: lawyerCase.title,
           subtitle: '${lawyerCase.clientName} · ${lawyerCase.area}',
           canAddUpdates: true,
+          cnjNumber: lawyerCase.cnjNumber,
         ),
       ),
     );

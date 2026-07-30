@@ -269,6 +269,22 @@ remoto. `supabase migration list --linked` confirmou local e remoto em
 a versão compatível do app, que usa as novas RPCs de leitura e escrita, deve
 permanecer suportada; builds antigos deixam de carregar o perfil.
 
+## Grants por coluna em legal_cases (29/07/2026, migration 20260729150000)
+
+`legal_cases` era a última tabela de escrita do app com grant de tabela
+inteira para `authenticated` (INSERT e UPDATE desde a baseline; o hardening 2
+não a alcançou). Com a chegada do `cnj_number` (andamento processual via
+DataJud), o grant foi convertido para **colunas explícitas**: escrita direta
+não alcança `cnj_number` (só a RPC `set_case_cnj_number`, que valida papel e
+dígito verificador) nem as colunas de posse (`client_id`/`law_firm_id`/
+`assigned_lawyer_id`) no UPDATE. As RPCs SECURITY DEFINER existentes não
+dependem desses grants; o app nunca usou escrita direta. Tabelas novas
+`case_movements` (leitura por `can_access_case`, escrita só pelo job via RPC
+service_role) e `case_movement_sync_state` (sem grants — interna do job).
+Cobertura de testes: `supabase/tests/case_process_timeline_test.sql` (28
+asserções, incluindo os grants por coluna). Detalhes da feature em
+`docs/andamento-processual.md`.
+
 ## Decisão operacional — revisão manual por enquanto
 
 No estágio atual, OAB e escritórios são aprovados/recusados manualmente por um

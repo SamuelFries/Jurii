@@ -106,6 +106,7 @@ class _CasesScreenState extends State<CasesScreen> {
           title: legalCase.title,
           subtitle: '${legalCase.area} · ${legalCase.status}',
           canAddUpdates: false,
+          cnjNumber: legalCase.cnjNumber,
         ),
       ),
     );

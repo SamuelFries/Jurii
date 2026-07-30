@@ -396,6 +396,12 @@ verify_jwt = false
 [functions.send-push]
 verify_jwt = false
 
+# Sincronizacao do andamento processual (DataJud): chamada server-to-server
+# pelo pg_cron via pg_net, com segredo dedicado no Authorization (validado
+# dentro da funcao contra CASE_SYNC_HOOK_SECRET).
+[functions.sync-case-movements]
+verify_jwt = false
+
 [analytics]
 enabled = true
 port = 54327
