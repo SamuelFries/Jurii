@@ -69,6 +69,19 @@ class JuriiNotification {
 
   String? get caseRequestStatus => metadata['request_status'] as String?;
 
+  /// Conversa de origem, quando a notificação nasceu de uma (solicitação de
+  /// caso, resposta, indicação de advogado, caso iniciado no escritório).
+  String? get conversationId => metadata['conversation_id'] as String?;
+
+  /// Caso vinculado. O servidor grava com dois nomes conforme a origem
+  /// (`legal_case_id` na resposta de solicitação, `case_id` no caso do
+  /// escritório e no andamento processual); aqui vale o primeiro que existir.
+  String? get caseId =>
+      (metadata['case_id'] ?? metadata['legal_case_id']) as String?;
+
+  /// A notificação leva a algum lugar quando tocada.
+  bool get hasDestination => conversationId != null;
+
   bool get isPendingTeamInvite {
     return type == 'team_invite' &&
         membershipId != null &&
