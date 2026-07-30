@@ -105,6 +105,25 @@ class NotificationRepository {
     }
   }
 
+  /// Marca uma única notificação como lida (ao tocar nela). O RLS já limita ao
+  /// destinatário; sem isso, abrir o sino teria que marcar tudo de uma vez.
+  Future<void> markAsRead(String notificationId) async {
+    if (!SupabaseConfig.isReady ||
+        SupabaseConfig.client.auth.currentUser == null) {
+      return;
+    }
+
+    try {
+      await SupabaseConfig.client
+          .from('notifications')
+          .update({'read_at': DateTime.now().toUtc().toIso8601String()})
+          .eq('id', notificationId)
+          .filter('read_at', 'is', null);
+    } catch (error) {
+      debugPrint('Supabase notification mark read failed: $error');
+    }
+  }
+
   Future<void> deleteNotification(String notificationId) async {
     if (!SupabaseConfig.isReady ||
         SupabaseConfig.client.auth.currentUser == null) {

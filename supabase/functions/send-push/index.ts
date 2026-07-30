@@ -129,7 +129,7 @@ async function sendOne(
   title: string,
   body: string,
   data: Record<string, string>,
-): Promise<{ ok: boolean; status: number }> {
+): Promise<{ ok: boolean; status: number; dead: boolean }> {
   const response = await fetch(
     `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`,
     {
@@ -147,7 +147,48 @@ async function sendOne(
       }),
     },
   );
-  return { ok: response.ok, status: response.status };
+
+  if (response.ok) return { ok: true, status: response.status, dead: false };
+
+  // App desinstalado ou token rotacionado: o FCM responde UNREGISTERED (404)
+  // ou INVALID_ARGUMENT (400). Sem limpar, o token fica para sempre e toda
+  // notificacao futura tenta entregar nele.
+  let dead = response.status === 404;
+  try {
+    const payload = await response.json();
+    const reason = payload?.error?.details
+      ?.map((detail: { errorCode?: string }) => detail?.errorCode)
+      ?.filter(Boolean)
+      ?.join(",") ?? "";
+    if (reason.includes("UNREGISTERED") || reason.includes("INVALID_ARGUMENT")) {
+      dead = true;
+    }
+  } catch {
+    // corpo ilegivel: fica so com o criterio de status
+  }
+
+  return { ok: false, status: response.status, dead };
+}
+
+async function deleteDeadToken(
+  supabaseUrl: string,
+  serviceKey: string,
+  token: string,
+): Promise<void> {
+  try {
+    await fetch(`${supabaseUrl}/rest/v1/rpc/delete_push_token_by_value`, {
+      method: "POST",
+      headers: {
+        apikey: serviceKey,
+        Authorization: `Bearer ${serviceKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ token_value: token }),
+    });
+  } catch (error) {
+    // Limpeza e best-effort: nunca derruba o envio das demais notificacoes.
+    console.error("send-push: token cleanup failed:", error);
+  }
 }
 
 Deno.serve(async (request) => {
@@ -213,6 +254,7 @@ Deno.serve(async (request) => {
 
     let sent = 0;
     let failed = 0;
+    let cleaned = 0;
     for (const row of tokens) {
       const result = await sendOne(
         accessToken,
@@ -222,11 +264,18 @@ Deno.serve(async (request) => {
         payload.body ?? "",
         data,
       );
-      if (result.ok) sent++;
-      else failed++;
+      if (result.ok) {
+        sent++;
+      } else {
+        failed++;
+        if (result.dead) {
+          await deleteDeadToken(supabaseUrl, serviceKey, row.token);
+          cleaned++;
+        }
+      }
     }
 
-    return new Response(JSON.stringify({ sent, failed }), {
+    return new Response(JSON.stringify({ sent, failed, cleaned }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

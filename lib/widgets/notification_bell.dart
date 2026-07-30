@@ -4,9 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/jurii_notification.dart';
+import '../repositories/messaging_repository.dart';
 import '../repositories/notification_repository.dart';
+import '../screens/chat_screen.dart';
 import '../services/supabase_config.dart';
 import '../theme/app_colors.dart';
+import '../utils/relative_time.dart';
 import 'jurii_empty_state.dart';
 import 'jurii_form_motion.dart';
 import 'jurii_motion.dart';
@@ -21,6 +24,7 @@ class NotificationBell extends StatefulWidget {
     this.borderColor,
     this.onChanged,
     this.repository = const NotificationRepository(),
+    this.messagingRepository = const MessagingRepository(),
   });
 
   final NotificationScope scope;
@@ -30,6 +34,7 @@ class NotificationBell extends StatefulWidget {
   final Color? borderColor;
   final Future<void> Function()? onChanged;
   final NotificationRepository repository;
+  final MessagingRepository messagingRepository;
 
   @override
   State<NotificationBell> createState() => _NotificationBellState();
@@ -101,6 +106,11 @@ class _NotificationBellState extends State<NotificationBell> {
     widget.onChanged?.call();
   }
 
+  /// O escopo do escritório abre o chat pelo painel próprio, que passa os
+  /// limites certos (não propõe caso, não mostra triagem). Rotear daqui com
+  /// os padrões do ChatScreen reintroduziria os dois.
+  bool get _canOpenConversations => widget.scope != NotificationScope.firm;
+
   Future<void> _openNotifications() async {
     final notifications = await widget.repository.fetchLatest(
       scope: widget.scope,
@@ -108,52 +118,57 @@ class _NotificationBellState extends State<NotificationBell> {
     );
     if (!mounted) return;
 
-    final openedAt = DateTime.now();
-    final hasUnreadNotifications = notifications.any(
-      (notification) => notification.isUnread,
-    );
-    if (hasUnreadNotifications) {
-      setState(() => _unreadCount = 0);
-      await widget.repository.markAllAsRead(
-        scope: widget.scope,
-        lawFirmId: widget.lawFirmId,
-      );
-    }
-    if (!mounted) return;
-
-    final visibleNotifications = hasUnreadNotifications
-        ? notifications
-              .map(
-                (notification) => notification.isUnread
-                    ? notification.copyWith(readAt: openedAt)
-                    : notification,
-              )
-              .toList()
-        : notifications;
-
-    await showModalBottomSheet<void>(
+    // Abrir o painel NÃO marca tudo como lido: o destaque de não lida é o que
+    // ajuda a achar o que falta ver. Marca-se ao tocar em cada uma, ou de uma
+    // vez pelo botão do cabeçalho.
+    final toOpen = await showModalBottomSheet<JuriiNotification>(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (context) {
         return _NotificationSheet(
-          notifications: visibleNotifications,
+          notifications: notifications,
           scope: widget.scope,
           lawFirmId: widget.lawFirmId,
           repository: widget.repository,
+          canOpenConversations: _canOpenConversations,
         );
       },
     );
 
     if (!mounted) return;
-    // Notificações que chegaram com o painel aberto também contam como vistas —
-    // marca de novo antes de recontar, senão o badge "ressuscitaria" ao fechar.
-    await widget.repository.markAllAsRead(
-      scope: widget.scope,
-      lawFirmId: widget.lawFirmId,
-    );
-    if (!mounted) return;
     await _loadCount();
     await widget.onChanged?.call();
+    if (toOpen != null) await _openConversation(toOpen);
+  }
+
+  Future<void> _openConversation(JuriiNotification notification) async {
+    final conversationId = notification.conversationId;
+    if (conversationId == null) return;
+
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+
+    try {
+      final conversation = await widget.messagingRepository
+          .fetchConversationById(conversationId);
+      if (!mounted) return;
+
+      await navigator.push(
+        MaterialPageRoute(
+          builder: (_) => ChatScreen(
+            conversation: conversation,
+            isLawyer: widget.scope == NotificationScope.lawyer,
+          ),
+        ),
+      );
+      if (!mounted) return;
+      await _loadCount();
+      await widget.onChanged?.call();
+    } catch (_) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Não foi possível abrir a conversa.')),
+      );
+    }
   }
 
   @override
@@ -239,12 +254,14 @@ class _NotificationSheet extends StatefulWidget {
     required this.scope,
     this.lawFirmId,
     required this.repository,
+    required this.canOpenConversations,
   });
 
   final List<JuriiNotification> notifications;
   final NotificationScope scope;
   final String? lawFirmId;
   final NotificationRepository repository;
+  final bool canOpenConversations;
 
   @override
   State<_NotificationSheet> createState() => _NotificationSheetState();
@@ -300,26 +317,49 @@ class _NotificationSheetState extends State<_NotificationSheet> {
       lawFirmId: widget.lawFirmId,
     );
     if (!mounted) return;
+    setState(() => _notifications = fresh);
+  }
 
-    // Painel aberto = o usuário está vendo; o que chegou já conta como lido.
-    if (fresh.any((notification) => notification.isUnread)) {
+  Future<void> _markAllAsRead() async {
+    final now = DateTime.now();
+    setState(() {
+      _notifications = _notifications
+          .map(
+            (notification) => notification.isUnread
+                ? notification.copyWith(readAt: now)
+                : notification,
+          )
+          .toList();
+    });
+
+    await widget.repository.markAllAsRead(
+      scope: widget.scope,
+      lawFirmId: widget.lawFirmId,
+    );
+  }
+
+  /// Tocar marca como lida e, quando a notificação leva a uma conversa,
+  /// devolve-a ao sino, que faz a navegação com o contexto ainda vivo.
+  Future<void> _handleTap(JuriiNotification notification) async {
+    final navigator = Navigator.of(context);
+    final opensConversation =
+        widget.canOpenConversations && notification.conversationId != null;
+
+    if (notification.isUnread) {
       final now = DateTime.now();
-      setState(
-        () => _notifications = fresh
+      setState(() {
+        _notifications = _notifications
             .map(
-              (notification) => notification.isUnread
-                  ? notification.copyWith(readAt: now)
-                  : notification,
+              (item) => item.id == notification.id
+                  ? item.copyWith(readAt: now)
+                  : item,
             )
-            .toList(),
-      );
-      await widget.repository.markAllAsRead(
-        scope: widget.scope,
-        lawFirmId: widget.lawFirmId,
-      );
-    } else {
-      setState(() => _notifications = fresh);
+            .toList();
+      });
+      await widget.repository.markAsRead(notification.id);
     }
+
+    if (opensConversation) navigator.pop(notification);
   }
 
   Future<void> _reload() async {
@@ -358,18 +398,33 @@ class _NotificationSheetState extends State<_NotificationSheet> {
     // altura limitada, então Flexible quebraria com lista longa.
     final maxListHeight = MediaQuery.sizeOf(context).height * 0.55;
 
+    final hasUnread = _notifications.any(
+      (notification) => notification.isUnread,
+    );
+
     return JuriiModalSheetScaffold(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Notificações',
-            style: TextStyle(
-              color: context.jColors.textPrimary,
-              fontSize: 22,
-              fontWeight: FontWeight.w900,
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Notificações',
+                  style: TextStyle(
+                    color: context.jColors.textPrimary,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              if (hasUnread)
+                TextButton(
+                  onPressed: _markAllAsRead,
+                  child: const Text('Marcar todas como lidas'),
+                ),
+            ],
           ),
           const SizedBox(height: 14),
           if (_notifications.isEmpty)
@@ -403,6 +458,10 @@ class _NotificationSheetState extends State<_NotificationSheet> {
                         notification: notification,
                         repository: widget.repository,
                         onChanged: _reload,
+                        opensConversation:
+                            widget.canOpenConversations &&
+                            notification.conversationId != null,
+                        onTap: () => _handleTap(notification),
                       ),
                     ),
                   );
@@ -510,11 +569,17 @@ class _NotificationTile extends StatelessWidget {
     required this.notification,
     required this.repository,
     required this.onChanged,
+    required this.opensConversation,
+    required this.onTap,
   });
 
   final JuriiNotification notification;
   final NotificationRepository repository;
   final Future<void> Function() onChanged;
+
+  /// Tocar leva à conversa de origem (muda o rótulo acessível e mostra a seta).
+  final bool opensConversation;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -523,10 +588,30 @@ class _NotificationTile extends StatelessWidget {
       notification.isUnread,
       context.jColors,
     );
+    return Semantics(
+      button: true,
+      label: opensConversation
+          ? '${notification.title}. Abrir conversa.'
+          : '${notification.title}. Marcar como lida.',
+      child: Material(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(14),
+          child: _buildBody(context, colors),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBody(
+    BuildContext context,
+    ({Color surface, Color border, Color icon}) colors,
+  ) {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: colors.surface,
         border: Border.all(color: colors.border),
         borderRadius: BorderRadius.circular(14),
       ),
@@ -539,15 +624,39 @@ class _NotificationTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  notification.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: context.jColors.textPrimary,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w900,
-                  ),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        notification.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: context.jColors.textPrimary,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      formatRelativeTime(notification.createdAt),
+                      style: TextStyle(
+                        color: context.jColors.textSecondary,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    if (opensConversation) ...[
+                      const SizedBox(width: 2),
+                      Icon(
+                        Icons.chevron_right,
+                        size: 16,
+                        color: context.jColors.textSecondary,
+                      ),
+                    ],
+                  ],
                 ),
                 const SizedBox(height: 4),
                 Text(
