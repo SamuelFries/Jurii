@@ -328,3 +328,77 @@ decisão de roadmap, não um bloqueio técnico do app atual.
   para DX; produção deve injetar via `--dart-define` (e o fallback faz todo
   build apontar para produção — decidir se um modo demo explícito
   `--dart-define=USE_MOCKS=true` substitui o comportamento atual).
+
+## Postura contra SQL injection (auditoria de 30/07/2026)
+
+Auditoria dedicada, com verificação direta em produção e não só leitura de
+código. **Nenhuma vulnerabilidade de SQL injection foi encontrada**, e o
+motivo é estrutural: nenhuma função do app monta comando SQL dinamicamente.
+
+### O que foi verificado no banco de produção
+
+| Invariante | Resultado |
+|---|---|
+| Funções `SECURITY DEFINER` sem `search_path` fixo | **0** de 88 |
+| Funções do app com SQL dinâmico (`execute`/`format`/`quote_*`) | **0** |
+| `authenticated`/`anon` com `CREATE` em `public` | **não** (PG17 já não concede) |
+| Funções definer referenciando tabela sem `public.` | **0** |
+| Tabelas de `public` sem RLS | **0** |
+
+O único `execute` do banco está em `rls_auto_enable`, event trigger da
+plataforma Supabase que liga RLS em tabela nova. Ele interpola
+`object_identity` vindo do catálogo do próprio Postgres, já com aspas: não é
+entrada de usuário.
+
+### A peça que sustenta a busca
+
+O texto que o usuário digita na busca chega ao **lado do padrão** de três
+`LIKE` (`fetch_recommended_lawyers`, `fetch_recommended_law_firms` e
+`legal_search_term_matches`). O que impede injeção de curinga é um único passo
+de `normalize_practice_area_search`:
+
+```sql
+regexp_replace(..., '[^a-z0-9]+', ' ', 'g')
+```
+
+É uma **allowlist**: `%` e `_` viram espaço e nunca alcançam o padrão. Se
+alguém "melhorar" esse regex (preservar acento, hífen, pontuação), a injeção
+de curinga reabre em três funções ao mesmo tempo, em silêncio. Por isso há
+teste travando exatamente esse comportamento.
+
+Reforço de projeto que vale manter: as primitivas que confiam no chamador já
+ter normalizado (`legal_search_term_matches`, `normalize_practice_area_search`)
+**não são executáveis por `authenticated`** — só as três RPCs de fachada são.
+
+### Achado corrigido (não era SQLi)
+
+`normalize_law_firm_member_roles` ecoava o texto do cliente cru na mensagem de
+exceção, que vai para o log do Postgres e para a resposta do PostgREST. Uma
+quebra de linha no payload **forjava uma linha de log inteira** (reproduzido:
+`array[E'owner\nFALSA LINHA...']`). Alcançável por qualquer `authenticated` via
+`update_law_firm_member_roles`. Corrigido na migration `20260730150000`
+removendo caracteres de controle e truncando o eco. Severidade baixa: é log
+injection, não injeção de comando.
+
+### As barreiras (por que isso não regride)
+
+A auditoria achou o código limpo **por disciplina**, não por barreira. As duas
+suítes abaixo convertem cada propriedade acima em teste, e ambas foram
+validadas por sabotagem deliberada (quebrar o invariante faz o teste falhar):
+
+- `supabase/tests/injection_guards_test.sql` (9 asserções): search_path fixo,
+  qualificação com `public.`, ausência de SQL dinâmico, RLS em toda tabela,
+  a allowlist do normalizador, o alcance das primitivas de busca e o eco sem
+  caractere de controle.
+- `test/query_safety_test.dart`: varre `lib/` e proíbe filtro montado com a
+  sintaxe de string do PostgREST (`.or`, `.ilike`, `.textSearch`, `.not`,
+  `.match`, `.like`), nome de RPC ou de tabela vindo de variável, `.filter()`
+  com interpolação e nome de coluna dinâmico em comparação/ordenação.
+
+### Higiene conhecida, não vulnerabilidade
+
+77 funções definer usam `set search_path = public` em vez de `''`. Não é
+explorável aqui (as três barreiras acima são independentes e a qualificação
+com `public.` sozinha já basta), mas é o que um scanner aponta. Migrar para
+`''` exigiria qualificar chamadas do catálogo; ganho marginal dado o estado
+atual.
