@@ -33,6 +33,33 @@ interface MovementPayload {
   orgao: string | null;
   tribunal: string | null;
   grau: string | null;
+  situation: string;
+}
+
+// Status de audiencia da TPU (complemento `situacao_da_audiencia`). Chaveado
+// pelo `valor` numerico, nao pelo nome: o nome varia com acento/grafia entre
+// tribunais. ARMADILHA verificada no TJRS (30/07): o mesmo complemento as
+// vezes carrega o TIPO da audiencia (17=conciliacao, 22=instrucao,
+// 23=instrucao e julgamento, 25=preliminar, 92=mediacao) em vez do status —
+// por isso a lista e uma whitelist, e nao uma traducao do nome recebido.
+const HEARING_SITUATION_BY_VALUE: Record<number, string> = {
+  9: "designada",
+  10: "redesignada",
+  11: "cancelada",
+  13: "realizada",
+  14: "nao_realizada",
+};
+
+// deno-lint-ignore no-explicit-any
+function hearingSituation(movement: any): string {
+  const complements = movement?.complementosTabelados;
+  if (!Array.isArray(complements)) return "";
+  for (const complement of complements) {
+    if (complement?.descricao !== "situacao_da_audiencia") continue;
+    const situation = HEARING_SITUATION_BY_VALUE[Number(complement?.valor)];
+    if (situation) return situation;
+  }
+  return "";
 }
 
 const corsHeaders = {
@@ -155,7 +182,14 @@ function movementsFromDocs(
       // abortaria o lote inteiro; descarta o item como se faz com o code.
       if (Number.isNaN(Date.parse(occurredAt))) continue;
       const key = `${code}|${occurredAt}`;
-      if (byKey.has(key)) continue;
+      const situation = hearingSituation(movement);
+      const existing = byKey.get(key);
+      if (existing) {
+        // Mesmo movimento vindo de outra instancia: fica com a versao que
+        // trouxe o status da audiencia.
+        if (situation && !existing.situation) existing.situation = situation;
+        continue;
+      }
       byKey.set(key, {
         code,
         name: String(movement?.nome ?? "").slice(0, 300),
@@ -163,6 +197,7 @@ function movementsFromDocs(
         orgao: movement?.orgaoJulgador?.nome ?? null,
         tribunal: source.tribunal ?? null,
         grau: source.grau ?? null,
+        situation,
       });
     }
   }

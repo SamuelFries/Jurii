@@ -65,20 +65,54 @@ pg_cron ('7 * * * *')
   não marca o caso como sincronizado (volta à fila); o handler tem orçamento
   de 100s por invocação — o que não couber fica para a próxima hora.
 
+## Audiências (30/07/2026)
+
+Na árvore TPU cada **tipo** de audiência é um código próprio (12740
+conciliação, 12749 instrução, 12750 instrução e julgamento, 12747 inicial,
+12743 interrogatório, 12751 julgamento, 12752 mediação, 12753 preliminar,
+313 sessão do júri) e o `nome` que o DataJud devolve é só a **folha** ("de
+Instrução"), sem a palavra "Audiência". Por isso a v1, que curou apenas o
+código genérico 970, deixava audiências invisíveis.
+
+O complemento `situacao_da_audiencia` diz o status, e ele muda o sentido da
+notícia: "Audiência marcada" e "Audiência cancelada" são o oposto uma da
+outra. A tradução passou a ser chaveada por **(código, situação)**, com
+situação `''` como linha genérica de cada código.
+
+**Armadilha verificada no TJRS**: o mesmo complemento às vezes carrega o
+**tipo** da audiência em vez do status (valores 17 conciliação, 22 instrução,
+23 instrução e julgamento, 25 preliminar, 92 mediação). Por isso a Edge
+Function usa uma **whitelist pelo `valor` numérico** — 9 designada,
+10 redesignada, 11 cancelada, 13 realizada, 14 não realizada — e qualquer
+outra coisa cai na linha genérica. Nunca traduzir pelo `nome` recebido.
+
+`realizada` é o único status que entra na timeline **sem** notificar: o
+cliente estava lá.
+
+A data da audiência **não vem** no dado (o complemento só traz o status), então
+o texto de "marcada" manda confirmar a data com o advogado em vez de fingir
+que sabe.
+
+**Colapso de ruído de cartório**: a leitura da timeline mantém só um registro
+por (título, dia). Veio de dado real: no processo do TRT4 o cartório gravou
+quatro "Audiência cancelada" em cinco minutos, mais marcada e realizada no
+mesmo dia. Os movimentos crus continuam todos em `case_movements`; o colapso
+é só da view.
+
 ## Ampliar a curadoria de movimentos
 
 `case_movement_translations` é a fonte única (timeline e notificação):
 
 ```sql
-insert into case_movement_translations (movement_code, title, body, notify)
-values (123, 'Título curto', 'Frase para o cliente leigo.', true)
-on conflict (movement_code) do update
+insert into case_movement_translations (movement_code, situation, title, body, notify)
+values (123, '', 'Título curto', 'Frase para o cliente leigo.', true)
+on conflict (movement_code, situation) do update
   set title = excluded.title, body = excluded.body, notify = excluded.notify;
 ```
 
-Sem release do app. Códigos atuais verificados contra dados reais do DataJud
-em 29/07/2026 (TJRS/TRT4/TRF4/STJ/TST); tabela de referência oficial: TPU do
-CNJ (movimentos).
+`situation` é `''` para a maioria dos movimentos (só a família de audiência
+usa status hoje). Sem release do app. Códigos verificados contra dados reais
+do DataJud (TJRS/TRT4/TRF4/STJ/TST); referência oficial: TPU do CNJ.
 
 ## Deploy (produção)
 
@@ -102,8 +136,8 @@ secret `DATAJUD_API_KEY` se o CNJ rotacionar).
   e segue; adicionar aliases quando houver demanda).
 - O DataJud reflete a carga dos tribunais com ~3-4 dias de atraso; a UI avisa
   ("pode levar alguns dias").
-- Movimento 970 (Audiência) não distingue designada/realizada/cancelada no
-  título (o complemento existe no dado cru, fica para v2).
+- Audiência não traz a DATA da sessão no dado público, só o status; o texto
+  pede para confirmar a data com o advogado.
 - Tap na notificação ainda não abre o caso (não há roteamento de tap no
   push/sino hoje; feature separada).
 - Caso cujo índice de origem falhe cronicamente ocupa 1 das 4 vagas do lote
