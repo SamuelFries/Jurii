@@ -34,15 +34,9 @@ throttle: 20 mensagens seriam 20 pushes).
 - **Abrir não marca tudo como lido.** O destaque de não lida é o que ajuda a
   achar o que falta ver. Marca-se ao tocar em cada uma, ou de uma vez pelo
   botão "Marcar todas como lidas" no cabeçalho.
-- **Tocar abre a conversa de origem** quando a notificação tem
-  `metadata.conversation_id` (solicitação de caso, resposta, indicação). A
-  notificação é marcada como lida no mesmo gesto.
-  - O escopo **firm** não roteia: o painel do escritório abre o chat com
-    limites próprios (não propõe caso, não mostra triagem) e rotear daqui com
-    os padrões do `ChatScreen` reintroduziria os dois.
-  - Tipos sem conversa (`case_update`, `appointment_reminder`,
-    `lawyer_recommended`) só marcam como lida. Deep-link para caso e agenda
-    fica para quando houver rota nomeada.
+- **Tocar abre o destino** (conversa ou caso) e marca como lida no mesmo
+  gesto. A tabela de destinos está em "Toque na notificação", no fim deste
+  documento.
 - Cada item mostra **quando chegou** (`formatRelativeTime`: "agora",
   "há 5 min", "ontem", "10/07").
 - Swipe para a esquerda apaga.
@@ -63,8 +57,7 @@ e `case_update`. O model absorve os dois em `JuriiNotification.caseId`.
   crescia e toda notificação futura tentava entregar nos tokens mortos.
 - `fetch_push_tokens_for_recipient` devolve no máximo os **20 mais recentes**,
   teto defensivo contra fan-out ilimitado por reinstalações.
-- Tocar no push abre o app, mas ainda **não navega** para o destino (exige
-  rota nomeada + navigator global; feature separada).
+- Tocar no push **abre o destino** (ver a seção abaixo).
 - Com o app aberto, o push não aparece na bandeja (comportamento do Android);
   o sino em tempo real já cobre esse caso. Exibir em foreground exigiria
   `flutter_local_notifications`.
@@ -76,3 +69,53 @@ notificações **já lidas** há mais de 90 dias. Não lida nunca é apagada.
 Antes disso a tabela crescia para sempre (o único delete era o swipe).
 
 Para mudar a janela: `select public.purge_old_notifications(interval '30 days');`
+
+## Toque na notificação (30/07/2026)
+
+Sino e push abrem o mesmo destino, resolvido num lugar só:
+`destinationFor()` em `lib/services/notification_router.dart`.
+
+| Notificação | Destino |
+|---|---|
+| `lawyer_recommendation`, `case_request`, `case_request_response` | a conversa |
+| `case_update`, `firm_case_started` | o caso |
+| `appointment_reminder`, `lawyer_recommended`, `team_invite` | nenhum (só marca como lida; `team_invite` resolve pelos botões do próprio item) |
+
+**Conversa tem precedência sobre caso**: tipos como `case_request_response`
+carregam os dois, e a conversa é onde a pessoa continua o assunto.
+
+**O escopo do escritório nunca abre conversa**: o painel do escritório abre o
+chat com limites próprios (não propõe caso, sem triagem) e abrir daqui, com os
+padrões do `ChatScreen`, reintroduziria os dois. Sobra o caso, que é neutro.
+
+### Abrir um caso só pelo id
+
+`fetch_case_for_current_user` (migration `20260730180000`) devolve o que a tela
+de detalhe precisa. Dois pontos que valem lembrar:
+
+- **Quem decide se pode editar é o servidor** (`can_manage_case_updates`), não
+  a tela. As listas passam esse flag por contexto (`lawyer_cases_screen` manda
+  `true` fixo); quem chega por notificação não tem contexto nenhum.
+- **O gate inclui gestor do escritório**, não só `can_access_case`. O fan-out de
+  `firm_case_started` vai para todos os gestores ativos, mas
+  `respond_to_case_request` só cria participante para cliente, advogado e quem
+  pediu o caso. Sem esse ramo, o sócio que não pediu o caso recebia a
+  notificação e o toque não abria nada. Não amplia visibilidade: é o mesmo
+  escopo que `fetch_law_firm_cases` já concede.
+
+### Armadilhas que a revisão adversarial pegou (não repetir)
+
+- `Navigator.push` **só completa no pop**. Esperar por ele para marcar a
+  notificação como lida deixava a marcação pendurada enquanto a pessoa lia o
+  conteúdo. O router empilha sem esperar e devolve "empilhei", não "voltou".
+- Marcar como lida **só quando abriu**. Se falhar, a notificação continua
+  destacada no sino, que é a única pista que resta.
+- O roteamento é ligado **antes** de pedir o token do FCM: quando vinha depois,
+  um `getToken()` que falha (iOS sem APNs) matava o toque pela sessão inteira.
+- `getInitialMessage` tem trava de **processo**, não de sessão: sem ela, um
+  logout seguido de login reabria um toque já tratado.
+- `navigator.mounted` **não detecta logout**. O router compara o uid antes e
+  depois do await, senão empilharia a conversa do usuário anterior sobre o
+  login.
+- Roteamento só acontece com o app utilizável (`appCanRouteNotifications`):
+  o portão de completar cadastro é bloqueante e um push não pode saltá-lo.

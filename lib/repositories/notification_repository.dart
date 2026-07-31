@@ -105,6 +105,31 @@ class NotificationRepository {
     }
   }
 
+  /// Uma notificação pelo id. O push carrega só `notification_id` (o metadata
+  /// com os ids do caso/conversa fica fora do payload, que trafega e repousa
+  /// no dispositivo); ao tocar, buscamos a linha para saber para onde ir.
+  /// O RLS garante que só o destinatário lê a própria notificação.
+  Future<JuriiNotification?> fetchById(String notificationId) async {
+    if (!SupabaseConfig.isReady ||
+        SupabaseConfig.client.auth.currentUser == null) {
+      return null;
+    }
+
+    try {
+      final row = await SupabaseConfig.client
+          .from('notifications')
+          .select('id, title, body, type, scope, metadata, read_at, created_at')
+          .eq('id', notificationId)
+          .maybeSingle();
+
+      if (row == null) return null;
+      return _fromRow(row);
+    } catch (error) {
+      debugPrint('Supabase notification fetch failed: $error');
+      return null;
+    }
+  }
+
   /// Marca uma única notificação como lida (ao tocar nela). O RLS já limita ao
   /// destinatário; sem isso, abrir o sino teria que marcar tudo de uma vez.
   Future<void> markAsRead(String notificationId) async {

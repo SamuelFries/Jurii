@@ -79,9 +79,6 @@ class JuriiNotification {
   String? get caseId =>
       (metadata['case_id'] ?? metadata['legal_case_id']) as String?;
 
-  /// A notificação leva a algum lugar quando tocada.
-  bool get hasDestination => conversationId != null;
-
   bool get isPendingTeamInvite {
     return type == 'team_invite' &&
         membershipId != null &&
