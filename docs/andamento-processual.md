@@ -138,8 +138,8 @@ secret `DATAJUD_API_KEY` se o CNJ rotacionar).
   ("pode levar alguns dias").
 - Audiência não traz a DATA da sessão no dado público, só o status; o texto
   pede para confirmar a data com o advogado.
-- Tap na notificação ainda não abre o caso (não há roteamento de tap no
-  push/sino hoje; feature separada).
+- (resolvido em 30/07) Tocar na notificação abre o caso, no sino e no push.
+  Ver "Toque na notificação" em `docs/notificacoes.md`.
 - Caso cujo índice de origem falhe cronicamente ocupa 1 das 4 vagas do lote
   a cada hora (retry sem backoff). Aceitável no volume atual; se incomodar,
   registrar tentativa falha em `case_movement_sync_state` com horizonte

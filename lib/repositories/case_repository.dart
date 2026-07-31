@@ -1,4 +1,5 @@
 import '../models/case_movement.dart';
+import '../models/case_open_target.dart';
 import '../models/case_request.dart';
 import '../models/case_update.dart';
 import '../models/cases.dart';
@@ -146,6 +147,39 @@ class CaseRepository {
         'title_value': title,
         'body_value': body,
       },
+    );
+  }
+
+  /// Abre um caso a partir só do id (destino do toque na notificação).
+  /// Devolve nulo quando o caso não existe ou o usuário não participa dele.
+  Future<CaseOpenTarget?> fetchCaseById(String caseId) async {
+    if (!SupabaseConfig.isReady ||
+        SupabaseConfig.client.auth.currentUser == null) {
+      return null;
+    }
+
+    final rows = await SupabaseConfig.client.rpc(
+      'fetch_case_for_current_user',
+      params: {'case_id_value': caseId},
+    );
+
+    final list = (rows as List<dynamic>).cast<Map<String, dynamic>>();
+    if (list.isEmpty) return null;
+
+    final row = list.first;
+    final title = row['title'] as String? ?? 'Caso jurídico';
+    final area = row['area'] as String? ?? 'Atendimento jurídico';
+    final statusLabel = row['status_label'] as String? ?? 'Em andamento';
+    final clientName = row['client_name'] as String? ?? 'Cliente';
+    final viewerIsClient = row['viewer_is_client'] as bool? ?? false;
+
+    return CaseOpenTarget(
+      id: row['id'].toString(),
+      title: title,
+      // Mesmo subtítulo que as listas montam para cada papel.
+      subtitle: viewerIsClient ? '$area · $statusLabel' : '$clientName · $area',
+      canAddUpdates: row['can_manage'] as bool? ?? false,
+      cnjNumber: row['cnj_number'] as String?,
     );
   }
 

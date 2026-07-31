@@ -74,10 +74,7 @@ void main() {
       expect(notificationWith(const {}).caseId, isNull);
     });
 
-    test('hasDestination só quando há conversa de origem', () {
-      expect(notificationWith(const {'conversation_id': 'c1'}).hasDestination,
-          isTrue);
-      expect(notificationWith(const {'case_id': 'k1'}).hasDestination, isFalse);
-    });
+    // Quem decide o destino é destinationFor(), em notification_router_test:
+    // um caso também é destino, então um getter só de conversa mentiria.
   });
 }

@@ -46,6 +46,7 @@ import 'screens/lawyer_cases_screen.dart';
 import 'theme/app_colors.dart';
 import 'theme/app_theme.dart';
 import 'theme/theme_controller.dart';
+import 'services/app_navigator.dart';
 import 'services/supabase_config.dart';
 import 'types/auth_callbacks.dart';
 import 'widgets/firm_bottom_nav.dart';
@@ -780,6 +781,9 @@ class _JuriiAppState extends State<JuriiApp> {
       builder: (context, themeMode, _) => MaterialApp(
         title: 'Jurii',
         debugShowCheckedModeBanner: false,
+        // O toque num push chega de fora da árvore de widgets: sem esta chave
+        // não há como navegar para o caso ou a conversa.
+        navigatorKey: appNavigatorKey,
         theme: AppTheme.lightTheme,
         darkTheme: AppTheme.darkTheme,
         themeMode: themeMode,
@@ -789,6 +793,16 @@ class _JuriiAppState extends State<JuriiApp> {
   }
 
   Widget _buildHome() {
+    // Só empilha destino de notificação quando o app está utilizável: nem no
+    // boot, nem no login, nem na recuperação de senha, nem no portão de
+    // completar cadastro (que é bloqueante de propósito).
+    appCanRouteNotifications.value =
+        !_isBootstrapping &&
+        !_bootstrapFailed &&
+        !_isPasswordRecovery &&
+        _isLoggedIn &&
+        !_needsProfileCompletion;
+
     return _isBootstrapping
         ? const _BootstrapScreen()
         : _bootstrapFailed
