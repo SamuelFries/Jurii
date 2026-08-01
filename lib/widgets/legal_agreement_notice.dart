@@ -17,7 +17,13 @@ class LegalAgreementNotice extends StatelessWidget {
         Text(
           prefix,
           textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 12, color: colors.muted, height: 1.5),
+          // textSecondary, não muted: este é o texto de consentimento legal
+          // ("ao criar conta você concorda...") — precisa passar AA.
+          style: TextStyle(
+            fontSize: 12,
+            color: colors.textSecondary,
+            height: 1.5,
+          ),
         ),
         const SizedBox(height: 2),
         Wrap(
@@ -29,7 +35,10 @@ class LegalAgreementNotice extends StatelessWidget {
               label: 'Termos de Uso',
               type: LegalDocumentType.termsOfUse,
             ),
-            Text('e', style: TextStyle(fontSize: 12, color: colors.muted)),
+            Text(
+              'e',
+              style: TextStyle(fontSize: 12, color: colors.textSecondary),
+            ),
             _LegalTextButton(
               label: 'Política de Privacidade',
               type: LegalDocumentType.privacyPolicy,
