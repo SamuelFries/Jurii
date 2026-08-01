@@ -131,6 +131,69 @@ class JuriiFadeThroughSwitcher extends StatelessWidget {
   }
 }
 
+class JuriiLazyIndexedStack extends StatefulWidget {
+  const JuriiLazyIndexedStack({
+    super.key,
+    required this.index,
+    required this.children,
+  });
+
+  final int index;
+  final List<Widget> children;
+
+  @override
+  State<JuriiLazyIndexedStack> createState() => _JuriiLazyIndexedStackState();
+}
+
+class _JuriiLazyIndexedStackState extends State<JuriiLazyIndexedStack>
+    with SingleTickerProviderStateMixin {
+  // Um AnimatedSwitcher aqui destruiria o estado das abas — que é exatamente
+  // o que este widget existe para preservar. Por isso o fade envolve o
+  // IndexedStack inteiro, sem trocar chaves de subárvore.
+  late final AnimationController _fadeIn = AnimationController(
+    vsync: this,
+    duration: JuriiMotion.fast,
+    value: 1,
+  );
+  late List<bool> _built = List<bool>.filled(widget.children.length, false);
+
+  @override
+  void didUpdateWidget(JuriiLazyIndexedStack oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_built.length != widget.children.length) {
+      _built = List<bool>.generate(
+        widget.children.length,
+        (i) => i < _built.length && _built[i],
+      );
+    }
+    if (widget.index != oldWidget.index && !JuriiMotion.disabled(context)) {
+      _fadeIn.forward(from: 0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _fadeIn.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    _built[widget.index] = true;
+
+    return FadeTransition(
+      opacity: CurvedAnimation(parent: _fadeIn, curve: JuriiMotion.ease),
+      child: IndexedStack(
+        index: widget.index,
+        children: [
+          for (var i = 0; i < widget.children.length; i++)
+            _built[i] ? widget.children[i] : const SizedBox.shrink(),
+        ],
+      ),
+    );
+  }
+}
+
 class JuriiStaggeredItem extends StatelessWidget {
   const JuriiStaggeredItem({
     super.key,
