@@ -178,7 +178,10 @@ class _JuriiAppState extends State<JuriiApp> {
   }
 
   Future<void> _bootstrapSession() async {
-    if (!SupabaseConfig.isConfigured) {
+    // isReady, não isConfigured: as chaves têm fallback hardcoded, então
+    // isConfigured é sempre true — mas sem Supabase.initialize concluído,
+    // tocar o client abaixo estoura StateError (modo demonstração).
+    if (!SupabaseConfig.isReady) {
       setState(() => _isBootstrapping = false);
       return;
     }
@@ -787,6 +790,20 @@ class _JuriiAppState extends State<JuriiApp> {
         theme: AppTheme.lightTheme,
         darkTheme: AppTheme.darkTheme,
         themeMode: themeMode,
+        // Sem backend o app cai para dados fictícios (modo demonstração).
+        // O selo em toda tela impede que alguém — inclusive um revisor de
+        // loja com build mal configurada — tome os dados fictícios por reais.
+        builder: (context, child) {
+          if (SupabaseConfig.isReady) return child!;
+          return Banner(
+            message: 'DEMO',
+            location: BannerLocation.topEnd,
+            color: AppTheme.warning,
+            textDirection: TextDirection.ltr,
+            layoutDirection: TextDirection.ltr,
+            child: child!,
+          );
+        },
         home: _buildHome(),
       ),
     );
