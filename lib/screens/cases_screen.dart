@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../data/mock/mock_cases.dart';
@@ -7,6 +9,7 @@ import '../repositories/case_repository.dart';
 import '../services/supabase_config.dart';
 import '../theme/app_colors.dart';
 import '../widgets/jurii_empty_state.dart';
+import '../widgets/jurii_error_state.dart';
 import '../widgets/jurii_list_card.dart';
 import '../widgets/jurii_motion.dart';
 import 'case_details_screen.dart';
@@ -79,7 +82,7 @@ class _CasesScreenState extends State<CasesScreen> {
       );
       if (!mounted) return;
       setState(() {
-        _casesFuture = _loadCases();
+        _casesFuture = _loadCases()..ignore();
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -113,7 +116,7 @@ class _CasesScreenState extends State<CasesScreen> {
 
     if (!mounted) return;
     setState(() {
-      _casesFuture = _loadCases();
+      _casesFuture = _loadCases()..ignore();
     });
   }
 
@@ -143,7 +146,10 @@ class _CasesScreenState extends State<CasesScreen> {
           }
 
           if (snapshot.hasError && data == null) {
-            return _CasesErrorState(onRetry: _refresh);
+            return JuriiErrorState(
+              title: 'Não foi possível carregar seus casos.',
+              onRetry: _refresh,
+            );
           }
 
           if ((cases == null || cases.isEmpty) && requests.isEmpty) {
@@ -209,49 +215,6 @@ class _CasesScreenState extends State<CasesScreen> {
             ),
           );
         },
-      ),
-    );
-  }
-}
-
-class _CasesErrorState extends StatelessWidget {
-  const _CasesErrorState({required this.onRetry});
-
-  final Future<void> Function() onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.jColors;
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.wifi_off_rounded, size: 40, color: colors.textSecondary),
-            const SizedBox(height: 16),
-            Text(
-              'Não foi possível carregar seus casos.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: colors.textPrimary,
-                fontWeight: FontWeight.w700,
-                fontSize: 16,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Verifique sua conexão e tente novamente.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: colors.textSecondary),
-            ),
-            const SizedBox(height: 16),
-            OutlinedButton(
-              onPressed: onRetry,
-              child: const Text('Tentar novamente'),
-            ),
-          ],
-        ),
       ),
     );
   }

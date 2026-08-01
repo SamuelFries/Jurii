@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../data/legal_practice_areas.dart';
@@ -8,6 +10,7 @@ import '../screens/lawyer_profile_screen.dart';
 import '../services/supabase_config.dart';
 import '../theme/app_colors.dart';
 import 'jurii_empty_state.dart';
+import 'jurii_error_state.dart';
 import 'jurii_motion.dart';
 import 'lawyer_profile_card.dart';
 
@@ -49,6 +52,10 @@ class _RecommendedLawyersSectionState extends State<RecommendedLawyersSection> {
     );
   }
 
+  void _retry() {
+    setState(() => _lawyersFuture = _loadLawyers()..ignore());
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -80,6 +87,23 @@ class _RecommendedLawyersSectionState extends State<RecommendedLawyersSection> {
                   child: Padding(
                     padding: EdgeInsets.symmetric(vertical: 4),
                     child: JuriiSkeletonList(itemCount: 2, itemHeight: 88),
+                  ),
+                ),
+              );
+            }
+
+            // Mesmo tratamento da seção de escritórios ao lado: falha de
+            // rede tem retry, não vira "Nenhum advogado recomendado".
+            if (snapshot.hasError && !shouldUseMock) {
+              return JuriiFadeThroughSwitcher(
+                child: KeyedSubtree(
+                  key: const ValueKey('recommended_lawyers_error'),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: JuriiErrorState(
+                      title: 'Não foi possível carregar os advogados.',
+                      onRetry: _retry,
+                    ),
                   ),
                 ),
               );

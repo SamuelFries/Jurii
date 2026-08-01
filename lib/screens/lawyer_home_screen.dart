@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../models/appointment.dart';
 import '../models/conversation.dart';
@@ -10,6 +12,7 @@ import '../repositories/case_repository.dart';
 import '../repositories/messaging_repository.dart';
 import '../services/supabase_config.dart';
 import '../theme/app_colors.dart';
+import '../widgets/jurii_error_state.dart';
 import '../widgets/jurii_list_card.dart';
 import '../widgets/jurii_motion.dart';
 import '../widgets/notification_bell.dart';
@@ -48,26 +51,59 @@ class _LawyerHomeScreenState extends State<LawyerHomeScreen> {
   late Future<List<Conversation>> _newContactsFuture;
   late Future<List<Appointment>> _todayAppointmentsFuture;
 
+  // Sentinela dos três fetches: se qualquer um falhar, a home mostra o
+  // estado de erro em vez de três seções falsamente vazias — um advogado
+  // com 12 casos e sem sinal via "você não tem nada".
+  late Future<void> _homeFuture;
+
   @override
   void initState() {
     super.initState();
     _activeCasesFuture = _loadActiveCases();
     _newContactsFuture = _loadNewContacts();
     _todayAppointmentsFuture = _loadTodayAppointments();
+    _rebuildHomeFuture();
   }
 
   @override
   void didUpdateWidget(covariant LawyerHomeScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
+    var changed = false;
     if (oldWidget.caseRepository != widget.caseRepository) {
       _activeCasesFuture = _loadActiveCases();
+      changed = true;
     }
     if (oldWidget.messagingRepository != widget.messagingRepository) {
       _newContactsFuture = _loadNewContacts();
+      changed = true;
     }
     if (oldWidget.appointmentRepository != widget.appointmentRepository) {
       _todayAppointmentsFuture = _loadTodayAppointments();
+      changed = true;
     }
+    if (changed) _rebuildHomeFuture();
+  }
+
+  void _rebuildHomeFuture() {
+    // eagerError: o primeiro erro derruba a home para o estado de erro na
+    // hora, em vez de esperar o fetch mais lento terminar (janela em que as
+    // seções renderizariam o vazio falso). ignore(): listener imediato —
+    // sem ele, uma falha rápida de rede completaria o future antes de o
+    // FutureBuilder assinar no próximo frame (unhandled async error).
+    _homeFuture = Future.wait<Object?>([
+      _activeCasesFuture,
+      _newContactsFuture,
+      _todayAppointmentsFuture,
+    ], eagerError: true)..ignore();
+  }
+
+  void _retry() {
+    setState(() {
+      _activeCasesFuture = _loadActiveCases();
+      _newContactsFuture = _loadNewContacts();
+      _todayAppointmentsFuture = _loadTodayAppointments();
+      _rebuildHomeFuture();
+    });
   }
 
   Future<List<Appointment>> _loadTodayAppointments() async {
@@ -86,7 +122,7 @@ class _LawyerHomeScreenState extends State<LawyerHomeScreen> {
           .toList(growable: false);
     } catch (error) {
       debugPrint('Supabase lawyer today appointments fetch failed: $error');
-      return const [];
+      rethrow;
     }
   }
 
@@ -99,7 +135,7 @@ class _LawyerHomeScreenState extends State<LawyerHomeScreen> {
       }
     } catch (error) {
       debugPrint('Supabase lawyer active cases fetch failed: $error');
-      if (SupabaseConfig.isReady) return const [];
+      if (SupabaseConfig.isReady) rethrow;
     }
 
     return const [];
@@ -116,7 +152,7 @@ class _LawyerHomeScreenState extends State<LawyerHomeScreen> {
       }
     } catch (error) {
       debugPrint('Supabase lawyer contacts fetch failed: $error');
-      if (SupabaseConfig.isReady) return const [];
+      if (SupabaseConfig.isReady) rethrow;
     }
 
     return const [];
@@ -127,51 +163,63 @@ class _LawyerHomeScreenState extends State<LawyerHomeScreen> {
     final firstName = widget.user.name.split(' ').first;
 
     return SafeArea(
-      child: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
-        child: Padding(
-          padding: EdgeInsets.zero,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _ProfessionalHeader(
-                firstName: firstName,
-                oabNumber: widget.user.oabNumber ?? 'OAB em revisão',
-                firmName: widget.workspace?.firm.name,
-                onNotificationsChanged: widget.onNotificationsChanged,
-              ),
-              const SizedBox(height: 20),
-              _QuickActions(
-                onOpenMessages: widget.onOpenMessages,
-                onOpenCases: widget.onOpenCases,
-                onOpenAgenda: widget.onOpenAgenda,
-              ),
-              const SizedBox(height: 24),
-              _MetricsOverview(
-                activeCasesFuture: _activeCasesFuture,
-                newContactsFuture: _newContactsFuture,
-              ),
-              const SizedBox(height: 24),
-              _TodayAgenda(
-                appointmentsFuture: _todayAppointmentsFuture,
-                activeCasesFuture: _activeCasesFuture,
-                conversationsFuture: _newContactsFuture,
-                onOpenAgenda: widget.onOpenAgenda,
-              ),
-              const SizedBox(height: 24),
-              _PriorityCases(
-                casesFuture: _activeCasesFuture,
-                onOpenCases: widget.onOpenCases,
-              ),
-              const SizedBox(height: 24),
-              _NewContacts(
-                conversationsFuture: _newContactsFuture,
-                onOpenMessages: widget.onOpenMessages,
-              ),
-            ],
-          ),
-        ),
+      child: FutureBuilder<void>(
+        future: _homeFuture,
+        builder: (context, snapshot) {
+          final failed = snapshot.hasError;
+
+          return SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _ProfessionalHeader(
+                  firstName: firstName,
+                  oabNumber: widget.user.oabNumber ?? 'OAB em revisão',
+                  firmName: widget.workspace?.firm.name,
+                  onNotificationsChanged: widget.onNotificationsChanged,
+                ),
+                const SizedBox(height: 20),
+                _QuickActions(
+                  onOpenMessages: widget.onOpenMessages,
+                  onOpenCases: widget.onOpenCases,
+                  onOpenAgenda: widget.onOpenAgenda,
+                ),
+                if (failed) ...[
+                  const SizedBox(height: 48),
+                  JuriiErrorState(
+                    title: 'Não foi possível carregar sua home.',
+                    onRetry: _retry,
+                  ),
+                ] else ...[
+                  const SizedBox(height: 24),
+                  _MetricsOverview(
+                    activeCasesFuture: _activeCasesFuture,
+                    newContactsFuture: _newContactsFuture,
+                  ),
+                  const SizedBox(height: 24),
+                  _TodayAgenda(
+                    appointmentsFuture: _todayAppointmentsFuture,
+                    activeCasesFuture: _activeCasesFuture,
+                    conversationsFuture: _newContactsFuture,
+                    onOpenAgenda: widget.onOpenAgenda,
+                  ),
+                  const SizedBox(height: 24),
+                  _PriorityCases(
+                    casesFuture: _activeCasesFuture,
+                    onOpenCases: widget.onOpenCases,
+                  ),
+                  const SizedBox(height: 24),
+                  _NewContacts(
+                    conversationsFuture: _newContactsFuture,
+                    onOpenMessages: widget.onOpenMessages,
+                  ),
+                ],
+              ],
+            ),
+          );
+        },
       ),
     );
   }

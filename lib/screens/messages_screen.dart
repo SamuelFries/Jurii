@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../data/mock/mock_messages.dart';
@@ -7,6 +9,7 @@ import '../services/supabase_config.dart';
 import '../theme/app_colors.dart';
 import '../widgets/conversation_card.dart';
 import '../widgets/jurii_empty_state.dart';
+import '../widgets/jurii_error_state.dart';
 import '../widgets/jurii_motion.dart';
 import 'chat_screen.dart';
 
@@ -38,8 +41,12 @@ class _MessagesScreenState extends State<MessagesScreen> {
         return conversations;
       }
       return mockClientConversations;
-    } catch (_) {
-      return SupabaseConfig.isReady ? const [] : mockClientConversations;
+    } catch (error) {
+      // Erro sobe para o FutureBuilder: falha de rede não pode virar
+      // "Nenhuma conversa iniciada".
+      debugPrint('Supabase client conversations fetch failed: $error');
+      if (SupabaseConfig.isReady) rethrow;
+      return mockClientConversations;
     }
   }
 
@@ -64,6 +71,27 @@ class _MessagesScreenState extends State<MessagesScreen> {
                   ),
                   SizedBox(height: 20),
                   JuriiSkeletonList(itemCount: 4, itemHeight: 86),
+                ],
+              ),
+            );
+          }
+
+          if (snapshot.hasError && conversations == null) {
+            return Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const _MessagesHeader(
+                    title: 'Conversas',
+                    subtitle: 'Acompanhe seus atendimentos jurídicos.',
+                  ),
+                  Expanded(
+                    child: JuriiErrorState(
+                      title: 'Não foi possível carregar suas conversas.',
+                      onRetry: _retry,
+                    ),
+                  ),
                 ],
               ),
             );
@@ -124,7 +152,15 @@ class _MessagesScreenState extends State<MessagesScreen> {
   Future<void> _refresh() async {
     final future = _loadConversations();
     setState(() => _conversationsFuture = future);
-    await future;
+    try {
+      await future;
+    } catch (_) {
+      // O FutureBuilder exibe o estado de erro.
+    }
+  }
+
+  void _retry() {
+    setState(() => _conversationsFuture = _loadConversations()..ignore());
   }
 
   Future<void> _openChat(Conversation conversation) async {
@@ -136,7 +172,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
 
     if (!mounted) return;
     setState(() {
-      _conversationsFuture = _loadConversations();
+      _conversationsFuture = _loadConversations()..ignore();
     });
   }
 }

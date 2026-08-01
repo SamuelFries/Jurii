@@ -110,10 +110,25 @@ class _NotificationBellState extends State<NotificationBell> {
     // analisador (com razão) não confia mais no context desta closure.
     final navigator = Navigator.of(context);
     final messenger = ScaffoldMessenger.of(context);
-    final notifications = await widget.repository.fetchLatest(
-      scope: widget.scope,
-      lawFirmId: widget.lawFirmId,
-    );
+    final List<JuriiNotification> notifications;
+    try {
+      notifications = await widget.repository.fetchLatest(
+        scope: widget.scope,
+        lawFirmId: widget.lawFirmId,
+      );
+    } catch (_) {
+      // Abrir o painel vazio diria "zero notificações" — mentira em falha
+      // de rede. Melhor não abrir e dizer o porquê.
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Não foi possível carregar as notificações. '
+            'Verifique sua conexão e tente de novo.',
+          ),
+        ),
+      );
+      return;
+    }
     if (!mounted) return;
 
     // Abrir o painel NÃO marca tudo como lido: o destaque de não lida é o que
@@ -293,10 +308,16 @@ class _NotificationSheetState extends State<_NotificationSheet> {
   }
 
   Future<void> _onRealtimeChange() async {
-    final fresh = await widget.repository.fetchLatest(
-      scope: widget.scope,
-      lawFirmId: widget.lawFirmId,
-    );
+    final List<JuriiNotification> fresh;
+    try {
+      fresh = await widget.repository.fetchLatest(
+        scope: widget.scope,
+        lawFirmId: widget.lawFirmId,
+      );
+    } catch (_) {
+      // Refresh silencioso: em falha, a lista já exibida continua valendo.
+      return;
+    }
     if (!mounted) return;
     setState(() => _notifications = fresh);
   }
@@ -346,10 +367,21 @@ class _NotificationSheetState extends State<_NotificationSheet> {
   }
 
   Future<void> _reload() async {
-    final notifications = await widget.repository.fetchLatest(
-      scope: widget.scope,
-      lawFirmId: widget.lawFirmId,
-    );
+    final List<JuriiNotification> notifications;
+    try {
+      notifications = await widget.repository.fetchLatest(
+        scope: widget.scope,
+        lawFirmId: widget.lawFirmId,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Não foi possível atualizar. Verifique sua conexão.'),
+        ),
+      );
+      return;
+    }
     if (!mounted) return;
     setState(() => _notifications = notifications);
   }

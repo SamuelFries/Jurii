@@ -38,6 +38,10 @@ class LawyerProfileRepository {
         error: error,
         stackTrace: stackTrace,
       );
+      // Sem fallback e com backend configurado, o erro sobe: a seção tem
+      // estado de erro com retry (a de escritórios já fazia isso; esta
+      // devolvia lista vazia e virava "Nenhum advogado recomendado").
+      if (SupabaseConfig.isReady) rethrow;
       return const [];
     }
   }

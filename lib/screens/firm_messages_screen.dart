@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../data/mock/mock_firm_workspace.dart';
@@ -8,6 +10,7 @@ import '../services/supabase_config.dart';
 import '../theme/app_colors.dart';
 import '../widgets/conversation_card.dart';
 import '../widgets/jurii_empty_state.dart';
+import '../widgets/jurii_error_state.dart';
 import '../widgets/jurii_motion.dart';
 import 'chat_screen.dart';
 
@@ -64,9 +67,15 @@ class _FirmMessagesScreenState extends State<FirmMessagesScreen> {
         lawFirmId: lawFirmId,
       );
     } catch (error) {
+      // Erro sobe para o FutureBuilder: falha de rede não pode virar
+      // "Nenhuma conversa encontrada" no painel do escritório.
       debugPrint('Supabase firm conversations fetch failed: $error');
-      return const [];
+      rethrow;
     }
+  }
+
+  void _retry() {
+    setState(() => _conversationsFuture = _loadConversations()..ignore());
   }
 
   @override
@@ -129,6 +138,14 @@ class _FirmMessagesScreenState extends State<FirmMessagesScreen> {
                   padding: EdgeInsets.only(top: 4),
                   child: JuriiSkeletonList(itemCount: 4, itemHeight: 86),
                 )
+              else if (snapshot.hasError && conversations == null)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 32),
+                  child: JuriiErrorState(
+                    title: 'Não foi possível carregar as conversas.',
+                    onRetry: _retry,
+                  ),
+                )
               else if (conversations == null || conversations.isEmpty)
                 const _EmptyFirmMessagesState()
               else
@@ -157,7 +174,7 @@ class _FirmMessagesScreenState extends State<FirmMessagesScreen> {
     if (selectedSegment == index) return;
     setState(() {
       selectedSegment = index;
-      _conversationsFuture = _loadConversations();
+      _conversationsFuture = _loadConversations()..ignore();
     });
   }
 
@@ -186,7 +203,7 @@ class _FirmMessagesScreenState extends State<FirmMessagesScreen> {
 
     if (!mounted) return;
     setState(() {
-      _conversationsFuture = _loadConversations();
+      _conversationsFuture = _loadConversations()..ignore();
     });
   }
 }

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../data/mock/mock_messages.dart';
@@ -7,6 +9,7 @@ import '../services/supabase_config.dart';
 import '../theme/app_colors.dart';
 import '../widgets/conversation_card.dart';
 import '../widgets/jurii_empty_state.dart';
+import '../widgets/jurii_error_state.dart';
 import '../widgets/jurii_motion.dart';
 import 'chat_screen.dart';
 
@@ -36,9 +39,17 @@ class _LawyerMessagesScreenState extends State<LawyerMessagesScreen> {
         return conversations;
       }
       return mockLawyerConversations;
-    } catch (_) {
-      return SupabaseConfig.isReady ? const [] : mockLawyerConversations;
+    } catch (error) {
+      // Erro sobe para o FutureBuilder: falha de rede não pode virar
+      // "Nenhuma conversa" — advogado sem sinal acharia que perdeu clientes.
+      debugPrint('Supabase lawyer conversations fetch failed: $error');
+      if (SupabaseConfig.isReady) rethrow;
+      return mockLawyerConversations;
     }
+  }
+
+  void _retry() {
+    setState(() => _conversationsFuture = _loadConversations()..ignore());
   }
 
   @override
@@ -62,6 +73,27 @@ class _LawyerMessagesScreenState extends State<LawyerMessagesScreen> {
                   ),
                   SizedBox(height: 20),
                   JuriiSkeletonList(itemCount: 4, itemHeight: 86),
+                ],
+              ),
+            );
+          }
+
+          if (snapshot.hasError && conversations == null) {
+            return Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const _MessagesHeader(
+                    title: 'Mensagens',
+                    subtitle: 'Converse com clientes e acompanhe contatos.',
+                  ),
+                  Expanded(
+                    child: JuriiErrorState(
+                      title: 'Não foi possível carregar suas conversas.',
+                      onRetry: _retry,
+                    ),
+                  ),
                 ],
               ),
             );
@@ -109,7 +141,7 @@ class _LawyerMessagesScreenState extends State<LawyerMessagesScreen> {
 
     if (!mounted) return;
     setState(() {
-      _conversationsFuture = _loadConversations();
+      _conversationsFuture = _loadConversations()..ignore();
     });
   }
 }
