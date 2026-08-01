@@ -152,6 +152,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Anexar arquivo'), findsOneWidget);
+    expect(find.text('Tirar foto'), findsOneWidget);
+    expect(find.text('Enviar foto'), findsOneWidget);
     expect(find.text('Triagem com IA'), findsOneWidget);
 
     // Fecha de novo com slide reverso.

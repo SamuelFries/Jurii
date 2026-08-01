@@ -1,4 +1,3 @@
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -8,6 +7,7 @@ import '../theme/app_colors.dart';
 import '../utils/cpf_input_formatter.dart';
 import '../utils/phone_input_formatter.dart';
 import '../utils/profile_avatar_validation.dart';
+import '../utils/safe_file_picker.dart';
 import '../utils/validators.dart';
 import '../widgets/jurii_form_motion.dart';
 import '../widgets/profile_avatar.dart';
@@ -68,18 +68,23 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     });
 
     try {
-      final picked = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowMultiple: false,
-        withData: true,
+      final file = await pickSingleFile(
         allowedExtensions: profileAvatarAllowedExtensions,
       );
-      final file = picked?.files.single;
       if (file == null || !mounted) return;
+
+      if (file.size > maxProfileAvatarBytes) {
+        setState(() => _errorMessage = 'A foto pode ter no máximo 5 MB.');
+        return;
+      }
+
+      // Tamanho conferido acima: só então os bytes entram na memória.
+      final bytes = await readPickedBytesOrNull(file);
+      if (!mounted) return;
 
       final validation = validateProfileAvatar(
         fileName: file.name,
-        bytes: file.bytes,
+        bytes: bytes,
         sizeBytes: file.size,
       );
       if (!validation.isValid) {
@@ -91,7 +96,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         _selectedAvatar = ProfileAvatarFile(
           fileName: file.name,
           mimeType: validation.mimeType!,
-          bytes: file.bytes!,
+          bytes: bytes!,
         );
         _removeAvatar = false;
       });

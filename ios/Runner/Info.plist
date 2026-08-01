@@ -4,6 +4,10 @@
 <dict>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>A câmera é usada para fotografar documentos e enviá-los na conversa com o advogado.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>A galeria é usada para escolher fotos e documentos e enviá-los na conversa com o advogado.</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
