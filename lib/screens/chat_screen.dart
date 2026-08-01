@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'dart:typed_data';
 
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -20,6 +20,7 @@ import '../repositories/profile_repository.dart';
 import '../services/intake_ai_service.dart';
 import '../services/supabase_config.dart';
 import '../theme/app_colors.dart';
+import '../utils/safe_file_picker.dart';
 import '../widgets/jurii_empty_state.dart';
 import '../widgets/jurii_form_motion.dart';
 import '../widgets/jurii_motion.dart';
@@ -446,45 +447,44 @@ class _ChatScreenState extends State<ChatScreen>
       return;
     }
 
-    final picked = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowMultiple: false,
-      withData: true,
-      allowedExtensions: const [
-        'jpg',
-        'jpeg',
-        'png',
-        'webp',
-        'pdf',
-        'doc',
-        'docx',
-      ],
-    );
-
-    final file = picked?.files.single;
-    if (file == null) return;
+    final SafePickedFile? file;
+    try {
+      file = await pickSingleFile(
+        allowedExtensions: const [
+          'jpg',
+          'jpeg',
+          'png',
+          'webp',
+          'pdf',
+          'doc',
+          'docx',
+        ],
+      );
+    } catch (error) {
+      // Permissão negada era um toque sem nenhuma resposta.
+      debugPrint('Attachment picker failed: $error');
+      if (mounted) {
+        _showSnackBar(
+          'Não foi possível abrir o seletor de arquivos. '
+          'Verifique as permissões do app nos Ajustes.',
+        );
+      }
+      return;
+    }
+    if (file == null || !mounted) return;
 
     final mimeType = _mimeTypeForFile(file.name);
     final kind = _attachmentKindForMime(mimeType);
-    final bytes = file.bytes;
-
-    if (!mounted) return;
 
     if (mimeType == null || kind == null) {
-      _showSnackBar('Envie apenas fotos, PDF, DOC ou DOCX.');
+      _showSnackBar(
+        'Envie apenas fotos, PDF, DOC ou DOCX. Para fotos do celular, '
+        'use "Enviar foto".',
+      );
       return;
     }
 
-    if (bytes == null || bytes.isEmpty) {
-      _showSnackBar('Não foi possível ler o arquivo selecionado.');
-      return;
-    }
-
-    if (!_bytesMatchMimeType(bytes, mimeType)) {
-      _showSnackBar('Arquivo inválido ou corrompido.');
-      return;
-    }
-
+    // Tamanho ANTES de ler os bytes: a leitura só acontece dentro do teto.
     final maxSize = kind == ChatAttachmentKind.image
         ? 5 * 1024 * 1024
         : 10 * 1024 * 1024;
@@ -497,15 +497,114 @@ class _ChatScreenState extends State<ChatScreen>
       return;
     }
 
+    final Uint8List bytes;
+    try {
+      bytes = await file.readBytes();
+    } catch (error) {
+      debugPrint('Attachment read failed: $error');
+      if (mounted) {
+        _showSnackBar('Não foi possível ler o arquivo selecionado.');
+      }
+      return;
+    }
+    if (!mounted) return;
+
+    if (bytes.isEmpty) {
+      _showSnackBar('Não foi possível ler o arquivo selecionado.');
+      return;
+    }
+
+    if (!_bytesMatchMimeType(bytes, mimeType)) {
+      _showSnackBar('Arquivo inválido ou corrompido.');
+      return;
+    }
+
+    await _uploadAttachment(
+      fileName: file.name,
+      mimeType: mimeType,
+      kind: kind,
+      bytes: bytes,
+    );
+  }
+
+  /// Foto pela galeria ou câmera via image_picker: no iOS o plugin re-encoda
+  /// para JPEG — é o que faz foto de iPhone (HEIC) chegar num formato que
+  /// todos os aparelhos abrem. maxWidth também segura o tamanho do upload.
+  Future<void> _sendPhoto(ImageSource source) async {
+    if (_isUploadingAttachment) return;
+
+    if (!_usesSupabase || !SupabaseConfig.isReady) {
+      _showSnackBar('Anexos estão disponíveis apenas em conversas online.');
+      return;
+    }
+
+    final XFile? photo;
+    try {
+      photo = await ImagePicker().pickImage(
+        source: source,
+        maxWidth: 2560,
+        imageQuality: 85,
+      );
+    } catch (error) {
+      debugPrint('Image picker failed: $error');
+      if (mounted) {
+        _showSnackBar(
+          source == ImageSource.camera
+              ? 'Não foi possível abrir a câmera. '
+                    'Verifique a permissão nos Ajustes.'
+              : 'Não foi possível abrir a galeria. '
+                    'Verifique a permissão nos Ajustes.',
+        );
+      }
+      return;
+    }
+    if (photo == null) return;
+
+    final size = await photo.length();
+    if (!mounted) return;
+    if (size > 5 * 1024 * 1024) {
+      _showSnackBar('Fotos podem ter no máximo 5 MB.');
+      return;
+    }
+
+    final Uint8List bytes;
+    try {
+      bytes = await photo.readAsBytes();
+    } catch (error) {
+      debugPrint('Photo read failed: $error');
+      if (mounted) _showSnackBar('Não foi possível ler a foto.');
+      return;
+    }
+    if (!mounted) return;
+
+    if (bytes.isEmpty || !_bytesMatchMimeType(bytes, 'image/jpeg')) {
+      _showSnackBar('Não foi possível ler a foto.');
+      return;
+    }
+
+    await _uploadAttachment(
+      fileName: 'foto_${DateTime.now().millisecondsSinceEpoch}.jpg',
+      mimeType: 'image/jpeg',
+      kind: ChatAttachmentKind.image,
+      bytes: bytes,
+    );
+  }
+
+  Future<void> _uploadAttachment({
+    required String fileName,
+    required String mimeType,
+    required ChatAttachmentKind kind,
+    required Uint8List bytes,
+  }) async {
     final ignoredTriageBanner = _showTriageBanner;
     setState(() => _isUploadingAttachment = true);
     try {
       final message = await _repository.sendAttachment(
         conversationId: widget.conversation.id!,
-        fileName: file.name,
+        fileName: fileName,
         mimeType: mimeType,
-        fileSizeBytes: file.size,
-        bytes: Uint8List.fromList(bytes),
+        fileSizeBytes: bytes.length,
+        bytes: bytes,
         kind: kind,
         senderType: widget.isLawyer ? 'lawyer' : 'client',
       );
@@ -1194,6 +1293,14 @@ class _ChatScreenState extends State<ChatScreen>
                         opacity: _plusMenuAnimation,
                         child: _PlusMenuSheet(
                           showTriage: _triageAvailable,
+                          onTakePhoto: () {
+                            _closePlusMenu();
+                            _sendPhoto(ImageSource.camera);
+                          },
+                          onPickPhoto: () {
+                            _closePlusMenu();
+                            _sendPhoto(ImageSource.gallery);
+                          },
                           onAttach: () {
                             _closePlusMenu();
                             _sendAttachment();
@@ -1380,15 +1487,27 @@ class _EmptyChatState extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.jColors;
 
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: JuriiEmptyState(
-        icon: Icons.chat_bubble_outline,
-        title: 'Nenhuma mensagem nesta conversa',
-        message: 'Envie uma mensagem ou use + para anexar e iniciar a triagem.',
-        accentColor: colors.primary,
-        surfaceColor: colors.lightBlue,
-        borderColor: colors.lightBlueBorder,
+    // Rola em vez de estourar: com o menu "+" aberto (duas linhas) e teclado
+    // na tela, a área que sobra num aparelho baixo fica menor que o estado.
+    return LayoutBuilder(
+      builder: (context, constraints) => SingleChildScrollView(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: constraints.maxHeight),
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: JuriiEmptyState(
+                icon: Icons.chat_bubble_outline,
+                title: 'Nenhuma mensagem nesta conversa',
+                message:
+                    'Envie uma mensagem ou use + para anexar e iniciar a triagem.',
+                accentColor: colors.primary,
+                surfaceColor: colors.lightBlue,
+                borderColor: colors.lightBlueBorder,
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -2198,22 +2317,50 @@ class _TriageHintChip extends StatelessWidget {
   }
 }
 
-/// Opções do botão "+" do composer: anexar arquivo e (para o cliente) a
-/// triagem com IA. Sobe em slide/fade junto do composer.
+/// Opções do botão "+" do composer: foto (câmera/galeria), arquivo e (para
+/// o cliente) a triagem com IA. Sobe em slide/fade junto do composer.
 class _PlusMenuSheet extends StatelessWidget {
   const _PlusMenuSheet({
     required this.showTriage,
+    required this.onTakePhoto,
+    required this.onPickPhoto,
     required this.onAttach,
     required this.onTriage,
   });
 
   final bool showTriage;
+  final VoidCallback onTakePhoto;
+  final VoidCallback onPickPhoto;
   final VoidCallback onAttach;
   final VoidCallback onTriage;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.jColors;
+
+    final options = <({IconData icon, String label, VoidCallback onTap})>[
+      (
+        icon: Icons.photo_camera_outlined,
+        label: 'Tirar foto',
+        onTap: onTakePhoto,
+      ),
+      (
+        icon: Icons.photo_outlined,
+        label: 'Enviar foto',
+        onTap: onPickPhoto,
+      ),
+      (
+        icon: Icons.attach_file,
+        label: 'Anexar arquivo',
+        onTap: onAttach,
+      ),
+      if (showTriage)
+        (
+          icon: Icons.auto_awesome,
+          label: 'Triagem com IA',
+          onTap: onTriage,
+        ),
+    ];
 
     return Container(
       width: double.infinity,
@@ -2222,31 +2369,32 @@ class _PlusMenuSheet extends StatelessWidget {
         color: colors.card,
         border: Border(top: BorderSide(color: colors.divider)),
       ),
-      child: Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Expanded(
-            child: JuriiStaggeredItem(
-              index: 0,
-              beginOffset: const Offset(0, 8),
-              child: _PlusMenuOption(
-                icon: Icons.attach_file,
-                label: 'Anexar arquivo',
-                onTap: onAttach,
-              ),
-            ),
-          ),
-          if (showTriage) ...[
-            const SizedBox(width: 10),
-            Expanded(
-              child: JuriiStaggeredItem(
-                index: 1,
-                beginOffset: const Offset(0, 8),
-                child: _PlusMenuOption(
-                  icon: Icons.auto_awesome,
-                  label: 'Triagem com IA',
-                  onTap: onTriage,
-                ),
-              ),
+          // Duas colunas por linha: quatro opções lado a lado não cabem
+          // legíveis em 320dp.
+          for (var row = 0; row * 2 < options.length; row++) ...[
+            if (row > 0) const SizedBox(height: 10),
+            Row(
+              children: [
+                for (var col = 0; col < 2; col++) ...[
+                  if (col > 0) const SizedBox(width: 10),
+                  Expanded(
+                    child: row * 2 + col < options.length
+                        ? JuriiStaggeredItem(
+                            index: row * 2 + col,
+                            beginOffset: const Offset(0, 8),
+                            child: _PlusMenuOption(
+                              icon: options[row * 2 + col].icon,
+                              label: options[row * 2 + col].label,
+                              onTap: options[row * 2 + col].onTap,
+                            ),
+                          )
+                        : const SizedBox.shrink(),
+                  ),
+                ],
+              ],
             ),
           ],
         ],

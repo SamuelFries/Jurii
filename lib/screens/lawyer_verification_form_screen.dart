@@ -1,4 +1,3 @@
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
@@ -14,6 +13,7 @@ import '../repositories/lawyer_verification_repository.dart';
 import '../services/supabase_config.dart';
 import '../theme/app_colors.dart';
 import '../utils/document_file_validation.dart';
+import '../utils/safe_file_picker.dart';
 import '../widgets/jurii_form_motion.dart';
 import '../widgets/jurii_motion.dart';
 import '../widgets/practice_area_selector.dart';
@@ -382,18 +382,37 @@ class _LawyerVerificationFormScreenState
       return;
     }
 
-    final picked = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowMultiple: false,
-      withData: true,
-      allowedExtensions: verificationAllowedExtensions,
-    );
-    final file = picked?.files.single;
+    final SafePickedFile? file;
+    try {
+      file = await pickSingleFile(
+        allowedExtensions: verificationAllowedExtensions,
+      );
+    } catch (error) {
+      debugPrint('Verification document picker failed: $error');
+      if (!mounted) return;
+      setState(() {
+        errorMessage =
+            'Não foi possível abrir o seletor de arquivos. '
+            'Verifique as permissões do app nos Ajustes.';
+      });
+      return;
+    }
     if (file == null) return;
+
+    // Tamanho antes de ler: os bytes só entram na memória dentro do teto.
+    if (file.size > maxVerificationFileBytes) {
+      if (!mounted) return;
+      setState(
+        () => errorMessage = 'Cada documento pode ter no máximo 10 MB.',
+      );
+      return;
+    }
+
+    final bytes = await readPickedBytesOrNull(file);
 
     final validation = validateVerificationDocument(
       fileName: file.name,
-      bytes: file.bytes,
+      bytes: bytes,
       sizeBytes: file.size,
     );
     if (!mounted) return;
@@ -408,9 +427,9 @@ class _LawyerVerificationFormScreenState
         documentId: document.id,
         documentType: document.id,
         title: document.title,
-        fileName: file.name,
+        fileName: file!.name,
         mimeType: validation.mimeType!,
-        bytes: file.bytes!,
+        bytes: bytes!,
       );
       documents[index] = document.copyWith(uploaded: true);
     });
