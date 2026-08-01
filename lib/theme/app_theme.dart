@@ -18,7 +18,8 @@ class AppTheme {
   static const Color card = Colors.white;
 
   static const Color textPrimary = Color(0xFF0A1C3B);
-  static const Color textSecondary = Color(0xFF6B7A99);
+  // Mantém paridade com AppColors.light.textSecondary (contraste AA).
+  static const Color textSecondary = Color(0xFF5E6D8C);
 
   static const Color lightBlue = Color(0xFFEEF1F8);
   static const Color lightBlueBorder = Color(0xFFC5CFE8);

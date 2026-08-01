@@ -73,7 +73,9 @@ class AppColors extends ThemeExtension<AppColors> {
     background: Color(0xFFF7F8FC),
     card: Colors.white,
     textPrimary: Color(0xFF0A1C3B),
-    textSecondary: Color(0xFF6B7A99),
+    // 0xFF6B7A99 dava 4.1:1 sobre o background — abaixo do AA (4.5:1).
+    // Este tom passa em background (4.9), card (5.2) e lightBlue (4.6).
+    textSecondary: Color(0xFF5E6D8C),
     lightBlue: Color(0xFFEEF1F8),
     lightBlueBorder: Color(0xFFC5CFE8),
     lightGold: Color(0xFFFDF6E3),
