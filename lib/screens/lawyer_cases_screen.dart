@@ -135,7 +135,8 @@ class _EmptyCasesState extends StatelessWidget {
               icon: Icons.folder_open_outlined,
               title: 'Nenhum caso ativo',
               message:
-                  'Quando você aceitar um cliente, os casos aparecerão aqui.',
+                  'O caso nasce na conversa: abra o chat com o cliente e '
+                  'toque em "Enviar solicitação de caso".',
             ),
           ),
 
@@ -155,21 +156,11 @@ class _CasesListState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.jColors;
+    // Sem FAB de "criar caso": o caso nasce dentro da conversa (o advogado
+    // propõe pelo chat e o cliente aceita) — um botão aqui seria promessa
+    // falsa, e era exatamente o placeholder que a revisão de loja reprova.
     return Scaffold(
       backgroundColor: colors.background,
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: colors.primary,
-        onPressed: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'A criação de casos será habilitada na integração.',
-              ),
-            ),
-          );
-        },
-        child: Icon(Icons.add, color: colors.card),
-      ),
       body: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(

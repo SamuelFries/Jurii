@@ -751,23 +751,17 @@ class _TeamMemberCard extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: 8),
-          IconButton(
-            onPressed:
-                onEditRoles ??
-                () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Perfil do membro em preparação.'),
-                    ),
-                  );
-                },
-            icon: Icon(
-              onEditRoles == null ? Icons.chevron_right : Icons.manage_accounts,
+          // Sem permissão de editar cargos não há ação nenhuma aqui — um
+          // chevron promete navegação que não existe, então nada é exibido.
+          if (onEditRoles != null) ...[
+            const SizedBox(width: 8),
+            IconButton(
+              onPressed: onEditRoles,
+              icon: const Icon(Icons.manage_accounts),
+              color: colors.textSecondary,
+              tooltip: 'Editar cargos',
             ),
-            color: colors.textSecondary,
-            tooltip: onEditRoles == null ? 'Abrir membro' : 'Editar cargos',
-          ),
+          ],
         ],
       ),
     );

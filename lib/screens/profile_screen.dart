@@ -6,7 +6,9 @@ import '../models/law_firm_verification_status.dart';
 import '../models/lawyer_verification.dart';
 import '../models/user_profile.dart';
 import '../data/legal_documents.dart';
+import '../utils/support_contact.dart';
 import 'edit_profile_screen.dart';
+import 'help_center_screen.dart';
 import 'law_firm_verification_screen.dart';
 import 'lawyer_verification_screen.dart';
 import 'legal_document_screen.dart';
@@ -500,13 +502,6 @@ class ProfileScreen extends StatelessWidget {
                         onTap: onOpenLawFirmArea,
                       ),
                     ProfileMenuItem(
-                      icon: Icons.badge_outlined,
-                      iconColor: colors.accent,
-                      label: 'Perfil Profissional',
-                      subtitle: 'Revise sua bio e áreas de atuação',
-                      onTap: () {},
-                    ),
-                    ProfileMenuItem(
                       icon: Icons.schedule_outlined,
                       iconColor: colors.accent,
                       label: 'Disponibilidade',
@@ -546,13 +541,6 @@ class ProfileScreen extends StatelessWidget {
                         label: 'Aparência',
                         subtitle: 'Tema: ${themeModeLabel(themeMode)}',
                         onTap: () => showThemeModeSheet(context),
-                      ),
-                      ProfileMenuItem(
-                        icon: Icons.description_outlined,
-                        iconColor: colors.textSecondary,
-                        label: 'Meus Documentos',
-                        subtitle: 'Visualize documentos enviados',
-                        onTap: () {},
                       ),
                     ],
                   );
@@ -631,13 +619,20 @@ class ProfileScreen extends StatelessWidget {
                     icon: Icons.help_outline,
                     iconColor: colors.primary,
                     label: 'Central de Ajuda',
-                    onTap: () {},
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const HelpCenterScreen(),
+                        ),
+                      );
+                    },
                   ),
                   ProfileMenuItem(
-                    icon: Icons.phone_outlined,
+                    icon: Icons.mail_outline,
                     iconColor: colors.primary,
                     label: 'Suporte',
-                    onTap: () {},
+                    subtitle: supportEmail,
+                    onTap: () => openSupportEmail(context),
                   ),
                   ProfileMenuItem(
                     icon: Icons.article_outlined,
