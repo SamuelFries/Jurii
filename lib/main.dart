@@ -1002,12 +1002,7 @@ class _MainNavigationState extends State<MainNavigation> {
     ];
 
     return Scaffold(
-      body: JuriiFadeThroughSwitcher(
-        child: KeyedSubtree(
-          key: ValueKey('client_page_$currentIndex'),
-          child: pages[currentIndex],
-        ),
-      ),
+      body: JuriiLazyIndexedStack(index: currentIndex, children: pages),
       bottomNavigationBar: JuriiBottomNav(
         currentIndex: currentIndex,
         onTap: (index) {
@@ -1093,12 +1088,7 @@ class _FirmNavigationState extends State<FirmNavigation> {
     ];
 
     return Scaffold(
-      body: JuriiFadeThroughSwitcher(
-        child: KeyedSubtree(
-          key: ValueKey('firm_page_$currentIndex'),
-          child: pages[currentIndex],
-        ),
-      ),
+      body: JuriiLazyIndexedStack(index: currentIndex, children: pages),
       bottomNavigationBar: FirmBottomNav(
         currentIndex: currentIndex,
         onTap: (index) => setState(() => currentIndex = index),
@@ -1164,12 +1154,7 @@ class _LawyerNavigationState extends State<LawyerNavigation> {
     ];
 
     return Scaffold(
-      body: JuriiFadeThroughSwitcher(
-        child: KeyedSubtree(
-          key: ValueKey('lawyer_page_$currentIndex'),
-          child: pages[currentIndex],
-        ),
-      ),
+      body: JuriiLazyIndexedStack(index: currentIndex, children: pages),
       bottomNavigationBar: JuriiBottomNav(
         currentIndex: currentIndex,
         onTap: (index) => setState(() => currentIndex = index),
