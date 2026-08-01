@@ -38,9 +38,11 @@ class NotificationRepository {
       return rows.map<JuriiNotification>(_fromRow).toList();
     } catch (error) {
       // Nunca cair para mocks com usuário real: as notificações mock têm
-      // ações reais (aceitar convite) com ids inválidos.
+      // ações reais (aceitar convite) com ids inválidos. E o erro sobe:
+      // painel vazio em falha de rede diria "zero notificações", que é
+      // mentira — quem chama decide o que mostrar.
       debugPrint('Supabase notifications fetch failed: $error');
-      return const [];
+      rethrow;
     }
   }
 

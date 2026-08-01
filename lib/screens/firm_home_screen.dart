@@ -6,6 +6,7 @@ import '../models/jurii_notification.dart';
 import '../repositories/firm_workspace_repository.dart';
 import '../services/supabase_config.dart';
 import '../theme/app_colors.dart';
+import '../widgets/jurii_error_state.dart';
 import '../widgets/jurii_motion.dart';
 import '../widgets/notification_bell.dart';
 import '../widgets/profile_avatar.dart';
@@ -64,8 +65,10 @@ class _FirmHomeScreenState extends State<FirmHomeScreen> {
     try {
       return await widget.repository.fetchLawFirmOperationMetrics(lawFirmId);
     } catch (error) {
+      // Erro sobe para o FutureBuilder: zeros em falha de rede parecem
+      // métrica real — e métrica errada é pior que métrica ausente.
       debugPrint('Supabase firm operation metrics fetch failed: $error');
-      return FirmOperationMetrics.empty(teamMembers: localTeamCount);
+      rethrow;
     }
   }
 
@@ -74,7 +77,11 @@ class _FirmHomeScreenState extends State<FirmHomeScreen> {
     setState(() {
       _metricsFuture = nextMetrics;
     });
-    await nextMetrics;
+    try {
+      await nextMetrics;
+    } catch (_) {
+      // O FutureBuilder exibe o estado de erro.
+    }
   }
 
   @override
@@ -194,6 +201,16 @@ class _FirmHomeScreenState extends State<FirmHomeScreen> {
           FutureBuilder<FirmOperationMetrics>(
             future: _metricsFuture,
             builder: (context, snapshot) {
+              if (snapshot.hasError) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 24),
+                  child: JuriiErrorState(
+                    title: 'Não foi possível carregar as métricas.',
+                    onRetry: _reloadMetrics,
+                  ),
+                );
+              }
+
               final metrics =
                   snapshot.data ??
                   FirmOperationMetrics.empty(

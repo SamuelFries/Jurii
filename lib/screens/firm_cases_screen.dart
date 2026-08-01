@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../data/mock/mock_firm_workspace.dart';
@@ -8,6 +10,7 @@ import '../repositories/case_repository.dart';
 import '../services/supabase_config.dart';
 import '../theme/app_colors.dart';
 import '../widgets/jurii_empty_state.dart';
+import '../widgets/jurii_error_state.dart';
 import '../widgets/jurii_form_motion.dart';
 import '../widgets/jurii_list_card.dart';
 import '../widgets/jurii_motion.dart';
@@ -59,9 +62,15 @@ class _FirmCasesScreenState extends State<FirmCasesScreen> {
     try {
       return await widget.repository.fetchLawFirmCases(lawFirmId);
     } catch (error) {
+      // Erro sobe para o FutureBuilder: falha de rede não pode virar
+      // "Nenhum caso encontrado" para o gestor do escritório.
       debugPrint('Supabase firm cases fetch failed: $error');
-      return const [];
+      rethrow;
     }
+  }
+
+  void _retry() {
+    setState(() => _casesFuture = _loadCases()..ignore());
   }
 
   Future<void> _openCaseDetails(FirmCaseOverview overview) async {
@@ -85,7 +94,7 @@ class _FirmCasesScreenState extends State<FirmCasesScreen> {
 
     if (!mounted) return;
     setState(() {
-      _casesFuture = _loadCases();
+      _casesFuture = _loadCases()..ignore();
     });
   }
 
@@ -138,7 +147,7 @@ class _FirmCasesScreenState extends State<FirmCasesScreen> {
       );
       if (!mounted) return;
       setState(() {
-        _casesFuture = _loadCases();
+        _casesFuture = _loadCases()..ignore();
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Caso atribuído a ${selectedLawyer.name}.')),
@@ -199,6 +208,14 @@ class _FirmCasesScreenState extends State<FirmCasesScreen> {
                 const Padding(
                   padding: EdgeInsets.only(top: 12),
                   child: JuriiSkeletonList(itemCount: 4, itemHeight: 88),
+                )
+              else if (snapshot.hasError && cases == null)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 32),
+                  child: JuriiErrorState(
+                    title: 'Não foi possível carregar os casos.',
+                    onRetry: _retry,
+                  ),
                 )
               else if (cases == null || cases.isEmpty)
                 const _EmptyFirmCasesState()
