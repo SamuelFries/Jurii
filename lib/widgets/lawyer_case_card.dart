@@ -20,12 +20,14 @@ class LawyerCaseCard extends StatelessWidget {
     LawyerCaseStatus.newMessage => colors.primary,
     LawyerCaseStatus.deadline => colors.danger,
     LawyerCaseStatus.updated => colors.textSecondary,
+    LawyerCaseStatus.closed => colors.success,
   };
 
   IconData get _statusIcon => switch (lawyerCase.status) {
     LawyerCaseStatus.newMessage => Icons.mail_outline,
     LawyerCaseStatus.deadline => Icons.access_time,
     LawyerCaseStatus.updated => Icons.access_time,
+    LawyerCaseStatus.closed => Icons.check_circle_outline,
   };
 
   @override

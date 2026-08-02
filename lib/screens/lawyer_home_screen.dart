@@ -843,10 +843,12 @@ class _PriorityCases extends StatelessWidget {
   const _PriorityCases({required this.casesFuture, this.onOpenCases});
 
   /// Prioriza prazos, depois casos com mensagem nova, depois os demais.
+  /// Encerrado nunca é prioridade.
   static int _priorityRank(LawyerCaseStatus status) => switch (status) {
     LawyerCaseStatus.deadline => 0,
     LawyerCaseStatus.newMessage => 1,
     LawyerCaseStatus.updated => 2,
+    LawyerCaseStatus.closed => 3,
   };
 
   @override
@@ -1003,6 +1005,10 @@ class _PriorityCaseCard extends StatelessWidget {
       ),
       LawyerCaseStatus.updated => (
         color: colors.success,
+        icon: Icons.check_circle_outline,
+      ),
+      LawyerCaseStatus.closed => (
+        color: colors.textSecondary,
         icon: Icons.check_circle_outline,
       ),
     };

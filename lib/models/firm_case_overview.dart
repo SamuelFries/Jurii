@@ -17,6 +17,9 @@ class FirmCaseOverview {
   /// O caso tem prazo registrado mas ainda não tem número de processo.
   final bool needsCnjNumber;
 
+  /// Caso encerrado pelo responsável (status cru 'closed' no banco).
+  final bool isClosed;
+
   const FirmCaseOverview({
     required this.id,
     required this.title,
@@ -30,5 +33,6 @@ class FirmCaseOverview {
     required this.urgent,
     this.cnjNumber,
     this.needsCnjNumber = false,
+    this.isClosed = false,
   });
 }

@@ -9,6 +9,9 @@ class LegalCase {
   /// o caso ainda não virou processo judicial, o que é normal.
   final String? cnjNumber;
 
+  /// Caso encerrado pelo responsável (status cru 'closed' no banco).
+  final bool isClosed;
+
   const LegalCase({
     required this.id,
     required this.title,
@@ -16,5 +19,6 @@ class LegalCase {
     this.area = 'Atendimento jurídico',
     this.lastUpdate = 'Atualizado hoje',
     this.cnjNumber,
+    this.isClosed = false,
   });
 }
