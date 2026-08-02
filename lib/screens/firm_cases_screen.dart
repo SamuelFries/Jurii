@@ -162,6 +162,12 @@ class _FirmCasesScreenState extends State<FirmCasesScreen> {
 
   String _friendlyAssignError(Object error) {
     final message = error.toString();
+    // A atribuição registra uma mensagem na conversa do caso; se o cliente
+    // bloqueou a conversa, o servidor recusa a operação inteira.
+    if (message.contains('conversation_blocked')) {
+      return 'O cliente bloqueou a conversa. Não é possível atribuir '
+          'enquanto ela estiver bloqueada.';
+    }
     if (message.contains('Only office case managers')) {
       return 'Apenas dono, admin e secretaria podem atribuir casos.';
     }

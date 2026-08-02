@@ -298,6 +298,42 @@ funcionários responsáveis. Nessa etapa serão criados papel global de revisor,
 fila, URLs assinadas de curta duração e auditoria por funcionário. Isso é uma
 decisão de roadmap, não um bloqueio técnico do app atual.
 
+## Moderação de conteúdo — denúncia e bloqueio (migration 20260801120000)
+
+Chat entre desconhecidos é conteúdo gerado por usuário; a diretriz 1.2 da
+App Store exige mecanismo de denúncia e de bloqueio. Implementado assim:
+
+- **Bloqueio é por conversa e congela os dois lados**: todo contato entre um
+  par acontece numa única conversa (`start_or_get_*` devolve sempre a mesma),
+  então congelar a conversa bloqueia o par — inclusive no balcão do
+  escritório, em que não existe "a" contraparte. Só quem bloqueou destrava.
+- A trava é um **trigger de INSERT em `messages`** (`messages_block_guard`),
+  não policy: cobre também anexo via RPC e sugestão de advogado, sem tocar na
+  policy endurecida do patch_041. O erro é o marcador constante
+  `conversation_blocked` (sem eco de entrada), traduzido pelo app.
+- **Denúncias** ficam em `user_reports` (razão whitelistada, texto livre
+  sanitizado com o mesmo regex do hardening de log injection, teto de 1000
+  caracteres e 10 denúncias/dia por usuário). Leitura só pelo back-office,
+  como as verificações: RLS sem policy + revoke de tabela; escrita apenas
+  pela RPC `report_conversation`, que exige participação na conversa.
+- `fetch_conversation_block_state` não revela nada a quem não participa.
+- Tratamento das denúncias hoje: painel do Supabase
+  (`select * from user_reports where status = 'open'`). A Apple espera ação
+  em até 24h — processo operacional, não técnico.
+
+Endurecimentos da revisão adversarial: o guard cobre também
+`message_attachments` (anexar arquivo novo a mensagem antiga era canal
+furando o bloqueio); o canal interno de equipe (`firm_internal`) fica fora
+da moderação (não há "contraparte" e um membro poderia congelar o
+escritório); dono/admin destravam bloqueios deixados por operadores do
+próprio escritório (nunca o do cliente); o antiflood é serializado por
+`pg_advisory_xact_lock` (count-then-insert era contornável por
+concorrência). Decisão aceita: bloqueio de conta excluída permanece — a
+conversa com uma conta excluída está morta de qualquer forma, e congelada é
+o estado correto.
+
+Testes: `supabase/tests/report_block_test.sql` (23 asserções).
+
 ## Pendências reais antes de produção ampla
 
 - Endurecer também a gravação de `storage_path` para exigir a pasta do titular
