@@ -39,9 +39,16 @@ class PushNotificationService {
   /// Trava de processo: a mensagem que abriu o app é tratada uma vez só.
   bool _initialMessageChecked = false;
 
-  /// Push so em iOS/Android/web; outras plataformas (macOS, etc.) sao ignoradas.
+  /// Push so em iOS/Android; web e as demais plataformas sao ignoradas.
+  ///
+  /// Web fica de fora porque push no navegador exige um `firebase-messaging-sw.js`
+  /// em `web/`, que nao existe: o servidor devolve o `index.html` no lugar e o
+  /// registro morre com `failed-service-worker-registration`. Web aqui e so
+  /// superficie de teste — em vez de logar a falha a cada boot, nem tentamos.
+  /// `PushPlatform.web` continua no enum: se um dia houver push web, o unico
+  /// ponto a mudar e este.
   static PushPlatform? _platform() {
-    if (kIsWeb) return PushPlatform.web;
+    if (kIsWeb) return null;
     switch (defaultTargetPlatform) {
       case TargetPlatform.iOS:
         return PushPlatform.ios;
