@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:jurii/models/jurii_notification.dart';
 import 'package:jurii/models/lawyer_case.dart';
@@ -72,6 +74,16 @@ void main() {
         LawyerCaseStatus.updated,
       );
     });
+  });
+
+  test('o resumo do caso é do advogado, não do cliente', () {
+    // create_case_request exige conversation.lawyer_id = auth.uid(), então
+    // legal_cases.description é o texto que o ADVOGADO escreveu ao propor o
+    // caso. Rotular como "relato do cliente" atribuiria a fala à pessoa
+    // errada para os dois lados que leem o mesmo campo.
+    final fonte = File('lib/screens/case_details_screen.dart').readAsStringSync();
+    expect(fonte.contains('Relato do cliente'), isFalse);
+    expect(fonte.contains("'Resumo do caso'"), isTrue);
   });
 
   test('convite de avaliação (case_closed) abre o caso', () {
