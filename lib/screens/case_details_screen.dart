@@ -408,7 +408,7 @@ class _CaseDetailsScreenState extends State<CaseDetailsScreen> {
                 ],
                 if (_details?.description != null) ...[
                   const SizedBox(height: 12),
-                  _ClientSummaryCard(description: _details!.description!),
+                  _CaseSummaryCard(description: _details!.description!),
                 ],
                 // Prazo: quem gerencia sempre vê (para poder definir); os
                 // demais só quando existe.
@@ -641,8 +641,11 @@ class _ClosedCaseBanner extends StatelessWidget {
   }
 }
 
-class _ClientSummaryCard extends StatelessWidget {
-  const _ClientSummaryCard({required this.description});
+/// Resumo escrito pelo ADVOGADO ao propor o caso (create_case_request
+/// exige conversation.lawyer_id = auth.uid()). Os dois lados leem o mesmo
+/// texto, entao o rotulo nao pode atribui-lo ao cliente.
+class _CaseSummaryCard extends StatelessWidget {
+  const _CaseSummaryCard({required this.description});
 
   final String description;
 
@@ -662,7 +665,7 @@ class _ClientSummaryCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Relato do cliente',
+            'Resumo do caso',
             style: TextStyle(
               color: colors.textSecondary,
               fontSize: 11,
