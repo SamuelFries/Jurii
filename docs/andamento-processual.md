@@ -18,9 +18,10 @@ scraping: só a API oficial e gratuita do CNJ.
   número de processo). O cliente vê, não edita.
 - **Indicativo "Sem nº do processo"** nos cards profissionais só quando o
   caso tem `deadline_at` e não tem número (sinal real de processo rodando).
-  Tom neutro, estilo do badge "Novo". Obs.: `deadline_at` ainda não é
-  preenchido por nenhum fluxo do app, então o indicativo nasce dormente e
-  passa a funcionar quando prazos entrarem em uso.
+  Tom neutro, estilo do badge "Novo". Desde a migration 20260801150000 o
+  prazo é gravável pelo detalhe do caso (`set_case_deadline`), então o
+  indicativo está vivo — e o painel do escritório deriva a urgência do
+  prazo real (até 7 dias), não mais do status `deadline`, que nada escreve.
 - **Timeline mostra só o que interessa ao leigo**: movimentos com tradução
   curada em `case_movement_translations`. Ruído processual (juntada,
   certidão, publicação) fica gravado mas não aparece.

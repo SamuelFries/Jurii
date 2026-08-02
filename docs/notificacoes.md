@@ -17,7 +17,8 @@ Realtime) e o push (trigger `notifications_push_dispatch` → Edge Function
 | `lawyer_recommendation` | client | cliente | `recommend_lawyer_to_client` |
 | `lawyer_recommended` | lawyer | advogado indicado | `recommend_lawyer_to_client` |
 | `appointment_reminder` | lawyer | advogado | `dispatch_appointment_reminders` (pg_cron, 1x por compromisso) |
-| `case_update` | client | cliente | `ingest_case_movements` (andamento processual, já coalescido) |
+| `case_update` | client | cliente | `ingest_case_movements` (andamento processual, já coalescido) e `reopen_legal_case` |
+| `case_closed` | client | cliente | `close_legal_case` (convite de avaliação; toque abre o caso) |
 
 **Armadilha permanente:** o sino filtra por escopo e o escopo é derivado do
 TIPO (`infer_notification_scope`). Tipo novo precisa ser declarado lá, numa

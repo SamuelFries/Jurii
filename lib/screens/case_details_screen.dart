@@ -1,14 +1,21 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
+import '../models/case_details.dart';
 import '../models/case_movement.dart';
 import '../models/case_update.dart';
 import '../repositories/case_repository.dart';
+import '../repositories/law_firm_repository.dart';
+import '../repositories/lawyer_profile_repository.dart';
 import '../theme/app_colors.dart';
 import '../utils/cnj_input_formatter.dart';
 import '../utils/validators.dart';
 import '../widgets/jurii_empty_state.dart';
 import '../widgets/jurii_form_motion.dart';
 import '../widgets/jurii_motion.dart';
+import 'law_firm_profile_screen.dart';
+import 'lawyer_profile_screen.dart';
 
 class CaseDetailsScreen extends StatefulWidget {
   const CaseDetailsScreen({
@@ -41,6 +48,19 @@ class _CaseDetailsScreenState extends State<CaseDetailsScreen> {
   String? _cnjNumber;
   bool _isSubmitting = false;
 
+  /// Detalhe completo (relato, prazo, status, quem pode gerenciar). Chega em
+  /// paralelo e refina a tela; nulo mantém o comportamento das props.
+  CaseDetails? _details;
+  bool _isOpeningReview = false;
+
+  bool get _canManage => _details?.canManage ?? widget.canAddUpdates;
+
+  /// Encerrar/reabrir/prazo: espelho do gate de escrita no servidor (inclui
+  /// gestor do escritório, que não tem o can_manage estreito das
+  /// atualizações). Só existe depois que o detalhe chega.
+  bool get _canManageLifecycle => _details?.canManageLifecycle ?? false;
+  bool get _isClosed => _details?.isClosed ?? false;
+
   @override
   void initState() {
     super.initState();
@@ -48,6 +68,189 @@ class _CaseDetailsScreenState extends State<CaseDetailsScreen> {
     _cnjNumber = widget.cnjNumber;
     if (_cnjNumber != null) {
       _movementsFuture = widget.repository.fetchCaseMovements(widget.caseId);
+    }
+    unawaited(_loadDetails());
+  }
+
+  /// Fail-open: se esta leitura falhar, a tela continua com o que as listas
+  /// passaram por parâmetro (título, subtítulo, permissão, número).
+  Future<void> _loadDetails() async {
+    try {
+      final details = await widget.repository.fetchCaseDetails(widget.caseId);
+      if (!mounted || details == null) return;
+      setState(() {
+        _details = details;
+        _cnjNumber = details.cnjNumber ?? _cnjNumber;
+      });
+    } catch (error) {
+      debugPrint('Case details fetch failed: $error');
+    }
+  }
+
+  Future<void> _confirmCloseCase() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Encerrar caso?'),
+        content: const Text(
+          'O cliente será avisado e convidado a avaliar o atendimento. '
+          'Você pode reabrir o caso depois, se precisar.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Encerrar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    await _runLifecycleAction(
+      () => widget.repository.closeCase(widget.caseId),
+      'Caso encerrado. O cliente foi convidado a avaliar.',
+    );
+  }
+
+  Future<void> _reopenCase() async {
+    await _runLifecycleAction(
+      () => widget.repository.reopenCase(widget.caseId),
+      'Caso reaberto.',
+    );
+  }
+
+  Future<void> _runLifecycleAction(
+    Future<void> Function() action,
+    String successMessage,
+  ) async {
+    if (_isSubmitting) return;
+    setState(() => _isSubmitting = true);
+    try {
+      await action();
+      if (!mounted) return;
+      await _loadDetails();
+      if (!mounted) return;
+      setState(() {
+        _updatesFuture = widget.repository.fetchCaseUpdates(widget.caseId);
+      });
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(successMessage)));
+    } catch (error) {
+      debugPrint('Case lifecycle action failed: $error');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Não foi possível concluir. Tente novamente.')),
+      );
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
+  Future<void> _editDeadline() async {
+    final current = _details?.deadlineAt;
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: current ?? now.add(const Duration(days: 7)),
+      firstDate: now.subtract(const Duration(days: 365)),
+      lastDate: now.add(const Duration(days: 365 * 5)),
+      helpText: 'Prazo do caso',
+      cancelText: 'Cancelar',
+      confirmText: 'Salvar',
+    );
+    if (picked == null || !mounted) return;
+    await _saveDeadline(picked);
+  }
+
+  Future<void> _saveDeadline(DateTime? deadline) async {
+    if (_isSubmitting) return;
+    setState(() => _isSubmitting = true);
+    try {
+      await widget.repository.setCaseDeadline(
+        caseId: widget.caseId,
+        deadline: deadline,
+      );
+      if (!mounted) return;
+      await _loadDetails();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(deadline == null ? 'Prazo removido.' : 'Prazo salvo.'),
+        ),
+      );
+    } catch (error) {
+      debugPrint('Case deadline save failed: $error');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Não foi possível salvar o prazo.')),
+      );
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
+  /// O convite de avaliação leva ao perfil público onde vive o painel de
+  /// avaliações (o gate de elegibilidade é do servidor). Advogado primeiro;
+  /// caso de escritório sem advogado (ou advogado indisponível/excluído)
+  /// cai para o perfil do escritório — o cliente é elegível a avaliá-lo.
+  Future<void> _openReview() async {
+    if (_isOpeningReview) return;
+    final lawyerId = _details?.assignedLawyerId;
+    final lawFirmId = _details?.lawFirmId;
+    if (lawyerId == null && lawFirmId == null) return;
+
+    setState(() => _isOpeningReview = true);
+    try {
+      if (lawyerId != null) {
+        final lawyer = await const LawyerProfileRepository().fetchLawyerById(
+          lawyerId,
+        );
+        if (!mounted) return;
+        if (lawyer != null) {
+          await Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => LawyerProfileScreen(lawyer: lawyer),
+            ),
+          );
+          return;
+        }
+      }
+
+      if (lawFirmId != null) {
+        final firm = await const LawFirmRepository().fetchLawFirmById(
+          lawFirmId,
+        );
+        if (!mounted) return;
+        if (firm != null) {
+          await Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => LawFirmProfileScreen(lawFirm: firm),
+            ),
+          );
+          return;
+        }
+      }
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Não foi possível abrir o perfil para avaliar.'),
+        ),
+      );
+    } catch (error) {
+      debugPrint('Review profile open failed: $error');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Não foi possível abrir o perfil para avaliar.'),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isOpeningReview = false);
     }
   }
 
@@ -135,8 +338,36 @@ class _CaseDetailsScreenState extends State<CaseDetailsScreen> {
     final colors = context.jColors;
     return Scaffold(
       backgroundColor: colors.background,
-      appBar: AppBar(title: const Text('Detalhes do caso')),
-      floatingActionButton: widget.canAddUpdates
+      appBar: AppBar(
+        title: const Text('Detalhes do caso'),
+        actions: [
+          if (_canManageLifecycle)
+            PopupMenuButton<String>(
+              tooltip: 'Opções do caso',
+              onSelected: (value) {
+                switch (value) {
+                  case 'close':
+                    _confirmCloseCase();
+                  case 'reopen':
+                    _reopenCase();
+                }
+              },
+              itemBuilder: (context) => [
+                if (!_isClosed)
+                  const PopupMenuItem(
+                    value: 'close',
+                    child: Text('Encerrar caso'),
+                  )
+                else
+                  const PopupMenuItem(
+                    value: 'reopen',
+                    child: Text('Reabrir caso'),
+                  ),
+              ],
+            ),
+        ],
+      ),
+      floatingActionButton: _canManage && !_isClosed
           ? FloatingActionButton.extended(
               backgroundColor: colors.primary,
               foregroundColor: colors.card,
@@ -164,13 +395,46 @@ class _CaseDetailsScreenState extends State<CaseDetailsScreen> {
               padding: const EdgeInsets.fromLTRB(24, 24, 24, 96),
               children: [
                 _CaseHeader(title: widget.title, subtitle: widget.subtitle),
+                if (_isClosed) ...[
+                  const SizedBox(height: 12),
+                  _ClosedCaseBanner(
+                    showReviewButton:
+                        _details?.viewerIsClient == true &&
+                        (_details?.assignedLawyerId != null ||
+                            _details?.lawFirmId != null),
+                    isOpeningReview: _isOpeningReview,
+                    onReview: _openReview,
+                  ),
+                ],
+                if (_details?.description != null) ...[
+                  const SizedBox(height: 12),
+                  _ClientSummaryCard(description: _details!.description!),
+                ],
+                // Prazo: quem gerencia sempre vê (para poder definir); os
+                // demais só quando existe.
+                if (!_isClosed &&
+                    (_canManageLifecycle || _details?.deadlineAt != null)) ...[
+                  const SizedBox(height: 12),
+                  _DeadlineCard(
+                    deadlineAt: _details?.deadlineAt,
+                    canEdit: _canManageLifecycle,
+                    onEdit: _isSubmitting ? null : _editDeadline,
+                    onClear: _isSubmitting || _details?.deadlineAt == null
+                        ? null
+                        : () => _saveDeadline(null),
+                  ),
+                ],
                 // Cliente em caso sem processo não tem nada aqui: nem o
                 // espaçamento (senão vira vão morto no fluxo mais comum).
-                if (_cnjNumber != null || widget.canAddUpdates) ...[
+                if (_cnjNumber != null ||
+                    widget.canAddUpdates ||
+                    _canManageLifecycle) ...[
                   const SizedBox(height: 12),
                   _ProcessNumberCard(
                     cnjNumber: _cnjNumber,
-                    canEdit: widget.canAddUpdates,
+                    // set_case_cnj_number aceita advogado do caso OU gestor
+                    // do escritório — mesmo público do ciclo de vida.
+                    canEdit: widget.canAddUpdates || _canManageLifecycle,
                     onEdit: _isSubmitting ? null : _openCnjSheet,
                   ),
                 ],
@@ -310,6 +574,217 @@ class _CaseHeader extends StatelessWidget {
 /// Número do processo no detalhe do caso. Sem número: profissional vê o
 /// convite para adicionar (tom neutro; caso sem processo é o estado normal),
 /// cliente não vê nada. Com número: todos veem, profissional pode editar.
+class _ClosedCaseBanner extends StatelessWidget {
+  const _ClosedCaseBanner({
+    required this.showReviewButton,
+    required this.isOpeningReview,
+    required this.onReview,
+  });
+
+  final bool showReviewButton;
+  final bool isOpeningReview;
+  final VoidCallback onReview;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.jColors;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colors.successSurface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: colors.success.withValues(alpha: 0.35)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.check_circle_outline, size: 20, color: colors.success),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Caso encerrado',
+                  style: TextStyle(
+                    color: colors.textPrimary,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (showReviewButton) ...[
+            const SizedBox(height: 6),
+            Text(
+              'Como foi sua experiência? Sua avaliação ajuda outras pessoas '
+              'a escolher.',
+              style: TextStyle(color: colors.textSecondary, fontSize: 13),
+            ),
+            const SizedBox(height: 10),
+            ElevatedButton.icon(
+              onPressed: isOpeningReview ? null : onReview,
+              icon: isOpeningReview
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.star_outline, size: 18),
+              label: const Text('Avaliar atendimento'),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ClientSummaryCard extends StatelessWidget {
+  const _ClientSummaryCard({required this.description});
+
+  final String description;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.jColors;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colors.card,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: colors.lightBlueBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Relato do cliente',
+            style: TextStyle(
+              color: colors.textSecondary,
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.4,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            description,
+            style: TextStyle(color: colors.textPrimary, height: 1.45),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DeadlineCard extends StatelessWidget {
+  const _DeadlineCard({
+    required this.deadlineAt,
+    required this.canEdit,
+    required this.onEdit,
+    required this.onClear,
+  });
+
+  final DateTime? deadlineAt;
+  final bool canEdit;
+  final VoidCallback? onEdit;
+  final VoidCallback? onClear;
+
+  String get _dateLabel {
+    final date = deadlineAt!;
+    final day = date.day.toString().padLeft(2, '0');
+    final month = date.month.toString().padLeft(2, '0');
+    return '$day/$month/${date.year}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.jColors;
+
+    if (deadlineAt == null) {
+      if (!canEdit) return const SizedBox.shrink();
+      return Align(
+        alignment: Alignment.centerLeft,
+        child: OutlinedButton.icon(
+          onPressed: onEdit,
+          icon: const Icon(Icons.event_outlined, size: 18),
+          label: const Text('Definir prazo'),
+        ),
+      );
+    }
+
+    // Mesma comparação do painel do escritório e da lista do advogado.
+    final isNear = !deadlineAt!.isAfter(
+      DateTime.now().add(const Duration(days: 7)),
+    );
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: colors.card,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isNear ? colors.dangerBorder : colors.lightBlueBorder,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.event_outlined,
+            size: 18,
+            color: isNear ? colors.danger : colors.textSecondary,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Prazo',
+                  style: TextStyle(
+                    color: colors.textSecondary,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.4,
+                  ),
+                ),
+                Text(
+                  _dateLabel,
+                  style: TextStyle(
+                    color: isNear ? colors.danger : colors.textPrimary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (canEdit) ...[
+            if (onClear != null)
+              IconButton(
+                onPressed: onClear,
+                icon: const Icon(Icons.close, size: 18),
+                color: colors.textSecondary,
+                tooltip: 'Remover prazo',
+              ),
+            IconButton(
+              onPressed: onEdit,
+              icon: const Icon(Icons.edit_outlined, size: 18),
+              color: colors.textSecondary,
+              tooltip: 'Editar prazo',
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 class _ProcessNumberCard extends StatelessWidget {
   const _ProcessNumberCard({
     required this.cnjNumber,

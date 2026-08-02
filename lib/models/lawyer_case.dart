@@ -29,4 +29,27 @@ class LawyerCase {
   });
 }
 
-enum LawyerCaseStatus { updated, newMessage, deadline }
+enum LawyerCaseStatus { updated, newMessage, deadline, closed }
+
+/// Deriva o estado exibido: 'closed' vem do banco; a urgência de prazo vem
+/// da DATA real (prazo em até 7 dias, inclusive vencido) — o status
+/// 'deadline' do enum do banco nunca é escrito por ninguém.
+///
+/// A comparação é a MESMA do `urgent` do painel do escritório
+/// (`deadline_at <= now() + 7 dias`, migration 20260801150000): inDays
+/// truncaria e faria as duas superfícies divergirem perto da borda.
+LawyerCaseStatus deriveLawyerCaseStatus({
+  required String? status,
+  required DateTime? deadlineAt,
+  DateTime? now,
+}) {
+  if (status == 'closed') return LawyerCaseStatus.closed;
+  if (status == 'new_message') return LawyerCaseStatus.newMessage;
+
+  final reference = now ?? DateTime.now();
+  if (deadlineAt != null &&
+      !deadlineAt.isAfter(reference.add(const Duration(days: 7)))) {
+    return LawyerCaseStatus.deadline;
+  }
+  return LawyerCaseStatus.updated;
+}

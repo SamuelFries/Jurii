@@ -1,3 +1,4 @@
+import '../models/case_details.dart';
 import '../models/case_movement.dart';
 import '../models/case_open_target.dart';
 import '../models/case_request.dart';
@@ -18,10 +19,16 @@ class CaseRepository {
 
     final rows = await SupabaseConfig.client.rpc('fetch_client_cases');
 
-    return (rows as List<dynamic>)
+    final cases = (rows as List<dynamic>)
         .cast<Map<String, dynamic>>()
         .map<LegalCase>(_clientCaseFromRow)
         .toList();
+    // Encerrados no fim: a lista de trabalho vem primeiro (sort estável do
+    // servidor por updated_at é preservado dentro de cada grupo).
+    return [
+      ...cases.where((item) => !item.isClosed),
+      ...cases.where((item) => item.isClosed),
+    ];
   }
 
   Future<List<LawyerCase>> fetchLawyerCases() async {
@@ -32,10 +39,14 @@ class CaseRepository {
 
     final rows = await SupabaseConfig.client.rpc('fetch_lawyer_cases');
 
-    return (rows as List<dynamic>)
+    final cases = (rows as List<dynamic>)
         .cast<Map<String, dynamic>>()
         .map<LawyerCase>(_lawyerCaseFromRow)
         .toList();
+    return [
+      ...cases.where((item) => item.status != LawyerCaseStatus.closed),
+      ...cases.where((item) => item.status == LawyerCaseStatus.closed),
+    ];
   }
 
   Future<List<FirmCaseOverview>> fetchLawFirmCases(String lawFirmId) async {
@@ -49,10 +60,14 @@ class CaseRepository {
       params: {'law_firm_id_value': lawFirmId},
     );
 
-    return (rows as List<dynamic>)
+    final cases = (rows as List<dynamic>)
         .cast<Map<String, dynamic>>()
         .map<FirmCaseOverview>(_firmCaseFromRow)
         .toList();
+    return [
+      ...cases.where((item) => !item.isClosed),
+      ...cases.where((item) => item.isClosed),
+    ];
   }
 
   Future<void> assignLawFirmCase({
@@ -218,6 +233,72 @@ class CaseRepository {
     );
   }
 
+  /// Detalhe completo do caso; nulo quando não existe ou o usuário não
+  /// participa (mesma RPC do destino de notificação, colunas a mais).
+  Future<CaseDetails?> fetchCaseDetails(String caseId) async {
+    if (!SupabaseConfig.isReady ||
+        SupabaseConfig.client.auth.currentUser == null) {
+      return null;
+    }
+
+    final rows = await SupabaseConfig.client.rpc(
+      'fetch_case_for_current_user',
+      params: {'case_id_value': caseId},
+    );
+
+    final list = (rows as List<dynamic>).cast<Map<String, dynamic>>();
+    if (list.isEmpty) return null;
+
+    final row = list.first;
+    return CaseDetails(
+      id: row['id'].toString(),
+      title: row['title'] as String? ?? 'Caso jurídico',
+      area: row['area'] as String? ?? 'Atendimento jurídico',
+      status: row['status'] as String? ?? 'open',
+      statusLabel: row['status_label'] as String? ?? 'Em andamento',
+      clientName: row['client_name'] as String? ?? 'Cliente',
+      viewerIsClient: row['viewer_is_client'] as bool? ?? false,
+      canManage: row['can_manage'] as bool? ?? false,
+      canManageLifecycle: row['can_manage_lifecycle'] as bool? ?? false,
+      cnjNumber: row['cnj_number'] as String?,
+      description: (row['description'] as String?)?.trim().isEmpty ?? true
+          ? null
+          : (row['description'] as String).trim(),
+      deadlineAt: _parseDate(row['deadline_at'] as String?),
+      createdAt: _parseDate(row['created_at'] as String?),
+      assignedLawyerId: row['assigned_lawyer_id']?.toString(),
+      lawFirmId: row['law_firm_id']?.toString(),
+    );
+  }
+
+  Future<void> closeCase(String caseId) async {
+    await SupabaseConfig.client.rpc(
+      'close_legal_case',
+      params: {'case_id_value': caseId},
+    );
+  }
+
+  Future<void> reopenCase(String caseId) async {
+    await SupabaseConfig.client.rpc(
+      'reopen_legal_case',
+      params: {'case_id_value': caseId},
+    );
+  }
+
+  /// Grava (ou limpa, com nulo) o prazo do caso. O banco valida o papel.
+  Future<void> setCaseDeadline({
+    required String caseId,
+    required DateTime? deadline,
+  }) async {
+    await SupabaseConfig.client.rpc(
+      'set_case_deadline',
+      params: {
+        'case_id_value': caseId,
+        'deadline_value': deadline?.toUtc().toIso8601String(),
+      },
+    );
+  }
+
   LegalCase _clientCaseFromRow(Map<String, dynamic> row) {
     return LegalCase(
       id: row['id'].toString(),
@@ -226,6 +307,7 @@ class CaseRepository {
       status: row['status_label'] as String? ?? 'Em andamento',
       lastUpdate: row['last_update_label'] as String? ?? 'Atualizado hoje',
       cnjNumber: row['cnj_number'] as String?,
+      isClosed: (row['status'] as String?) == 'closed',
     );
   }
 
@@ -237,7 +319,10 @@ class CaseRepository {
       clientInitials: row['client_initials'] as String? ?? 'CL',
       area: row['area'] as String? ?? 'Atendimento jurídico',
       lastUpdate: row['last_update_label'] as String? ?? 'Atualizado hoje',
-      status: _statusFromRow(row['status'] as String?),
+      status: deriveLawyerCaseStatus(
+        status: row['status'] as String?,
+        deadlineAt: _parseDate(row['deadline_at'] as String?),
+      ),
       cnjNumber: row['cnj_number'] as String?,
       needsCnjNumber: row['needs_cnj_number'] as bool? ?? false,
     );
@@ -258,6 +343,7 @@ class CaseRepository {
       urgent: row['urgent'] as bool? ?? false,
       cnjNumber: row['cnj_number'] as String?,
       needsCnjNumber: row['needs_cnj_number'] as bool? ?? false,
+      isClosed: (row['status'] as String?) == 'closed',
     );
   }
 
@@ -295,12 +381,8 @@ class CaseRepository {
     );
   }
 
-  LawyerCaseStatus _statusFromRow(String? status) {
-    return switch (status) {
-      'new_message' => LawyerCaseStatus.newMessage,
-      'deadline' => LawyerCaseStatus.deadline,
-      _ => LawyerCaseStatus.updated,
-    };
+  DateTime? _parseDate(String? value) {
+    return DateTime.tryParse(value ?? '')?.toLocal();
   }
 
   /// Data completa (dd/MM/aaaa): movimentos processuais podem ter anos, o
