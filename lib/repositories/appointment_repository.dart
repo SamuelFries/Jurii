@@ -4,14 +4,41 @@ import '../services/supabase_config.dart';
 class AppointmentRepository {
   const AppointmentRepository();
 
-  Future<List<Appointment>> fetchAppointments(AppointmentRole role) async {
-    final rows = await SupabaseConfig.client
+  /// Teto de segurança, não paginação: 100 compromissos cobrem meses de
+  /// agenda. Sem teto, a tela carregaria o histórico inteiro para sempre.
+  static const int fetchLimit = 100;
+
+  Future<List<Appointment>> fetchAppointments(
+    AppointmentRole role, {
+    bool past = false,
+  }) async {
+    // Corte no início de HOJE (fuso local): o compromisso desta manhã ainda
+    // pertence à visão padrão; de ontem para trás vive em "Anteriores".
+    final now = DateTime.now();
+    final startOfToday = DateTime(
+      now.year,
+      now.month,
+      now.day,
+    ).toUtc().toIso8601String();
+
+    var query = SupabaseConfig.client
         .from('appointments')
         .select()
         .eq('role', role == AppointmentRole.lawyer ? 'lawyer' : 'client')
         // Cancelados somem da agenda, mas ficam no banco (histórico + .ics).
-        .neq('status', 'cancelled')
-        .order('starts_at');
+        .neq('status', 'cancelled');
+
+    query = past
+        ? query.lt('starts_at', startOfToday)
+        : query.gte('starts_at', startOfToday);
+
+    // ascending explícito SEMPRE: no postgrest-dart o padrão de order() é
+    // DESCENDENTE (ao contrário do client JS) — um order sem ascending já
+    // pôs o compromisso mais distante no topo da agenda. Próximos: mais
+    // cedo primeiro. Anteriores: mais recente primeiro.
+    final rows = await query
+        .order('starts_at', ascending: !past)
+        .limit(fetchLimit);
 
     return rows.map<Appointment>(_fromRow).toList();
   }
