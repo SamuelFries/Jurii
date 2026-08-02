@@ -7,6 +7,7 @@ import '../models/chat_message.dart';
 import '../models/conversation.dart';
 import '../models/law_firm.dart';
 import '../models/lawyer_profile_summary.dart';
+import '../models/report_reason.dart';
 import '../services/supabase_config.dart';
 
 enum ConversationScope { client, lawyer, firmClient, firmTeam }
@@ -42,6 +43,57 @@ class MessagingRepository {
         .cast<Map<String, dynamic>>()
         .map(_conversationFromRow)
         .toList();
+  }
+
+  /// Estado de bloqueio da conversa. O bloqueio congela os dois lados; o
+  /// servidor decide (trigger em messages), aqui é só leitura para a UI.
+  Future<({bool isBlocked, bool blockedByMe})> fetchConversationBlockState(
+    String conversationId,
+  ) async {
+    if (!SupabaseConfig.isReady ||
+        SupabaseConfig.client.auth.currentUser == null) {
+      return (isBlocked: false, blockedByMe: false);
+    }
+    final rows = await SupabaseConfig.client.rpc(
+      'fetch_conversation_block_state',
+      params: {'conversation_id_value': conversationId},
+    );
+    final row = (rows as List<dynamic>).cast<Map<String, dynamic>>().first;
+    return (
+      isBlocked: row['is_blocked'] == true,
+      blockedByMe: row['blocked_by_me'] == true,
+    );
+  }
+
+  Future<void> blockConversation(String conversationId) {
+    return SupabaseConfig.client.rpc(
+      'block_conversation',
+      params: {'conversation_id_value': conversationId},
+    );
+  }
+
+  Future<void> unblockConversation(String conversationId) {
+    return SupabaseConfig.client.rpc(
+      'unblock_conversation',
+      params: {'conversation_id_value': conversationId},
+    );
+  }
+
+  Future<void> reportConversation({
+    required String conversationId,
+    required ReportReason reason,
+    String? details,
+    String? messageId,
+  }) {
+    return SupabaseConfig.client.rpc(
+      'report_conversation',
+      params: {
+        'conversation_id_value': conversationId,
+        'reason_value': reason.databaseValue,
+        'details_value': details,
+        'message_id_value': messageId,
+      },
+    );
   }
 
   Future<List<ChatMessage>> fetchMessages(String conversationId) async {

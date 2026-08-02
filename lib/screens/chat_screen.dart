@@ -12,6 +12,7 @@ import '../models/chat_attachment.dart';
 import '../models/chat_message.dart';
 import '../models/conversation.dart';
 import '../models/lawyer_recommendation.dart';
+import '../models/report_reason.dart';
 import '../repositories/case_repository.dart';
 import '../repositories/law_firm_repository.dart';
 import '../repositories/lawyer_profile_repository.dart';
@@ -52,6 +53,11 @@ class ChatScreen extends StatefulWidget {
   /// com isLawyer=false) devem passar `false`.
   final bool allowTriage;
 
+  /// Denunciar/bloquear é para conversa entre partes (cliente ↔
+  /// profissional). O chat interno de equipe passa `false`: lá não existe
+  /// "contraparte" e um membro poderia congelar o canal do escritório.
+  final bool allowModeration;
+
   const ChatScreen({
     super.key,
     required this.conversation,
@@ -60,6 +66,7 @@ class ChatScreen extends StatefulWidget {
     this.canRecommendLawyer = false,
     this.intakeService,
     this.allowTriage = true,
+    this.allowModeration = true,
   });
 
   @override
@@ -86,6 +93,11 @@ class _ChatScreenState extends State<ChatScreen>
   bool _isOpeningProfile = false;
   bool _isCreatingCaseRequest = false;
   bool _isRecommendingLawyer = false;
+
+  // Bloqueio congela a conversa para os dois lados; quem bloqueou destrava.
+  bool _isBlocked = false;
+  bool _blockedByMe = false;
+  bool _isTogglingBlock = false;
   String? _respondingCaseRequestId;
   String? _openingRecommendedLawyerId;
 
@@ -161,6 +173,11 @@ class _ChatScreenState extends State<ChatScreen>
       _scrollToBottom();
       return;
     }
+
+    // O estado de bloqueio viaja em future PRÓPRIA, fail-open: se só esta
+    // leitura falhar (RPC ainda não aplicada, sessão expirada), as mensagens
+    // continuam aparecendo — quem trava envio de verdade é o servidor.
+    unawaited(_refreshBlockState());
 
     try {
       final messages = await _messagesWithPendingCaseRequestFallback(
@@ -310,6 +327,20 @@ class _ChatScreenState extends State<ChatScreen>
       debugPrint('Supabase message send failed: $error');
       if (!mounted) return false;
       setState(() => _isSending = false);
+      // A outra parte pode ter bloqueado depois que a tela abriu: o servidor
+      // recusa e a UI passa a refletir o congelamento. O refetch corrige
+      // também o blockedByMe (bloqueio meu feito em outro aparelho).
+      if (error.toString().contains('conversation_blocked')) {
+        setState(() => _isBlocked = true);
+        _closePlusMenu();
+        unawaited(_refreshBlockState());
+        if (showErrorSnackBar) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Esta conversa está bloqueada.')),
+          );
+        }
+        return false;
+      }
       if (showErrorSnackBar) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Não foi possível enviar a mensagem.')),
@@ -614,6 +645,13 @@ class _ChatScreenState extends State<ChatScreen>
     } catch (error) {
       debugPrint('Supabase attachment send failed: $error');
       if (!mounted) return;
+      // Mesmo tratamento do envio de texto: anexo recusado por bloqueio
+      // congela a UI (senão dava para tentar de novo indefinidamente).
+      if (error.toString().contains('conversation_blocked')) {
+        setState(() => _isBlocked = true);
+        _closePlusMenu();
+        unawaited(_refreshBlockState());
+      }
       _showSnackBar(_friendlyAttachmentError(error));
     } finally {
       if (mounted) setState(() => _isUploadingAttachment = false);
@@ -692,6 +730,9 @@ class _ChatScreenState extends State<ChatScreen>
   String _friendlyAttachmentError(Object error) {
     final message = error.toString().toLowerCase();
     debugPrint('Chat attachment error: $error');
+    if (message.contains('conversation_blocked')) {
+      return 'Esta conversa está bloqueada.';
+    }
     if ((message.contains('metadata') && message.contains('ambiguous')) ||
         message.contains('42702')) {
       return 'Não foi possível enviar o anexo. Tente novamente mais tarde.';
@@ -708,6 +749,108 @@ class _ChatScreenState extends State<ChatScreen>
       return 'Você não tem permissão para enviar anexos nesta conversa.';
     }
     return 'Não foi possível enviar o anexo.';
+  }
+
+  Future<void> _openReportSheet() async {
+    final draft = await showModalBottomSheet<_ReportDraft>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => const _ReportSheet(),
+    );
+    if (draft == null || !mounted) return;
+
+    try {
+      await _repository.reportConversation(
+        conversationId: widget.conversation.id!,
+        reason: draft.reason,
+        details: draft.details.isEmpty ? null : draft.details,
+      );
+      if (!mounted) return;
+      _showSnackBar('Denúncia enviada. Nossa equipe vai analisar.');
+    } catch (error) {
+      debugPrint('Conversation report failed: $error');
+      if (!mounted) return;
+      _showSnackBar(
+        error.toString().contains('Report limit')
+            ? 'Você atingiu o limite de denúncias de hoje.'
+            : 'Não foi possível enviar a denúncia. Tente novamente.',
+      );
+    }
+  }
+
+  Future<void> _confirmBlockConversation() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Bloquear conversa?'),
+        content: const Text(
+          'Nenhum dos dois lados poderá enviar novas mensagens até você '
+          'desbloquear. As mensagens já trocadas continuam visíveis.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Bloquear'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    await _setConversationBlocked(true);
+  }
+
+  /// Fail-open: quem trava o envio de verdade é o trigger no servidor; se
+  /// esta leitura falhar, a tela continua utilizável com o estado que tinha.
+  Future<void> _refreshBlockState() async {
+    if (!_usesSupabase || !SupabaseConfig.isReady) return;
+    try {
+      final state = await _repository.fetchConversationBlockState(
+        widget.conversation.id!,
+      );
+      if (!mounted) return;
+      if (state.isBlocked != _isBlocked || state.blockedByMe != _blockedByMe) {
+        setState(() {
+          _isBlocked = state.isBlocked;
+          _blockedByMe = state.blockedByMe;
+        });
+        if (state.isBlocked) _closePlusMenu();
+      }
+    } catch (error) {
+      debugPrint('Block state refresh failed: $error');
+    }
+  }
+
+  Future<void> _setConversationBlocked(bool blocked) async {
+    if (_isTogglingBlock) return;
+    setState(() => _isTogglingBlock = true);
+    try {
+      if (blocked) {
+        await _repository.blockConversation(widget.conversation.id!);
+      } else {
+        await _repository.unblockConversation(widget.conversation.id!);
+      }
+      // Depois de desbloquear, a conversa pode CONTINUAR bloqueada pela
+      // outra parte — o estado real vem do servidor, não da intenção local.
+      final state = await _repository.fetchConversationBlockState(
+        widget.conversation.id!,
+      );
+      if (!mounted) return;
+      setState(() {
+        _isBlocked = state.isBlocked;
+        _blockedByMe = state.blockedByMe;
+      });
+    } catch (error) {
+      debugPrint('Conversation block toggle failed: $error');
+      if (!mounted) return;
+      _showSnackBar('Não foi possível concluir. Tente novamente.');
+    } finally {
+      if (mounted) setState(() => _isTogglingBlock = false);
+    }
   }
 
   String? _mimeTypeForFile(String fileName) {
@@ -749,6 +892,10 @@ class _ChatScreenState extends State<ChatScreen>
         _messages.any((item) => item.id == message.id)) {
       return;
     }
+    // Conversa bloqueada não recebe mensagem nova (trigger no servidor);
+    // se uma chegou pelo realtime, a outra parte desbloqueou — sem isto,
+    // quem foi bloqueado ficava preso na barra sem conseguir responder.
+    if (_isBlocked) unawaited(_refreshBlockState());
     setState(
       () => _messages = [..._withoutDuplicateCaseRequest(message), message],
     );
@@ -799,6 +946,10 @@ class _ChatScreenState extends State<ChatScreen>
   Future<void> _refreshMessagesSilently() async {
     final conversationId = widget.conversation.id;
     if (conversationId == null) return;
+
+    // Reassinar o canal é o momento de reconferir o bloqueio também: eventos
+    // de conversation_blocks não chegam por realtime (tabela trancada).
+    unawaited(_refreshBlockState());
 
     final messages = await _messagesWithPendingCaseRequestFallback(
       await _repository.fetchMessages(conversationId),
@@ -930,16 +1081,20 @@ class _ChatScreenState extends State<ChatScreen>
     }
   }
 
+  // Os dois fluxos inserem mensagem no servidor — conversa bloqueada
+  // recusaria de qualquer jeito; melhor nem oferecer o formulário.
   bool get _canRequestCase {
     return widget.isLawyer &&
         widget.canRequestCase &&
         _usesSupabase &&
+        !_isBlocked &&
         widget.conversation.clientId != null;
   }
 
   bool get _canRecommendLawyer {
     return widget.canRecommendLawyer &&
         _usesSupabase &&
+        !_isBlocked &&
         widget.conversation.lawFirmId != null;
   }
 
@@ -969,7 +1124,14 @@ class _ChatScreenState extends State<ChatScreen>
     } catch (error) {
       debugPrint('Supabase lawyer recommendation failed: $error');
       if (!mounted) return;
-      _showSnackBar('Não foi possível sugerir o advogado.');
+      // A sugestão vira mensagem no servidor: bloqueio recusa e a UI congela.
+      if (error.toString().contains('conversation_blocked')) {
+        setState(() => _isBlocked = true);
+        unawaited(_refreshBlockState());
+        _showSnackBar('Esta conversa está bloqueada.');
+      } else {
+        _showSnackBar('Não foi possível sugerir o advogado.');
+      }
     } finally {
       if (mounted) setState(() => _isRecommendingLawyer = false);
     }
@@ -1040,11 +1202,21 @@ class _ChatScreenState extends State<ChatScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Solicitação enviada ao cliente.')),
       );
-    } catch (_) {
+    } catch (error) {
+      debugPrint('Supabase case request failed: $error');
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Não foi possível enviar a solicitação.')),
-      );
+      // A solicitação também insere mensagem: bloqueio recusa e a UI congela.
+      if (error.toString().contains('conversation_blocked')) {
+        setState(() => _isBlocked = true);
+        unawaited(_refreshBlockState());
+        _showSnackBar('Esta conversa está bloqueada.');
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Não foi possível enviar a solicitação.'),
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isCreatingCaseRequest = false);
     }
@@ -1190,6 +1362,33 @@ class _ChatScreenState extends State<ChatScreen>
                   : const Icon(Icons.recommend_outlined),
               tooltip: 'Sugerir advogado',
             ),
+          if (_usesSupabase && widget.allowModeration)
+            PopupMenuButton<String>(
+              tooltip: 'Opções da conversa',
+              onSelected: (value) {
+                switch (value) {
+                  case 'report':
+                    _openReportSheet();
+                  case 'block':
+                    _confirmBlockConversation();
+                  case 'unblock':
+                    _setConversationBlocked(false);
+                }
+              },
+              itemBuilder: (context) => [
+                const PopupMenuItem(value: 'report', child: Text('Denunciar')),
+                if (!_isBlocked)
+                  const PopupMenuItem(
+                    value: 'block',
+                    child: Text('Bloquear conversa'),
+                  )
+                else if (_blockedByMe)
+                  const PopupMenuItem(
+                    value: 'unblock',
+                    child: Text('Desbloquear conversa'),
+                  ),
+              ],
+            ),
         ],
       ),
       body: SafeArea(
@@ -1268,16 +1467,18 @@ class _ChatScreenState extends State<ChatScreen>
             AnimatedSize(
               duration: const Duration(milliseconds: 200),
               curve: Curves.easeOutCubic,
-              child: _showTriageHint
+              child: _showTriageHint && !_isBlocked
                   ? const _TriageHintChip()
                   : const SizedBox(width: double.infinity),
             ),
             // Menu do "+": abre deslizando para cima, junto do composer.
-            // Fora da árvore quando fechado (não fica "invisível" clicável).
+            // Fora da árvore quando fechado (não fica "invisível" clicável)
+            // e quando a conversa bloqueia (senão ficava órfão e clicável
+            // sobre a barra de bloqueio, sem botão para fechá-lo).
             AnimatedBuilder(
               animation: _plusMenuController,
               builder: (context, _) {
-                if (_plusMenuController.isDismissed) {
+                if (_plusMenuController.isDismissed || _isBlocked) {
                   return const SizedBox(width: double.infinity);
                 }
                 return ClipRect(
@@ -1313,18 +1514,198 @@ class _ChatScreenState extends State<ChatScreen>
                 );
               },
             ),
-            _Composer(
-              controller: _messageController,
-              isLawyer: widget.isLawyer,
-              counterpartLabel: _triageCounterpartLabel,
-              isSending: _isSending,
-              isUploadingAttachment: _isUploadingAttachment,
-              isPlusMenuOpen: _isPlusMenuOpen,
-              showTriageDot: _triageDotVisible,
-              onSend: _sendMessage,
-              onTogglePlusMenu: _togglePlusMenu,
+            if (_isBlocked)
+              _BlockedConversationBar(
+                blockedByMe: _blockedByMe,
+                isBusy: _isTogglingBlock,
+                onUnblock: _blockedByMe
+                    ? () => _setConversationBlocked(false)
+                    : null,
+              )
+            else
+              _Composer(
+                controller: _messageController,
+                isLawyer: widget.isLawyer,
+                counterpartLabel: _triageCounterpartLabel,
+                isSending: _isSending,
+                isUploadingAttachment: _isUploadingAttachment,
+                isPlusMenuOpen: _isPlusMenuOpen,
+                showTriageDot: _triageDotVisible,
+                onSend: _sendMessage,
+                onTogglePlusMenu: _togglePlusMenu,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BlockedConversationBar extends StatelessWidget {
+  const _BlockedConversationBar({
+    required this.blockedByMe,
+    required this.isBusy,
+    this.onUnblock,
+  });
+
+  final bool blockedByMe;
+  final bool isBusy;
+  final VoidCallback? onUnblock;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.jColors;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 14),
+      decoration: BoxDecoration(
+        color: colors.card,
+        border: Border(top: BorderSide(color: colors.divider)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.block, size: 18, color: colors.textSecondary),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  blockedByMe
+                      ? 'Você bloqueou esta conversa.'
+                      : 'Esta conversa foi bloqueada.',
+                  style: TextStyle(
+                    color: colors.textSecondary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (onUnblock != null) ...[
+            const SizedBox(height: 8),
+            OutlinedButton(
+              onPressed: isBusy ? null : onUnblock,
+              child: isBusy
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Desbloquear'),
             ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ReportDraft {
+  const _ReportDraft({required this.reason, required this.details});
+
+  final ReportReason reason;
+  final String details;
+}
+
+class _ReportSheet extends StatefulWidget {
+  const _ReportSheet();
+
+  @override
+  State<_ReportSheet> createState() => _ReportSheetState();
+}
+
+class _ReportSheetState extends State<_ReportSheet> {
+  ReportReason? _reason;
+  final TextEditingController _detailsController = TextEditingController();
+
+  @override
+  void dispose() {
+    _detailsController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.jColors;
+
+    return JuriiModalSheetScaffold(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+      // ConstrainedBox + scroll (não Flexible: quebra dentro do scaffold):
+      // 5 razões + campo de texto + teclado não cabem numa tela baixa.
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.62,
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Denunciar',
+                style: TextStyle(
+                  color: colors.textPrimary,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'A denúncia é analisada pela equipe da Jurii. A outra pessoa '
+                'não é avisada.',
+                style: TextStyle(color: colors.textSecondary),
+              ),
+              const SizedBox(height: 12),
+              RadioGroup<ReportReason>(
+                groupValue: _reason,
+                onChanged: (value) => setState(() => _reason = value),
+                child: Column(
+                  children: [
+                    for (final reason in ReportReason.values)
+                      RadioListTile<ReportReason>(
+                        value: reason,
+                        title: Text(
+                          reason.label,
+                          style: TextStyle(
+                            color: colors.textPrimary,
+                            fontSize: 15,
+                          ),
+                        ),
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _detailsController,
+                minLines: 2,
+                maxLines: 4,
+                maxLength: 1000,
+                decoration: const InputDecoration(
+                  labelText: 'Detalhes (opcional)',
+                  hintText: 'Conte o que aconteceu',
+                  counterText: '',
+                ),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: _reason == null
+                    ? null
+                    : () => Navigator.of(context).pop(
+                        _ReportDraft(
+                          reason: _reason!,
+                          details: _detailsController.text.trim(),
+                        ),
+                      ),
+                child: const Text('Enviar denúncia'),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -2344,22 +2725,10 @@ class _PlusMenuSheet extends StatelessWidget {
         label: 'Tirar foto',
         onTap: onTakePhoto,
       ),
-      (
-        icon: Icons.photo_outlined,
-        label: 'Enviar foto',
-        onTap: onPickPhoto,
-      ),
-      (
-        icon: Icons.attach_file,
-        label: 'Anexar arquivo',
-        onTap: onAttach,
-      ),
+      (icon: Icons.photo_outlined, label: 'Enviar foto', onTap: onPickPhoto),
+      (icon: Icons.attach_file, label: 'Anexar arquivo', onTap: onAttach),
       if (showTriage)
-        (
-          icon: Icons.auto_awesome,
-          label: 'Triagem com IA',
-          onTap: onTriage,
-        ),
+        (icon: Icons.auto_awesome, label: 'Triagem com IA', onTap: onTriage),
     ];
 
     return Container(

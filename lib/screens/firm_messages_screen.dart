@@ -197,6 +197,9 @@ class _FirmMessagesScreenState extends State<FirmMessagesScreen> {
           // não pode aparecer (nem no chat interno de equipe, que também usa
           // isLawyer=false).
           allowTriage: false,
+          // Chat interno de equipe não tem "contraparte" para denunciar e um
+          // membro não pode congelar o canal do escritório.
+          allowModeration: selectedSegment == 0,
         ),
       ),
     );
