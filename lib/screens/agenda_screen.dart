@@ -334,10 +334,19 @@ class _AgendaScreenState extends State<AgendaScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
           children: [
-            _AgendaHero(isLawyer: _isLawyer),
-            const SizedBox(height: 20),
-            const _DateSelector(),
-            const SizedBox(height: 24),
+            // Resumo com dado real no lugar de copy de vitrine. Só na visão
+            // de próximos e só com a lista carregada — durante o skeleton um
+            // "nenhum compromisso hoje" seria chute.
+            if (!_showPast && _appointments != null) ...[
+              _AgendaSummaryCard(
+                summary: agendaSummary(
+                  _appointments!,
+                  now: DateTime.now(),
+                  isLawyer: _isLawyer,
+                ),
+              ),
+              const SizedBox(height: 20),
+            ],
             Text(
               _isLawyer ? 'Compromissos profissionais' : 'Seus compromissos',
               style: Theme.of(context).textTheme.titleLarge,
@@ -533,10 +542,12 @@ class _PeriodToggle extends StatelessWidget {
 
 enum _AppointmentAction { edit, cancel }
 
-class _AgendaHero extends StatelessWidget {
-  final bool isLawyer;
+/// Cartão de resumo: mesmo visual do antigo hero, mas com dado real
+/// (contagem de hoje + próximo compromisso) no lugar de copy fixa.
+class _AgendaSummaryCard extends StatelessWidget {
+  final ({String title, String subtitle}) summary;
 
-  const _AgendaHero({required this.isLawyer});
+  const _AgendaSummaryCard({required this.summary});
 
   @override
   Widget build(BuildContext context) {
@@ -565,9 +576,7 @@ class _AgendaHero extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  isLawyer
-                      ? 'Organize seus atendimentos'
-                      : 'Acompanhe suas reuniões',
+                  summary.title,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
@@ -579,9 +588,9 @@ class _AgendaHero extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  isLawyer
-                      ? 'Consultas, prazos e retornos em uma visão clara.'
-                      : 'Veja horários confirmados e pendências de envio.',
+                  summary.subtitle,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: colors.card.withValues(alpha: 0.72),
                     height: 1.35,
@@ -593,85 +602,6 @@ class _AgendaHero extends StatelessWidget {
         ],
       ),
     );
-  }
-}
-
-class _DateSelector extends StatelessWidget {
-  const _DateSelector();
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.jColors;
-    final now = DateTime.now();
-    final days = List.generate(4, (index) {
-      final date = now.add(Duration(days: index));
-      return (
-        label: switch (index) {
-          0 => 'Hoje',
-          1 => 'Amanhã',
-          _ => _weekdayLabel(date.weekday),
-        },
-        day: date.day.toString().padLeft(2, '0'),
-      );
-    });
-
-    return Row(
-      children: [
-        for (var index = 0; index < days.length; index++) ...[
-          Expanded(
-            child: Container(
-              height: 68,
-              decoration: BoxDecoration(
-                color: index == 0 ? colors.lightGold : colors.card,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: index == 0
-                      ? colors.lightGoldBorder
-                      : colors.lightBlueBorder,
-                ),
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    days[index].label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: index == 0 ? colors.accent : colors.textSecondary,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    days[index].day,
-                    style: TextStyle(
-                      color: colors.textPrimary,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          if (index < days.length - 1) const SizedBox(width: 8),
-        ],
-      ],
-    );
-  }
-
-  String _weekdayLabel(int weekday) {
-    return const {
-      DateTime.monday: 'Seg',
-      DateTime.tuesday: 'Ter',
-      DateTime.wednesday: 'Qua',
-      DateTime.thursday: 'Qui',
-      DateTime.friday: 'Sex',
-      DateTime.saturday: 'Sáb',
-      DateTime.sunday: 'Dom',
-    }[weekday]!;
   }
 }
 

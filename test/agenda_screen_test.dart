@@ -31,6 +31,14 @@ void main() {
     final hoje = tester.getTopLeft(find.text('Reunião inicial')).dy;
     final amanha = tester.getTopLeft(find.text('Retorno ao cliente')).dy;
     expect(hoje, lessThan(amanha));
+
+    // Resumo com dado real no lugar da copy de vitrine.
+    expect(find.text('2 compromissos hoje'), findsOneWidget);
+    expect(
+      find.text('Próximo: Hoje às 09:30 · Reunião inicial'),
+      findsOneWidget,
+    );
+    expect(find.text('Organize seus atendimentos'), findsNothing);
   });
 
   testWidgets('anteriores vazio mostra estado próprio e volta', (
@@ -44,6 +52,8 @@ void main() {
 
     expect(find.text('Nenhum compromisso anterior'), findsOneWidget);
     expect(find.text('HOJE'), findsNothing);
+    // O resumo fala do que vem; em Anteriores ele sai de cena.
+    expect(find.text('2 compromissos hoje'), findsNothing);
 
     await tester.tap(find.text('Próximos'));
     await tester.pumpAndSettle();

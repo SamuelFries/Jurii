@@ -13,7 +13,12 @@ Appointment _appointment(String id, {DateTime? startsAt, String dateLabel = ''})
     counterpartName: 'Fulano',
     area: 'Cível',
     dateLabel: dateLabel,
-    timeLabel: '10:00',
+    // Em produção o timeLabel deriva do starts_at (repositório); o fixture
+    // espelha isso para o teste não mentir sobre o horário.
+    timeLabel: startsAt == null
+        ? '10:00'
+        : '${startsAt.hour.toString().padLeft(2, '0')}:'
+              '${startsAt.minute.toString().padLeft(2, '0')}',
     location: 'Fórum',
     status: AppointmentStatus.confirmed,
     startsAt: startsAt,
@@ -115,6 +120,60 @@ void main() {
       );
       expect(plan.ascending, isFalse);
       expect(DateTime.parse(plan.cutoffIso).toLocal(), DateTime(2026, 8, 2));
+    });
+  });
+
+  group('agendaSummary', () {
+    test('conta os de hoje e aponta o próximo ainda por vir', () {
+      final summary = agendaSummary([
+        // Já começou (8h < now 9h): conta em "hoje" mas não é o próximo.
+        _appointment('a', startsAt: DateTime(2026, 8, 2, 8)),
+        _appointment('b', startsAt: DateTime(2026, 8, 2, 14)),
+        _appointment('c', startsAt: DateTime(2026, 8, 3, 10)),
+      ], now: now, isLawyer: true);
+
+      expect(summary.title, '2 compromissos hoje');
+      expect(summary.subtitle, 'Próximo: Hoje às 14:00 · Compromisso b');
+    });
+
+    test('singular no título com um só compromisso hoje', () {
+      final summary = agendaSummary([
+        _appointment('a', startsAt: DateTime(2026, 8, 2, 15)),
+      ], now: now, isLawyer: true);
+
+      expect(summary.title, '1 compromisso hoje');
+    });
+
+    test('sem nada hoje, o próximo pode ser de outro dia', () {
+      final summary = agendaSummary([
+        _appointment('a', startsAt: DateTime(2026, 8, 7, 11)),
+      ], now: now, isLawyer: false);
+
+      expect(summary.title, 'Nenhum compromisso hoje');
+      expect(
+        summary.subtitle,
+        'Próximo: Sex · 07/08 às 11:00 · Compromisso a',
+      );
+    });
+
+    test('lista vazia usa a chamada por papel', () {
+      final lawyer = agendaSummary(const [], now: now, isLawyer: true);
+      final client = agendaSummary(const [], now: now, isLawyer: false);
+
+      expect(lawyer.title, 'Nenhum compromisso hoje');
+      expect(lawyer.subtitle, contains('Novo compromisso'));
+      expect(client.subtitle, contains('aparecerá aqui'));
+    });
+
+    test('demo sem horários usa dateLabel e o primeiro da lista', () {
+      final summary = agendaSummary([
+        _appointment('a', dateLabel: 'Hoje'),
+        _appointment('b', dateLabel: 'Hoje'),
+        _appointment('c', dateLabel: 'Amanhã'),
+      ], now: now, isLawyer: true);
+
+      expect(summary.title, '2 compromissos hoje');
+      expect(summary.subtitle, 'Próximo: Hoje às 10:00 · Compromisso a');
     });
   });
 
