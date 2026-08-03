@@ -53,6 +53,60 @@ String agendaDayLabel(
   return '$weekday · $dayMonth';
 }
 
+/// Resumo do topo da agenda: quantos compromissos hoje e qual é o próximo.
+/// Informação no lugar de copy — a lista já vem ordenada do fetch, então o
+/// próximo é o primeiro que ainda não começou.
+({String title, String subtitle}) agendaSummary(
+  List<Appointment> appointments, {
+  required DateTime now,
+  required bool isLawyer,
+}) {
+  final todayCount = appointments.where((appointment) {
+    final startsAt = appointment.startsAt;
+    // Demo (sem horário real): o dateLabel pronto decide.
+    if (startsAt == null) return appointment.dateLabel == 'Hoje';
+    return startsAt.year == now.year &&
+        startsAt.month == now.month &&
+        startsAt.day == now.day;
+  }).length;
+
+  final title = switch (todayCount) {
+    0 => 'Nenhum compromisso hoje',
+    1 => '1 compromisso hoje',
+    _ => '$todayCount compromissos hoje',
+  };
+
+  Appointment? next;
+  for (final appointment in appointments) {
+    final startsAt = appointment.startsAt;
+    // Demo: lista já vem em ordem, o primeiro é o próximo.
+    if (startsAt == null || !startsAt.isBefore(now)) {
+      next = appointment;
+      break;
+    }
+  }
+
+  final String subtitle;
+  if (next == null && appointments.isNotEmpty) {
+    // Lista não vazia mas nada por vir: todos os de hoje já começaram
+    // (fim de tarde típico). A copy de agenda vazia aqui contradiria o
+    // título "N compromissos hoje" com os cards logo abaixo.
+    subtitle = 'Sem mais compromissos por vir hoje.';
+  } else if (next == null) {
+    subtitle = isLawyer
+        ? 'Toque em Novo compromisso para agendar atendimentos e prazos.'
+        : 'Quando um atendimento for agendado, ele aparecerá aqui.';
+  } else {
+    final startsAt = next.startsAt;
+    final day = startsAt == null
+        ? next.dateLabel
+        : agendaDayLabel(startsAt, now: now);
+    subtitle = 'Próximo: $day às ${next.timeLabel} · ${next.title}';
+  }
+
+  return (title: title, subtitle: subtitle);
+}
+
 /// Agrupa a lista (já ordenada pelo fetch) em seções por dia, preservando a
 /// ordem. Compromissos de demo (sem [Appointment.startsAt]) usam o
 /// [Appointment.dateLabel] pronto como rótulo.
