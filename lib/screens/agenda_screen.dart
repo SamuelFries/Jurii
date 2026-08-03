@@ -41,6 +41,16 @@ class _AgendaScreenState extends State<AgendaScreen> {
   /// (início de hoje), não em memória — o histórico não viaja à toa.
   bool _showPast = false;
 
+  /// Geração do fetch: cada disparo incrementa; respostas de gerações
+  /// antigas são descartadas. Sem isso, alternar de aba com um fetch em
+  /// voo pintaria a lista de PRÓXIMOS sob o rótulo de Anteriores (ou o
+  /// contrário) quando a resposta atrasada chegasse por último.
+  int _loadGeneration = 0;
+
+  /// Dia para o qual o corte do fetch valeu. Se um rebuild acontecer depois
+  /// da meia-noite, o corte ficou velho — recarrega em silêncio.
+  DateTime _fetchDay = DateTime.now();
+
   bool get _isLawyer => widget.role == AppointmentRole.lawyer;
 
   /// Criar/editar só faz sentido para o advogado, na própria agenda, com
@@ -77,14 +87,16 @@ class _AgendaScreenState extends State<AgendaScreen> {
   }
 
   Future<void> _load() async {
+    final generation = ++_loadGeneration;
     setState(() => _loadFailed = false);
     try {
       final list = await _fetchOrMock();
-      if (!mounted) return;
+      if (!mounted || generation != _loadGeneration) return;
+      _fetchDay = DateTime.now();
       setState(() => _appointments = list);
     } catch (error) {
       debugPrint('Supabase appointments fetch failed: $error');
-      if (!mounted) return;
+      if (!mounted || generation != _loadGeneration) return;
       // Só vira tela de erro se nunca carregou; com dados na tela, mantém.
       setState(() => _loadFailed = _appointments == null);
     }
@@ -93,9 +105,11 @@ class _AgendaScreenState extends State<AgendaScreen> {
   /// Recarrega mantendo a lista atual visível (sem skeleton). Usado pelo
   /// realtime e depois de criar/editar/cancelar.
   Future<void> _reloadSilently() async {
+    final generation = ++_loadGeneration;
     try {
       final list = await _fetchOrMock();
-      if (!mounted) return;
+      if (!mounted || generation != _loadGeneration) return;
+      _fetchDay = DateTime.now();
       setState(() {
         _appointments = list;
         _loadFailed = false;
@@ -104,6 +118,9 @@ class _AgendaScreenState extends State<AgendaScreen> {
       debugPrint('Supabase appointments reload failed: $error');
     }
   }
+
+  bool _sameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
 
   void _subscribeToRealtime() {
     final userId = SupabaseConfig.isReady
@@ -338,6 +355,17 @@ class _AgendaScreenState extends State<AgendaScreen> {
   List<Widget> _buildList(AppColors colors) {
     final appointments = _appointments;
 
+    // Virada de meia-noite com a tela aberta: o corte do fetch ficou de
+    // ontem e os rótulos reclassificariam ("ONTEM" dentro de Próximos).
+    // Marca o dia já aqui para não reagendar a cada rebuild.
+    final now = DateTime.now();
+    if (appointments != null && !_sameDay(now, _fetchDay)) {
+      _fetchDay = now;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _reloadSilently();
+      });
+    }
+
     if (appointments == null && !_loadFailed) {
       return const [JuriiSkeletonList(itemCount: 3, itemHeight: 112)];
     }
@@ -399,7 +427,11 @@ class _AgendaScreenState extends State<AgendaScreen> {
               index: index,
               child: _AppointmentCard(
                 appointment: appointment,
-                onTap: _canManage && appointment.isEditable
+                // Histórico é só leitura: editar um compromisso passado
+                // estoura o assert do showDatePicker (initialDate < firstDate)
+                // e cancelar apagaria o registro do próprio histórico (o
+                // fetch filtra status cancelled).
+                onTap: !_showPast && _canManage && appointment.isEditable
                     ? () => _showActions(appointment)
                     : null,
               ),
@@ -408,6 +440,24 @@ class _AgendaScreenState extends State<AgendaScreen> {
         );
         index++;
       }
+    }
+
+    // Bateu o teto do fetch: dizer que o corte existe. Sem isto, o 101º
+    // compromisso simplesmente não existiria em visão nenhuma e o usuário
+    // concluiria que nunca foi marcado.
+    if (appointments.length >= AppointmentRepository.fetchLimit) {
+      widgets.add(
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Text(
+            _showPast
+                ? 'Mostrando os ${AppointmentRepository.fetchLimit} mais recentes.'
+                : 'Mostrando os próximos ${AppointmentRepository.fetchLimit} compromissos.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: colors.textSecondary, fontSize: 12),
+          ),
+        ),
+      );
     }
     return widgets;
   }
@@ -432,10 +482,13 @@ class _PeriodToggle extends StatelessWidget {
           button: true,
           selected: selected,
           child: InkWell(
-            onTap: onTap,
+            // A pílula já selecionada não é acionável: sem ripple mentindo
+            // que o toque fez alguma coisa.
+            onTap: selected ? null : onTap,
             borderRadius: BorderRadius.circular(8),
             child: Container(
-              height: 40,
+              // 48dp: mínimo de alvo de toque do Material.
+              height: 48,
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: selected ? colors.lightGold : colors.card,

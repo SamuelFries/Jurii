@@ -6,20 +6,35 @@ class AppointmentRepository {
 
   /// Teto de segurança, não paginação: 100 compromissos cobrem meses de
   /// agenda. Sem teto, a tela carregaria o histórico inteiro para sempre.
+  /// A tela avisa quando a resposta bate o teto, para o corte não ser mudo.
   static const int fetchLimit = 100;
+
+  /// Plano puro da consulta — o que dá para testar sem Supabase. Corte no
+  /// início de HOJE (fuso local, convertido a UTC porque starts_at é
+  /// timestamptz): o compromisso desta manhã ainda pertence à visão padrão;
+  /// de ontem para trás vive em "Anteriores".
+  ///
+  /// ascending explícito SEMPRE: no postgrest-dart o padrão de order() é
+  /// DESCENDENTE (ao contrário do client JS) — um order sem ascending já
+  /// pôs o compromisso mais distante no topo da agenda. Próximos: mais
+  /// cedo primeiro. Anteriores: mais recente primeiro.
+  static ({String cutoffIso, bool ascending}) queryPlan({
+    required bool past,
+    required DateTime now,
+  }) {
+    final cutoff = DateTime(
+      now.year,
+      now.month,
+      now.day,
+    ).toUtc().toIso8601String();
+    return (cutoffIso: cutoff, ascending: !past);
+  }
 
   Future<List<Appointment>> fetchAppointments(
     AppointmentRole role, {
     bool past = false,
   }) async {
-    // Corte no início de HOJE (fuso local): o compromisso desta manhã ainda
-    // pertence à visão padrão; de ontem para trás vive em "Anteriores".
-    final now = DateTime.now();
-    final startOfToday = DateTime(
-      now.year,
-      now.month,
-      now.day,
-    ).toUtc().toIso8601String();
+    final plan = queryPlan(past: past, now: DateTime.now());
 
     var query = SupabaseConfig.client
         .from('appointments')
@@ -29,15 +44,11 @@ class AppointmentRepository {
         .neq('status', 'cancelled');
 
     query = past
-        ? query.lt('starts_at', startOfToday)
-        : query.gte('starts_at', startOfToday);
+        ? query.lt('starts_at', plan.cutoffIso)
+        : query.gte('starts_at', plan.cutoffIso);
 
-    // ascending explícito SEMPRE: no postgrest-dart o padrão de order() é
-    // DESCENDENTE (ao contrário do client JS) — um order sem ascending já
-    // pôs o compromisso mais distante no topo da agenda. Próximos: mais
-    // cedo primeiro. Anteriores: mais recente primeiro.
     final rows = await query
-        .order('starts_at', ascending: !past)
+        .order('starts_at', ascending: plan.ascending)
         .limit(fetchLimit);
 
     return rows.map<Appointment>(_fromRow).toList();

@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:jurii/models/appointment.dart';
+import 'package:jurii/repositories/appointment_repository.dart';
 import 'package:jurii/utils/agenda_sections.dart';
 
 Appointment _appointment(String id, {DateTime? startsAt, String dateLabel = ''}) {
@@ -31,6 +32,17 @@ void main() {
       expect(agendaDayLabel(DateTime(2026, 8, 1), now: now), 'Ontem');
     });
 
+    test('withDate anexa a data aos dias relativos (modo cabeçalho)', () {
+      expect(
+        agendaDayLabel(DateTime(2026, 8, 2, 23), now: now, withDate: true),
+        'Hoje · 02/08',
+      );
+      expect(
+        agendaDayLabel(DateTime(2026, 8, 3), now: now, withDate: true),
+        'Amanhã · 03/08',
+      );
+    });
+
     test('dia comum vira "Sex · 07/08"', () {
       expect(agendaDayLabel(DateTime(2026, 8, 7), now: now), 'Sex · 07/08');
       expect(agendaDayLabel(DateTime(2026, 8, 4), now: now), 'Ter · 04/08');
@@ -53,9 +65,11 @@ void main() {
         _appointment('d', startsAt: DateTime(2026, 8, 7, 11)),
       ], now: now);
 
+      // Cabeçalhos carregam a data: sem a pill por card, é aqui que a data
+      // de hoje existe na tela.
       expect(sections.map((s) => s.label).toList(), [
-        'Hoje',
-        'Amanhã',
+        'Hoje · 02/08',
+        'Amanhã · 03/08',
         'Sex · 07/08',
       ]);
       expect(sections.first.appointments.map((a) => a.id).toList(), [
@@ -78,6 +92,29 @@ void main() {
 
     test('lista vazia não produz seções', () {
       expect(buildAgendaSections(const [], now: now), isEmpty);
+    });
+  });
+
+  group('AppointmentRepository.queryPlan', () {
+    test('próximos: ascendente, corte no início de hoje convertido a UTC', () {
+      final plan = AppointmentRepository.queryPlan(
+        past: false,
+        now: DateTime(2026, 8, 2, 9, 30),
+      );
+      expect(plan.ascending, isTrue);
+      final cutoff = DateTime.parse(plan.cutoffIso);
+      expect(cutoff.isUtc, isTrue);
+      // Independente do fuso da máquina: o corte é a meia-noite LOCAL.
+      expect(cutoff.toLocal(), DateTime(2026, 8, 2));
+    });
+
+    test('anteriores: descendente, mesmo corte', () {
+      final plan = AppointmentRepository.queryPlan(
+        past: true,
+        now: DateTime(2026, 8, 2, 23, 59),
+      );
+      expect(plan.ascending, isFalse);
+      expect(DateTime.parse(plan.cutoffIso).toLocal(), DateTime(2026, 8, 2));
     });
   });
 
