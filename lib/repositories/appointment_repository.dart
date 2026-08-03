@@ -4,14 +4,52 @@ import '../services/supabase_config.dart';
 class AppointmentRepository {
   const AppointmentRepository();
 
-  Future<List<Appointment>> fetchAppointments(AppointmentRole role) async {
-    final rows = await SupabaseConfig.client
+  /// Teto de segurança, não paginação: 100 compromissos cobrem meses de
+  /// agenda. Sem teto, a tela carregaria o histórico inteiro para sempre.
+  /// A tela avisa quando a resposta bate o teto, para o corte não ser mudo.
+  static const int fetchLimit = 100;
+
+  /// Plano puro da consulta — o que dá para testar sem Supabase. Corte no
+  /// início de HOJE (fuso local, convertido a UTC porque starts_at é
+  /// timestamptz): o compromisso desta manhã ainda pertence à visão padrão;
+  /// de ontem para trás vive em "Anteriores".
+  ///
+  /// ascending explícito SEMPRE: no postgrest-dart o padrão de order() é
+  /// DESCENDENTE (ao contrário do client JS) — um order sem ascending já
+  /// pôs o compromisso mais distante no topo da agenda. Próximos: mais
+  /// cedo primeiro. Anteriores: mais recente primeiro.
+  static ({String cutoffIso, bool ascending}) queryPlan({
+    required bool past,
+    required DateTime now,
+  }) {
+    final cutoff = DateTime(
+      now.year,
+      now.month,
+      now.day,
+    ).toUtc().toIso8601String();
+    return (cutoffIso: cutoff, ascending: !past);
+  }
+
+  Future<List<Appointment>> fetchAppointments(
+    AppointmentRole role, {
+    bool past = false,
+  }) async {
+    final plan = queryPlan(past: past, now: DateTime.now());
+
+    var query = SupabaseConfig.client
         .from('appointments')
         .select()
         .eq('role', role == AppointmentRole.lawyer ? 'lawyer' : 'client')
         // Cancelados somem da agenda, mas ficam no banco (histórico + .ics).
-        .neq('status', 'cancelled')
-        .order('starts_at');
+        .neq('status', 'cancelled');
+
+    query = past
+        ? query.lt('starts_at', plan.cutoffIso)
+        : query.gte('starts_at', plan.cutoffIso);
+
+    final rows = await query
+        .order('starts_at', ascending: plan.ascending)
+        .limit(fetchLimit);
 
     return rows.map<Appointment>(_fromRow).toList();
   }

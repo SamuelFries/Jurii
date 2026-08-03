@@ -8,6 +8,7 @@ import '../models/appointment.dart';
 import '../repositories/appointment_repository.dart';
 import '../services/supabase_config.dart';
 import '../theme/app_colors.dart';
+import '../utils/agenda_sections.dart';
 import '../widgets/appointment_form_sheet.dart';
 import '../widgets/calendar_sync_sheet.dart';
 import '../widgets/jurii_empty_state.dart';
@@ -36,6 +37,20 @@ class _AgendaScreenState extends State<AgendaScreen> {
   RealtimeChannel? _channel;
   bool _hasSubscribedOnce = false;
 
+  /// Visão atual: próximos (padrão) ou anteriores. O corte é feito no fetch
+  /// (início de hoje), não em memória — o histórico não viaja à toa.
+  bool _showPast = false;
+
+  /// Geração do fetch: cada disparo incrementa; respostas de gerações
+  /// antigas são descartadas. Sem isso, alternar de aba com um fetch em
+  /// voo pintaria a lista de PRÓXIMOS sob o rótulo de Anteriores (ou o
+  /// contrário) quando a resposta atrasada chegasse por último.
+  int _loadGeneration = 0;
+
+  /// Dia para o qual o corte do fetch valeu. Se um rebuild acontecer depois
+  /// da meia-noite, o corte ficou velho — recarrega em silêncio.
+  DateTime _fetchDay = DateTime.now();
+
   bool get _isLawyer => widget.role == AppointmentRole.lawyer;
 
   /// Criar/editar só faz sentido para o advogado, na própria agenda, com
@@ -61,22 +76,27 @@ class _AgendaScreenState extends State<AgendaScreen> {
   Future<List<Appointment>> _fetchOrMock() {
     if (!SupabaseConfig.isReady ||
         SupabaseConfig.client.auth.currentUser == null) {
+      // Demo só tem futuro: os mocks são Hoje/Amanhã, então Anteriores fica
+      // vazio — o que também é o estado honesto.
+      if (_showPast) return Future.value(const <Appointment>[]);
       return Future.value(
         _isLawyer ? mockLawyerAppointments : mockClientAppointments,
       );
     }
-    return widget.repository.fetchAppointments(widget.role);
+    return widget.repository.fetchAppointments(widget.role, past: _showPast);
   }
 
   Future<void> _load() async {
+    final generation = ++_loadGeneration;
     setState(() => _loadFailed = false);
     try {
       final list = await _fetchOrMock();
-      if (!mounted) return;
+      if (!mounted || generation != _loadGeneration) return;
+      _fetchDay = DateTime.now();
       setState(() => _appointments = list);
     } catch (error) {
       debugPrint('Supabase appointments fetch failed: $error');
-      if (!mounted) return;
+      if (!mounted || generation != _loadGeneration) return;
       // Só vira tela de erro se nunca carregou; com dados na tela, mantém.
       setState(() => _loadFailed = _appointments == null);
     }
@@ -85,9 +105,11 @@ class _AgendaScreenState extends State<AgendaScreen> {
   /// Recarrega mantendo a lista atual visível (sem skeleton). Usado pelo
   /// realtime e depois de criar/editar/cancelar.
   Future<void> _reloadSilently() async {
+    final generation = ++_loadGeneration;
     try {
       final list = await _fetchOrMock();
-      if (!mounted) return;
+      if (!mounted || generation != _loadGeneration) return;
+      _fetchDay = DateTime.now();
       setState(() {
         _appointments = list;
         _loadFailed = false;
@@ -96,6 +118,9 @@ class _AgendaScreenState extends State<AgendaScreen> {
       debugPrint('Supabase appointments reload failed: $error');
     }
   }
+
+  bool _sameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
 
   void _subscribeToRealtime() {
     final userId = SupabaseConfig.isReady
@@ -268,6 +293,18 @@ class _AgendaScreenState extends State<AgendaScreen> {
     ).showSnackBar(SnackBar(content: Text(message)));
   }
 
+  void _setShowPast(bool value) {
+    if (_showPast == value) return;
+    setState(() {
+      _showPast = value;
+      // A lista trocou de natureza: skeleton de novo em vez de exibir os
+      // próximos sob o rótulo de anteriores enquanto o fetch corre.
+      _appointments = null;
+      _loadFailed = false;
+    });
+    _load();
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = context.jColors;
@@ -306,6 +343,8 @@ class _AgendaScreenState extends State<AgendaScreen> {
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 12),
+            _PeriodToggle(showPast: _showPast, onChanged: _setShowPast),
+            const SizedBox(height: 4),
             ..._buildList(colors),
           ],
         ),
@@ -315,6 +354,17 @@ class _AgendaScreenState extends State<AgendaScreen> {
 
   List<Widget> _buildList(AppColors colors) {
     final appointments = _appointments;
+
+    // Virada de meia-noite com a tela aberta: o corte do fetch ficou de
+    // ontem e os rótulos reclassificariam ("ONTEM" dentro de Próximos).
+    // Marca o dia já aqui para não reagendar a cada rebuild.
+    final now = DateTime.now();
+    if (appointments != null && !_sameDay(now, _fetchDay)) {
+      _fetchDay = now;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _reloadSilently();
+      });
+    }
 
     if (appointments == null && !_loadFailed) {
       return const [JuriiSkeletonList(itemCount: 3, itemHeight: 112)];
@@ -346,27 +396,138 @@ class _AgendaScreenState extends State<AgendaScreen> {
     }
 
     if (appointments == null || appointments.isEmpty) {
-      return [_EmptyAgendaState(isLawyer: _isLawyer)];
+      return [_EmptyAgendaState(isLawyer: _isLawyer, showPast: _showPast)];
     }
 
+    // Cabeçalho por dia (HOJE, AMANHÃ, SEX · 07/08): a lista responde "o que
+    // eu tenho e quando" sem o leitor caçar a data pill a pill.
+    final sections = buildAgendaSections(appointments, now: DateTime.now());
     final widgets = <Widget>[];
-    for (var index = 0; index < appointments.length; index++) {
+    var index = 0;
+    for (final section in sections) {
       widgets.add(
-        JuriiStaggeredItem(
-          index: index,
-          child: _AppointmentCard(
-            appointment: appointments[index],
-            onTap: _canManage && appointments[index].isEditable
-                ? () => _showActions(appointments[index])
-                : null,
+        Padding(
+          padding: const EdgeInsets.fromLTRB(4, 14, 4, 10),
+          child: Text(
+            section.label.toUpperCase(),
+            style: TextStyle(
+              color: colors.textSecondary,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.1,
+            ),
           ),
         ),
       );
-      if (index < appointments.length - 1) {
-        widgets.add(const SizedBox(height: 12));
+      for (final appointment in section.appointments) {
+        widgets.add(
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: JuriiStaggeredItem(
+              index: index,
+              child: _AppointmentCard(
+                appointment: appointment,
+                // Histórico é só leitura: editar um compromisso passado
+                // estoura o assert do showDatePicker (initialDate < firstDate)
+                // e cancelar apagaria o registro do próprio histórico (o
+                // fetch filtra status cancelled).
+                onTap: !_showPast && _canManage && appointment.isEditable
+                    ? () => _showActions(appointment)
+                    : null,
+              ),
+            ),
+          ),
+        );
+        index++;
       }
     }
+
+    // Bateu o teto do fetch: dizer que o corte existe. Sem isto, o 101º
+    // compromisso simplesmente não existiria em visão nenhuma e o usuário
+    // concluiria que nunca foi marcado.
+    if (appointments.length >= AppointmentRepository.fetchLimit) {
+      widgets.add(
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Text(
+            _showPast
+                ? 'Mostrando os ${AppointmentRepository.fetchLimit} mais recentes.'
+                : 'Mostrando os próximos ${AppointmentRepository.fetchLimit} compromissos.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: colors.textSecondary, fontSize: 12),
+          ),
+        ),
+      );
+    }
     return widgets;
+  }
+}
+
+/// Alterna entre a agenda que vem (padrão) e o histórico. Duas pílulas no
+/// estilo dos chips da casa; o dia selecionado usa o dourado de destaque.
+class _PeriodToggle extends StatelessWidget {
+  final bool showPast;
+  final ValueChanged<bool> onChanged;
+
+  const _PeriodToggle({required this.showPast, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.jColors;
+
+    Widget pill({required String label, required bool selected,
+        required VoidCallback onTap}) {
+      return Expanded(
+        child: Semantics(
+          button: true,
+          selected: selected,
+          child: InkWell(
+            // A pílula já selecionada não é acionável: sem ripple mentindo
+            // que o toque fez alguma coisa.
+            onTap: selected ? null : onTap,
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              // 48dp: mínimo de alvo de toque do Material.
+              height: 48,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: selected ? colors.lightGold : colors.card,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: selected
+                      ? colors.lightGoldBorder
+                      : colors.lightBlueBorder,
+                ),
+              ),
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: selected ? colors.accent : colors.textSecondary,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Row(
+      children: [
+        pill(
+          label: 'Próximos',
+          selected: !showPast,
+          onTap: () => onChanged(false),
+        ),
+        const SizedBox(width: 8),
+        pill(
+          label: 'Anteriores',
+          selected: showPast,
+          onTap: () => onChanged(true),
+        ),
+      ],
+    );
   }
 }
 
@@ -576,11 +737,12 @@ class _AppointmentCard extends StatelessWidget {
                   style: TextStyle(color: colors.textSecondary, fontSize: 12),
                 ),
                 const SizedBox(height: 8),
+                // Sem pill de data: o cabeçalho da seção (HOJE, AMANHÃ...)
+                // já diz o dia — repetir em cada card era o que a escondia.
                 Wrap(
                   spacing: 8,
                   runSpacing: 6,
                   children: [
-                    _Pill(label: appointment.dateLabel),
                     _Pill(label: appointment.location),
                     _Pill(label: status.label, color: status.color),
                   ],
@@ -654,12 +816,20 @@ class _Pill extends StatelessWidget {
 }
 
 class _EmptyAgendaState extends StatelessWidget {
-  const _EmptyAgendaState({required this.isLawyer});
+  const _EmptyAgendaState({required this.isLawyer, required this.showPast});
 
   final bool isLawyer;
+  final bool showPast;
 
   @override
   Widget build(BuildContext context) {
+    if (showPast) {
+      return const JuriiEmptyState(
+        icon: Icons.history,
+        title: 'Nenhum compromisso anterior',
+        message: 'Compromissos que já aconteceram aparecerão aqui.',
+      );
+    }
     return JuriiEmptyState(
       icon: Icons.calendar_today_outlined,
       title: isLawyer ? 'Agenda profissional livre' : 'Nenhum compromisso',
