@@ -2,34 +2,62 @@ import 'dart:developer' as developer;
 
 import '../data/legal_practice_areas.dart';
 import '../data/mock/mock_lawyers.dart';
+import '../models/discovery_page.dart';
 import '../models/lawyer_profile_summary.dart';
 import '../services/supabase_config.dart';
 
 class LawyerProfileRepository {
   const LawyerProfileRepository();
 
-  Future<List<LawyerProfileSummary>> fetchRecommendedLawyers({
+  /// Primeira página menor (a home empilha várias seções); "Ver mais" traz
+  /// blocos maiores. O teto do servidor é 20 por chamada e o sentinela pede
+  /// limit + 1 — qualquer página aqui tem que caber em 19.
+  static const int firstPageSize = 6;
+  static const int nextPageSize = 10;
+
+  Future<DiscoveryPage<LawyerProfileSummary>> fetchRecommendedLawyers({
     String searchQuery = '',
+    int offset = 0,
+    int limit = firstPageSize,
   }) async {
     if (!SupabaseConfig.isReady ||
         SupabaseConfig.client.auth.currentUser == null) {
-      return _filterLawyers(mockRecommendedLawyers, searchQuery);
+      // Demo: uma página só. Offset além dela é fim de lista, não erro.
+      if (offset > 0) return const DiscoveryPage.last([]);
+      return DiscoveryPage.last(
+        _filterLawyers(mockRecommendedLawyers, searchQuery),
+      );
     }
 
     try {
       final rows = await SupabaseConfig.client.rpc(
         'fetch_recommended_lawyers',
-        params: {'limit_value': 6, 'search_value': searchQuery},
+        params: {
+          // Sentinela: uma linha a mais só para saber se há próxima página.
+          'limit_value': limit + 1,
+          'search_value': searchQuery,
+          'offset_value': offset,
+        },
       );
 
-      return (rows as List<dynamic>)
+      final parsed = (rows as List<dynamic>)
           .cast<Map<String, dynamic>>()
           .map<LawyerProfileSummary>(_fromRow)
           .toList();
+      final hasMore = parsed.length > limit;
+      return DiscoveryPage(
+        items: hasMore ? parsed.sublist(0, limit) : parsed,
+        hasMore: hasMore,
+      );
     } catch (error, stackTrace) {
+      // Página 2+ não tem fallback possível (a função antiga não pagina):
+      // o erro sobe e o botão "Ver mais" avisa sem derrubar o que já está
+      // na tela.
+      if (offset > 0) rethrow;
+
       final fallback = await _fetchRecommendedLawyersLegacy();
       if (fallback.isNotEmpty) {
-        return _filterLawyers(fallback, searchQuery);
+        return DiscoveryPage.last(_filterLawyers(fallback, searchQuery));
       }
 
       developer.log(
@@ -42,7 +70,7 @@ class LawyerProfileRepository {
       // estado de erro com retry (a de escritórios já fazia isso; esta
       // devolvia lista vazia e virava "Nenhum advogado recomendado").
       if (SupabaseConfig.isReady) rethrow;
-      return const [];
+      return const DiscoveryPage.last([]);
     }
   }
 

@@ -125,7 +125,8 @@ values (
 select ok(
   has_function_privilege(
     'authenticated',
-    'public.fetch_recommended_lawyers(integer,text)',
+    -- Assinatura ganhou offset_value na 20260803120000 (paginação).
+    'public.fetch_recommended_lawyers(integer,text,integer)',
     'EXECUTE'
   ),
   'authenticated pode listar advogados com avatar'
@@ -166,7 +167,7 @@ select ok(
 select ok(
   not has_function_privilege(
     'anon',
-    'public.fetch_recommended_lawyers(integer,text)',
+    'public.fetch_recommended_lawyers(integer,text,integer)',
     'EXECUTE'
   ),
   'anon nao lista advogados por RPC'

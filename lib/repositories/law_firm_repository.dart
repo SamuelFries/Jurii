@@ -1,31 +1,54 @@
 import '../data/legal_practice_areas.dart';
+import '../models/discovery_page.dart';
 import '../models/law_firm.dart';
 import '../services/supabase_config.dart';
 
 class LawFirmRepository {
   const LawFirmRepository();
 
-  Future<List<LawFirm>> fetchRecommendedLawFirms({
+  /// Página inicial e blocos do "Ver mais". Teto do servidor: 30 por chamada
+  /// (o sentinela pede limit + 1 — páginas têm que caber em 29).
+  static const int firstPageSize = 10;
+  static const int nextPageSize = 10;
+
+  Future<DiscoveryPage<LawFirm>> fetchRecommendedLawFirms({
     String searchQuery = '',
+    int offset = 0,
+    int limit = firstPageSize,
   }) async {
     try {
       final rows = await SupabaseConfig.client.rpc(
         'fetch_recommended_law_firms',
-        params: {'limit_value': 10, 'search_value': searchQuery},
+        params: {
+          // Sentinela: uma linha a mais só para saber se há próxima página.
+          'limit_value': limit + 1,
+          'search_value': searchQuery,
+          'offset_value': offset,
+        },
       );
 
-      return (rows as List<dynamic>)
+      final parsed = (rows as List<dynamic>)
           .cast<Map<String, dynamic>>()
           .map<LawFirm>(_fromRow)
           .toList();
+      final hasMore = parsed.length > limit;
+      return DiscoveryPage(
+        items: hasMore ? parsed.sublist(0, limit) : parsed,
+        hasMore: hasMore,
+      );
     } catch (_) {
+      // Página 2+ não tem fallback que pagine; o erro sobe e o botão avisa.
+      if (offset > 0) rethrow;
+
       final rows = await SupabaseConfig.client
           .from('law_firms')
           .select()
           .eq('is_active', true)
           .order('rating', ascending: false);
 
-      return _filterLawFirms(rows.map<LawFirm>(_fromRow).toList(), searchQuery);
+      return DiscoveryPage.last(
+        _filterLawFirms(rows.map<LawFirm>(_fromRow).toList(), searchQuery),
+      );
     }
   }
 

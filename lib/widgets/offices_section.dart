@@ -9,8 +9,10 @@ import '../screens/law_firm_profile_screen.dart';
 import '../services/location_service.dart';
 import '../services/supabase_config.dart';
 import '../theme/app_colors.dart';
+import '../utils/discovery_pagination.dart';
 import '../utils/geo_distance.dart';
 import '../utils/office_sorting.dart';
+import 'discovery_load_more_button.dart';
 import 'jurii_empty_state.dart';
 import 'jurii_motion.dart';
 import 'office_card.dart';
@@ -30,7 +32,21 @@ class OfficesSection extends StatefulWidget {
 }
 
 class _OfficesSectionState extends State<OfficesSection> {
-  late Future<List<LawFirm>> _lawFirmsFuture;
+  // Estado explícito (não FutureBuilder): paginação ACUMULA páginas, e um
+  // FutureBuilder só sabe recomeçar do zero.
+  List<LawFirm>? _lawFirms;
+  bool _hasMore = false;
+  bool _isLoadingMore = false;
+  bool _loadFailed = false;
+
+  /// Offset em coordenadas do SERVIDOR: avança pelo que ele entregou, não
+  /// pelo tamanho da lista na tela (o dedupe visual pode descartar item).
+  int _nextOffset = 0;
+
+  /// Geração do fetch: trocar a busca com uma página em voo descarta a
+  /// resposta atrasada (mesma race da agenda, mesmo antídoto).
+  int _generation = 0;
+
   Position? _userPosition;
   bool _locationChipDismissed = false;
   bool _isLocating = false;
@@ -51,7 +67,7 @@ class _OfficesSectionState extends State<OfficesSection> {
   @override
   void initState() {
     super.initState();
-    _lawFirmsFuture = _loadLawFirms();
+    _loadFirstPage();
     // Se a permissão JÁ foi concedida antes, mostra as distâncias direto —
     // sem nunca abrir diálogo por conta própria (isso é do chip).
     if (!_shouldUseMock) {
@@ -147,23 +163,74 @@ class _OfficesSectionState extends State<OfficesSection> {
   void didUpdateWidget(covariant OfficesSection oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.searchQuery != widget.searchQuery) {
-      _lawFirmsFuture = _loadLawFirms();
+      _loadFirstPage();
     }
   }
 
-  Future<List<LawFirm>> _loadLawFirms() {
-    if (_shouldUseMock) {
-      return Future.value(_filterMockLawFirms());
-    }
-    return widget.repository.fetchRecommendedLawFirms(
-      searchQuery: widget.searchQuery,
-    );
-  }
-
-  void _retry() {
+  Future<void> _loadFirstPage() async {
+    final generation = ++_generation;
     setState(() {
-      _lawFirmsFuture = _loadLawFirms();
+      _lawFirms = null;
+      _loadFailed = false;
+      _hasMore = false;
+      _nextOffset = 0;
     });
+
+    if (_shouldUseMock) {
+      // Demo: uma página só, direto dos mocks.
+      setState(() => _lawFirms = _filterMockLawFirms());
+      return;
+    }
+
+    try {
+      final page = await widget.repository.fetchRecommendedLawFirms(
+        searchQuery: widget.searchQuery,
+        offset: 0,
+        limit: LawFirmRepository.firstPageSize,
+      );
+      if (!mounted || generation != _generation) return;
+      setState(() {
+        _lawFirms = page.items;
+        _hasMore = page.hasMore;
+        _nextOffset = page.items.length;
+      });
+    } catch (_) {
+      if (!mounted || generation != _generation) return;
+      setState(() => _loadFailed = true);
+    }
+  }
+
+  Future<void> _loadMore() async {
+    if (_isLoadingMore) return;
+    final generation = _generation;
+    setState(() => _isLoadingMore = true);
+    try {
+      final page = await widget.repository.fetchRecommendedLawFirms(
+        searchQuery: widget.searchQuery,
+        offset: _nextOffset,
+        limit: LawFirmRepository.nextPageSize,
+      );
+      if (!mounted || generation != _generation) return;
+      setState(() {
+        _isLoadingMore = false;
+        _nextOffset += page.items.length;
+        _lawFirms = appendUniqueBy(
+          _lawFirms ?? const [],
+          page.items,
+          (office) => office.id,
+        );
+        _hasMore = page.hasMore;
+      });
+    } catch (_) {
+      if (!mounted || generation != _generation) return;
+      // A lista que já está na tela fica; só o bloco novo falhou.
+      setState(() => _isLoadingMore = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Não foi possível carregar mais escritórios.'),
+        ),
+      );
+    }
   }
 
   List<LawFirm> _filterMockLawFirms() {
@@ -212,93 +279,101 @@ class _OfficesSectionState extends State<OfficesSection> {
           ],
         ),
         const SizedBox(height: 16),
-        FutureBuilder<List<LawFirm>>(
-          future: _lawFirmsFuture,
-          builder: (context, snapshot) {
-            final shouldUseMock = _shouldUseMock;
-
-            if (snapshot.connectionState == ConnectionState.waiting &&
-                !shouldUseMock) {
-              return const JuriiFadeThroughSwitcher(
-                child: KeyedSubtree(
-                  key: ValueKey('offices_loading'),
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(vertical: 4),
-                    child: JuriiSkeletonList(itemCount: 2, itemHeight: 88),
-                  ),
-                ),
-              );
-            }
-
-            if (snapshot.hasError && !shouldUseMock) {
-              return JuriiFadeThroughSwitcher(
-                child: KeyedSubtree(
-                  key: const ValueKey('offices_error'),
-                  child: _OfficesErrorState(onRetry: _retry),
-                ),
-              );
-            }
-
-            final loaded =
-                snapshot.data ??
-                (shouldUseMock ? _filterMockLawFirms() : const <LawFirm>[]);
-            final lawFirms = sortLawFirms(
-              loaded,
-              _sort,
-              userLatitude: _userPosition?.latitude,
-              userLongitude: _userPosition?.longitude,
-            );
-
-            if (lawFirms.isEmpty) {
-              return const JuriiFadeThroughSwitcher(
-                child: KeyedSubtree(
-                  key: ValueKey('offices_empty'),
-                  child: _EmptyOfficesState(),
-                ),
-              );
-            }
-
-            return JuriiFadeThroughSwitcher(
-              child: ListView.separated(
-                key: ValueKey(
-                  'offices_${widget.searchQuery}_${_sort.name}_${lawFirms.map((lawFirm) => lawFirm.id).join('|')}',
-                ),
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: lawFirms.length,
-                separatorBuilder: (context, index) =>
-                    const SizedBox(height: 12),
-                itemBuilder: (context, index) {
-                  final office = lawFirms[index];
-                  return JuriiStaggeredItem(
-                    key: ValueKey('office_${office.id}'),
-                    index: index,
-                    child: OfficeCard(
-                      initials: office.initials,
-                      officeName: office.name,
-                      rating: office.rating,
-                      distance: _distanceLabelFor(office),
-                      specialty: practiceAreaSummary(office.practiceAreas),
-                      reviews: office.reviews,
-                      avatarType: office.avatarType,
-                      avatarUrl: office.avatarUrl,
-                      isFeatured: office.isFeatured,
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                LawFirmProfileScreen(lawFirm: office),
-                          ),
-                        );
-                      },
-                    ),
-                  );
-                },
-              ),
-            );
-          },
-        ),
+        _buildBody(),
       ],
+    );
+  }
+
+  Widget _buildBody() {
+    if (_loadFailed && !_shouldUseMock) {
+      return JuriiFadeThroughSwitcher(
+        child: KeyedSubtree(
+          key: const ValueKey('offices_error'),
+          child: _OfficesErrorState(onRetry: _loadFirstPage),
+        ),
+      );
+    }
+
+    final loaded = _lawFirms;
+    if (loaded == null) {
+      return const JuriiFadeThroughSwitcher(
+        child: KeyedSubtree(
+          key: ValueKey('offices_loading'),
+          child: Padding(
+            padding: EdgeInsets.symmetric(vertical: 4),
+            child: JuriiSkeletonList(itemCount: 2, itemHeight: 88),
+          ),
+        ),
+      );
+    }
+
+    // O sort é client-side sobre TUDO que já foi carregado: página nova
+    // entra e a lista inteira reordena (um escritório da página 2 com nota
+    // maior sobe para o topo em "Avaliação" — comportamento desejado).
+    final lawFirms = sortLawFirms(
+      loaded,
+      _sort,
+      userLatitude: _userPosition?.latitude,
+      userLongitude: _userPosition?.longitude,
+    );
+
+    if (lawFirms.isEmpty) {
+      return const JuriiFadeThroughSwitcher(
+        child: KeyedSubtree(
+          key: ValueKey('offices_empty'),
+          child: _EmptyOfficesState(),
+        ),
+      );
+    }
+
+    return JuriiFadeThroughSwitcher(
+      // Keyada por busca+ordenação, não pelos ids: anexar página cresce a
+      // lista no lugar (sem re-disparar fade/stagger do que já estava);
+      // trocar a ordenação continua animando a transição, como antes.
+      child: Column(
+        key: ValueKey('offices_${widget.searchQuery}_${_sort.name}'),
+        children: [
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: lawFirms.length,
+            separatorBuilder: (context, index) => const SizedBox(height: 12),
+            itemBuilder: (context, index) {
+              final office = lawFirms[index];
+              return JuriiStaggeredItem(
+                key: ValueKey('office_${office.id}'),
+                index: index,
+                child: OfficeCard(
+                  initials: office.initials,
+                  officeName: office.name,
+                  rating: office.rating,
+                  distance: _distanceLabelFor(office),
+                  specialty: practiceAreaSummary(office.practiceAreas),
+                  reviews: office.reviews,
+                  avatarType: office.avatarType,
+                  avatarUrl: office.avatarUrl,
+                  isFeatured: office.isFeatured,
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => LawFirmProfileScreen(lawFirm: office),
+                      ),
+                    );
+                  },
+                ),
+              );
+            },
+          ),
+          if (_hasMore) ...[
+            const SizedBox(height: 12),
+            DiscoveryLoadMoreButton(
+              label: 'Ver mais escritórios',
+              isLoading: _isLoadingMore,
+              onPressed: _loadMore,
+            ),
+          ],
+        ],
+      ),
     );
   }
 }
