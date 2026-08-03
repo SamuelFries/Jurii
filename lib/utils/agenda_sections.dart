@@ -87,7 +87,12 @@ String agendaDayLabel(
   }
 
   final String subtitle;
-  if (next == null) {
+  if (next == null && appointments.isNotEmpty) {
+    // Lista não vazia mas nada por vir: todos os de hoje já começaram
+    // (fim de tarde típico). A copy de agenda vazia aqui contradiria o
+    // título "N compromissos hoje" com os cards logo abaixo.
+    subtitle = 'Sem mais compromissos por vir hoje.';
+  } else if (next == null) {
     subtitle = isLawyer
         ? 'Toque em Novo compromisso para agendar atendimentos e prazos.'
         : 'Quando um atendimento for agendado, ele aparecerá aqui.';

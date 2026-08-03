@@ -156,6 +156,18 @@ void main() {
       );
     });
 
+    test('todos de hoje já começaram: sem copy de agenda vazia', () {
+      // 18h; os dois compromissos do dia já começaram e não há futuros.
+      final evening = DateTime(2026, 8, 2, 18);
+      final summary = agendaSummary([
+        _appointment('a', startsAt: DateTime(2026, 8, 2, 8)),
+        _appointment('b', startsAt: DateTime(2026, 8, 2, 14)),
+      ], now: evening, isLawyer: true);
+
+      expect(summary.title, '2 compromissos hoje');
+      expect(summary.subtitle, 'Sem mais compromissos por vir hoje.');
+    });
+
     test('lista vazia usa a chamada por papel', () {
       final lawyer = agendaSummary(const [], now: now, isLawyer: true);
       final client = agendaSummary(const [], now: now, isLawyer: false);
