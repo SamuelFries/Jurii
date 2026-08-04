@@ -383,42 +383,6 @@ class _FirmCaseCard extends StatelessWidget {
                         style: TextStyle(color: statusColor, fontSize: 12),
                       ),
                     ),
-                    // Prazo registrado sem número de processo: lembrete
-                    // neutro (não é erro; o andamento só liga com o número).
-                    // Teto de largura + ellipsis: sem isso o Row estoura em
-                    // 320dp quando o botão de atribuir está visível.
-                    if (overview.needsCnjNumber) ...[
-                      const SizedBox(width: 6),
-                      Flexible(
-                        flex: 0,
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 108),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: colors.lightBlue,
-                              border: Border.all(
-                                color: colors.lightBlueBorder,
-                              ),
-                              borderRadius: BorderRadius.circular(999),
-                            ),
-                            child: Text(
-                              'Sem nº do processo',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: colors.textSecondary,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
                   ],
                 ),
               ],

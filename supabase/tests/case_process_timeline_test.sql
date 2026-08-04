@@ -5,7 +5,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(28);
+select plan(32);
 
 -- ---------------------------------------------------------------------------
 -- Fixtures: cliente, advogada, secretaria de escritorio e caso
@@ -174,6 +174,50 @@ select is(
   'label atualizado com o titulo traduzido');
 
 -- ---------------------------------------------------------------------------
+-- Movimentacao avisa OS DOIS LADOS (20260804150000). O sino filtra por escopo
+-- e o escopo deriva do TIPO: por isso tipo proprio para o advogado.
+-- ---------------------------------------------------------------------------
+
+select is(
+  (select count(*)::int from public.notifications
+   where recipient_profile_id = '30000000-0000-0000-0000-000000000002'
+     and type = 'case_movement'),
+  1,
+  'advogada responsavel tambem e avisada da movimentacao');
+
+select is(
+  (select scope::text from public.notifications
+   where type = 'case_movement' limit 1),
+  'lawyer',
+  'escopo lawyer derivado do tipo (sino do advogado, nao o do cliente)');
+
+-- O toque abre a pagina do caso nos dois lados: metadata leva case_id e
+-- NENHUM conversation_id (destinationFor devolve legalCase).
+select results_eq(
+  $$select metadata->>'case_id', metadata ? 'conversation_id'
+    from public.notifications
+    where type in ('case_update', 'case_movement')
+    order by type$$,
+  $$values ('50000000-0000-0000-0000-000000000001', false),
+           ('50000000-0000-0000-0000-000000000001', false)$$,
+  'as duas notificacoes levam case_id e nenhuma leva conversation_id');
+
+-- O advogado precisa saber QUAL caso andou: ele tem varios, o cliente tem um.
+select ok(
+  (select body like 'Caso CNJ: %' from public.notifications
+   where type = 'case_movement' limit 1),
+  'corpo do aviso do advogado comeca pelo titulo do caso');
+
+-- Backfill continua mudo para os DOIS lados (o do cliente ja era testado).
+select is(
+  (select count(*)::int from public.notifications
+   where type = 'case_movement'
+     and created_at < (select min(created_at) from public.notifications
+                       where type = 'case_update')),
+  0,
+  'nenhum aviso de advogado veio do backfill');
+
+-- ---------------------------------------------------------------------------
 -- 19-20. Blindagens: numero trocado durante a consulta e dataHora podre
 -- ---------------------------------------------------------------------------
 
@@ -220,11 +264,12 @@ select is(
 reset role;
 
 -- ---------------------------------------------------------------------------
--- 23-25. needs_cnj_number e reset na troca de numero
+-- 23. Troca de numero (o indicativo needs_cnj_number saiu na 20260804120000
+--     junto com o prazo manual: dependia de deadline_at e nunca disparou)
 -- ---------------------------------------------------------------------------
 
 update public.legal_cases
-set cnj_number = null, deadline_at = now() + interval '10 days'
+set cnj_number = null
 where id = '50000000-0000-0000-0000-000000000001';
 delete from public.case_movements
   where case_id = '50000000-0000-0000-0000-000000000001';
@@ -234,18 +279,15 @@ delete from public.case_movement_sync_state
 select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000002', true);
 set local role authenticated;
 
-select ok(
-  (select needs_cnj_number from public.fetch_lawyer_cases() limit 1),
-  'prazo sem numero liga o indicativo');
-
 select lives_ok(
   $$select public.set_case_cnj_number('50000000-0000-0000-0000-000000000001',
     '50144802820258219000')$$,
   'advogada troca o numero');
 
-select ok(
-  not (select needs_cnj_number from public.fetch_lawyer_cases() limit 1),
-  'com numero o indicativo desliga');
+select is(
+  (select cnj_number from public.fetch_lawyer_cases() limit 1),
+  '50144802820258219000',
+  'numero novo aparece na lista do advogado');
 
 reset role;
 

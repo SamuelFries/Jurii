@@ -19,8 +19,8 @@ const List<LawyerCase> mockLawyerCases = [
     clientName: 'Marina Costa',
     clientInitials: 'MC',
     area: 'Família',
-    lastUpdate: 'Prazo em 2 dias',
-    status: LawyerCaseStatus.deadline,
+    lastUpdate: 'Cliente enviou documentos',
+    status: LawyerCaseStatus.newMessage,
   ),
   LawyerCase(
     id: 'caso_03',

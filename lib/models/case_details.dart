@@ -14,7 +14,6 @@ class CaseDetails {
     required this.canManageLifecycle,
     this.cnjNumber,
     this.description,
-    this.deadlineAt,
     this.createdAt,
     this.assignedLawyerId,
     this.lawFirmId,
@@ -41,7 +40,6 @@ class CaseDetails {
   /// Resumo do caso escrito pelo advogado ao propô-lo (create_case_request
   /// só aceita o advogado da conversa). Visível para os dois lados.
   final String? description;
-  final DateTime? deadlineAt;
   final DateTime? createdAt;
   final String? assignedLawyerId;
   final String? lawFirmId;

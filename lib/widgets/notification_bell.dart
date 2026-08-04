@@ -748,7 +748,10 @@ class _NotificationTile extends StatelessWidget {
       'lawyer_recommendation' || 'lawyer_recommended' =>
         Icons.recommend_outlined,
       'firm_case_started' => Icons.business_center_outlined,
-      'case_update' => Icons.folder_special_outlined,
+      // Os dois lados do mesmo fato: 'case_update' avisa o cliente,
+      // 'case_movement' avisa o advogado (escopos diferentes, ver
+      // infer_notification_scope).
+      'case_update' || 'case_movement' => Icons.folder_special_outlined,
       'appointment_reminder' => Icons.event_available_outlined,
       _ => Icons.notifications_none_outlined,
     };

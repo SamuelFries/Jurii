@@ -14,9 +14,6 @@ class FirmCaseOverview {
   /// o caso ainda não virou processo judicial, o que é normal.
   final String? cnjNumber;
 
-  /// O caso tem prazo registrado mas ainda não tem número de processo.
-  final bool needsCnjNumber;
-
   /// Caso encerrado pelo responsável (status cru 'closed' no banco).
   final bool isClosed;
 
@@ -32,7 +29,6 @@ class FirmCaseOverview {
     required this.nextStep,
     required this.urgent,
     this.cnjNumber,
-    this.needsCnjNumber = false,
     this.isClosed = false,
   });
 }

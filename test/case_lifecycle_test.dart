@@ -7,70 +7,27 @@ import 'package:jurii/services/notification_router.dart';
 
 void main() {
   group('derivação do estado do caso do advogado', () {
-    final now = DateTime(2026, 8, 1);
-
-    test('closed do banco vence qualquer prazo', () {
+    test('closed do banco vence tudo', () {
       expect(
-        deriveLawyerCaseStatus(
-          status: 'closed',
-          deadlineAt: now.add(const Duration(days: 2)),
-          now: now,
-        ),
+        deriveLawyerCaseStatus(status: 'closed'),
         LawyerCaseStatus.closed,
       );
     });
 
-    test('prazo em até 7 dias vira urgência — inclusive vencido', () {
+    test('new_message do banco vira novidade', () {
       expect(
-        deriveLawyerCaseStatus(
-          status: 'open',
-          deadlineAt: now.add(const Duration(days: 3)),
-          now: now,
-        ),
-        LawyerCaseStatus.deadline,
-      );
-      expect(
-        deriveLawyerCaseStatus(
-          status: 'open',
-          deadlineAt: now.subtract(const Duration(days: 2)),
-          now: now,
-        ),
-        LawyerCaseStatus.deadline,
+        deriveLawyerCaseStatus(status: 'new_message'),
+        LawyerCaseStatus.newMessage,
       );
     });
 
-    test('borda dos 7 dias: igual à regra do servidor (<= now + 7d)', () {
-      // Exatamente 7 dias é urgente; 7 dias e 1 hora não é — mesma semântica
-      // do urgent do painel (deadline_at <= now() + interval '7 days').
+    test('qualquer outro status cai no padrão', () {
+      // O prazo manual saiu (migration 20260804120000): não há mais estado
+      // derivado de data. 'deadline' segue no enum do banco, sem escritor.
+      expect(deriveLawyerCaseStatus(status: 'open'), LawyerCaseStatus.updated);
+      expect(deriveLawyerCaseStatus(status: null), LawyerCaseStatus.updated);
       expect(
-        deriveLawyerCaseStatus(
-          status: 'open',
-          deadlineAt: now.add(const Duration(days: 7)),
-          now: now,
-        ),
-        LawyerCaseStatus.deadline,
-      );
-      expect(
-        deriveLawyerCaseStatus(
-          status: 'open',
-          deadlineAt: now.add(const Duration(days: 7, hours: 1)),
-          now: now,
-        ),
-        LawyerCaseStatus.updated,
-      );
-    });
-
-    test('prazo distante ou ausente não é urgência', () {
-      expect(
-        deriveLawyerCaseStatus(
-          status: 'open',
-          deadlineAt: now.add(const Duration(days: 30)),
-          now: now,
-        ),
-        LawyerCaseStatus.updated,
-      );
-      expect(
-        deriveLawyerCaseStatus(status: 'open', deadlineAt: null, now: now),
+        deriveLawyerCaseStatus(status: 'deadline'),
         LawyerCaseStatus.updated,
       );
     });
@@ -98,5 +55,40 @@ void main() {
     );
 
     expect(destinationFor(notification), NotificationDestinationKind.legalCase);
+  });
+
+  group('movimentação do processo avisa os dois lados', () {
+    // Mesmo fato, dois tipos: o sino filtra por ESCOPO e o escopo deriva do
+    // TIPO (infer_notification_scope). Reusar case_update para o advogado
+    // jogaria o aviso no sino do cliente.
+    JuriiNotification build({required String type, required NotificationScope scope}) {
+      return JuriiNotification(
+        id: 'n-$type',
+        title: 'Movimentação',
+        body: 'corpo',
+        type: type,
+        scope: scope,
+        createdAt: DateTime(2026, 8, 4),
+        metadata: const {'case_id': 'k1'},
+      );
+    }
+
+    test('aviso do cliente (case_update) abre o caso', () {
+      expect(
+        destinationFor(
+          build(type: 'case_update', scope: NotificationScope.client),
+        ),
+        NotificationDestinationKind.legalCase,
+      );
+    });
+
+    test('aviso do advogado (case_movement) abre o caso', () {
+      expect(
+        destinationFor(
+          build(type: 'case_movement', scope: NotificationScope.lawyer),
+        ),
+        NotificationDestinationKind.legalCase,
+      );
+    });
   });
 }

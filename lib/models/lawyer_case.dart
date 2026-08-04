@@ -11,11 +11,6 @@ class LawyerCase {
   /// o caso ainda não virou processo judicial, o que é normal.
   final String? cnjNumber;
 
-  /// O caso tem prazo registrado mas ainda não tem número de processo:
-  /// sinal de processo em andamento sem o número informado. Indicativo
-  /// neutro, nunca alerta.
-  final bool needsCnjNumber;
-
   const LawyerCase({
     required this.id,
     required this.title,
@@ -25,31 +20,20 @@ class LawyerCase {
     required this.lastUpdate,
     required this.status,
     this.cnjNumber,
-    this.needsCnjNumber = false,
   });
 }
 
-enum LawyerCaseStatus { updated, newMessage, deadline, closed }
+enum LawyerCaseStatus { updated, newMessage, closed }
 
-/// Deriva o estado exibido: 'closed' vem do banco; a urgência de prazo vem
-/// da DATA real (prazo em até 7 dias, inclusive vencido) — o status
-/// 'deadline' do enum do banco nunca é escrito por ninguém.
+/// Deriva o estado exibido a partir do status cru do banco.
 ///
-/// A comparação é a MESMA do `urgent` do painel do escritório
-/// (`deadline_at <= now() + 7 dias`, migration 20260801150000): inDays
-/// truncaria e faria as duas superfícies divergirem perto da borda.
-LawyerCaseStatus deriveLawyerCaseStatus({
-  required String? status,
-  required DateTime? deadlineAt,
-  DateTime? now,
-}) {
+/// Havia um estado `deadline` derivado de `legal_cases.deadline_at`. O prazo
+/// manual saiu na migration 20260804120000: exigia manutenção perpétua do
+/// advogado (cada novo prazo de cada processo) e não dava para automatizar
+/// pelo DataJud com segurança. O enum do banco ainda tem o valor 'deadline',
+/// mas nenhum caminho o escreve — cai no padrão, como sempre caiu.
+LawyerCaseStatus deriveLawyerCaseStatus({required String? status}) {
   if (status == 'closed') return LawyerCaseStatus.closed;
   if (status == 'new_message') return LawyerCaseStatus.newMessage;
-
-  final reference = now ?? DateTime.now();
-  if (deadlineAt != null &&
-      !deadlineAt.isAfter(reference.add(const Duration(days: 7)))) {
-    return LawyerCaseStatus.deadline;
-  }
   return LawyerCaseStatus.updated;
 }
