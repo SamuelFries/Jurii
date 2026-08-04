@@ -183,7 +183,7 @@ const privacyPolicyDocument = LegalDocument(
 const termsOfUseDocument = LegalDocument(
   type: LegalDocumentType.termsOfUse,
   title: 'Termos de Uso',
-  updatedAt: 'Atualizados em 06/07/2026',
+  updatedAt: 'Atualizados em 05/08/2026',
   summary:
       'Estes termos definem as regras básicas para usar a Jurii, incluindo '
       'conta, triagem, conversas, documentos, profissionais e limitações.',
@@ -256,6 +256,11 @@ const termsOfUseDocument = LegalDocument(
         'A Jurii pode facilitar comunicação e organização de informações, mas '
             'não se torna parte automática de contrato de honorários ou de '
             'relação advogado-cliente fora do que for expressamente informado.',
+        'Se as partes escolherem seguir o contato por telefone, aplicativo de '
+            'mensagens ou qualquer meio fora da Jurii, isso é por conta e risco '
+            'delas: fora da plataforma não há registro de conversa, histórico do '
+            'caso, verificação de identidade profissional nem os canais de '
+            'denúncia e bloqueio descritos nestes Termos.',
       ],
     ),
     LegalDocumentSection(
@@ -267,6 +272,16 @@ const termsOfUseDocument = LegalDocument(
         'Também é proibido tentar burlar verificações, manipular dados de '
             'perfil, acessar conversas/casos de terceiros ou explorar falhas de '
             'segurança.',
+        'É expressamente proibido manipular avaliações: criar ou usar contas de '
+            'terceiros ou fictícias para avaliar a si mesmo, ao próprio '
+            'escritório ou a colegas; combinar avaliações recíprocas; oferecer '
+            'ou aceitar vantagem em troca de avaliação; e simular atendimento '
+            'apenas para habilitar a avaliação. Avaliação existe para orientar '
+            'quem está escolhendo um profissional, e manipulá-la prejudica '
+            'diretamente quem busca ajuda jurídica.',
+        'A Jurii pode remover avaliações suspeitas, recalcular notas, suspender '
+            'ou banir contas envolvidas e cancelar destaques contratados, sem '
+            'reembolso, quando identificar violação desta cláusula.',
       ],
     ),
     LegalDocumentSection(
