@@ -8,6 +8,7 @@ import '../models/user_profile.dart';
 import '../data/legal_documents.dart';
 import '../utils/support_contact.dart';
 import 'edit_profile_screen.dart';
+import 'favorites_screen.dart';
 import 'help_center_screen.dart';
 import 'law_firm_verification_screen.dart';
 import 'lawyer_verification_screen.dart';
@@ -577,6 +578,22 @@ class ProfileScreen extends StatelessWidget {
                     subtitle: 'Visualize reuniões agendadas',
                     onTap: onOpenAgenda,
                   ),
+                  // Favoritar é gesto de quem CONTRATA; na persona
+                  // profissional o item só confundiria.
+                  if (!isLawyerMode)
+                    ProfileMenuItem(
+                      icon: Icons.favorite_outline,
+                      iconColor: colors.danger,
+                      label: 'Favoritos',
+                      subtitle: 'Advogados e escritórios salvos',
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const FavoritesScreen(),
+                          ),
+                        );
+                      },
+                    ),
                 ],
               ),
 

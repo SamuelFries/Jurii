@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 
 import '../data/legal_practice_areas.dart';
 import '../models/law_firm.dart';
+import '../repositories/favorites_repository.dart';
 import '../repositories/messaging_repository.dart';
 import '../repositories/review_repository.dart';
 import '../services/location_service.dart';
 import '../theme/app_colors.dart';
 import '../utils/geo_distance.dart';
+import '../widgets/favorite_heart_button.dart';
 import '../widgets/profile_avatar.dart';
 import '../widgets/reviews_panel.dart';
 import 'chat_screen.dart';
@@ -95,7 +97,15 @@ class _LawFirmProfileScreenState extends State<LawFirmProfileScreen> {
 
     return Scaffold(
       backgroundColor: colors.background,
-      appBar: AppBar(title: const Text('Perfil do escritório')),
+      appBar: AppBar(
+        title: const Text('Perfil do escritório'),
+        actions: [
+          FavoriteHeartButton(
+            type: FavoriteTargetType.lawFirm,
+            targetId: widget.lawFirm.id,
+          ),
+        ],
+      ),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(24),
