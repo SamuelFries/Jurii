@@ -34,23 +34,41 @@ class _FirmMessagesScreenState extends State<FirmMessagesScreen>
   void initState() {
     super.initState();
     _conversationsFuture = _loadConversations();
-    // Mensagem nova em QUALQUER conversa do usuário mexe nesta lista (último
-    // texto, horário, ordem). Sem filtro de coluna de propósito: quem corta é
-    // a RLS de `messages` — o assinante só recebe o que já poderia ler.
+    // Assina `conversations` filtrando pela FIRMA (não pelo usuário): esta
+    // lista mostra as conversas do escritório, e todo membro ativo vê as
+    // mesmas. O trigger messages_set_conversation_last_message atualiza a
+    // conversa a cada mensagem, então é UM evento por conversa — e o corte
+    // por law_firm_id acontece no SERVIDOR, sem depender da RLS para a
+    // privacidade nem trazer o corpo da mensagem no payload.
+    _subscribeToFirm();
+  }
+
+  /// Reassina ao trocar de escritório: o mixin derruba o canal antigo quando
+  /// o filtro muda, senão a lista seguiria recebendo eventos da firma
+  /// anterior.
+  void _subscribeToFirm() {
+    final lawFirmId = widget.workspace?.firm.id;
+    if (lawFirmId == null) return;
     subscribeToRealtime(
-      channelName: 'firm_conversations:${SupabaseConfig.client.auth.currentUser?.id}',
-      table: 'messages',
-      event: PostgresChangeEvent.insert,
+      channelPrefix: 'firm_conversations',
+      table: 'conversations',
+      filterColumn: 'law_firm_id',
+      filterValue: lawFirmId,
       onChange: _refreshSilently,
     );
   }
 
   /// Recarrega sem trocar o Future exibido: o realtime não pode piscar o
   /// skeleton nem derrubar a lista para o estado de erro.
+  /// Geração: trocar de escritório (ou de aba) com um refetch em voo faria a
+  /// resposta atrasada pintar a lista do escritório ANTERIOR.
+  int _refreshGeneration = 0;
+
   Future<void> _refreshSilently() async {
+    final generation = ++_refreshGeneration;
     try {
       final conversations = await _loadConversations();
-      if (!mounted) return;
+      if (!mounted || generation != _refreshGeneration) return;
       setState(() => _conversationsFuture = Future.value(conversations));
     } catch (_) {
       // Mantém o que está na tela; o refresh manual e o retry seguem.
@@ -61,7 +79,9 @@ class _FirmMessagesScreenState extends State<FirmMessagesScreen>
   void didUpdateWidget(covariant FirmMessagesScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.workspace?.firm.id != widget.workspace?.firm.id) {
+      _refreshGeneration++;
       _conversationsFuture = _loadConversations();
+      _subscribeToFirm();
     }
   }
 

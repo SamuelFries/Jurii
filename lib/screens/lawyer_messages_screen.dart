@@ -30,15 +30,24 @@ class _LawyerMessagesScreenState extends State<LawyerMessagesScreen>
   void initState() {
     super.initState();
     _conversationsFuture = _loadConversations();
-    // Mensagem nova em QUALQUER conversa do usuário mexe nesta lista (último
-    // texto, horário, ordem). Sem filtro de coluna de propósito: quem corta é
-    // a RLS de `messages` — o assinante só recebe o que já poderia ler.
-    subscribeToRealtime(
-      channelName: 'lawyer_conversations:${SupabaseConfig.client.auth.currentUser?.id}',
-      table: 'messages',
-      event: PostgresChangeEvent.insert,
-      onChange: _refreshSilently,
-    );
+    // Mensagem nova mexe nesta lista (último texto, horário, ordem). Assina
+    // `conversations`, não `messages`: o trigger
+    // messages_set_conversation_last_message atualiza a conversa a cada
+    // mensagem, então é UM evento por conversa em vez de um por mensagem — e
+    // o filtro por lawyer_id corta no SERVIDOR, sem depender da RLS para a
+    // privacidade nem trazer o corpo da mensagem no payload.
+    final userId = SupabaseConfig.isReady
+        ? SupabaseConfig.client.auth.currentUser?.id
+        : null;
+    if (userId != null) {
+      subscribeToRealtime(
+        channelPrefix: 'lawyer_conversations',
+        table: 'conversations',
+        filterColumn: 'lawyer_id',
+        filterValue: userId,
+        onChange: _refreshSilently,
+      );
+    }
   }
 
   /// Recarrega sem trocar o Future exibido: o realtime não pode piscar o

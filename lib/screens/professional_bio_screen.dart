@@ -81,6 +81,10 @@ class _ProfessionalBioScreenState extends State<ProfessionalBioScreen> {
     if (_isSaving) return;
     setState(() => _isSaving = true);
     final text = _controller.text.trim();
+    // Capturado ANTES do pop: depois dele este widget está desmontando, e
+    // procurar o messenger pelo próprio context passa a depender de quem
+    // sobrou na árvore.
+    final messenger = ScaffoldMessenger.of(context);
     try {
       if (widget._isLawFirm) {
         await widget.repository.saveLawFirmDescription(
@@ -94,7 +98,7 @@ class _ProfessionalBioScreenState extends State<ProfessionalBioScreen> {
       // Devolve o texto salvo: quem abriu a tela atualiza o que exibe sem
       // refazer o fetch.
       Navigator.of(context).pop(text.isEmpty ? null : text);
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         SnackBar(
           content: Text(
             text.isEmpty ? 'Apresentação removida.' : 'Apresentação salva.',
@@ -104,7 +108,7 @@ class _ProfessionalBioScreenState extends State<ProfessionalBioScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() => _isSaving = false);
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         const SnackBar(
           content: Text('Não foi possível salvar. Tente novamente.'),
         ),
