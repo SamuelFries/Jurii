@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../data/legal_practice_areas.dart';
 import '../models/lawyer_profile_summary.dart';
+import '../repositories/favorites_repository.dart';
 import '../repositories/messaging_repository.dart';
 import '../repositories/review_repository.dart';
 import '../theme/app_colors.dart';
+import '../widgets/favorite_heart_button.dart';
 import '../widgets/profile_avatar.dart';
 import '../widgets/reviews_panel.dart';
 import 'chat_screen.dart';
@@ -69,7 +71,15 @@ class _LawyerProfileScreenState extends State<LawyerProfileScreen> {
     final colors = context.jColors;
     return Scaffold(
       backgroundColor: colors.background,
-      appBar: AppBar(title: const Text('Perfil profissional')),
+      appBar: AppBar(
+        title: const Text('Perfil profissional'),
+        actions: [
+          FavoriteHeartButton(
+            type: FavoriteTargetType.lawyer,
+            targetId: widget.lawyer.id,
+          ),
+        ],
+      ),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(24),

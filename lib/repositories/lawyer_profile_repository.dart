@@ -45,7 +45,7 @@ class LawyerProfileRepository {
 
       final parsed = (rows as List<dynamic>)
           .cast<Map<String, dynamic>>()
-          .map<LawyerProfileSummary>(_fromRow)
+          .map<LawyerProfileSummary>(summaryFromRow)
           .toList();
       return pageFromSentinel(parsed, limit);
     } on PostgrestException catch (error, stackTrace) {
@@ -83,7 +83,7 @@ class LawyerProfileRepository {
 
     return (rows as List<dynamic>)
         .cast<Map<String, dynamic>>()
-        .map<LawyerProfileSummary>(_fromRow)
+        .map<LawyerProfileSummary>(summaryFromRow)
         .toList();
   }
 
@@ -105,7 +105,7 @@ class LawyerProfileRepository {
 
     return (rows as List<dynamic>)
         .cast<Map<String, dynamic>>()
-        .map<LawyerProfileSummary>(_fromRow)
+        .map<LawyerProfileSummary>(summaryFromRow)
         .toList();
   }
 
@@ -123,10 +123,13 @@ class LawyerProfileRepository {
         .maybeSingle();
 
     if (row == null) return null;
-    return _fromRow(row);
+    return summaryFromRow(row);
   }
 
-  LawyerProfileSummary _fromRow(Map<String, dynamic> row) {
+  /// Parser público e estático: o repositório de favoritos devolve linhas
+  /// com a MESMA forma (por contrato da migration) e reusa este parser —
+  /// duplicá-lo lá seria drift na certa.
+  static LawyerProfileSummary summaryFromRow(Map<String, dynamic> row) {
     final name = row['full_name'] as String? ?? 'Advogado Jurii';
     final initials = row['initials'] as String? ?? _initialsFor(name);
     final primaryArea =
@@ -168,7 +171,10 @@ class LawyerProfileRepository {
         .toList();
   }
 
-  List<String> _practiceAreasFromRow(Object? value, {List<String>? fallback}) {
+  static List<String> _practiceAreasFromRow(
+    Object? value, {
+    List<String>? fallback,
+  }) {
     final areas = value is List
         ? value.whereType<String>().toList()
         : const <String>[];
@@ -184,7 +190,7 @@ class LawyerProfileRepository {
         .toList();
   }
 
-  String _initialsFor(String value) {
+  static String _initialsFor(String value) {
     final parts = value
         .trim()
         .split(RegExp(r'\s+'))

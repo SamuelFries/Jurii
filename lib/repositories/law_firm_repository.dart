@@ -32,7 +32,7 @@ class LawFirmRepository {
 
       final parsed = (rows as List<dynamic>)
           .cast<Map<String, dynamic>>()
-          .map<LawFirm>(_fromRow)
+          .map<LawFirm>(firmFromRow)
           .toList();
       return pageFromSentinel(parsed, limit);
     } on PostgrestException catch (error) {
@@ -51,7 +51,7 @@ class LawFirmRepository {
           .order('rating', ascending: false);
 
       return DiscoveryPage.last(
-        _filterLawFirms(rows.map<LawFirm>(_fromRow).toList(), searchQuery),
+        _filterLawFirms(rows.map<LawFirm>(firmFromRow).toList(), searchQuery),
       );
     }
   }
@@ -64,10 +64,12 @@ class LawFirmRepository {
         .maybeSingle();
 
     if (row == null) return null;
-    return _fromRow(row);
+    return firmFromRow(row);
   }
 
-  LawFirm _fromRow(Map<String, dynamic> row) {
+  /// Parser público e estático: o repositório de favoritos devolve linhas
+  /// com a MESMA forma (por contrato da migration) e reusa este parser.
+  static LawFirm firmFromRow(Map<String, dynamic> row) {
     final specialty = row['specialty'] as String? ?? 'Escritório jurídico';
 
     return LawFirm(
@@ -100,7 +102,7 @@ class LawFirmRepository {
     );
   }
 
-  String? _optionalText(Object? value) {
+  static String? _optionalText(Object? value) {
     final text = value is String ? value.trim() : '';
     return text.isEmpty ? null : text;
   }
@@ -117,7 +119,10 @@ class LawFirmRepository {
         .toList();
   }
 
-  List<String> _practiceAreasFromRow(Object? value, {List<String>? fallback}) {
+  static List<String> _practiceAreasFromRow(
+    Object? value, {
+    List<String>? fallback,
+  }) {
     final areas = value is List
         ? value.whereType<String>().toList()
         : const <String>[];
