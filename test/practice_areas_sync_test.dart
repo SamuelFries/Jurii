@@ -14,10 +14,10 @@ void main() {
       'supabase/migrations/20260805180000_practice_areas_allowlist.sql',
     ).readAsStringSync();
 
-    final seed = RegExp(r"^  \('([^']+)'\),?$", multiLine: true)
-        .allMatches(migration)
-        .map((m) => m.group(1)!)
-        .toSet();
+    final seed = RegExp(
+      r"^  \('([^']+)'\),?$",
+      multiLine: true,
+    ).allMatches(migration).map((m) => m.group(1)!).toSet();
 
     expect(seed, isNotEmpty, reason: 'seed da allowlist não foi encontrado');
     expect(

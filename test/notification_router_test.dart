@@ -50,10 +50,7 @@ void main() {
         destinationFor(
           notification(
             type: 'case_request_response',
-            metadata: const {
-              'conversation_id': 'c1',
-              'legal_case_id': 'k1',
-            },
+            metadata: const {'conversation_id': 'c1', 'legal_case_id': 'k1'},
           ),
         ),
         NotificationDestinationKind.conversation,

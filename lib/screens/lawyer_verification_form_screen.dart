@@ -402,9 +402,7 @@ class _LawyerVerificationFormScreenState
     // Tamanho antes de ler: os bytes só entram na memória dentro do teto.
     if (file.size > maxVerificationFileBytes) {
       if (!mounted) return;
-      setState(
-        () => errorMessage = 'Cada documento pode ter no máximo 10 MB.',
-      );
+      setState(() => errorMessage = 'Cada documento pode ter no máximo 10 MB.');
       return;
     }
 

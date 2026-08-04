@@ -1,5 +1,6 @@
-import 'dart:typed_data';
+import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/chat_attachment.dart';
@@ -11,6 +12,42 @@ import '../models/report_reason.dart';
 import '../services/supabase_config.dart';
 
 enum ConversationScope { client, lawyer, firmClient, firmTeam }
+
+/// Casa os resultados de assinatura com os caminhos PEDIDOS.
+///
+/// A chave do mapa tem que ser o caminho que nós pedimos, porque é por ele que
+/// o balão procura a URL depois. A API promete um resultado por caminho, na
+/// mesma ordem, mas confiar só na posição significaria que uma resposta fora
+/// de ordem mostraria a foto de uma mensagem dentro de outra — então o
+/// caminho que o servidor devolve manda, quando ele é um dos que pedimos, e a
+/// posição só entra como reserva. Caminho nenhum é inventado.
+Map<String, String> signedUrlsByRequestedPath(
+  List<String> requestedPaths,
+  List<SignedUrlResult> results,
+) {
+  final requested = requestedPaths.toSet();
+  final sameLength = results.length == requestedPaths.length;
+  final urls = <String, String>{};
+
+  for (var index = 0; index < results.length; index++) {
+    final result = results[index];
+    if (result is! SignedUrlSuccess) continue;
+
+    final String? key;
+    if (requested.contains(result.path)) {
+      key = result.path;
+    } else if (sameLength) {
+      key = requestedPaths[index];
+    } else {
+      key = null;
+    }
+
+    if (key == null || key.isEmpty) continue;
+    urls[key] = result.signedUrl;
+  }
+
+  return urls;
+}
 
 class MessagingRepository {
   const MessagingRepository();
@@ -39,10 +76,92 @@ class MessagingRepository {
       params: {'scope_value': scope.name, 'law_firm_id_value': lawFirmId},
     );
 
-    return (rows as List<dynamic>)
+    final conversations = (rows as List<dynamic>)
         .cast<Map<String, dynamic>>()
         .map(_conversationFromRow)
         .toList();
+
+    // Carregar a lista É a entrega: a partir daqui o aparelho de quem recebe
+    // sabe que estas mensagens existem, que é exatamente o que o segundo tique
+    // afirma. Fica aqui, e não nas telas, porque são TRÊS listas (cliente,
+    // advogado e escritório) e esquecer numa delas daria um tique que só
+    // aparece dependendo de quem abriu.
+    //
+    // Sem await de propósito: confirmação de entrega nunca pode atrasar nem
+    // derrubar o carregamento da conversa.
+    unawaited(
+      markMessagesDelivered(
+        conversations
+            .map((conversation) => conversation.id)
+            .whereType<String>()
+            .toList(),
+      ),
+    );
+
+    return conversations;
+  }
+
+  /// Apaga as mensagens SÓ para quem chamou. Continuam inteiras para o outro
+  /// lado; o servidor passa a escondê-las de mim em toda leitura (a regra vive
+  /// na RLS de messages, então vale também para o tempo real).
+  Future<int> deleteMessagesForMe(List<String> messageIds) async {
+    return _deleteMessages('delete_messages_for_me', messageIds);
+  }
+
+  /// Apaga o CONTEÚDO para todos, deixando a lápide. O servidor recusa o que
+  /// não for meu, o que estiver fora da janela e o que for mensagem de sistema.
+  Future<int> deleteMessagesForEveryone(List<String> messageIds) async {
+    return _deleteMessages('delete_messages_for_everyone', messageIds);
+  }
+
+  Future<int> _deleteMessages(String rpc, List<String> messageIds) async {
+    if (messageIds.isEmpty ||
+        !SupabaseConfig.isReady ||
+        SupabaseConfig.client.auth.currentUser == null) {
+      return 0;
+    }
+
+    final deleted = await SupabaseConfig.client.rpc(
+      rpc,
+      params: {'message_ids_value': messageIds},
+    );
+    return (deleted as num?)?.toInt() ?? 0;
+  }
+
+  /// Marca como VISTAS as mensagens que a outra parte mandou nesta conversa.
+  /// Devolve quantas mudaram — zero quando não havia nada por ler.
+  Future<int> markConversationRead(String conversationId) async {
+    if (!SupabaseConfig.isReady ||
+        SupabaseConfig.client.auth.currentUser == null) {
+      return 0;
+    }
+
+    final marked = await SupabaseConfig.client.rpc(
+      'mark_conversation_read',
+      params: {'conversation_id_value': conversationId},
+    );
+    return (marked as num?)?.toInt() ?? 0;
+  }
+
+  /// Marca como ENTREGUES as mensagens recebidas nestas conversas. Falha em
+  /// silêncio: é sinal de cortesia, não pode virar erro na cara de ninguém.
+  Future<int> markMessagesDelivered(List<String> conversationIds) async {
+    if (conversationIds.isEmpty ||
+        !SupabaseConfig.isReady ||
+        SupabaseConfig.client.auth.currentUser == null) {
+      return 0;
+    }
+
+    try {
+      final marked = await SupabaseConfig.client.rpc(
+        'mark_messages_delivered',
+        params: {'conversation_ids_value': conversationIds},
+      );
+      return (marked as num?)?.toInt() ?? 0;
+    } catch (error) {
+      debugPrint('Delivery receipt failed: $error');
+      return 0;
+    }
   }
 
   /// Estado de bloqueio da conversa. O bloqueio congela os dois lados; o
@@ -107,7 +226,7 @@ class MessagingRepository {
     final rows = await SupabaseConfig.client
         .from('messages')
         .select(
-          'id, conversation_id, sender_id, sender_type, body, metadata, read_at, created_at',
+          'id, conversation_id, sender_id, sender_type, body, metadata, read_at, delivered_at, deleted_for_all_at, created_at',
         )
         .eq('conversation_id', conversationId)
         .order('created_at', ascending: false)
@@ -141,7 +260,7 @@ class MessagingRepository {
           'body': body,
         })
         .select(
-          'id, conversation_id, sender_id, sender_type, body, metadata, read_at, created_at',
+          'id, conversation_id, sender_id, sender_type, body, metadata, read_at, delivered_at, deleted_for_all_at, created_at',
         )
         .single();
 
@@ -231,6 +350,22 @@ class MessagingRepository {
     return SupabaseConfig.client.storage
         .from(_chatAttachmentsBucket)
         .createSignedUrl(attachment.storagePath, 300);
+  }
+
+  /// Assina vários anexos numa chamada só — é o que permite abrir uma conversa
+  /// com dez fotos sem dez idas ao servidor. Caminhos que o servidor não
+  /// conseguiu assinar simplesmente não aparecem no mapa.
+  Future<Map<String, String>> createSignedAttachmentUrls(
+    List<String> storagePaths,
+    Duration ttl,
+  ) async {
+    if (storagePaths.isEmpty) return const {};
+
+    final results = await SupabaseConfig.client.storage
+        .from(_chatAttachmentsBucket)
+        .createSignedUrlsResult(storagePaths, ttl.inSeconds);
+
+    return signedUrlsByRequestedPath(storagePaths, results);
   }
 
   Future<Conversation> startLawFirmConversation({
@@ -356,7 +491,7 @@ class MessagingRepository {
       specialty: row['specialty'] as String? ?? 'Atendimento jurídico',
       lastMessage: row['last_message'] as String? ?? 'Conversa iniciada.',
       time: _relativeTime(row['last_message_at'] as String?),
-      unreadCount: 0,
+      unreadCount: (row['unread_count'] as num?)?.toInt() ?? 0,
       type: row['type'] as String? ?? 'client_firm',
       lawFirmId: row['law_firm_id'] as String?,
       clientId: row['client_id'] as String?,
@@ -381,8 +516,13 @@ class MessagingRepository {
           : MessageAuthor.other,
       text: row['body'] as String? ?? '',
       time: _relativeTime(row['created_at'] as String?),
-      read: row['read_at'] != null,
+      status: MessageDeliveryStatus.resolve(
+        delivered: row['delivered_at'] != null,
+        read: row['read_at'] != null,
+      ),
       metadata: _metadataFromRow(row['metadata']),
+      createdAt: DateTime.tryParse(row['created_at'] as String? ?? '')?.toLocal(),
+      deletedForAll: row['deleted_for_all_at'] != null,
     );
   }
 

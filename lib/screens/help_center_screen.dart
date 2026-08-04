@@ -201,10 +201,7 @@ class _HelpSectionCard extends StatelessWidget {
                 children: [
                   Text(
                     section.items[i].answer,
-                    style: TextStyle(
-                      color: colors.textSecondary,
-                      height: 1.45,
-                    ),
+                    style: TextStyle(color: colors.textSecondary, height: 1.45),
                   ),
                 ],
               ),

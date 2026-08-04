@@ -154,6 +154,10 @@ void main() {
     expect(find.text('Anexar arquivo'), findsOneWidget);
     expect(find.text('Tirar foto'), findsOneWidget);
     expect(find.text('Enviar foto'), findsOneWidget);
+    // Vídeo tem entradas próprias: sem elas, o único caminho seria "Anexar
+    // arquivo", que ninguém procura para mandar um vídeo.
+    expect(find.text('Gravar vídeo'), findsOneWidget);
+    expect(find.text('Enviar vídeo'), findsOneWidget);
     expect(find.text('Triagem com IA'), findsOneWidget);
 
     // Fecha de novo com slide reverso.
@@ -282,10 +286,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // De volta ao chat: overview virou mensagem e o banner sumiu.
-    expect(
-      find.textContaining('Triagem da assistente Jurii'),
-      findsOneWidget,
-    );
+    expect(find.textContaining('Triagem da assistente Jurii'), findsOneWidget);
     expect(find.text('Comece com uma triagem guiada'), findsNothing);
     // Usou a triagem — não deve aparecer a dica do "+".
     expect(

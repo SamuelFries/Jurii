@@ -30,7 +30,7 @@ const mockChatMessages = [
     author: MessageAuthor.other,
     text: 'Bom dia, Dr. João. Enviei os documentos para análise.',
     time: '09:12',
-    read: false,
+    status: MessageDeliveryStatus.sent,
   ),
   ChatMessage(
     id: 'chat_ana_02',
@@ -47,7 +47,7 @@ const mockChatMessages = [
     text:
         'Obrigada. Também gostaria de confirmar se a reunião das 9h30 está mantida.',
     time: '09:18',
-    read: false,
+    status: MessageDeliveryStatus.sent,
   ),
   ChatMessage(
     id: 'chat_carlos_01',
@@ -55,7 +55,7 @@ const mockChatMessages = [
     author: MessageAuthor.other,
     text: 'Podemos agendar uma conversa hoje?',
     time: '08:40',
-    read: false,
+    status: MessageDeliveryStatus.sent,
   ),
   ChatMessage(
     id: 'chat_carlos_02',
@@ -98,7 +98,7 @@ const mockChatMessages = [
     author: MessageAuthor.other,
     text: 'Preciso que a secretaria confirme os documentos trabalhistas.',
     time: '08:22',
-    read: false,
+    status: MessageDeliveryStatus.sent,
   ),
   ChatMessage(
     id: 'chat_firm_carla_01',

@@ -29,7 +29,14 @@ LawFirm _firm(
 void main() {
   // Ordem "do servidor": destacado primeiro, como o RPC devolve.
   final serverOrder = [
-    _firm('patrocinado', rating: 3.0, reviews: 2, lat: -30.10, lng: -51.20, isFeatured: true),
+    _firm(
+      'patrocinado',
+      rating: 3.0,
+      reviews: 2,
+      lat: -30.10,
+      lng: -51.20,
+      isFeatured: true,
+    ),
     _firm('cinco-estrelas', rating: 5.0, reviews: 40, lat: -30.20, lng: -51.20),
     _firm('perto', rating: 4.0, reviews: 10, lat: -30.051, lng: -51.221),
     _firm('sem-cep', rating: 4.8, reviews: 5),
@@ -86,8 +93,10 @@ void main() {
 
   test('distância sem posição do usuário mantém a ordem do servidor', () {
     final sorted = sortLawFirms(serverOrder, OfficeSort.distance);
-    expect(sorted.map((f) => f.id).toList(),
-        serverOrder.map((f) => f.id).toList());
+    expect(
+      sorted.map((f) => f.id).toList(),
+      serverOrder.map((f) => f.id).toList(),
+    );
   });
 
   test('padrão declarado é relevância', () {
@@ -95,17 +104,18 @@ void main() {
     expect(OfficeSort.values.first, OfficeSort.relevance);
   });
 
-  test('empates são ESTÁVEIS mesmo em lista grande (List.sort não garante)',
-      () {
-    // 40 firmas com a MESMA nota: acima do limiar em que o sort do Dart
-    // deixa de ser estável por acidente. A ordem original deve sobreviver.
-    final firms = [
-      for (var i = 0; i < 40; i++) _firm('f$i', rating: 4.0, reviews: 3),
-    ];
-    final sorted = sortLawFirms(firms, OfficeSort.rating);
-    expect(
-      sorted.map((f) => f.id).toList(),
-      [for (var i = 0; i < 40; i++) 'f$i'],
-    );
-  });
+  test(
+    'empates são ESTÁVEIS mesmo em lista grande (List.sort não garante)',
+    () {
+      // 40 firmas com a MESMA nota: acima do limiar em que o sort do Dart
+      // deixa de ser estável por acidente. A ordem original deve sobreviver.
+      final firms = [
+        for (var i = 0; i < 40; i++) _firm('f$i', rating: 4.0, reviews: 3),
+      ];
+      final sorted = sortLawFirms(firms, OfficeSort.rating);
+      expect(sorted.map((f) => f.id).toList(), [
+        for (var i = 0; i < 40; i++) 'f$i',
+      ]);
+    },
+  );
 }

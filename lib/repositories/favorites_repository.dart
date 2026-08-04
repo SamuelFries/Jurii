@@ -43,8 +43,12 @@ class FavoritesRepository {
     final rows = await SupabaseConfig.client.rpc('fetch_favorite_ids');
     return (rows as List<dynamic>)
         .cast<Map<String, dynamic>>()
-        .map((row) => favoriteKey(row['target_type'] as String,
-            row['target_id'].toString()))
+        .map(
+          (row) => favoriteKey(
+            row['target_type'] as String,
+            row['target_id'].toString(),
+          ),
+        )
         .toSet();
   }
 

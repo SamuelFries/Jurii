@@ -177,7 +177,10 @@ class _AgendaScreenState extends State<AgendaScreen> {
   }
 
   Future<void> _editAppointment(Appointment appointment) async {
-    final draft = await showAppointmentFormSheet(context, existing: appointment);
+    final draft = await showAppointmentFormSheet(
+      context,
+      existing: appointment,
+    );
     if (draft == null) return;
 
     try {
@@ -245,8 +248,7 @@ class _AgendaScreenState extends State<AgendaScreen> {
               ListTile(
                 leading: Icon(Icons.edit_outlined, color: colors.primary),
                 title: const Text('Editar'),
-                onTap: () =>
-                    Navigator.of(context).pop(_AppointmentAction.edit),
+                onTap: () => Navigator.of(context).pop(_AppointmentAction.edit),
               ),
               ListTile(
                 leading: Icon(Icons.event_busy_outlined, color: colors.danger),
@@ -484,8 +486,11 @@ class _PeriodToggle extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.jColors;
 
-    Widget pill({required String label, required bool selected,
-        required VoidCallback onTap}) {
+    Widget pill({
+      required String label,
+      required bool selected,
+      required VoidCallback onTap,
+    }) {
       return Expanded(
         child: Semantics(
           button: true,

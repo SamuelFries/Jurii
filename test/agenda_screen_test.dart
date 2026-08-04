@@ -41,9 +41,7 @@ void main() {
     expect(find.text('Organize seus atendimentos'), findsNothing);
   });
 
-  testWidgets('anteriores vazio mostra estado próprio e volta', (
-    tester,
-  ) async {
+  testWidgets('anteriores vazio mostra estado próprio e volta', (tester) async {
     await tester.pumpWidget(_host(AppointmentRole.lawyer));
     await tester.pumpAndSettle();
 

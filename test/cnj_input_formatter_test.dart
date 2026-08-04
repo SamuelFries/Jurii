@@ -26,8 +26,10 @@ void main() {
     });
 
     test('descarta excedente e caracteres não numéricos', () {
-      expect(formatCnj('000084267202382170009999'),
-          '0000842-67.2023.8.21.7000');
+      expect(
+        formatCnj('000084267202382170009999'),
+        '0000842-67.2023.8.21.7000',
+      );
       expect(formatCnj('abc0000842xyz67'), '0000842-67');
     });
   });

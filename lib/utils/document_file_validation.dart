@@ -59,6 +59,18 @@ bool bytesMatchMimeType(List<int> bytes, String mimeType) {
           bytes[9] == 0x45 &&
           bytes[10] == 0x42 &&
           bytes[11] == 0x50; // WEBP
+    case 'video/mp4':
+    case 'video/quicktime':
+      // ISO-BMFF: a box 'ftyp' começa no byte 4 (os 4 primeiros são o tamanho
+      // dela). Não distingue mp4 de mov DE PROPÓSITO — o iPhone grava .mov no
+      // mesmo container, e exigir a marca ('qt  ', 'isom', 'mp42'...) recusaria
+      // arquivo válido de câmera nova. O que este teste garante é o que
+      // importa: não é um binário arbitrário renomeado para .mp4.
+      return bytes.length >= 12 &&
+          bytes[4] == 0x66 &&
+          bytes[5] == 0x74 &&
+          bytes[6] == 0x79 &&
+          bytes[7] == 0x70; // ftyp
     case 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
       return startsWith(const [0x50, 0x4B]); // ZIP (PK)
     case 'application/msword':

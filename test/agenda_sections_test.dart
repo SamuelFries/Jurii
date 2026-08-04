@@ -5,7 +5,11 @@ import 'package:jurii/models/appointment.dart';
 import 'package:jurii/repositories/appointment_repository.dart';
 import 'package:jurii/utils/agenda_sections.dart';
 
-Appointment _appointment(String id, {DateTime? startsAt, String dateLabel = ''}) {
+Appointment _appointment(
+  String id, {
+  DateTime? startsAt,
+  String dateLabel = '',
+}) {
   return Appointment(
     id: id,
     role: AppointmentRole.lawyer,
@@ -77,10 +81,7 @@ void main() {
         'Amanhã · 03/08',
         'Sex · 07/08',
       ]);
-      expect(sections.first.appointments.map((a) => a.id).toList(), [
-        'a',
-        'b',
-      ]);
+      expect(sections.first.appointments.map((a) => a.id).toList(), ['a', 'b']);
       expect(sections.last.appointments.single.id, 'd');
     });
 
@@ -125,44 +126,53 @@ void main() {
 
   group('agendaSummary', () {
     test('conta os de hoje e aponta o próximo ainda por vir', () {
-      final summary = agendaSummary([
-        // Já começou (8h < now 9h): conta em "hoje" mas não é o próximo.
-        _appointment('a', startsAt: DateTime(2026, 8, 2, 8)),
-        _appointment('b', startsAt: DateTime(2026, 8, 2, 14)),
-        _appointment('c', startsAt: DateTime(2026, 8, 3, 10)),
-      ], now: now, isLawyer: true);
+      final summary = agendaSummary(
+        [
+          // Já começou (8h < now 9h): conta em "hoje" mas não é o próximo.
+          _appointment('a', startsAt: DateTime(2026, 8, 2, 8)),
+          _appointment('b', startsAt: DateTime(2026, 8, 2, 14)),
+          _appointment('c', startsAt: DateTime(2026, 8, 3, 10)),
+        ],
+        now: now,
+        isLawyer: true,
+      );
 
       expect(summary.title, '2 compromissos hoje');
       expect(summary.subtitle, 'Próximo: Hoje às 14:00 · Compromisso b');
     });
 
     test('singular no título com um só compromisso hoje', () {
-      final summary = agendaSummary([
-        _appointment('a', startsAt: DateTime(2026, 8, 2, 15)),
-      ], now: now, isLawyer: true);
+      final summary = agendaSummary(
+        [_appointment('a', startsAt: DateTime(2026, 8, 2, 15))],
+        now: now,
+        isLawyer: true,
+      );
 
       expect(summary.title, '1 compromisso hoje');
     });
 
     test('sem nada hoje, o próximo pode ser de outro dia', () {
-      final summary = agendaSummary([
-        _appointment('a', startsAt: DateTime(2026, 8, 7, 11)),
-      ], now: now, isLawyer: false);
+      final summary = agendaSummary(
+        [_appointment('a', startsAt: DateTime(2026, 8, 7, 11))],
+        now: now,
+        isLawyer: false,
+      );
 
       expect(summary.title, 'Nenhum compromisso hoje');
-      expect(
-        summary.subtitle,
-        'Próximo: Sex · 07/08 às 11:00 · Compromisso a',
-      );
+      expect(summary.subtitle, 'Próximo: Sex · 07/08 às 11:00 · Compromisso a');
     });
 
     test('todos de hoje já começaram: sem copy de agenda vazia', () {
       // 18h; os dois compromissos do dia já começaram e não há futuros.
       final evening = DateTime(2026, 8, 2, 18);
-      final summary = agendaSummary([
-        _appointment('a', startsAt: DateTime(2026, 8, 2, 8)),
-        _appointment('b', startsAt: DateTime(2026, 8, 2, 14)),
-      ], now: evening, isLawyer: true);
+      final summary = agendaSummary(
+        [
+          _appointment('a', startsAt: DateTime(2026, 8, 2, 8)),
+          _appointment('b', startsAt: DateTime(2026, 8, 2, 14)),
+        ],
+        now: evening,
+        isLawyer: true,
+      );
 
       expect(summary.title, '2 compromissos hoje');
       expect(summary.subtitle, 'Sem mais compromissos por vir hoje.');
@@ -178,11 +188,15 @@ void main() {
     });
 
     test('demo sem horários usa dateLabel e o primeiro da lista', () {
-      final summary = agendaSummary([
-        _appointment('a', dateLabel: 'Hoje'),
-        _appointment('b', dateLabel: 'Hoje'),
-        _appointment('c', dateLabel: 'Amanhã'),
-      ], now: now, isLawyer: true);
+      final summary = agendaSummary(
+        [
+          _appointment('a', dateLabel: 'Hoje'),
+          _appointment('b', dateLabel: 'Hoje'),
+          _appointment('c', dateLabel: 'Amanhã'),
+        ],
+        now: now,
+        isLawyer: true,
+      );
 
       expect(summary.title, '2 compromissos hoje');
       expect(summary.subtitle, 'Próximo: Hoje às 10:00 · Compromisso a');

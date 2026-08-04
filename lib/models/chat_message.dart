@@ -1,7 +1,33 @@
+import 'package:flutter/foundation.dart';
+
 import 'chat_attachment.dart';
 import 'lawyer_recommendation.dart';
 
 enum MessageAuthor { me, other, system }
+
+/// Até onde a mensagem chegou. Só aparece nas mensagens que EU enviei — saber
+/// se o outro leu a própria mensagem não quer dizer nada.
+enum MessageDeliveryStatus {
+  /// O servidor tem a mensagem. Nada indica que o outro aparelho a viu.
+  sent,
+
+  /// O app de quem recebe carregou a lista de conversas depois dela existir.
+  delivered,
+
+  /// A conversa foi aberta por quem recebe.
+  read;
+
+  /// `read_at` implica `delivered_at` no banco, mas a ordem aqui também
+  /// resolve o caso de uma linha antiga com só um dos dois preenchido.
+  static MessageDeliveryStatus resolve({
+    required bool delivered,
+    required bool read,
+  }) {
+    if (read) return MessageDeliveryStatus.read;
+    if (delivered) return MessageDeliveryStatus.delivered;
+    return MessageDeliveryStatus.sent;
+  }
+}
 
 class ChatMessage {
   final String id;
@@ -9,9 +35,18 @@ class ChatMessage {
   final MessageAuthor author;
   final String text;
   final String time;
-  final bool read;
+  final MessageDeliveryStatus status;
   final Map<String, dynamic> metadata;
   final ChatAttachment? attachment;
+
+  /// Quando a mensagem foi enviada. Diferente de [time], que é rótulo pronto
+  /// para a tela, este é o instante — é dele que sai a janela de "apagar para
+  /// todos". Nulo em mensagem local (a de demonstração e a otimista, que ainda
+  /// não voltou do servidor).
+  final DateTime? createdAt;
+
+  /// A mensagem foi apagada para todos: a linha existe, o conteúdo não.
+  final bool deletedForAll;
 
   const ChatMessage({
     required this.id,
@@ -19,9 +54,11 @@ class ChatMessage {
     required this.author,
     required this.text,
     required this.time,
-    this.read = true,
+    this.status = MessageDeliveryStatus.read,
     this.metadata = const {},
     this.attachment,
+    this.createdAt,
+    this.deletedForAll = false,
   });
 
   ChatMessage copyWith({
@@ -30,9 +67,11 @@ class ChatMessage {
     MessageAuthor? author,
     String? text,
     String? time,
-    bool? read,
+    MessageDeliveryStatus? status,
     Map<String, dynamic>? metadata,
     ChatAttachment? attachment,
+    DateTime? createdAt,
+    bool? deletedForAll,
   }) {
     return ChatMessage(
       id: id ?? this.id,
@@ -40,10 +79,33 @@ class ChatMessage {
       author: author ?? this.author,
       text: text ?? this.text,
       time: time ?? this.time,
-      read: read ?? this.read,
+      status: status ?? this.status,
       metadata: metadata ?? this.metadata,
       attachment: attachment ?? this.attachment,
+      createdAt: createdAt ?? this.createdAt,
+      deletedForAll: deletedForAll ?? this.deletedForAll,
     );
+  }
+
+  /// `true` quando trocar esta mensagem por [other] não mudaria um pixel.
+  ///
+  /// Existe por causa da confirmação de leitura: marcar uma conversa como
+  /// vista gera UM evento de tempo real POR MENSAGEM, e todos voltam para a
+  /// tela de quem acabou de ler. Só que o tique é desenhado apenas na própria
+  /// mensagem — para as mensagens do outro, esses eventos não mudam nada, e
+  /// redesenhar a lista inteira uma vez por evento é trabalho puro.
+  bool rendersSameAs(ChatMessage other) {
+    // O status só aparece na própria mensagem; na do outro ele é invisível.
+    final statusIsVisible = author == MessageAuthor.me;
+
+    return id == other.id &&
+        author == other.author &&
+        text == other.text &&
+        time == other.time &&
+        attachment?.id == other.attachment?.id &&
+        deletedForAll == other.deletedForAll &&
+        (!statusIsVisible || status == other.status) &&
+        mapEquals(metadata, other.metadata);
   }
 
   String? get caseRequestId => metadata['case_request_id'] as String?;

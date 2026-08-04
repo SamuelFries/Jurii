@@ -19,8 +19,7 @@ void main() {
       expect(session.messages.first.sender, IntakeMessageSender.assistant);
     });
 
-    test('caso trabalhista: infere área, faz perguntas e gera resumo',
-        () async {
+    test('caso trabalhista: infere área, faz perguntas e gera resumo', () async {
       var session = await service.startSession(clientId: 'client-1');
       session = await service.sendClientMessage(
         session,
@@ -29,10 +28,7 @@ void main() {
 
       expect(session.inferredPracticeAreas, contains('Direito Trabalhista'));
       // A assistente deve ter feito uma pergunta de acompanhamento.
-      expect(
-        session.messages.last.sender,
-        IntakeMessageSender.assistant,
-      );
+      expect(session.messages.last.sender, IntakeMessageSender.assistant);
 
       // Responde até a sessão fechar.
       var guard = 0;
@@ -62,23 +58,22 @@ void main() {
       expect(overview.formattedText, contains('Documentos recomendados:'));
     });
 
-    test('relato com violência doméstica gera urgência crítica e aviso',
-        () async {
-      var session = await service.startSession(clientId: 'client-2');
-      session = await service.sendClientMessage(
-        session,
-        'Meu marido me bateu e estou com medo, ele descumpriu a medida protetiva.',
-      );
+    test(
+      'relato com violência doméstica gera urgência crítica e aviso',
+      () async {
+        var session = await service.startSession(clientId: 'client-2');
+        session = await service.sendClientMessage(
+          session,
+          'Meu marido me bateu e estou com medo, ele descumpriu a medida protetiva.',
+        );
 
-      expect(session.inferredPracticeAreas, contains('Direito Criminal'));
-      expect(
-        session.messages.map((m) => m.body).join(),
-        contains('190'),
-      );
+        expect(session.inferredPracticeAreas, contains('Direito Criminal'));
+        expect(session.messages.map((m) => m.body).join(), contains('190'));
 
-      final summary = await service.buildSummary(session);
-      expect(summary.urgency, UrgencyLevel.critical);
-    });
+        final summary = await service.buildSummary(session);
+        expect(summary.urgency, UrgencyLevel.critical);
+      },
+    );
 
     test('relato com prazo judicial gera urgência alta', () async {
       var session = await service.startSession(clientId: 'client-3');
@@ -106,8 +101,9 @@ void main() {
       }
 
       final summary = await service.buildSummary(session);
-      final areas =
-          summary.suggestedCategories.map((c) => c.practiceArea).toList();
+      final areas = summary.suggestedCategories
+          .map((c) => c.practiceArea)
+          .toList();
 
       expect(areas, contains('Direito Trabalhista'));
       // Antes vinham Tributário ("iss" em "demissao") e Cível ("nao ...

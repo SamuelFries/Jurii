@@ -101,15 +101,14 @@ Widget _host(
         body: Center(
           child: ElevatedButton(
             onPressed: () async {
-              final result = await Navigator.of(context)
-                  .push<IntakeChatResult>(
-                    MaterialPageRoute(
-                      builder: (_) => IntakeScreen(
-                        service: service,
-                        counterpartLabel: counterpartLabel,
-                      ),
-                    ),
-                  );
+              final result = await Navigator.of(context).push<IntakeChatResult>(
+                MaterialPageRoute(
+                  builder: (_) => IntakeScreen(
+                    service: service,
+                    counterpartLabel: counterpartLabel,
+                  ),
+                ),
+              );
               onResult(result);
             },
             child: const Text('abrir triagem'),

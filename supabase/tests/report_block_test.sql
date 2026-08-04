@@ -7,7 +7,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(23);
+select plan(24);
 
 -- ---------------------------------------------------------------------------
 -- Fixtures: cliente + advogada aprovada + um terceiro sem relação
@@ -210,6 +210,9 @@ select 'msg_antiga', id from public.messages
 where conversation_id = (select id from t_ids where name = 'conv')
   and body = 'voltei';
 
+-- Desde a 20260806120000 o INSERT direto nem chega ao trigger: o grant foi
+-- revogado e a RPC (SECURITY DEFINER) virou o único caminho. As duas garantias
+-- ficam presas separadamente — a porta fechada e o trigger que continua lá.
 select set_config('request.jwt.claim.sub', '91000000-0000-0000-0000-000000000002', true);
 set local role authenticated;
 
@@ -222,8 +225,27 @@ select throws_ok(
             '91000000-0000-0000-0000-000000000002', 'furada.pdf',
             'application/pdf', 10,
             '91000000-0000-0000-0000-000000000002/furada.pdf', 'document')$$,
+  '42501', null,
+  'anexar arquivo direto nem e mais possivel para authenticated');
+
+reset role;
+
+-- O trigger permanece como defesa em profundidade: se um dia o grant voltar
+-- (ou um caminho com privilegio inserir), o bloqueio da conversa ainda vale.
+select throws_ok(
+  $$insert into public.message_attachments
+      (message_id, conversation_id, uploaded_by, file_name, mime_type,
+       file_size_bytes, storage_path, kind)
+    values ((select id from t_ids where name = 'msg_antiga'),
+            (select id from t_ids where name = 'conv'),
+            '91000000-0000-0000-0000-000000000002', 'furada.pdf',
+            'application/pdf', 10,
+            '91000000-0000-0000-0000-000000000002/furada.pdf', 'document')$$,
   'conversation_blocked',
-  'anexar arquivo novo a mensagem antiga tambem respeita o bloqueio');
+  'o trigger de bloqueio continua valendo para quem tem privilegio');
+
+select set_config('request.jwt.claim.sub', '91000000-0000-0000-0000-000000000002', true);
+set local role authenticated;
 
 -- ---------------------------------------------------------------------------
 -- Escritório: canal interno fora da moderação; dono destrava operador

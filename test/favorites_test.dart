@@ -103,11 +103,13 @@ void main() {
       );
 
       await tester.pumpWidget(
-        _host(FavoriteHeartButton(
-          type: FavoriteTargetType.lawyer,
-          targetId: 'l1',
-          repository: repo,
-        )),
+        _host(
+          FavoriteHeartButton(
+            type: FavoriteTargetType.lawyer,
+            targetId: 'l1',
+            repository: repo,
+          ),
+        ),
       );
       await tester.pumpAndSettle();
 
@@ -128,11 +130,13 @@ void main() {
       final repo = _FakeFavoritesRepository(failToggle: true);
 
       await tester.pumpWidget(
-        _host(FavoriteHeartButton(
-          type: FavoriteTargetType.lawFirm,
-          targetId: 'f1',
-          repository: repo,
-        )),
+        _host(
+          FavoriteHeartButton(
+            type: FavoriteTargetType.lawFirm,
+            targetId: 'f1',
+            repository: repo,
+          ),
+        ),
       );
       await tester.pumpAndSettle();
 
@@ -152,10 +156,12 @@ void main() {
     ) async {
       // Repositório REAL: sem Supabase inicializado, isAvailable == false.
       await tester.pumpWidget(
-        _host(const FavoriteHeartButton(
-          type: FavoriteTargetType.lawyer,
-          targetId: 'l1',
-        )),
+        _host(
+          const FavoriteHeartButton(
+            type: FavoriteTargetType.lawyer,
+            targetId: 'l1',
+          ),
+        ),
       );
       await tester.pumpAndSettle();
 

@@ -80,7 +80,8 @@ void main() {
         LawyerProfileCard(
           lawyer: LawyerProfileSummary(
             id: 'l2',
-            name: 'Advogado Com Nome Extremamente Comprido '
+            name:
+                'Advogado Com Nome Extremamente Comprido '
                 'Que Precisa De Reticências Para Caber',
             initials: 'AC',
             oabNumber: '999999',

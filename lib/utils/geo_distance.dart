@@ -14,7 +14,8 @@ double haversineKm({
   const earthRadiusKm = 6371.0;
   final dLat = _rad(lat2 - lat1);
   final dLon = _rad(lon2 - lon1);
-  final a = pow(sin(dLat / 2), 2) +
+  final a =
+      pow(sin(dLat / 2), 2) +
       cos(_rad(lat1)) * cos(_rad(lat2)) * pow(sin(dLon / 2), 2);
   return 2 * earthRadiusKm * asin(sqrt(a.toDouble()));
 }

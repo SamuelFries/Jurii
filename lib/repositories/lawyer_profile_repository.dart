@@ -64,9 +64,9 @@ class LawyerProfileRepository {
         error: error,
         stackTrace: stackTrace,
       );
-      return DiscoveryPage.last(await _fetchRecommendedLawyersLegacy(
-        searchQuery: searchQuery,
-      ));
+      return DiscoveryPage.last(
+        await _fetchRecommendedLawyersLegacy(searchQuery: searchQuery),
+      );
     }
   }
 

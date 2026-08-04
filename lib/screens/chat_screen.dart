@@ -1,6 +1,7 @@
 import 'dart:async';
-import 'dart:typed_data';
+import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -18,14 +19,21 @@ import '../repositories/law_firm_repository.dart';
 import '../repositories/lawyer_profile_repository.dart';
 import '../repositories/messaging_repository.dart';
 import '../repositories/profile_repository.dart';
+import '../services/attachment_url_cache.dart';
 import '../services/intake_ai_service.dart';
 import '../services/supabase_config.dart';
 import '../theme/app_colors.dart';
+import '../utils/chat_attachment_rules.dart';
+import '../utils/chat_message_deletion.dart';
+import '../utils/document_file_validation.dart';
 import '../utils/safe_file_picker.dart';
+import '../widgets/chat_media_bubble.dart';
+import '../widgets/chat_media_viewer.dart';
 import '../widgets/jurii_empty_state.dart';
 import '../widgets/jurii_form_motion.dart';
 import '../widgets/jurii_motion.dart';
 import '../widgets/lawyer_recommendation_card.dart';
+import '../widgets/message_status_check.dart';
 import '../widgets/profile_avatar.dart';
 import '../widgets/recommend_lawyer_sheet.dart';
 import 'client_profile_screen.dart';
@@ -74,7 +82,7 @@ class ChatScreen extends StatefulWidget {
 }
 
 class _ChatScreenState extends State<ChatScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final MessagingRepository _repository = const MessagingRepository();
@@ -83,6 +91,31 @@ class _ChatScreenState extends State<ChatScreen>
   final LawyerProfileRepository _lawyerProfileRepository =
       const LawyerProfileRepository();
   final LawFirmRepository _lawFirmRepository = const LawFirmRepository();
+
+  /// Bucket de anexo é privado: foto e vídeo dentro do balão só aparecem com
+  /// URL assinada. O cache vive junto da tela (morre com ela) e assina em lote.
+  late final AttachmentUrlCache _mediaUrls = AttachmentUrlCache(
+    signer: (paths, ttl) {
+      if (!SupabaseConfig.isReady) return Future.value(const {});
+      return _repository.createSignedAttachmentUrls(paths, ttl);
+    },
+  );
+
+  /// Mensagens marcadas no modo de seleção (toque longo). Vazio = modo
+  /// desligado; a tela inteira muda de barra quando ele liga.
+  final Set<String> _selectedMessageIds = {};
+  bool _isDeletingMessages = false;
+
+  /// Só confirma leitura com o app na frente. Começa true porque a tela só é
+  /// construída quando alguém a abre.
+  bool _isForeground = true;
+
+  /// Reassina antes do vencimento mesmo sem nada acontecer na conversa. Sem
+  /// isto, um chat deixado aberto passa da validade da URL e TODA foto do
+  /// histórico vira cartão de erro no primeiro rebuild — e nada a conserta até
+  /// chegar mensagem nova.
+  Timer? _mediaUrlRefreshTimer;
+
   RealtimeChannel? _messagesChannel;
   List<ChatMessage> _messages = const [];
   bool _isLoading = true;
@@ -144,16 +177,40 @@ class _ChatScreenState extends State<ChatScreen>
   @override
   void initState() {
     super.initState();
+    // Observa o ciclo de vida para não confirmar leitura com o app no bolso:
+    // a conversa continua montada quando o usuário troca de aplicativo, e sem
+    // isso toda mensagem que chegasse enquanto ele não está olhando sairia
+    // marcada como visualizada.
+    WidgetsBinding.instance.addObserver(this);
     _loadMessages();
     _subscribeToMessages();
+    // 10 minutos contra uma validade de 1 hora: qualquer tique cai dentro da
+    // margem de renovação antes de a URL morrer, e o tique que não tem nada a
+    // renovar não gera rede nem rebuild.
+    _mediaUrlRefreshTimer = Timer.periodic(
+      const Duration(minutes: 10),
+      (_) => unawaited(_ensureMediaUrls()),
+    );
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    _isForeground = state == AppLifecycleState.resumed;
+    // Voltou para a tela com a conversa aberta: o que chegou enquanto ela
+    // estava em segundo plano só agora foi de fato visto.
+    if (_isForeground) unawaited(_markConversationRead());
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     final channel = _messagesChannel;
     if (channel != null && SupabaseConfig.isReady) {
       SupabaseConfig.client.removeChannel(channel);
     }
+    _mediaUrlRefreshTimer?.cancel();
+    _mediaUrls.clear();
     _triageHintTimer?.cancel();
     _plusMenuAnimation.dispose();
     _plusMenuController.dispose();
@@ -189,6 +246,8 @@ class _ChatScreenState extends State<ChatScreen>
         _isLoading = false;
         _loadFailed = false;
       });
+      unawaited(_ensureMediaUrls());
+      unawaited(_markConversationRead());
       _scrollToBottom();
     } catch (error) {
       debugPrint('Supabase messages fetch failed: $error');
@@ -201,6 +260,70 @@ class _ChatScreenState extends State<ChatScreen>
       });
       _scrollToBottom();
     }
+  }
+
+  /// Confirma a leitura do que a outra parte mandou nesta conversa.
+  ///
+  /// Falha em silêncio de propósito: o tique azul é cortesia. Estourar um erro
+  /// na cara de quem só abriu a conversa seria pior que o tique não aparecer.
+  Future<void> _markConversationRead() async {
+    if (!_usesSupabase || !SupabaseConfig.isReady || !_isForeground) return;
+    try {
+      await _repository.markConversationRead(widget.conversation.id!);
+    } catch (error) {
+      debugPrint('Read receipt failed: $error');
+    }
+  }
+
+  /// Assina em UM lote as mídias que a lista precisa desenhar. Chamado depois
+  /// de carregar e a cada mensagem nova — a segunda chamada não repete o que já
+  /// está assinado, então sai barata.
+  Future<void> _ensureMediaUrls() async {
+    if (!_usesSupabase || !SupabaseConfig.isReady) return;
+
+    final paths = _messages
+        .map((message) => message.attachment)
+        .whereType<ChatAttachment>()
+        .where((attachment) => attachment.isMedia)
+        .map((attachment) => attachment.storagePath)
+        .toList();
+    if (paths.isEmpty) return;
+
+    final before = paths.map(_mediaUrls.cachedUrlFor).toList();
+    // `ensureUrls` marca os caminhos como em voo ANTES do primeiro await, então
+    // o quadro que está sendo montado agora já mostra esqueleto — e não o
+    // cartão de "não foi possível carregar", que seria o estado de URL ausente.
+    await _mediaUrls.ensureUrls(paths);
+    if (!mounted) return;
+
+    // O balão lê a URL do cache no build; sem este setState a foto só
+    // apareceria na próxima vez que a tela se redesenhasse por outro motivo.
+    // Comparar antes/depois evita que o tique periódico (que quase sempre não
+    // tem o que renovar) redesenhe a conversa inteira de dez em dez minutos.
+    final after = paths.map(_mediaUrls.cachedUrlFor).toList();
+    if (!listEquals(before, after)) setState(() {});
+  }
+
+  /// Nova tentativa para uma mídia que não carregou: joga fora a URL guardada
+  /// (reusá-la repetiria a falha) e assina outra.
+  ///
+  /// [automatic] é a recuperação disparada pelo próprio download que falhou —
+  /// essa tem teto de UMA por anexo enquanto a tela viver. Sem o teto vira
+  /// laço: assinar gera URL nova, URL nova recria o balão, o balão baixa e
+  /// falha de novo. Para um objeto que sumiu do bucket isso não converge, e o
+  /// custo é rede e bateria de quem só está lendo a conversa. O toque em
+  /// "Tentar de novo" ([automatic] falso) não tem teto: é decisão da pessoa.
+  Future<void> _retryMedia(
+    ChatAttachment attachment, {
+    required bool automatic,
+  }) async {
+    if (automatic) {
+      if (!_mediaUrls.forgetForAutoRetry(attachment.storagePath)) return;
+    } else {
+      _mediaUrls.forget(attachment.storagePath);
+    }
+    if (mounted) setState(() {});
+    await _ensureMediaUrls();
   }
 
   void _subscribeToMessages() {
@@ -256,11 +379,33 @@ class _ChatScreenState extends State<ChatScreen>
   }
 
   Future<void> _upsertRealtimeMessage(Map<String, dynamic> row) async {
+    final currentUserId = SupabaseConfig.client.auth.currentUser?.id;
+    final id = row['id'] as String?;
+
+    // Confirmação de leitura chega como UPDATE, uma por mensagem: abrir uma
+    // conversa com dez fotos por ler dispara dez eventos aqui. O anexo não
+    // muda num UPDATE de leitura, então reaproveitar o que já está na tela
+    // evita dez consultas ao banco só para redesenhar o tique.
+    final known = id == null ? null : _messageById(id);
+    if (known?.attachment != null) {
+      final refreshed = _repository.messageFromRow(
+        row,
+        currentUserId: currentUserId,
+      );
+      _upsertMessage(refreshed.copyWith(attachment: known!.attachment));
+      return;
+    }
+
     final message = await _repository.messageFromRowWithAttachment(
       row,
-      currentUserId: SupabaseConfig.client.auth.currentUser?.id,
+      currentUserId: currentUserId,
     );
     _upsertMessage(message);
+  }
+
+  ChatMessage? _messageById(String id) {
+    final index = _messages.indexWhere((message) => message.id == id);
+    return index == -1 ? null : _messages[index];
   }
 
   List<ChatMessage> _mockMessages() {
@@ -304,7 +449,7 @@ class _ChatScreenState extends State<ChatScreen>
           author: MessageAuthor.me,
           text: text,
           time: 'Agora',
-          read: false,
+          status: MessageDeliveryStatus.sent,
         ),
       );
       _maybeShowTriageHint(ignoredTriageBanner);
@@ -356,6 +501,10 @@ class _ChatScreenState extends State<ChatScreen>
   }
 
   void _togglePlusMenu() {
+    // O menu ocupa o mesmo espaço do teclado, e os dois abertos ao mesmo tempo
+    // não cabem em tela pequena — o composer (campo e botão enviar) era
+    // empurrado para fora. Quem toca no "+" quer anexar, não digitar.
+    if (!_isPlusMenuOpen) FocusScope.of(context).unfocus();
     setState(() {
       _isPlusMenuOpen = !_isPlusMenuOpen;
       if (_isPlusMenuOpen) {
@@ -481,15 +630,7 @@ class _ChatScreenState extends State<ChatScreen>
     final SafePickedFile? file;
     try {
       file = await pickSingleFile(
-        allowedExtensions: const [
-          'jpg',
-          'jpeg',
-          'png',
-          'webp',
-          'pdf',
-          'doc',
-          'docx',
-        ],
+        allowedExtensions: chatAttachmentAllowedExtensions,
       );
     } catch (error) {
       // Permissão negada era um toque sem nenhuma resposta.
@@ -504,27 +645,19 @@ class _ChatScreenState extends State<ChatScreen>
     }
     if (file == null || !mounted) return;
 
-    final mimeType = _mimeTypeForFile(file.name);
-    final kind = _attachmentKindForMime(mimeType);
+    final mimeType = chatAttachmentMimeType(file.name);
+    final kind = chatAttachmentKindForMime(mimeType);
 
     if (mimeType == null || kind == null) {
       _showSnackBar(
-        'Envie apenas fotos, PDF, DOC ou DOCX. Para fotos do celular, '
-        'use "Enviar foto".',
+        'Envie apenas fotos, vídeos (MP4 ou MOV), PDF, DOC ou DOCX.',
       );
       return;
     }
 
     // Tamanho ANTES de ler os bytes: a leitura só acontece dentro do teto.
-    final maxSize = kind == ChatAttachmentKind.image
-        ? 5 * 1024 * 1024
-        : 10 * 1024 * 1024;
-    if (file.size > maxSize) {
-      _showSnackBar(
-        kind == ChatAttachmentKind.image
-            ? 'Fotos podem ter no máximo 5 MB.'
-            : 'Documentos podem ter no máximo 10 MB.',
-      );
+    if (file.size > maxChatAttachmentBytes(kind)) {
+      _showSnackBar(chatAttachmentSizeLimitMessage(kind));
       return;
     }
 
@@ -545,7 +678,7 @@ class _ChatScreenState extends State<ChatScreen>
       return;
     }
 
-    if (!_bytesMatchMimeType(bytes, mimeType)) {
+    if (!bytesMatchMimeType(bytes, mimeType)) {
       _showSnackBar('Arquivo inválido ou corrompido.');
       return;
     }
@@ -593,8 +726,8 @@ class _ChatScreenState extends State<ChatScreen>
 
     final size = await photo.length();
     if (!mounted) return;
-    if (size > 5 * 1024 * 1024) {
-      _showSnackBar('Fotos podem ter no máximo 5 MB.');
+    if (size > maxChatImageBytes) {
+      _showSnackBar(chatAttachmentSizeLimitMessage(ChatAttachmentKind.image));
       return;
     }
 
@@ -608,7 +741,7 @@ class _ChatScreenState extends State<ChatScreen>
     }
     if (!mounted) return;
 
-    if (bytes.isEmpty || !_bytesMatchMimeType(bytes, 'image/jpeg')) {
+    if (bytes.isEmpty || !bytesMatchMimeType(bytes, 'image/jpeg')) {
       _showSnackBar('Não foi possível ler a foto.');
       return;
     }
@@ -617,6 +750,84 @@ class _ChatScreenState extends State<ChatScreen>
       fileName: 'foto_${DateTime.now().millisecondsSinceEpoch}.jpg',
       mimeType: 'image/jpeg',
       kind: ChatAttachmentKind.image,
+      bytes: bytes,
+    );
+  }
+
+  /// Vídeo pela câmera ou pela galeria.
+  ///
+  /// Diferente da foto, NÃO existe recompressão: o image_picker do Android
+  /// entrega o arquivo original e o do iOS grava em qualidade alta e só copia.
+  /// O teto de 25 MB é, portanto, a única coisa entre a galeria do usuário e a
+  /// conta de Storage — e por isso o tamanho é conferido ANTES de ler os bytes.
+  Future<void> _sendVideo(ImageSource source) async {
+    if (_isUploadingAttachment) return;
+
+    if (!_usesSupabase || !SupabaseConfig.isReady) {
+      _showSnackBar('Anexos estão disponíveis apenas em conversas online.');
+      return;
+    }
+
+    final XFile? video;
+    try {
+      video = await ImagePicker().pickVideo(
+        source: source,
+        // Corta a GRAVAÇÃO em 1 minuto. Vídeo escolhido na galeria ignora este
+        // limite (o sistema não recorta o que já existe) e é barrado adiante
+        // pelo tamanho — o teto de bytes é quem vale nos dois caminhos.
+        maxDuration: const Duration(minutes: 1),
+      );
+    } catch (error) {
+      debugPrint('Video picker failed: $error');
+      if (mounted) {
+        _showSnackBar(
+          source == ImageSource.camera
+              ? 'Não foi possível abrir a câmera. '
+                    'Verifique as permissões de câmera e microfone nos Ajustes.'
+              : 'Não foi possível abrir a galeria. '
+                    'Verifique a permissão nos Ajustes.',
+        );
+      }
+      return;
+    }
+    if (video == null) return;
+
+    // A extensão vem do arquivo que o sistema entregou (.MOV no iPhone,
+    // .mp4 no Android). Formato fora dos dois é recusado aqui em vez de subir
+    // para o bucket recusar depois — o upload já teria custado a rede.
+    final mimeType = chatAttachmentMimeType(video.name);
+    if (mimeType == null ||
+        chatAttachmentKindForMime(mimeType) != ChatAttachmentKind.video) {
+      _showSnackBar('Envie vídeos em MP4 ou MOV.');
+      return;
+    }
+
+    final size = await video.length();
+    if (!mounted) return;
+    if (size > maxChatVideoBytes) {
+      _showSnackBar(chatAttachmentSizeLimitMessage(ChatAttachmentKind.video));
+      return;
+    }
+
+    final Uint8List bytes;
+    try {
+      bytes = await video.readAsBytes();
+    } catch (error) {
+      debugPrint('Video read failed: $error');
+      if (mounted) _showSnackBar('Não foi possível ler o vídeo.');
+      return;
+    }
+    if (!mounted) return;
+
+    if (bytes.isEmpty || !bytesMatchMimeType(bytes, mimeType)) {
+      _showSnackBar('Vídeo inválido ou corrompido.');
+      return;
+    }
+
+    await _uploadAttachment(
+      fileName: video.name,
+      mimeType: mimeType,
+      kind: ChatAttachmentKind.video,
       bytes: bytes,
     );
   }
@@ -662,15 +873,23 @@ class _ChatScreenState extends State<ChatScreen>
     if (!SupabaseConfig.isReady) return;
 
     try {
-      final signedUrl = await _repository.createSignedAttachmentUrl(attachment);
+      // Mídia já tem URL assinada no cache (é ela que desenha a prévia):
+      // reaproveitar evita uma ida ao servidor a cada toque. Documento não
+      // passa pelo cache — assina na hora, com prazo curto.
+      final signedUrl =
+          (attachment.isMedia
+              ? _mediaUrls.cachedUrlFor(attachment.storagePath)
+              : null) ??
+          await _repository.createSignedAttachmentUrl(attachment);
       if (!mounted) return;
 
-      if (attachment.isImage) {
-        await showDialog<void>(
-          context: context,
-          builder: (_) => _ImageAttachmentDialog(
-            attachment: attachment,
-            signedUrl: signedUrl,
+      if (attachment.isMedia) {
+        await Navigator.of(context).push<void>(
+          MaterialPageRoute(
+            builder: (_) => ChatMediaViewerPage(
+              attachment: attachment,
+              signedUrl: signedUrl,
+            ),
           ),
         );
         return;
@@ -688,42 +907,6 @@ class _ChatScreenState extends State<ChatScreen>
       debugPrint('Supabase attachment open failed: $error');
       if (!mounted) return;
       _showSnackBar('Não foi possível abrir o anexo.');
-    }
-  }
-
-  /// Confere a assinatura (magic bytes) do arquivo contra o MIME derivado da
-  /// extensão — impede binário arbitrário renomeado para .pdf/.jpg.
-  bool _bytesMatchMimeType(List<int> bytes, String mimeType) {
-    bool startsWith(List<int> signature) {
-      if (bytes.length < signature.length) return false;
-      for (var i = 0; i < signature.length; i++) {
-        if (bytes[i] != signature[i]) return false;
-      }
-      return true;
-    }
-
-    switch (mimeType) {
-      case 'application/pdf':
-        return startsWith(const [0x25, 0x50, 0x44, 0x46]); // %PDF
-      case 'image/jpeg':
-        return startsWith(const [0xFF, 0xD8, 0xFF]);
-      case 'image/png':
-        return startsWith(const [0x89, 0x50, 0x4E, 0x47]);
-      case 'image/webp':
-        return bytes.length >= 12 &&
-            startsWith(const [0x52, 0x49, 0x46, 0x46]) && // RIFF
-            bytes[8] == 0x57 &&
-            bytes[9] == 0x45 &&
-            bytes[10] == 0x42 &&
-            bytes[11] == 0x50; // WEBP
-      case 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
-        return startsWith(const [0x50, 0x4B]); // ZIP (PK)
-      case 'application/msword':
-        // .doc legado (OLE) ou salvo como zip por editores modernos.
-        return startsWith(const [0xD0, 0xCF, 0x11, 0xE0]) ||
-            startsWith(const [0x50, 0x4B]);
-      default:
-        return false;
     }
   }
 
@@ -853,32 +1036,6 @@ class _ChatScreenState extends State<ChatScreen>
     }
   }
 
-  String? _mimeTypeForFile(String fileName) {
-    final extension = fileName.split('.').last.toLowerCase();
-    return switch (extension) {
-      'jpg' || 'jpeg' => 'image/jpeg',
-      'png' => 'image/png',
-      'webp' => 'image/webp',
-      'pdf' => 'application/pdf',
-      'doc' => 'application/msword',
-      'docx' =>
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      _ => null,
-    };
-  }
-
-  ChatAttachmentKind? _attachmentKindForMime(String? mimeType) {
-    if (mimeType == null) return null;
-    if (mimeType.startsWith('image/')) return ChatAttachmentKind.image;
-    if (mimeType == 'application/pdf' ||
-        mimeType == 'application/msword' ||
-        mimeType ==
-            'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
-      return ChatAttachmentKind.document;
-    }
-    return null;
-  }
-
   void _showSnackBar(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(
@@ -899,6 +1056,12 @@ class _ChatScreenState extends State<ChatScreen>
     setState(
       () => _messages = [..._withoutDuplicateCaseRequest(message), message],
     );
+    unawaited(_ensureMediaUrls());
+    // Mensagem que chegou com a conversa aberta ja nasce vista. So a do OUTRO:
+    // marcar na propria seria ida ao servidor para nao mudar nada.
+    if (message.author != MessageAuthor.me) {
+      unawaited(_markConversationRead());
+    }
     _scrollToBottom();
   }
 
@@ -911,13 +1074,19 @@ class _ChatScreenState extends State<ChatScreen>
       setState(
         () => _messages = [..._withoutDuplicateCaseRequest(message), message],
       );
+      unawaited(_ensureMediaUrls());
       _scrollToBottom();
       return;
     }
 
+    // Evento que não muda nada na tela não vira rebuild: ver
+    // [ChatMessage.rendersSameAs].
+    if (_messages[index].rendersSameAs(message)) return;
+
     final nextMessages = [..._messages];
     nextMessages[index] = message;
     setState(() => _messages = nextMessages);
+    unawaited(_ensureMediaUrls());
   }
 
   /// Remove o card sintético de solicitação de caso (id `case_request_<id>`)
@@ -956,6 +1125,8 @@ class _ChatScreenState extends State<ChatScreen>
     );
     if (!mounted) return;
     setState(() => _messages = messages);
+    unawaited(_ensureMediaUrls());
+    unawaited(_markConversationRead());
     _scrollToBottom();
   }
 
@@ -997,7 +1168,7 @@ class _ChatScreenState extends State<ChatScreen>
       author: MessageAuthor.system,
       text: 'Solicitação de aceite do caso: ${request.title}',
       time: request.createdAtLabel,
-      read: false,
+      status: MessageDeliveryStatus.sent,
       metadata: {
         'type': 'case_request',
         'case_request_id': request.id,
@@ -1251,290 +1422,485 @@ class _ChatScreenState extends State<ChatScreen>
     }
   }
 
+  bool get _isSelectionMode => _selectedMessageIds.isNotEmpty;
+
+  List<ChatMessage> get _selectedMessages => _messages
+      .where((message) => _selectedMessageIds.contains(message.id))
+      .toList();
+
+  /// Toque longo abre a seleção; com ela aberta, o toque simples passa a
+  /// marcar e desmarcar — é o padrão que todo mundo já conhece de aplicativo
+  /// de mensagens, e evita um botão "selecionar" ocupando a barra.
+  void _toggleMessageSelection(ChatMessage message) {
+    if (!canSelectMessage(message)) return;
+    setState(() {
+      if (!_selectedMessageIds.remove(message.id)) {
+        _selectedMessageIds.add(message.id);
+      }
+    });
+  }
+
+  /// Tira da seleção o que não está mais na lista. Sem isto, uma mensagem que
+  /// some num refresh continuaria contando na barra ("2 selecionadas" com uma
+  /// só marcada na tela).
+  void _pruneSelection() {
+    if (_selectedMessageIds.isEmpty) return;
+    final existentes = _messages.map((message) => message.id).toSet();
+    _selectedMessageIds.removeWhere((id) => !existentes.contains(id));
+  }
+
+  void _clearSelection() {
+    if (_selectedMessageIds.isEmpty) return;
+    setState(_selectedMessageIds.clear);
+  }
+
+  PreferredSizeWidget _selectionAppBar(AppColors colors) {
+    final total = _selectedMessageIds.length;
+
+    return AppBar(
+      backgroundColor: colors.lightBlue,
+      leading: IconButton(
+        onPressed: _isDeletingMessages ? null : _clearSelection,
+        icon: const Icon(Icons.close),
+        tooltip: 'Cancelar seleção',
+      ),
+      title: Text(
+        total == 1 ? '1 selecionada' : '$total selecionadas',
+        style: TextStyle(
+          color: colors.textPrimary,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+      actions: [
+        IconButton(
+          onPressed: _isDeletingMessages ? null : _confirmDeleteSelection,
+          icon: _isDeletingMessages
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.delete_outline),
+          tooltip: 'Apagar',
+        ),
+      ],
+    );
+  }
+
+  Future<void> _confirmDeleteSelection() async {
+    final selected = _selectedMessages;
+    if (selected.isEmpty) return;
+
+    final forEveryone = canDeleteSelectionForEveryone(
+      selected,
+      now: DateTime.now(),
+    );
+
+    final escolha = await showModalBottomSheet<_DeleteScope>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _DeleteMessagesSheet(
+        total: selected.length,
+        allowForEveryone: forEveryone,
+      ),
+    );
+    if (escolha == null || !mounted) return;
+
+    await _deleteSelection(escolha);
+  }
+
+  Future<void> _deleteSelection(_DeleteScope scope) async {
+    final ids = _selectedMessageIds.toList();
+    if (ids.isEmpty) return;
+
+    setState(() => _isDeletingMessages = true);
+    try {
+      if (scope == _DeleteScope.everyone) {
+        await _repository.deleteMessagesForEveryone(ids);
+        // A lápide vem do servidor: recarregar deixa a tela contar a mesma
+        // história que o outro lado vai ver, em vez de uma versão local.
+        await _refreshMessagesSilently();
+      } else {
+        await _repository.deleteMessagesForMe(ids);
+        // "Para mim" não gera evento de tempo real (a linha nova é de outra
+        // tabela), então a saída da tela é por conta do app.
+        if (mounted) {
+          setState(() {
+            _messages = _messages
+                .where((message) => !ids.contains(message.id))
+                .toList();
+          });
+        }
+      }
+      if (!mounted) return;
+      _clearSelection();
+    } catch (error) {
+      debugPrint('Message deletion failed: $error');
+      if (!mounted) return;
+      _showSnackBar('Não foi possível apagar. Tente novamente.');
+    } finally {
+      if (mounted) setState(() => _isDeletingMessages = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     // Latch do banner: conversa que já exibiu mensagem alguma vez nunca volta
     // a contar como "nova" (atribuição direta, sem setState — só trava um
     // estado que o rebuild atual já reflete).
     if (_messages.isNotEmpty) _everHadMessages = true;
+    _pruneSelection();
 
     final colors = context.jColors;
 
-    return Scaffold(
-      backgroundColor: colors.background,
-      appBar: AppBar(
+    return PopScope(
+      // Voltar com a seleção aberta fecha a SELEÇÃO, não a conversa. Sem isto
+      // o gesto de voltar do Android tiraria a pessoa da tela no meio de uma
+      // ação destrutiva.
+      canPop: !_isSelectionMode,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _clearSelection();
+      },
+      child: Scaffold(
         backgroundColor: colors.background,
-        titleSpacing: 0,
-        title: InkWell(
-          onTap: _isOpeningProfile ? null : _openCounterpartProfile,
-          borderRadius: BorderRadius.circular(14),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            child: Row(
-              children: [
-                if (_isOpeningProfile)
-                  CircleAvatar(
-                    radius: 18,
-                    backgroundColor: widget.isLawyer
-                        ? colors.lightGold
-                        : colors.lightBlue,
-                    child: const SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                  )
-                else
-                  ProfileAvatar(
-                    imageUrl: widget.conversation.avatarUrl,
-                    initials: widget.conversation.initials,
-                    size: 36,
-                    backgroundColor: widget.isLawyer
-                        ? colors.lightGold
-                        : colors.lightBlue,
-                    foregroundColor: widget.isLawyer
-                        ? colors.accent
-                        : colors.primary,
-                    borderRadius: BorderRadius.circular(18),
-                    fontSize: 12,
-                  ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        widget.conversation.officeName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: colors.textPrimary,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      Text(
-                        widget.conversation.specialty,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: colors.textSecondary,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 6),
-                Icon(
-                  Icons.chevron_right,
-                  size: 18,
-                  color: colors.textSecondary,
-                ),
-              ],
-            ),
-          ),
-        ),
-        actions: [
-          if (_canRequestCase)
-            IconButton(
-              onPressed: _isCreatingCaseRequest ? null : _openCaseRequestSheet,
-              icon: _isCreatingCaseRequest
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.assignment_add),
-              tooltip: 'Enviar solicitação de caso',
-            ),
-          if (_canRecommendLawyer)
-            IconButton(
-              onPressed: _isRecommendingLawyer
-                  ? null
-                  : _openRecommendLawyerSheet,
-              icon: _isRecommendingLawyer
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.recommend_outlined),
-              tooltip: 'Sugerir advogado',
-            ),
-          if (_usesSupabase && widget.allowModeration)
-            PopupMenuButton<String>(
-              tooltip: 'Opções da conversa',
-              onSelected: (value) {
-                switch (value) {
-                  case 'report':
-                    _openReportSheet();
-                  case 'block':
-                    _confirmBlockConversation();
-                  case 'unblock':
-                    _setConversationBlocked(false);
-                }
-              },
-              itemBuilder: (context) => [
-                const PopupMenuItem(value: 'report', child: Text('Denunciar')),
-                if (!_isBlocked)
-                  const PopupMenuItem(
-                    value: 'block',
-                    child: Text('Bloquear conversa'),
-                  )
-                else if (_blockedByMe)
-                  const PopupMenuItem(
-                    value: 'unblock',
-                    child: Text('Desbloquear conversa'),
-                  ),
-              ],
-            ),
-        ],
-      ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            AnimatedSize(
-              duration: const Duration(milliseconds: 250),
-              curve: Curves.easeOutCubic,
-              child: _showTriageBanner
-                  ? _TriageBanner(
-                      counterpartLabel: _triageCounterpartLabel,
-                      onTap: _startTriage,
-                    )
-                  : const SizedBox(width: double.infinity),
-            ),
-            Expanded(
-              child: _isLoading
-                  ? const Padding(
-                      padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
-                      child: JuriiSkeletonList(
-                        itemCount: 6,
-                        itemHeight: 72,
-                        gap: 10,
-                      ),
-                    )
-                  : _loadFailed && _messages.isEmpty
-                  ? _ChatLoadErrorState(onRetry: _loadMessages)
-                  : _messages.isEmpty
-                  ? const _EmptyChatState()
-                  : ListView.builder(
-                      controller: _scrollController,
-                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                      itemCount: _messages.length,
-                      itemBuilder: (context, index) {
-                        final message = _messages[index];
-                        final fromRight = message.author == MessageAuthor.me;
-                        return JuriiStaggeredItem(
-                          key: ValueKey('chat_message_${message.id}'),
-                          index: index,
-                          beginOffset: Offset(fromRight ? 18 : -18, 8),
-                          child: _MessageBubble(
-                            message: message,
-                            counterpartName: widget.conversation.officeName,
-                            counterpartInitials: widget.conversation.initials,
-                            canRespondToCaseRequest:
-                                !widget.isLawyer &&
-                                message.isPendingCaseRequest,
-                            isRespondingCaseRequest:
-                                _respondingCaseRequestId ==
-                                message.caseRequestId,
-                            // Só o cliente aciona o advogado sugerido; para o
-                            // escritório o card é o registro da sugestão.
-                            canMessageRecommendedLawyer: !widget.isLawyer,
-                            isOpeningRecommendedLawyerChat:
-                                _openingRecommendedLawyerId != null &&
-                                _openingRecommendedLawyerId ==
-                                    message.lawyerRecommendation?.lawyerId,
-                            onMessageRecommendedLawyer:
-                                _openRecommendedLawyerChat,
-                            onAcceptCaseRequest: () =>
-                                _respondToCaseRequestFromChat(
-                                  message,
-                                  accepted: true,
-                                ),
-                            onDeclineCaseRequest: () =>
-                                _respondToCaseRequestFromChat(
-                                  message,
-                                  accepted: false,
-                                ),
-                            onOpenAttachment: _openAttachment,
+        // Só a BARRA troca no modo de seleção: devolver um Scaffold diferente
+        // remontaria a lista e jogaria a conversa de volta para o fim.
+        appBar: _isSelectionMode
+            ? _selectionAppBar(colors)
+            : AppBar(
+                backgroundColor: colors.background,
+                titleSpacing: 0,
+                title: InkWell(
+                  onTap: _isOpeningProfile ? null : _openCounterpartProfile,
+                  borderRadius: BorderRadius.circular(14),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      children: [
+                        if (_isOpeningProfile)
+                          CircleAvatar(
+                            radius: 18,
+                            backgroundColor: widget.isLawyer
+                                ? colors.lightGold
+                                : colors.lightBlue,
+                            child: const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          )
+                        else
+                          ProfileAvatar(
+                            imageUrl: widget.conversation.avatarUrl,
+                            initials: widget.conversation.initials,
+                            size: 36,
+                            backgroundColor: widget.isLawyer
+                                ? colors.lightGold
+                                : colors.lightBlue,
+                            foregroundColor: widget.isLawyer
+                                ? colors.accent
+                                : colors.primary,
+                            borderRadius: BorderRadius.circular(18),
+                            fontSize: 12,
                           ),
-                        );
-                      },
-                    ),
-            ),
-            AnimatedSize(
-              duration: const Duration(milliseconds: 200),
-              curve: Curves.easeOutCubic,
-              child: _showTriageHint && !_isBlocked
-                  ? const _TriageHintChip()
-                  : const SizedBox(width: double.infinity),
-            ),
-            // Menu do "+": abre deslizando para cima, junto do composer.
-            // Fora da árvore quando fechado (não fica "invisível" clicável)
-            // e quando a conversa bloqueia (senão ficava órfão e clicável
-            // sobre a barra de bloqueio, sem botão para fechá-lo).
-            AnimatedBuilder(
-              animation: _plusMenuController,
-              builder: (context, _) {
-                if (_plusMenuController.isDismissed || _isBlocked) {
-                  return const SizedBox(width: double.infinity);
-                }
-                return ClipRect(
-                  child: SizeTransition(
-                    sizeFactor: _plusMenuAnimation,
-                    alignment: Alignment.bottomCenter,
-                    child: SlideTransition(
-                      position: Tween<Offset>(
-                        begin: const Offset(0, 0.35),
-                        end: Offset.zero,
-                      ).animate(_plusMenuAnimation),
-                      child: FadeTransition(
-                        opacity: _plusMenuAnimation,
-                        child: _PlusMenuSheet(
-                          showTriage: _triageAvailable,
-                          onTakePhoto: () {
-                            _closePlusMenu();
-                            _sendPhoto(ImageSource.camera);
-                          },
-                          onPickPhoto: () {
-                            _closePlusMenu();
-                            _sendPhoto(ImageSource.gallery);
-                          },
-                          onAttach: () {
-                            _closePlusMenu();
-                            _sendAttachment();
-                          },
-                          onTriage: _startTriage,
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                widget.conversation.officeName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: colors.textPrimary,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                              Text(
+                                widget.conversation.specialty,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: colors.textSecondary,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
+                        const SizedBox(width: 6),
+                        Icon(
+                          Icons.chevron_right,
+                          size: 18,
+                          color: colors.textSecondary,
+                        ),
+                      ],
                     ),
                   ),
-                );
-              },
-            ),
-            if (_isBlocked)
-              _BlockedConversationBar(
-                blockedByMe: _blockedByMe,
-                isBusy: _isTogglingBlock,
-                onUnblock: _blockedByMe
-                    ? () => _setConversationBlocked(false)
-                    : null,
-              )
-            else
-              _Composer(
-                controller: _messageController,
-                isLawyer: widget.isLawyer,
-                counterpartLabel: _triageCounterpartLabel,
-                isSending: _isSending,
-                isUploadingAttachment: _isUploadingAttachment,
-                isPlusMenuOpen: _isPlusMenuOpen,
-                showTriageDot: _triageDotVisible,
-                onSend: _sendMessage,
-                onTogglePlusMenu: _togglePlusMenu,
+                ),
+                actions: [
+                  if (_canRequestCase)
+                    IconButton(
+                      onPressed: _isCreatingCaseRequest
+                          ? null
+                          : _openCaseRequestSheet,
+                      icon: _isCreatingCaseRequest
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.assignment_add),
+                      tooltip: 'Enviar solicitação de caso',
+                    ),
+                  if (_canRecommendLawyer)
+                    IconButton(
+                      onPressed: _isRecommendingLawyer
+                          ? null
+                          : _openRecommendLawyerSheet,
+                      icon: _isRecommendingLawyer
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.recommend_outlined),
+                      tooltip: 'Sugerir advogado',
+                    ),
+                  if (_usesSupabase && widget.allowModeration)
+                    PopupMenuButton<String>(
+                      tooltip: 'Opções da conversa',
+                      onSelected: (value) {
+                        switch (value) {
+                          case 'report':
+                            _openReportSheet();
+                          case 'block':
+                            _confirmBlockConversation();
+                          case 'unblock':
+                            _setConversationBlocked(false);
+                        }
+                      },
+                      itemBuilder: (context) => [
+                        const PopupMenuItem(
+                          value: 'report',
+                          child: Text('Denunciar'),
+                        ),
+                        if (!_isBlocked)
+                          const PopupMenuItem(
+                            value: 'block',
+                            child: Text('Bloquear conversa'),
+                          )
+                        else if (_blockedByMe)
+                          const PopupMenuItem(
+                            value: 'unblock',
+                            child: Text('Desbloquear conversa'),
+                          ),
+                      ],
+                    ),
+                ],
               ),
-          ],
+        body: SafeArea(
+          // O menu "+" precisa saber quanto espaço REAL sobra (barra e teclado já
+          // descontados) para se limitar em vez de empurrar o composer para fora.
+          child: LayoutBuilder(
+            builder: (context, bodyConstraints) {
+              // Reserva fixa para o composer e um naco da conversa; o menu
+              // fica com o resto e rola quando não couber. Fração pura não
+              // servia: a que cabia com o teclado aberto encolhia o menu à
+              // toa no caso normal, que é o teclado fechado.
+              final plusMenuMaxHeight = math.max(
+                0.0,
+                bodyConstraints.maxHeight - 180,
+              );
+              return Column(
+                children: [
+                  AnimatedSize(
+                    duration: const Duration(milliseconds: 250),
+                    curve: Curves.easeOutCubic,
+                    child: _showTriageBanner
+                        ? _TriageBanner(
+                            counterpartLabel: _triageCounterpartLabel,
+                            onTap: _startTriage,
+                          )
+                        : const SizedBox(width: double.infinity),
+                  ),
+                  Expanded(
+                    child: _isLoading
+                        ? const Padding(
+                            padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+                            child: JuriiSkeletonList(
+                              itemCount: 6,
+                              itemHeight: 72,
+                              gap: 10,
+                            ),
+                          )
+                        : _loadFailed && _messages.isEmpty
+                        ? _ChatLoadErrorState(onRetry: _loadMessages)
+                        : _messages.isEmpty
+                        ? const _EmptyChatState()
+                        : ListView.builder(
+                            controller: _scrollController,
+                            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                            itemCount: _messages.length,
+                            itemBuilder: (context, index) {
+                              final message = _messages[index];
+                              final fromRight =
+                                  message.author == MessageAuthor.me;
+                              final mediaPath =
+                                  message.attachment?.isMedia == true
+                                  ? message.attachment!.storagePath
+                                  : null;
+                              return JuriiStaggeredItem(
+                                key: ValueKey('chat_message_${message.id}'),
+                                index: index,
+                                beginOffset: Offset(fromRight ? 18 : -18, 8),
+                                child: _MessageBubble(
+                                  message: message,
+                                  counterpartName:
+                                      widget.conversation.officeName,
+                                  counterpartInitials:
+                                      widget.conversation.initials,
+                                  canRespondToCaseRequest:
+                                      !widget.isLawyer &&
+                                      message.isPendingCaseRequest,
+                                  isRespondingCaseRequest:
+                                      _respondingCaseRequestId ==
+                                      message.caseRequestId,
+                                  // Só o cliente aciona o advogado sugerido; para o
+                                  // escritório o card é o registro da sugestão.
+                                  canMessageRecommendedLawyer: !widget.isLawyer,
+                                  isOpeningRecommendedLawyerChat:
+                                      _openingRecommendedLawyerId != null &&
+                                      _openingRecommendedLawyerId ==
+                                          message
+                                              .lawyerRecommendation
+                                              ?.lawyerId,
+                                  onMessageRecommendedLawyer:
+                                      _openRecommendedLawyerChat,
+                                  onAcceptCaseRequest: () =>
+                                      _respondToCaseRequestFromChat(
+                                        message,
+                                        accepted: true,
+                                      ),
+                                  onDeclineCaseRequest: () =>
+                                      _respondToCaseRequestFromChat(
+                                        message,
+                                        accepted: false,
+                                      ),
+                                  onOpenAttachment: _openAttachment,
+                                  onRetryMedia: (attachment) => unawaited(
+                                    _retryMedia(attachment, automatic: false),
+                                  ),
+                                  onAutoRetryMedia: (attachment) => unawaited(
+                                    _retryMedia(attachment, automatic: true),
+                                  ),
+                                  mediaUrl: mediaPath == null
+                                      ? null
+                                      : _mediaUrls.cachedUrlFor(mediaPath),
+                                  isLoadingMediaUrl:
+                                      mediaPath != null &&
+                                      _mediaUrls.isPending(mediaPath),
+                                  isSelected: _selectedMessageIds.contains(
+                                    message.id,
+                                  ),
+                                  isSelectionMode: _isSelectionMode,
+                                  onToggleSelection: () =>
+                                      _toggleMessageSelection(message),
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+                  AnimatedSize(
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeOutCubic,
+                    child: _showTriageHint && !_isBlocked
+                        ? const _TriageHintChip()
+                        : const SizedBox(width: double.infinity),
+                  ),
+                  // Menu do "+": abre deslizando para cima, junto do composer.
+                  // Fora da árvore quando fechado (não fica "invisível" clicável)
+                  // e quando a conversa bloqueia (senão ficava órfão e clicável
+                  // sobre a barra de bloqueio, sem botão para fechá-lo).
+                  AnimatedBuilder(
+                    animation: _plusMenuController,
+                    builder: (context, _) {
+                      if (_plusMenuController.isDismissed || _isBlocked) {
+                        return const SizedBox(width: double.infinity);
+                      }
+                      return ClipRect(
+                        child: SizeTransition(
+                          sizeFactor: _plusMenuAnimation,
+                          alignment: Alignment.bottomCenter,
+                          child: SlideTransition(
+                            position: Tween<Offset>(
+                              begin: const Offset(0, 0.35),
+                              end: Offset.zero,
+                            ).animate(_plusMenuAnimation),
+                            child: FadeTransition(
+                              opacity: _plusMenuAnimation,
+                              child: _PlusMenuSheet(
+                                maxHeight: plusMenuMaxHeight,
+                                showTriage: _triageAvailable,
+                                onTakePhoto: () {
+                                  _closePlusMenu();
+                                  _sendPhoto(ImageSource.camera);
+                                },
+                                onPickPhoto: () {
+                                  _closePlusMenu();
+                                  _sendPhoto(ImageSource.gallery);
+                                },
+                                onRecordVideo: () {
+                                  _closePlusMenu();
+                                  _sendVideo(ImageSource.camera);
+                                },
+                                onPickVideo: () {
+                                  _closePlusMenu();
+                                  _sendVideo(ImageSource.gallery);
+                                },
+                                onAttach: () {
+                                  _closePlusMenu();
+                                  _sendAttachment();
+                                },
+                                onTriage: _startTriage,
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  // Composer sai de cena durante a seleção: escrever e apagar
+                  // ao mesmo tempo não é fluxo nenhum, e o campo ainda roubaria
+                  // o espaço da lista bem na hora de marcar várias.
+                  if (_isSelectionMode)
+                    const SizedBox(width: double.infinity)
+                  else if (_isBlocked)
+                    _BlockedConversationBar(
+                      blockedByMe: _blockedByMe,
+                      isBusy: _isTogglingBlock,
+                      onUnblock: _blockedByMe
+                          ? () => _setConversationBlocked(false)
+                          : null,
+                    )
+                  else
+                    _Composer(
+                      controller: _messageController,
+                      isLawyer: widget.isLawyer,
+                      counterpartLabel: _triageCounterpartLabel,
+                      isSending: _isSending,
+                      isUploadingAttachment: _isUploadingAttachment,
+                      isPlusMenuOpen: _isPlusMenuOpen,
+                      showTriageDot: _triageDotVisible,
+                      onSend: _sendMessage,
+                      onTogglePlusMenu: _togglePlusMenu,
+                    ),
+                ],
+              );
+            },
+          ),
         ),
       ),
     );
@@ -1906,6 +2272,15 @@ class _MessageBubble extends StatelessWidget {
   final VoidCallback onAcceptCaseRequest;
   final VoidCallback onDeclineCaseRequest;
   final ValueChanged<ChatAttachment> onOpenAttachment;
+  final ValueChanged<ChatAttachment> onRetryMedia;
+  final ValueChanged<ChatAttachment> onAutoRetryMedia;
+  final bool isSelected;
+  final bool isSelectionMode;
+  final VoidCallback onToggleSelection;
+
+  /// URL assinada da mídia desta mensagem (`null` enquanto não há uma válida).
+  final String? mediaUrl;
+  final bool isLoadingMediaUrl;
 
   const _MessageBubble({
     required this.message,
@@ -1919,6 +2294,13 @@ class _MessageBubble extends StatelessWidget {
     required this.onAcceptCaseRequest,
     required this.onDeclineCaseRequest,
     required this.onOpenAttachment,
+    required this.onRetryMedia,
+    required this.onAutoRetryMedia,
+    required this.isSelected,
+    required this.isSelectionMode,
+    required this.onToggleSelection,
+    required this.mediaUrl,
+    required this.isLoadingMediaUrl,
   });
 
   @override
@@ -1949,6 +2331,22 @@ class _MessageBubble extends StatelessWidget {
     final colors = context.jColors;
     final isMine = message.author == MessageAuthor.me;
     final isSystem = message.author == MessageAuthor.system;
+    final attachment = message.attachment;
+
+    // "Foto enviada" / "Vídeo enviado" é rótulo que o servidor grava para a
+    // prévia da lista de conversas, não texto de ninguém. Dentro do balão a
+    // mídia já se explica, e repetir o rótulo embaixo dela é ruído.
+    //
+    // Só vale COM anexo: alguém que digita literalmente "Documento enviado"
+    // (confirmando que mandou por outro canal) tem texto de verdade, e escondê-
+    // -lo entregaria um balão vazio dos dois lados, sem erro nem log.
+    final bodyText =
+        attachment != null && isChatAttachmentAutoBody(message.text)
+        ? ''
+        : message.text.trim();
+    final showsTimeOverMedia =
+        attachment != null && attachment.isMedia && bodyText.isEmpty;
+
     final alignment = isMine ? Alignment.centerRight : Alignment.centerLeft;
     final bubbleColor = isSystem
         ? colors.lightGold
@@ -1957,8 +2355,139 @@ class _MessageBubble extends StatelessWidget {
         : colors.card;
     final textColor = isMine ? colors.card : colors.textPrimary;
 
+    if (message.deletedForAll) {
+      return ChatDeletedMessagePreview(isMine: isMine, time: message.time);
+    }
+
+    final selectable = canSelectMessage(message);
+
+    return GestureDetector(
+      // Toque longo abre a seleção; com ela aberta, o toque simples marca e
+      // desmarca. Fora dela o toque não faz nada — o balão não é botão.
+      onLongPress: selectable ? onToggleSelection : null,
+      onTap: selectable && isSelectionMode ? onToggleSelection : null,
+      // A faixa de seleção pinta a LARGURA INTEIRA, não só o balão: é o alvo
+      // que o dedo procura quando já está marcando várias.
+      child: Container(
+        color: isSelected
+            ? colors.primary.withValues(alpha: 0.10)
+            : Colors.transparent,
+        child: Align(
+          alignment: isSystem ? Alignment.center : alignment,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.sizeOf(context).width * 0.78,
+            ),
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 10),
+              // Mídia sem legenda ocupa o balão quase inteiro (só a borda fina que
+              // dá o formato); com legenda, o respiro normal de texto volta.
+              padding: showsTimeOverMedia
+                  ? const EdgeInsets.all(4)
+                  : const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: bubbleColor,
+                borderRadius: BorderRadius.only(
+                  topLeft: const Radius.circular(16),
+                  topRight: const Radius.circular(16),
+                  bottomLeft: Radius.circular(isMine ? 16 : 4),
+                  bottomRight: Radius.circular(isMine ? 4 : 16),
+                ),
+                border: isMine
+                    ? null
+                    : Border.all(color: colors.lightBlueBorder),
+              ),
+              child: Column(
+                crossAxisAlignment: isMine
+                    ? CrossAxisAlignment.end
+                    : CrossAxisAlignment.start,
+                children: [
+                  if (attachment != null) ...[
+                    if (attachment.isMedia)
+                      ChatMediaBubble(
+                        attachment: attachment,
+                        signedUrl: mediaUrl,
+                        isLoadingUrl: isLoadingMediaUrl,
+                        isMine: isMine,
+                        time: message.time,
+                        status: message.status,
+                        showTimestamp: showsTimeOverMedia,
+                        onOpen: () => onOpenAttachment(attachment),
+                        onRetry: () => onRetryMedia(attachment),
+                        onAutoRetry: () => onAutoRetryMedia(attachment),
+                      )
+                    else
+                      _AttachmentTile(
+                        attachment: attachment,
+                        isMine: isMine,
+                        onTap: () => onOpenAttachment(attachment),
+                      ),
+                    if (bodyText.isNotEmpty) const SizedBox(height: 8),
+                  ],
+                  if (bodyText.isNotEmpty)
+                    Text(
+                      bodyText,
+                      style: TextStyle(color: textColor, height: 1.35),
+                    ),
+                  // Mídia carrega a própria hora sobreposta, no canto da foto; a
+                  // linha de baixo repetiria a informação e empurraria o balão.
+                  if (!showsTimeOverMedia) ...[
+                    const SizedBox(height: 6),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          message.time,
+                          style: TextStyle(
+                            color: isMine
+                                ? colors.card.withValues(alpha: 0.70)
+                                : colors.textSecondary,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        if (isMine) ...[
+                          const SizedBox(width: 4),
+                          MessageStatusCheck(
+                            status: message.status,
+                            pendingColor: colors.card.withValues(alpha: 0.70),
+                            readColor: colors.readReceipt,
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Lápide de mensagem apagada para todos.
+///
+/// O balão continua no lugar, e não some, para a conversa não dar um salto sem
+/// explicação: quem lê precisa saber que havia algo ali. O conteúdo em si já
+/// não existe — o servidor zerou texto, metadados e o vínculo com o arquivo.
+class ChatDeletedMessagePreview extends StatelessWidget {
+  const ChatDeletedMessagePreview({
+    super.key,
+    required this.isMine,
+    required this.time,
+  });
+
+  final bool isMine;
+  final String time;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.jColors;
+
     return Align(
-      alignment: isSystem ? Alignment.center : alignment,
+      alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
       child: ConstrainedBox(
         constraints: BoxConstraints(
           maxWidth: MediaQuery.sizeOf(context).width * 0.78,
@@ -1967,56 +2496,42 @@ class _MessageBubble extends StatelessWidget {
           margin: const EdgeInsets.only(bottom: 10),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
-            color: bubbleColor,
+            color: colors.background,
             borderRadius: BorderRadius.only(
               topLeft: const Radius.circular(16),
               topRight: const Radius.circular(16),
               bottomLeft: Radius.circular(isMine ? 16 : 4),
               bottomRight: Radius.circular(isMine ? 4 : 16),
             ),
-            border: isMine ? null : Border.all(color: colors.lightBlueBorder),
+            border: Border.all(color: colors.divider),
           ),
-          child: Column(
-            crossAxisAlignment: isMine
-                ? CrossAxisAlignment.end
-                : CrossAxisAlignment.start,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              if (message.attachment != null) ...[
-                _AttachmentTile(
-                  attachment: message.attachment!,
-                  isMine: isMine,
-                  onTap: () => onOpenAttachment(message.attachment!),
-                ),
-                if (message.text.trim().isNotEmpty) const SizedBox(height: 8),
-              ],
-              if (message.text.trim().isNotEmpty)
-                Text(
-                  message.text,
-                  style: TextStyle(color: textColor, height: 1.35),
-                ),
-              const SizedBox(height: 6),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    message.time,
-                    style: TextStyle(
-                      color: isMine
-                          ? colors.card.withValues(alpha: 0.70)
-                          : colors.textSecondary,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                    ),
+              Icon(Icons.block, size: 15, color: colors.textSecondary),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  // Quem apagou lê a frase na primeira pessoa; do outro lado
+                  // ela é impessoal, como em qualquer aplicativo de mensagens.
+                  isMine
+                      ? 'Você apagou esta mensagem'
+                      : 'Esta mensagem foi apagada',
+                  style: TextStyle(
+                    color: colors.textSecondary,
+                    fontStyle: FontStyle.italic,
+                    fontSize: 13,
                   ),
-                  if (isMine) ...[
-                    const SizedBox(width: 4),
-                    Icon(
-                      message.read ? Icons.done_all : Icons.done,
-                      size: 14,
-                      color: colors.card.withValues(alpha: 0.70),
-                    ),
-                  ],
-                ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                time,
+                style: TextStyle(
+                  color: colors.textSecondary,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ],
           ),
@@ -2026,6 +2541,9 @@ class _MessageBubble extends StatelessWidget {
   }
 }
 
+/// Cartão de DOCUMENTO. Foto e vídeo não passam mais por aqui — viram
+/// [ChatMediaBubble]. Só continua atendendo o que não tem prévia possível
+/// (PDF, DOC) e o `kind` desconhecido, que cai em documento por segurança.
 class _AttachmentTile extends StatelessWidget {
   const _AttachmentTile({
     required this.attachment,
@@ -2039,9 +2557,7 @@ class _AttachmentTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final icon = attachment.isImage
-        ? Icons.image_outlined
-        : attachment.mimeType == 'application/pdf'
+    final icon = attachment.mimeType == 'application/pdf'
         ? Icons.picture_as_pdf_outlined
         : Icons.description_outlined;
     final colors = context.jColors;
@@ -2096,9 +2612,7 @@ class _AttachmentTile extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    attachment.isImage
-                        ? 'Foto - ${attachment.sizeLabel}'
-                        : 'Documento - ${attachment.sizeLabel}',
+                    'Documento - ${attachment.sizeLabel}',
                     style: TextStyle(
                       color: secondaryColor,
                       fontWeight: FontWeight.w600,
@@ -2110,96 +2624,6 @@ class _AttachmentTile extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             Icon(Icons.open_in_new, color: secondaryColor, size: 16),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ImageAttachmentDialog extends StatelessWidget {
-  const _ImageAttachmentDialog({
-    required this.attachment,
-    required this.signedUrl,
-  });
-
-  final ChatAttachment attachment;
-  final String signedUrl;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.jColors;
-
-    return Dialog(
-      insetPadding: const EdgeInsets.all(18),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.sizeOf(context).height * 0.82,
-          maxWidth: 720,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 10, 8, 8),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      attachment.fileName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: colors.textPrimary,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close),
-                    tooltip: 'Fechar',
-                  ),
-                ],
-              ),
-            ),
-            Flexible(
-              child: ClipRRect(
-                borderRadius: const BorderRadius.vertical(
-                  bottom: Radius.circular(18),
-                ),
-                child: InteractiveViewer(
-                  minScale: 0.8,
-                  maxScale: 4,
-                  child: Image.network(
-                    signedUrl,
-                    fit: BoxFit.contain,
-                    loadingBuilder: (context, child, loadingProgress) {
-                      if (loadingProgress == null) return child;
-                      return SizedBox(
-                        height: 320,
-                        child: Center(
-                          child: CircularProgressIndicator(
-                            color: colors.primary,
-                          ),
-                        ),
-                      );
-                    },
-                    errorBuilder: (context, error, stackTrace) {
-                      return SizedBox(
-                        height: 260,
-                        child: Center(
-                          child: Text(
-                            'Não foi possível carregar a imagem.',
-                            style: TextStyle(color: colors.textSecondary),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ),
-            ),
           ],
         ),
       ),
@@ -2702,16 +3126,24 @@ class _TriageHintChip extends StatelessWidget {
 /// o cliente) a triagem com IA. Sobe em slide/fade junto do composer.
 class _PlusMenuSheet extends StatelessWidget {
   const _PlusMenuSheet({
+    required this.maxHeight,
     required this.showTriage,
     required this.onTakePhoto,
     required this.onPickPhoto,
+    required this.onRecordVideo,
+    required this.onPickVideo,
     required this.onAttach,
     required this.onTriage,
   });
 
+  /// Altura máxima do menu, medida no espaço real do corpo da tela.
+  final double maxHeight;
+
   final bool showTriage;
   final VoidCallback onTakePhoto;
   final VoidCallback onPickPhoto;
+  final VoidCallback onRecordVideo;
+  final VoidCallback onPickVideo;
   final VoidCallback onAttach;
   final VoidCallback onTriage;
 
@@ -2726,6 +3158,16 @@ class _PlusMenuSheet extends StatelessWidget {
         onTap: onTakePhoto,
       ),
       (icon: Icons.photo_outlined, label: 'Enviar foto', onTap: onPickPhoto),
+      (
+        icon: Icons.videocam_outlined,
+        label: 'Gravar vídeo',
+        onTap: onRecordVideo,
+      ),
+      (
+        icon: Icons.video_library_outlined,
+        label: 'Enviar vídeo',
+        onTap: onPickVideo,
+      ),
       (icon: Icons.attach_file, label: 'Anexar arquivo', onTap: onAttach),
       if (showTriage)
         (icon: Icons.auto_awesome, label: 'Triagem com IA', onTap: onTriage),
@@ -2738,35 +3180,45 @@ class _PlusMenuSheet extends StatelessWidget {
         color: colors.card,
         border: Border(top: BorderSide(color: colors.divider)),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Duas colunas por linha: quatro opções lado a lado não cabem
-          // legíveis em 320dp.
-          for (var row = 0; row * 2 < options.length; row++) ...[
-            if (row > 0) const SizedBox(height: 10),
-            Row(
-              children: [
-                for (var col = 0; col < 2; col++) ...[
-                  if (col > 0) const SizedBox(width: 10),
-                  Expanded(
-                    child: row * 2 + col < options.length
-                        ? JuriiStaggeredItem(
-                            index: row * 2 + col,
-                            beginOffset: const Offset(0, 8),
-                            child: _PlusMenuOption(
-                              icon: options[row * 2 + col].icon,
-                              label: options[row * 2 + col].label,
-                              onTap: options[row * 2 + col].onTap,
-                            ),
-                          )
-                        : const SizedBox.shrink(),
-                  ),
-                ],
+      // Teto + rolagem: com fonte de acessibilidade grande, ou numa tela muito
+      // baixa, as opções passam a rolar dentro do menu em vez de empurrarem o
+      // composer para fora da tela. O teto vem medido de fora (o espaço real
+      // do corpo, já descontados barra e teclado) porque aqui dentro o Scaffold
+      // já consumiu o viewInsets e MediaQuery devolveria a tela inteira.
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: maxHeight),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Duas colunas por linha: quatro opções lado a lado não cabem
+              // legíveis em 320dp.
+              for (var row = 0; row * 2 < options.length; row++) ...[
+                if (row > 0) const SizedBox(height: 10),
+                Row(
+                  children: [
+                    for (var col = 0; col < 2; col++) ...[
+                      if (col > 0) const SizedBox(width: 10),
+                      Expanded(
+                        child: row * 2 + col < options.length
+                            ? JuriiStaggeredItem(
+                                index: row * 2 + col,
+                                beginOffset: const Offset(0, 8),
+                                child: _PlusMenuOption(
+                                  icon: options[row * 2 + col].icon,
+                                  label: options[row * 2 + col].label,
+                                  onTap: options[row * 2 + col].onTap,
+                                ),
+                              )
+                            : const SizedBox.shrink(),
+                      ),
+                    ],
+                  ],
+                ),
               ],
-            ),
-          ],
-        ],
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -2913,6 +3365,88 @@ class _PlusMenuButton extends StatelessWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+enum _DeleteScope { me, everyone }
+
+/// Folha de escolha do apagar. "Para todos" só aparece quando TODAS as
+/// selecionadas permitem — meio-apagar uma seleção seria pior que não oferecer.
+class _DeleteMessagesSheet extends StatelessWidget {
+  const _DeleteMessagesSheet({
+    required this.total,
+    required this.allowForEveryone,
+  });
+
+  final int total;
+  final bool allowForEveryone;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.jColors;
+    final rotulo = total == 1 ? 'Apagar mensagem?' : 'Apagar $total mensagens?';
+
+    return SafeArea(
+      // Material próprio, e não um Container com decoração: o ListTile pinta
+      // fundo e respingo de toque no Material mais próximo, e uma decoração no
+      // meio do caminho esconde os dois (o Flutter reclama disso em asserção).
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Material(
+          color: colors.card,
+          clipBehavior: Clip.antiAlias,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+            side: BorderSide(color: colors.divider),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 18, 20, 6),
+                child: Text(
+                  rotulo,
+                  style: TextStyle(
+                    color: colors.textPrimary,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+              if (allowForEveryone)
+                ListTile(
+                  leading: Icon(Icons.delete_forever, color: colors.danger),
+                  title: const Text('Apagar para todos'),
+                  subtitle: const Text(
+                    'O conteúdo some para os dois lados e não volta.',
+                  ),
+                  onTap: () => Navigator.of(context).pop(_DeleteScope.everyone),
+                ),
+              ListTile(
+                leading: Icon(
+                  Icons.visibility_off_outlined,
+                  color: colors.textSecondary,
+                ),
+                title: const Text('Apagar para mim'),
+                subtitle: Text(
+                  allowForEveryone
+                      ? 'Some só da sua conversa.'
+                      : 'Some só da sua conversa. A outra pessoa continua vendo.',
+                ),
+                onTap: () => Navigator.of(context).pop(_DeleteScope.me),
+              ),
+              const Divider(height: 1),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Cancelar'),
+              ),
+              const SizedBox(height: 6),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

@@ -36,15 +36,15 @@ class _HostState extends State<_Host> with RealtimeRefresh<_Host> {
   Widget build(BuildContext context) => const SizedBox.shrink();
 }
 
-Widget _host(Widget child) =>
-    MaterialApp(theme: AppTheme.lightTheme, home: Scaffold(body: child));
+Widget _host(Widget child) => MaterialApp(
+  theme: AppTheme.lightTheme,
+  home: Scaffold(body: child),
+);
 
 void main() {
   testWidgets('sem Supabase pronto não assina nem quebra', (tester) async {
     var calls = 0;
-    await tester.pumpWidget(
-      MaterialApp(home: _Host(onChange: () => calls++)),
-    );
+    await tester.pumpWidget(MaterialApp(home: _Host(onChange: () => calls++)));
     await tester.pumpAndSettle();
 
     expect(calls, 0);

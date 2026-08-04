@@ -94,7 +94,10 @@ void main() {
 
     final field = tester.widget<TextField>(find.byType(TextField));
     expect(field.controller!.text, isEmpty);
-    expect(find.text('Perfil profissional verificado pela Jurii.'), findsNothing);
+    expect(
+      find.text('Perfil profissional verificado pela Jurii.'),
+      findsNothing,
+    );
   });
 
   testWidgets('falha ao carregar tem retry', (tester) async {
@@ -131,7 +134,10 @@ void main() {
     await tester.tap(find.text('Salvar apresentação'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Não foi possível salvar. Tente novamente.'), findsOneWidget);
+    expect(
+      find.text('Não foi possível salvar. Tente novamente.'),
+      findsOneWidget,
+    );
     expect(find.text('Salvar apresentação'), findsOneWidget);
   });
 
@@ -141,11 +147,13 @@ void main() {
     final repo = _FakeBioRepository();
 
     await tester.pumpWidget(
-      _host(ProfessionalBioScreen.lawFirm(
-        lawFirmId: 'firma-1',
-        initialText: 'Banca de família.',
-        repository: repo,
-      )),
+      _host(
+        ProfessionalBioScreen.lawFirm(
+          lawFirmId: 'firma-1',
+          initialText: 'Banca de família.',
+          repository: repo,
+        ),
+      ),
     );
     await tester.pumpAndSettle();
 

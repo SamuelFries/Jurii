@@ -745,8 +745,8 @@ class _NotificationTile extends StatelessWidget {
       'message' => Icons.mark_chat_unread_outlined,
       'case_request' => Icons.assignment_add,
       'case_request_response' => Icons.assignment_turned_in_outlined,
-      'lawyer_recommendation' || 'lawyer_recommended' =>
-        Icons.recommend_outlined,
+      'lawyer_recommendation' ||
+      'lawyer_recommended' => Icons.recommend_outlined,
       'firm_case_started' => Icons.business_center_outlined,
       // Os dois lados do mesmo fato: 'case_update' avisa o cliente,
       // 'case_movement' avisa o advogado (escopos diferentes, ver

@@ -41,7 +41,8 @@ bool isValidCnj(String value) {
   final cnj = digitsOnly(value);
   if (cnj.length != 20) return false;
 
-  final rearranged = cnj.substring(0, 7) + cnj.substring(9) + cnj.substring(7, 9);
+  final rearranged =
+      cnj.substring(0, 7) + cnj.substring(9) + cnj.substring(7, 9);
   var remainder = 0;
   for (final unit in rearranged.codeUnits) {
     remainder = (remainder * 10 + (unit - 0x30)) % 97;

@@ -28,8 +28,5 @@ List<T> appendUniqueBy<T>(
   Object Function(T item) keyOf,
 ) {
   final seen = current.map(keyOf).toSet();
-  return [
-    ...current,
-    ...incoming.where((item) => seen.add(keyOf(item))),
-  ];
+  return [...current, ...incoming.where((item) => seen.add(keyOf(item)))];
 }

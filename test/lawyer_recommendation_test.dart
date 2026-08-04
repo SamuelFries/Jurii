@@ -101,24 +101,27 @@ void main() {
     });
   });
 
-  test('ChatMessage expõe a sugestão sem confundir com solicitação de caso', () {
-    const message = ChatMessage(
-      id: 'm1',
-      conversationKey: 'c1',
-      author: MessageAuthor.system,
-      text: 'Advogado sugerido: Laura Advogada',
-      time: '10:00',
-      metadata: {
-        'type': 'lawyer_recommendation',
-        'lawyer_id': 'lawyer-1',
-        'lawyer_name': 'Laura Advogada',
-        'oab_label': 'OAB/SP 123456',
-      },
-    );
+  test(
+    'ChatMessage expõe a sugestão sem confundir com solicitação de caso',
+    () {
+      const message = ChatMessage(
+        id: 'm1',
+        conversationKey: 'c1',
+        author: MessageAuthor.system,
+        text: 'Advogado sugerido: Laura Advogada',
+        time: '10:00',
+        metadata: {
+          'type': 'lawyer_recommendation',
+          'lawyer_id': 'lawyer-1',
+          'lawyer_name': 'Laura Advogada',
+          'oab_label': 'OAB/SP 123456',
+        },
+      );
 
-    expect(message.lawyerRecommendation?.lawyerId, 'lawyer-1');
-    expect(message.isCaseRequest, isFalse);
-  });
+      expect(message.lawyerRecommendation?.lawyerId, 'lawyer-1');
+      expect(message.isCaseRequest, isFalse);
+    },
+  );
 
   testWidgets('cliente vê o perfil do advogado e o botão de mensagem', (
     tester,
@@ -193,10 +196,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Laura Advogada'), findsOneWidget);
-    expect(
-      find.text('OAB/SP 123456 · Direito Trabalhista'),
-      findsOneWidget,
-    );
+    expect(find.text('OAB/SP 123456 · Direito Trabalhista'), findsOneWidget);
 
     // Sem escolher ninguém, o envio fica travado.
     await tester.tap(find.text('Enviar sugestão'));
