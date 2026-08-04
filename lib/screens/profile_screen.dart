@@ -9,6 +9,7 @@ import '../data/legal_documents.dart';
 import '../utils/support_contact.dart';
 import 'edit_profile_screen.dart';
 import 'favorites_screen.dart';
+import 'professional_bio_screen.dart';
 import 'help_center_screen.dart';
 import 'law_firm_verification_screen.dart';
 import 'lawyer_verification_screen.dart';
@@ -529,6 +530,24 @@ class ProfileScreen extends StatelessWidget {
                             ? null
                             : () => _openEditProfile(context),
                       ),
+                      // Só na persona profissional: é o texto que o CLIENTE
+                      // lê na descoberta para escolher. Sem ele, todo perfil
+                      // exibe a mesma frase padrão.
+                      if (isLawyerMode)
+                        ProfileMenuItem(
+                          icon: Icons.badge_outlined,
+                          iconColor: colors.accent,
+                          label: 'Apresentação',
+                          subtitle: 'O texto que aparece no seu perfil público',
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    const ProfessionalBioScreen.lawyer(),
+                              ),
+                            );
+                          },
+                        ),
                       ProfileMenuItem(
                         icon: Icons.lock_outline,
                         iconColor: colors.warning,
