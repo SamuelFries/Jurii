@@ -5,7 +5,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(28);
+select plan(27);
 
 -- ---------------------------------------------------------------------------
 -- Fixtures: cliente, advogada, secretaria de escritorio e caso
@@ -220,11 +220,12 @@ select is(
 reset role;
 
 -- ---------------------------------------------------------------------------
--- 23-25. needs_cnj_number e reset na troca de numero
+-- 23. Troca de numero (o indicativo needs_cnj_number saiu na 20260804120000
+--     junto com o prazo manual: dependia de deadline_at e nunca disparou)
 -- ---------------------------------------------------------------------------
 
 update public.legal_cases
-set cnj_number = null, deadline_at = now() + interval '10 days'
+set cnj_number = null
 where id = '50000000-0000-0000-0000-000000000001';
 delete from public.case_movements
   where case_id = '50000000-0000-0000-0000-000000000001';
@@ -234,18 +235,15 @@ delete from public.case_movement_sync_state
 select set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000002', true);
 set local role authenticated;
 
-select ok(
-  (select needs_cnj_number from public.fetch_lawyer_cases() limit 1),
-  'prazo sem numero liga o indicativo');
-
 select lives_ok(
   $$select public.set_case_cnj_number('50000000-0000-0000-0000-000000000001',
     '50144802820258219000')$$,
   'advogada troca o numero');
 
-select ok(
-  not (select needs_cnj_number from public.fetch_lawyer_cases() limit 1),
-  'com numero o indicativo desliga');
+select is(
+  (select cnj_number from public.fetch_lawyer_cases() limit 1),
+  '50144802820258219000',
+  'numero novo aparece na lista do advogado');
 
 reset role;
 

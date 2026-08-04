@@ -48,14 +48,14 @@ class _CaseDetailsScreenState extends State<CaseDetailsScreen> {
   String? _cnjNumber;
   bool _isSubmitting = false;
 
-  /// Detalhe completo (relato, prazo, status, quem pode gerenciar). Chega em
+  /// Detalhe completo (relato, status, quem pode gerenciar). Chega em
   /// paralelo e refina a tela; nulo mantém o comportamento das props.
   CaseDetails? _details;
   bool _isOpeningReview = false;
 
   bool get _canManage => _details?.canManage ?? widget.canAddUpdates;
 
-  /// Encerrar/reabrir/prazo: espelho do gate de escrita no servidor (inclui
+  /// Encerrar/reabrir: espelho do gate de escrita no servidor (inclui
   /// gestor do escritório, que não tem o can_manage estreito das
   /// atualizações). Só existe depois que o detalhe chega.
   bool get _canManageLifecycle => _details?.canManageLifecycle ?? false;
@@ -144,49 +144,6 @@ class _CaseDetailsScreenState extends State<CaseDetailsScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Não foi possível concluir. Tente novamente.')),
-      );
-    } finally {
-      if (mounted) setState(() => _isSubmitting = false);
-    }
-  }
-
-  Future<void> _editDeadline() async {
-    final current = _details?.deadlineAt;
-    final now = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: current ?? now.add(const Duration(days: 7)),
-      firstDate: now.subtract(const Duration(days: 365)),
-      lastDate: now.add(const Duration(days: 365 * 5)),
-      helpText: 'Prazo do caso',
-      cancelText: 'Cancelar',
-      confirmText: 'Salvar',
-    );
-    if (picked == null || !mounted) return;
-    await _saveDeadline(picked);
-  }
-
-  Future<void> _saveDeadline(DateTime? deadline) async {
-    if (_isSubmitting) return;
-    setState(() => _isSubmitting = true);
-    try {
-      await widget.repository.setCaseDeadline(
-        caseId: widget.caseId,
-        deadline: deadline,
-      );
-      if (!mounted) return;
-      await _loadDetails();
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(deadline == null ? 'Prazo removido.' : 'Prazo salvo.'),
-        ),
-      );
-    } catch (error) {
-      debugPrint('Case deadline save failed: $error');
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Não foi possível salvar o prazo.')),
       );
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
@@ -409,20 +366,6 @@ class _CaseDetailsScreenState extends State<CaseDetailsScreen> {
                 if (_details?.description != null) ...[
                   const SizedBox(height: 12),
                   _CaseSummaryCard(description: _details!.description!),
-                ],
-                // Prazo: quem gerencia sempre vê (para poder definir); os
-                // demais só quando existe.
-                if (!_isClosed &&
-                    (_canManageLifecycle || _details?.deadlineAt != null)) ...[
-                  const SizedBox(height: 12),
-                  _DeadlineCard(
-                    deadlineAt: _details?.deadlineAt,
-                    canEdit: _canManageLifecycle,
-                    onEdit: _isSubmitting ? null : _editDeadline,
-                    onClear: _isSubmitting || _details?.deadlineAt == null
-                        ? null
-                        : () => _saveDeadline(null),
-                  ),
                 ],
                 // Cliente em caso sem processo não tem nada aqui: nem o
                 // espaçamento (senão vira vão morto no fluxo mais comum).
@@ -678,110 +621,6 @@ class _CaseSummaryCard extends StatelessWidget {
             description,
             style: TextStyle(color: colors.textPrimary, height: 1.45),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DeadlineCard extends StatelessWidget {
-  const _DeadlineCard({
-    required this.deadlineAt,
-    required this.canEdit,
-    required this.onEdit,
-    required this.onClear,
-  });
-
-  final DateTime? deadlineAt;
-  final bool canEdit;
-  final VoidCallback? onEdit;
-  final VoidCallback? onClear;
-
-  String get _dateLabel {
-    final date = deadlineAt!;
-    final day = date.day.toString().padLeft(2, '0');
-    final month = date.month.toString().padLeft(2, '0');
-    return '$day/$month/${date.year}';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.jColors;
-
-    if (deadlineAt == null) {
-      if (!canEdit) return const SizedBox.shrink();
-      return Align(
-        alignment: Alignment.centerLeft,
-        child: OutlinedButton.icon(
-          onPressed: onEdit,
-          icon: const Icon(Icons.event_outlined, size: 18),
-          label: const Text('Definir prazo'),
-        ),
-      );
-    }
-
-    // Mesma comparação do painel do escritório e da lista do advogado.
-    final isNear = !deadlineAt!.isAfter(
-      DateTime.now().add(const Duration(days: 7)),
-    );
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: colors.card,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: isNear ? colors.dangerBorder : colors.lightBlueBorder,
-        ),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            Icons.event_outlined,
-            size: 18,
-            color: isNear ? colors.danger : colors.textSecondary,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Prazo',
-                  style: TextStyle(
-                    color: colors.textSecondary,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.4,
-                  ),
-                ),
-                Text(
-                  _dateLabel,
-                  style: TextStyle(
-                    color: isNear ? colors.danger : colors.textPrimary,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (canEdit) ...[
-            if (onClear != null)
-              IconButton(
-                onPressed: onClear,
-                icon: const Icon(Icons.close, size: 18),
-                color: colors.textSecondary,
-                tooltip: 'Remover prazo',
-              ),
-            IconButton(
-              onPressed: onEdit,
-              icon: const Icon(Icons.edit_outlined, size: 18),
-              color: colors.textSecondary,
-              tooltip: 'Editar prazo',
-            ),
-          ],
         ],
       ),
     );

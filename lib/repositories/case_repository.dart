@@ -264,7 +264,6 @@ class CaseRepository {
       description: (row['description'] as String?)?.trim().isEmpty ?? true
           ? null
           : (row['description'] as String).trim(),
-      deadlineAt: _parseDate(row['deadline_at'] as String?),
       createdAt: _parseDate(row['created_at'] as String?),
       assignedLawyerId: row['assigned_lawyer_id']?.toString(),
       lawFirmId: row['law_firm_id']?.toString(),
@@ -285,19 +284,6 @@ class CaseRepository {
     );
   }
 
-  /// Grava (ou limpa, com nulo) o prazo do caso. O banco valida o papel.
-  Future<void> setCaseDeadline({
-    required String caseId,
-    required DateTime? deadline,
-  }) async {
-    await SupabaseConfig.client.rpc(
-      'set_case_deadline',
-      params: {
-        'case_id_value': caseId,
-        'deadline_value': deadline?.toUtc().toIso8601String(),
-      },
-    );
-  }
 
   LegalCase _clientCaseFromRow(Map<String, dynamic> row) {
     return LegalCase(
@@ -319,12 +305,8 @@ class CaseRepository {
       clientInitials: row['client_initials'] as String? ?? 'CL',
       area: row['area'] as String? ?? 'Atendimento jurídico',
       lastUpdate: row['last_update_label'] as String? ?? 'Atualizado hoje',
-      status: deriveLawyerCaseStatus(
-        status: row['status'] as String?,
-        deadlineAt: _parseDate(row['deadline_at'] as String?),
-      ),
+      status: deriveLawyerCaseStatus(status: row['status'] as String?),
       cnjNumber: row['cnj_number'] as String?,
-      needsCnjNumber: row['needs_cnj_number'] as bool? ?? false,
     );
   }
 
@@ -342,7 +324,6 @@ class CaseRepository {
       nextStep: row['next_step'] as String? ?? 'Atualizado hoje',
       urgent: row['urgent'] as bool? ?? false,
       cnjNumber: row['cnj_number'] as String?,
-      needsCnjNumber: row['needs_cnj_number'] as bool? ?? false,
       isClosed: (row['status'] as String?) == 'closed',
     );
   }

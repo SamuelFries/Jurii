@@ -655,8 +655,11 @@ class _TodayAgenda extends StatelessWidget {
               final conversations = data == null
                   ? const <Conversation>[]
                   : data[2] as List<Conversation>;
-              final deadlineCases = cases
-                  .where((item) => item.status == LawyerCaseStatus.deadline)
+              // Sinal AUTOMÁTICO (status vem do banco). Antes era "casos com
+              // prazo", derivado de uma data que o advogado tinha que manter à
+              // mão — removida na migration 20260804120000.
+              final newMessageCases = cases
+                  .where((item) => item.status == LawyerCaseStatus.newMessage)
                   .length;
 
               return Column(
@@ -676,9 +679,9 @@ class _TodayAgenda extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
                   _AttentionRow(
-                    icon: Icons.timer_outlined,
-                    label: 'Casos com prazo',
-                    value: '$deadlineCases',
+                    icon: Icons.mark_chat_unread_outlined,
+                    label: 'Casos com novidade',
+                    value: '$newMessageCases',
                     color: colors.danger,
                   ),
                   const SizedBox(height: 16),
@@ -842,13 +845,12 @@ class _PriorityCases extends StatelessWidget {
 
   const _PriorityCases({required this.casesFuture, this.onOpenCases});
 
-  /// Prioriza prazos, depois casos com mensagem nova, depois os demais.
-  /// Encerrado nunca é prioridade.
+  /// Prioriza casos com mensagem nova, depois os demais. Encerrado nunca é
+  /// prioridade.
   static int _priorityRank(LawyerCaseStatus status) => switch (status) {
-    LawyerCaseStatus.deadline => 0,
-    LawyerCaseStatus.newMessage => 1,
-    LawyerCaseStatus.updated => 2,
-    LawyerCaseStatus.closed => 3,
+    LawyerCaseStatus.newMessage => 0,
+    LawyerCaseStatus.updated => 1,
+    LawyerCaseStatus.closed => 2,
   };
 
   @override
@@ -998,10 +1000,6 @@ class _PriorityCaseCard extends StatelessWidget {
       LawyerCaseStatus.newMessage => (
         color: colors.primary,
         icon: Icons.mark_chat_unread_outlined,
-      ),
-      LawyerCaseStatus.deadline => (
-        color: colors.danger,
-        icon: Icons.timer_outlined,
       ),
       LawyerCaseStatus.updated => (
         color: colors.success,

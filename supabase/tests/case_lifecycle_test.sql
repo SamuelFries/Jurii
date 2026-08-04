@@ -1,12 +1,17 @@
--- Testes da migration 20260801150000: encerrar/reabrir caso, prazo gravável
--- e convite de avaliação. Gate = advogado responsável OU gestor ativo do
--- escritório; cliente nunca.
+-- Testes da migration 20260801150000: encerrar/reabrir caso e convite de
+-- avaliação. Gate = advogado responsável OU gestor ativo do escritório;
+-- cliente nunca.
+--
+-- O prazo manual saiu na 20260804120000 (exigia manutenção perpétua e não
+-- dava para automatizar pelo DataJud); os testes dele saíram junto, e a
+-- urgência do painel virou sinal automático — coberta em
+-- discovery/urgencia no arquivo próprio.
 begin;
 
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(16);
+select plan(11);
 
 -- ---------------------------------------------------------------------------
 -- Fixtures: cliente, advogada, dono de escritório; caso solo e caso de firma
@@ -109,72 +114,30 @@ select is(
   'encerrar de novo e no-op (sem convite duplicado)');
 
 -- ---------------------------------------------------------------------------
--- Prazo: gate, caso encerrado, efeitos nas listas
+-- Reabrir: volta a aceitar atualização
 -- ---------------------------------------------------------------------------
 
 select set_config('request.jwt.claim.sub', '94000000-0000-0000-0000-000000000002', true);
 set local role authenticated;
-
-select throws_ok(
-  $$select public.set_case_deadline('96000000-0000-0000-0000-000000000001',
-      now() + interval '3 days')$$,
-  'Case is closed',
-  'prazo nao entra em caso encerrado');
 
 select lives_ok(
   $$select public.reopen_legal_case('96000000-0000-0000-0000-000000000001')$$,
   'advogada reabre o caso');
 
-reset role;
-select set_config('request.jwt.claim.sub', '94000000-0000-0000-0000-000000000001', true);
-set local role authenticated;
-
-select throws_ok(
-  $$select public.set_case_deadline('96000000-0000-0000-0000-000000000001',
-      now() + interval '3 days')$$,
-  'Only the responsible lawyer or firm managers can set the deadline',
-  'cliente nao define prazo');
-
-reset role;
-select set_config('request.jwt.claim.sub', '94000000-0000-0000-0000-000000000002', true);
-set local role authenticated;
-
 select lives_ok(
-  $$select public.set_case_deadline('96000000-0000-0000-0000-000000000001',
-      now() + interval '3 days')$$,
-  'advogada define o prazo');
+  $$select public.add_case_update('96000000-0000-0000-0000-000000000001',
+      'Peticao protocolada', 'corpo')$$,
+  'caso reaberto volta a aceitar atualizacao manual');
 
-select is(
-  (select needs_cnj_number from public.fetch_lawyer_cases()
-    where id = '96000000-0000-0000-0000-000000000001'),
-  true,
-  'prazo sem numero de processo acorda o needs_cnj_number');
-
--- Limpar o prazo desliga o empurrão.
-select public.set_case_deadline('96000000-0000-0000-0000-000000000001', null);
-
-select is(
-  (select needs_cnj_number from public.fetch_lawyer_cases()
-    where id = '96000000-0000-0000-0000-000000000001'),
-  false,
-  'limpar o prazo desliga o needs_cnj_number');
+reset role;
 
 -- ---------------------------------------------------------------------------
--- Escritório: gestor encerra e a urgência deriva do prazo real
+-- Escritório: gestor encerra caso da firma
 -- ---------------------------------------------------------------------------
-
-select public.set_case_deadline('96000000-0000-0000-0000-000000000002',
-  now() + interval '3 days');
 
 reset role;
 select set_config('request.jwt.claim.sub', '94000000-0000-0000-0000-000000000003', true);
 set local role authenticated;
-
-select is(
-  (select urgent from public.fetch_law_firm_cases('95000000-0000-0000-0000-000000000001')
-    where id = '96000000-0000-0000-0000-000000000002'),
-  true,
-  'prazo em 3 dias acende a urgencia no painel do escritorio');
 
 -- O app só mostra os controles se o fetch espelhar o gate de escrita: o
 -- can_manage estreito (atualizações) é false para o gestor, mas o
