@@ -27,13 +27,17 @@ LawyerProfileSummary _lawyer(String id, {String name = ''}) {
 }
 
 /// Fake com roteiro de páginas por offset. Registra as chamadas para os
-/// testes poderem afirmar o offset pedido e a busca propagada.
+/// testes poderem afirmar o offset pedido e a busca propagada; trava a
+/// chamada que casar com (pendingOffset, pendingQuery) num Completer para
+/// simular resposta atrasada.
 class _FakeLawyerRepository extends LawyerProfileRepository {
   _FakeLawyerRepository(this.pages);
 
   final Map<int, DiscoveryPage<LawyerProfileSummary>> pages;
   final List<({int offset, String query})> calls = [];
   Completer<DiscoveryPage<LawyerProfileSummary>>? pending;
+  int? pendingOffset;
+  String? pendingQuery;
 
   @override
   Future<DiscoveryPage<LawyerProfileSummary>> fetchRecommendedLawyers({
@@ -43,7 +47,10 @@ class _FakeLawyerRepository extends LawyerProfileRepository {
   }) {
     calls.add((offset: offset, query: searchQuery));
     final blocked = pending;
-    if (blocked != null && offset == 0 && searchQuery == 'lenta') {
+    if (blocked != null &&
+        offset == pendingOffset &&
+        (pendingQuery == null || searchQuery == pendingQuery)) {
+      pending = null; // trava UMA chamada; as seguintes seguem o roteiro
       return blocked.future;
     }
     final page = pages[offset];
@@ -76,6 +83,27 @@ void main() {
 
     test('página duplicada inteira é no-op', () {
       expect(appendUniqueBy([1, 2], [1, 2], (v) => v), [1, 2]);
+    });
+  });
+
+  group('pageFromSentinel', () {
+    test('linha extra vira hasMore e é descartada', () {
+      final page = pageFromSentinel([1, 2, 3, 4, 5, 6, 7], 6);
+      expect(page.items, [1, 2, 3, 4, 5, 6]);
+      expect(page.hasMore, isTrue);
+    });
+
+    test('página exatamente no limite NÃO tem próxima', () {
+      // O caso que o "hasMore = length == limit" ingênuo erraria.
+      final page = pageFromSentinel([1, 2, 3, 4, 5, 6], 6);
+      expect(page.items, hasLength(6));
+      expect(page.hasMore, isFalse);
+    });
+
+    test('página curta e vazia terminam a lista', () {
+      expect(pageFromSentinel([1], 6).hasMore, isFalse);
+      expect(pageFromSentinel(<int>[], 6).hasMore, isFalse);
+      expect(pageFromSentinel(<int>[], 6).items, isEmpty);
     });
   });
 
@@ -125,7 +153,10 @@ void main() {
       final repo = _FakeLawyerRepository({
         0: DiscoveryPage.last([_lawyer('novo', name: 'Advogada Nova')]),
       });
-      repo.pending = Completer();
+      final stale = Completer<DiscoveryPage<LawyerProfileSummary>>();
+      repo.pending = stale;
+      repo.pendingOffset = 0;
+      repo.pendingQuery = 'lenta';
 
       await tester.pumpWidget(
         _host(RecommendedLawyersSection(searchQuery: 'lenta', repository: repo)),
@@ -141,13 +172,56 @@ void main() {
 
       // A resposta ATRASADA da busca antiga chega agora — e não pode
       // sobrescrever a lista da busca atual.
-      repo.pending!.complete(
+      stale.complete(
         DiscoveryPage.last([_lawyer('velho', name: 'Advogado Velho')]),
       );
       await tester.pumpAndSettle();
 
       expect(find.text('Advogada Nova'), findsOneWidget);
       expect(find.text('Advogado Velho'), findsNothing);
+    });
+
+    testWidgets('página 2 em voo na troca de busca não trava o Ver mais', (
+      tester,
+    ) async {
+      // Regressão do achado da revisão: _isLoadingMore ficava true para
+      // sempre quando a guarda de geração descartava a resposta atrasada
+      // ANTES de limpar a flag — spinner eterno e paginação morta.
+      final repo = _FakeLawyerRepository({
+        0: DiscoveryPage(
+          items: [for (var i = 1; i <= 6; i++) _lawyer('l$i')],
+          hasMore: true,
+        ),
+        6: DiscoveryPage.last([_lawyer('l7')]),
+      });
+      final stale = Completer<DiscoveryPage<LawyerProfileSummary>>();
+      repo.pending = stale;
+      repo.pendingOffset = 6;
+
+      await tester.pumpWidget(
+        _host(RecommendedLawyersSection(repository: repo)),
+      );
+      await tester.pumpAndSettle();
+
+      // Página 2 fica pendurada no Completer.
+      await tester.ensureVisible(find.text('Ver mais advogados'));
+      await tester.tap(find.text('Ver mais advogados'));
+      await tester.pump();
+
+      // Busca muda com a página 2 em voo; a resposta atrasada chega depois.
+      await tester.pumpWidget(
+        _host(RecommendedLawyersSection(searchQuery: 'nova', repository: repo)),
+      );
+      await tester.pumpAndSettle();
+      stale.complete(DiscoveryPage.last([_lawyer('x')]));
+      await tester.pumpAndSettle();
+
+      // Botão da busca nova está VIVO: sem spinner e paginando de verdade.
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+      await tester.ensureVisible(find.text('Ver mais advogados'));
+      await tester.tap(find.text('Ver mais advogados'));
+      await tester.pumpAndSettle();
+      expect(find.text('Advogado l7'), findsOneWidget);
     });
   });
 

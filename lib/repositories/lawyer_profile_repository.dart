@@ -1,10 +1,13 @@
 import 'dart:developer' as developer;
 
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 import '../data/legal_practice_areas.dart';
 import '../data/mock/mock_lawyers.dart';
 import '../models/discovery_page.dart';
 import '../models/lawyer_profile_summary.dart';
 import '../services/supabase_config.dart';
+import '../utils/discovery_pagination.dart';
 
 class LawyerProfileRepository {
   const LawyerProfileRepository();
@@ -44,50 +47,44 @@ class LawyerProfileRepository {
           .cast<Map<String, dynamic>>()
           .map<LawyerProfileSummary>(_fromRow)
           .toList();
-      final hasMore = parsed.length > limit;
-      return DiscoveryPage(
-        items: hasMore ? parsed.sublist(0, limit) : parsed,
-        hasMore: hasMore,
-      );
-    } catch (error, stackTrace) {
-      // Página 2+ não tem fallback possível (a função antiga não pagina):
-      // o erro sobe e o botão "Ver mais" avisa sem derrubar o que já está
-      // na tela.
-      if (offset > 0) rethrow;
-
-      final fallback = await _fetchRecommendedLawyersLegacy();
-      if (fallback.isNotEmpty) {
-        return DiscoveryPage.last(_filterLawyers(fallback, searchQuery));
-      }
+      return pageFromSentinel(parsed, limit);
+    } on PostgrestException catch (error, stackTrace) {
+      // Fallback SÓ para "função não existe com esses parâmetros"
+      // (PGRST202) — o app novo contra o banco ainda sem a migration de
+      // paginação. Qualquer outro erro (rede, timeout, RLS) tem que SUBIR
+      // para o estado de erro com retry: cair no legacy nesses casos
+      // desligaria a paginação em silêncio e a lista curta pareceria
+      // completa. Página 2+ nunca tem fallback (a função antiga não
+      // pagina); o botão avisa sem derrubar o que já está na tela.
+      if (offset > 0 || error.code != 'PGRST202') rethrow;
 
       developer.log(
-        'Supabase recommended lawyers fetch failed',
+        'fetch_recommended_lawyers sem paginação no banco; usando legado',
         name: 'LawyerProfileRepository',
         error: error,
         stackTrace: stackTrace,
       );
-      // Sem fallback e com backend configurado, o erro sobe: a seção tem
-      // estado de erro com retry (a de escritórios já fazia isso; esta
-      // devolvia lista vazia e virava "Nenhum advogado recomendado").
-      if (SupabaseConfig.isReady) rethrow;
-      return const DiscoveryPage.last([]);
+      return DiscoveryPage.last(await _fetchRecommendedLawyersLegacy(
+        searchQuery: searchQuery,
+      ));
     }
   }
 
-  Future<List<LawyerProfileSummary>> _fetchRecommendedLawyersLegacy() async {
-    try {
-      final rows = await SupabaseConfig.client.rpc(
-        'fetch_recommended_lawyers',
-        params: {'limit_value': 6},
-      );
+  /// Chamada idêntica à do app pré-paginação (a função de 2 args aceita a
+  /// busca desde a baseline — omiti-la aqui inutilizaria a busca durante a
+  /// janela de deploy). Erros sobem: a seção tem estado de erro com retry.
+  Future<List<LawyerProfileSummary>> _fetchRecommendedLawyersLegacy({
+    required String searchQuery,
+  }) async {
+    final rows = await SupabaseConfig.client.rpc(
+      'fetch_recommended_lawyers',
+      params: {'limit_value': 6, 'search_value': searchQuery},
+    );
 
-      return (rows as List<dynamic>)
-          .cast<Map<String, dynamic>>()
-          .map<LawyerProfileSummary>(_fromRow)
-          .toList();
-    } catch (_) {
-      return const [];
-    }
+    return (rows as List<dynamic>)
+        .cast<Map<String, dynamic>>()
+        .map<LawyerProfileSummary>(_fromRow)
+        .toList();
   }
 
   /// Advogados que o escritório pode sugerir a um cliente: vínculo ativo,

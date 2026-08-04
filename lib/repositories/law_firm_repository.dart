@@ -1,7 +1,10 @@
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 import '../data/legal_practice_areas.dart';
 import '../models/discovery_page.dart';
 import '../models/law_firm.dart';
 import '../services/supabase_config.dart';
+import '../utils/discovery_pagination.dart';
 
 class LawFirmRepository {
   const LawFirmRepository();
@@ -31,14 +34,15 @@ class LawFirmRepository {
           .cast<Map<String, dynamic>>()
           .map<LawFirm>(_fromRow)
           .toList();
-      final hasMore = parsed.length > limit;
-      return DiscoveryPage(
-        items: hasMore ? parsed.sublist(0, limit) : parsed,
-        hasMore: hasMore,
-      );
-    } catch (_) {
-      // Página 2+ não tem fallback que pagine; o erro sobe e o botão avisa.
-      if (offset > 0) rethrow;
+      return pageFromSentinel(parsed, limit);
+    } on PostgrestException catch (error) {
+      // Fallback SÓ para "função não existe com esses parâmetros"
+      // (PGRST202) — o app novo contra o banco ainda sem a migration de
+      // paginação. Erro transitório com banco migrado tem que SUBIR para o
+      // estado de erro com retry; o SELECT direto aqui, além de desligar a
+      // paginação em silêncio, ignora ranking e slots patrocinados.
+      // Página 2+ nunca tem fallback; o botão avisa sem derrubar a lista.
+      if (offset > 0 || error.code != 'PGRST202') rethrow;
 
       final rows = await SupabaseConfig.client
           .from('law_firms')

@@ -65,6 +65,10 @@ class _RecommendedLawyersSectionState extends State<RecommendedLawyersSection> {
       _lawyers = null;
       _loadFailed = false;
       _hasMore = false;
+      // Sem zerar aqui, uma página 2 em voo da BUSCA ANTERIOR deixaria o
+      // spinner preso para sempre: a resposta atrasada é descartada pela
+      // guarda de geração ANTES de limpar a flag.
+      _isLoadingMore = false;
       _nextOffset = 0;
     });
     try {
