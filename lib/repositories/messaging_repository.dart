@@ -12,6 +12,42 @@ import '../services/supabase_config.dart';
 
 enum ConversationScope { client, lawyer, firmClient, firmTeam }
 
+/// Casa os resultados de assinatura com os caminhos PEDIDOS.
+///
+/// A chave do mapa tem que ser o caminho que nós pedimos, porque é por ele que
+/// o balão procura a URL depois. A API promete um resultado por caminho, na
+/// mesma ordem, mas confiar só na posição significaria que uma resposta fora
+/// de ordem mostraria a foto de uma mensagem dentro de outra — então o
+/// caminho que o servidor devolve manda, quando ele é um dos que pedimos, e a
+/// posição só entra como reserva. Caminho nenhum é inventado.
+Map<String, String> signedUrlsByRequestedPath(
+  List<String> requestedPaths,
+  List<SignedUrlResult> results,
+) {
+  final requested = requestedPaths.toSet();
+  final sameLength = results.length == requestedPaths.length;
+  final urls = <String, String>{};
+
+  for (var index = 0; index < results.length; index++) {
+    final result = results[index];
+    if (result is! SignedUrlSuccess) continue;
+
+    final String? key;
+    if (requested.contains(result.path)) {
+      key = result.path;
+    } else if (sameLength) {
+      key = requestedPaths[index];
+    } else {
+      key = null;
+    }
+
+    if (key == null || key.isEmpty) continue;
+    urls[key] = result.signedUrl;
+  }
+
+  return urls;
+}
+
 class MessagingRepository {
   const MessagingRepository();
 
@@ -231,6 +267,22 @@ class MessagingRepository {
     return SupabaseConfig.client.storage
         .from(_chatAttachmentsBucket)
         .createSignedUrl(attachment.storagePath, 300);
+  }
+
+  /// Assina vários anexos numa chamada só — é o que permite abrir uma conversa
+  /// com dez fotos sem dez idas ao servidor. Caminhos que o servidor não
+  /// conseguiu assinar simplesmente não aparecem no mapa.
+  Future<Map<String, String>> createSignedAttachmentUrls(
+    List<String> storagePaths,
+    Duration ttl,
+  ) async {
+    if (storagePaths.isEmpty) return const {};
+
+    final results = await SupabaseConfig.client.storage
+        .from(_chatAttachmentsBucket)
+        .createSignedUrlsResult(storagePaths, ttl.inSeconds);
+
+    return signedUrlsByRequestedPath(storagePaths, results);
   }
 
   Future<Conversation> startLawFirmConversation({

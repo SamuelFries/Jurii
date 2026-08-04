@@ -1,6 +1,7 @@
 import 'dart:async';
-import 'dart:typed_data';
+import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -18,10 +19,15 @@ import '../repositories/law_firm_repository.dart';
 import '../repositories/lawyer_profile_repository.dart';
 import '../repositories/messaging_repository.dart';
 import '../repositories/profile_repository.dart';
+import '../services/attachment_url_cache.dart';
 import '../services/intake_ai_service.dart';
 import '../services/supabase_config.dart';
 import '../theme/app_colors.dart';
+import '../utils/chat_attachment_rules.dart';
+import '../utils/document_file_validation.dart';
 import '../utils/safe_file_picker.dart';
+import '../widgets/chat_media_bubble.dart';
+import '../widgets/chat_media_viewer.dart';
 import '../widgets/jurii_empty_state.dart';
 import '../widgets/jurii_form_motion.dart';
 import '../widgets/jurii_motion.dart';
@@ -83,6 +89,22 @@ class _ChatScreenState extends State<ChatScreen>
   final LawyerProfileRepository _lawyerProfileRepository =
       const LawyerProfileRepository();
   final LawFirmRepository _lawFirmRepository = const LawFirmRepository();
+
+  /// Bucket de anexo é privado: foto e vídeo dentro do balão só aparecem com
+  /// URL assinada. O cache vive junto da tela (morre com ela) e assina em lote.
+  late final AttachmentUrlCache _mediaUrls = AttachmentUrlCache(
+    signer: (paths, ttl) {
+      if (!SupabaseConfig.isReady) return Future.value(const {});
+      return _repository.createSignedAttachmentUrls(paths, ttl);
+    },
+  );
+
+  /// Reassina antes do vencimento mesmo sem nada acontecer na conversa. Sem
+  /// isto, um chat deixado aberto passa da validade da URL e TODA foto do
+  /// histórico vira cartão de erro no primeiro rebuild — e nada a conserta até
+  /// chegar mensagem nova.
+  Timer? _mediaUrlRefreshTimer;
+
   RealtimeChannel? _messagesChannel;
   List<ChatMessage> _messages = const [];
   bool _isLoading = true;
@@ -146,6 +168,13 @@ class _ChatScreenState extends State<ChatScreen>
     super.initState();
     _loadMessages();
     _subscribeToMessages();
+    // 10 minutos contra uma validade de 1 hora: qualquer tique cai dentro da
+    // margem de renovação antes de a URL morrer, e o tique que não tem nada a
+    // renovar não gera rede nem rebuild.
+    _mediaUrlRefreshTimer = Timer.periodic(
+      const Duration(minutes: 10),
+      (_) => unawaited(_ensureMediaUrls()),
+    );
   }
 
   @override
@@ -154,6 +183,8 @@ class _ChatScreenState extends State<ChatScreen>
     if (channel != null && SupabaseConfig.isReady) {
       SupabaseConfig.client.removeChannel(channel);
     }
+    _mediaUrlRefreshTimer?.cancel();
+    _mediaUrls.clear();
     _triageHintTimer?.cancel();
     _plusMenuAnimation.dispose();
     _plusMenuController.dispose();
@@ -189,6 +220,7 @@ class _ChatScreenState extends State<ChatScreen>
         _isLoading = false;
         _loadFailed = false;
       });
+      unawaited(_ensureMediaUrls());
       _scrollToBottom();
     } catch (error) {
       debugPrint('Supabase messages fetch failed: $error');
@@ -201,6 +233,57 @@ class _ChatScreenState extends State<ChatScreen>
       });
       _scrollToBottom();
     }
+  }
+
+  /// Assina em UM lote as mídias que a lista precisa desenhar. Chamado depois
+  /// de carregar e a cada mensagem nova — a segunda chamada não repete o que já
+  /// está assinado, então sai barata.
+  Future<void> _ensureMediaUrls() async {
+    if (!_usesSupabase || !SupabaseConfig.isReady) return;
+
+    final paths = _messages
+        .map((message) => message.attachment)
+        .whereType<ChatAttachment>()
+        .where((attachment) => attachment.isMedia)
+        .map((attachment) => attachment.storagePath)
+        .toList();
+    if (paths.isEmpty) return;
+
+    final before = paths.map(_mediaUrls.cachedUrlFor).toList();
+    // `ensureUrls` marca os caminhos como em voo ANTES do primeiro await, então
+    // o quadro que está sendo montado agora já mostra esqueleto — e não o
+    // cartão de "não foi possível carregar", que seria o estado de URL ausente.
+    await _mediaUrls.ensureUrls(paths);
+    if (!mounted) return;
+
+    // O balão lê a URL do cache no build; sem este setState a foto só
+    // apareceria na próxima vez que a tela se redesenhasse por outro motivo.
+    // Comparar antes/depois evita que o tique periódico (que quase sempre não
+    // tem o que renovar) redesenhe a conversa inteira de dez em dez minutos.
+    final after = paths.map(_mediaUrls.cachedUrlFor).toList();
+    if (!listEquals(before, after)) setState(() {});
+  }
+
+  /// Nova tentativa para uma mídia que não carregou: joga fora a URL guardada
+  /// (reusá-la repetiria a falha) e assina outra.
+  ///
+  /// [automatic] é a recuperação disparada pelo próprio download que falhou —
+  /// essa tem teto de UMA por anexo enquanto a tela viver. Sem o teto vira
+  /// laço: assinar gera URL nova, URL nova recria o balão, o balão baixa e
+  /// falha de novo. Para um objeto que sumiu do bucket isso não converge, e o
+  /// custo é rede e bateria de quem só está lendo a conversa. O toque em
+  /// "Tentar de novo" ([automatic] falso) não tem teto: é decisão da pessoa.
+  Future<void> _retryMedia(
+    ChatAttachment attachment, {
+    required bool automatic,
+  }) async {
+    if (automatic) {
+      if (!_mediaUrls.forgetForAutoRetry(attachment.storagePath)) return;
+    } else {
+      _mediaUrls.forget(attachment.storagePath);
+    }
+    if (mounted) setState(() {});
+    await _ensureMediaUrls();
   }
 
   void _subscribeToMessages() {
@@ -356,6 +439,10 @@ class _ChatScreenState extends State<ChatScreen>
   }
 
   void _togglePlusMenu() {
+    // O menu ocupa o mesmo espaço do teclado, e os dois abertos ao mesmo tempo
+    // não cabem em tela pequena — o composer (campo e botão enviar) era
+    // empurrado para fora. Quem toca no "+" quer anexar, não digitar.
+    if (!_isPlusMenuOpen) FocusScope.of(context).unfocus();
     setState(() {
       _isPlusMenuOpen = !_isPlusMenuOpen;
       if (_isPlusMenuOpen) {
@@ -481,15 +568,7 @@ class _ChatScreenState extends State<ChatScreen>
     final SafePickedFile? file;
     try {
       file = await pickSingleFile(
-        allowedExtensions: const [
-          'jpg',
-          'jpeg',
-          'png',
-          'webp',
-          'pdf',
-          'doc',
-          'docx',
-        ],
+        allowedExtensions: chatAttachmentAllowedExtensions,
       );
     } catch (error) {
       // Permissão negada era um toque sem nenhuma resposta.
@@ -504,27 +583,19 @@ class _ChatScreenState extends State<ChatScreen>
     }
     if (file == null || !mounted) return;
 
-    final mimeType = _mimeTypeForFile(file.name);
-    final kind = _attachmentKindForMime(mimeType);
+    final mimeType = chatAttachmentMimeType(file.name);
+    final kind = chatAttachmentKindForMime(mimeType);
 
     if (mimeType == null || kind == null) {
       _showSnackBar(
-        'Envie apenas fotos, PDF, DOC ou DOCX. Para fotos do celular, '
-        'use "Enviar foto".',
+        'Envie apenas fotos, vídeos (MP4 ou MOV), PDF, DOC ou DOCX.',
       );
       return;
     }
 
     // Tamanho ANTES de ler os bytes: a leitura só acontece dentro do teto.
-    final maxSize = kind == ChatAttachmentKind.image
-        ? 5 * 1024 * 1024
-        : 10 * 1024 * 1024;
-    if (file.size > maxSize) {
-      _showSnackBar(
-        kind == ChatAttachmentKind.image
-            ? 'Fotos podem ter no máximo 5 MB.'
-            : 'Documentos podem ter no máximo 10 MB.',
-      );
+    if (file.size > maxChatAttachmentBytes(kind)) {
+      _showSnackBar(chatAttachmentSizeLimitMessage(kind));
       return;
     }
 
@@ -545,7 +616,7 @@ class _ChatScreenState extends State<ChatScreen>
       return;
     }
 
-    if (!_bytesMatchMimeType(bytes, mimeType)) {
+    if (!bytesMatchMimeType(bytes, mimeType)) {
       _showSnackBar('Arquivo inválido ou corrompido.');
       return;
     }
@@ -593,8 +664,8 @@ class _ChatScreenState extends State<ChatScreen>
 
     final size = await photo.length();
     if (!mounted) return;
-    if (size > 5 * 1024 * 1024) {
-      _showSnackBar('Fotos podem ter no máximo 5 MB.');
+    if (size > maxChatImageBytes) {
+      _showSnackBar(chatAttachmentSizeLimitMessage(ChatAttachmentKind.image));
       return;
     }
 
@@ -608,7 +679,7 @@ class _ChatScreenState extends State<ChatScreen>
     }
     if (!mounted) return;
 
-    if (bytes.isEmpty || !_bytesMatchMimeType(bytes, 'image/jpeg')) {
+    if (bytes.isEmpty || !bytesMatchMimeType(bytes, 'image/jpeg')) {
       _showSnackBar('Não foi possível ler a foto.');
       return;
     }
@@ -617,6 +688,84 @@ class _ChatScreenState extends State<ChatScreen>
       fileName: 'foto_${DateTime.now().millisecondsSinceEpoch}.jpg',
       mimeType: 'image/jpeg',
       kind: ChatAttachmentKind.image,
+      bytes: bytes,
+    );
+  }
+
+  /// Vídeo pela câmera ou pela galeria.
+  ///
+  /// Diferente da foto, NÃO existe recompressão: o image_picker do Android
+  /// entrega o arquivo original e o do iOS grava em qualidade alta e só copia.
+  /// O teto de 25 MB é, portanto, a única coisa entre a galeria do usuário e a
+  /// conta de Storage — e por isso o tamanho é conferido ANTES de ler os bytes.
+  Future<void> _sendVideo(ImageSource source) async {
+    if (_isUploadingAttachment) return;
+
+    if (!_usesSupabase || !SupabaseConfig.isReady) {
+      _showSnackBar('Anexos estão disponíveis apenas em conversas online.');
+      return;
+    }
+
+    final XFile? video;
+    try {
+      video = await ImagePicker().pickVideo(
+        source: source,
+        // Corta a GRAVAÇÃO em 1 minuto. Vídeo escolhido na galeria ignora este
+        // limite (o sistema não recorta o que já existe) e é barrado adiante
+        // pelo tamanho — o teto de bytes é quem vale nos dois caminhos.
+        maxDuration: const Duration(minutes: 1),
+      );
+    } catch (error) {
+      debugPrint('Video picker failed: $error');
+      if (mounted) {
+        _showSnackBar(
+          source == ImageSource.camera
+              ? 'Não foi possível abrir a câmera. '
+                    'Verifique as permissões de câmera e microfone nos Ajustes.'
+              : 'Não foi possível abrir a galeria. '
+                    'Verifique a permissão nos Ajustes.',
+        );
+      }
+      return;
+    }
+    if (video == null) return;
+
+    // A extensão vem do arquivo que o sistema entregou (.MOV no iPhone,
+    // .mp4 no Android). Formato fora dos dois é recusado aqui em vez de subir
+    // para o bucket recusar depois — o upload já teria custado a rede.
+    final mimeType = chatAttachmentMimeType(video.name);
+    if (mimeType == null ||
+        chatAttachmentKindForMime(mimeType) != ChatAttachmentKind.video) {
+      _showSnackBar('Envie vídeos em MP4 ou MOV.');
+      return;
+    }
+
+    final size = await video.length();
+    if (!mounted) return;
+    if (size > maxChatVideoBytes) {
+      _showSnackBar(chatAttachmentSizeLimitMessage(ChatAttachmentKind.video));
+      return;
+    }
+
+    final Uint8List bytes;
+    try {
+      bytes = await video.readAsBytes();
+    } catch (error) {
+      debugPrint('Video read failed: $error');
+      if (mounted) _showSnackBar('Não foi possível ler o vídeo.');
+      return;
+    }
+    if (!mounted) return;
+
+    if (bytes.isEmpty || !bytesMatchMimeType(bytes, mimeType)) {
+      _showSnackBar('Vídeo inválido ou corrompido.');
+      return;
+    }
+
+    await _uploadAttachment(
+      fileName: video.name,
+      mimeType: mimeType,
+      kind: ChatAttachmentKind.video,
       bytes: bytes,
     );
   }
@@ -662,15 +811,23 @@ class _ChatScreenState extends State<ChatScreen>
     if (!SupabaseConfig.isReady) return;
 
     try {
-      final signedUrl = await _repository.createSignedAttachmentUrl(attachment);
+      // Mídia já tem URL assinada no cache (é ela que desenha a prévia):
+      // reaproveitar evita uma ida ao servidor a cada toque. Documento não
+      // passa pelo cache — assina na hora, com prazo curto.
+      final signedUrl =
+          (attachment.isMedia
+              ? _mediaUrls.cachedUrlFor(attachment.storagePath)
+              : null) ??
+          await _repository.createSignedAttachmentUrl(attachment);
       if (!mounted) return;
 
-      if (attachment.isImage) {
-        await showDialog<void>(
-          context: context,
-          builder: (_) => _ImageAttachmentDialog(
-            attachment: attachment,
-            signedUrl: signedUrl,
+      if (attachment.isMedia) {
+        await Navigator.of(context).push<void>(
+          MaterialPageRoute(
+            builder: (_) => ChatMediaViewerPage(
+              attachment: attachment,
+              signedUrl: signedUrl,
+            ),
           ),
         );
         return;
@@ -688,42 +845,6 @@ class _ChatScreenState extends State<ChatScreen>
       debugPrint('Supabase attachment open failed: $error');
       if (!mounted) return;
       _showSnackBar('Não foi possível abrir o anexo.');
-    }
-  }
-
-  /// Confere a assinatura (magic bytes) do arquivo contra o MIME derivado da
-  /// extensão — impede binário arbitrário renomeado para .pdf/.jpg.
-  bool _bytesMatchMimeType(List<int> bytes, String mimeType) {
-    bool startsWith(List<int> signature) {
-      if (bytes.length < signature.length) return false;
-      for (var i = 0; i < signature.length; i++) {
-        if (bytes[i] != signature[i]) return false;
-      }
-      return true;
-    }
-
-    switch (mimeType) {
-      case 'application/pdf':
-        return startsWith(const [0x25, 0x50, 0x44, 0x46]); // %PDF
-      case 'image/jpeg':
-        return startsWith(const [0xFF, 0xD8, 0xFF]);
-      case 'image/png':
-        return startsWith(const [0x89, 0x50, 0x4E, 0x47]);
-      case 'image/webp':
-        return bytes.length >= 12 &&
-            startsWith(const [0x52, 0x49, 0x46, 0x46]) && // RIFF
-            bytes[8] == 0x57 &&
-            bytes[9] == 0x45 &&
-            bytes[10] == 0x42 &&
-            bytes[11] == 0x50; // WEBP
-      case 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
-        return startsWith(const [0x50, 0x4B]); // ZIP (PK)
-      case 'application/msword':
-        // .doc legado (OLE) ou salvo como zip por editores modernos.
-        return startsWith(const [0xD0, 0xCF, 0x11, 0xE0]) ||
-            startsWith(const [0x50, 0x4B]);
-      default:
-        return false;
     }
   }
 
@@ -853,32 +974,6 @@ class _ChatScreenState extends State<ChatScreen>
     }
   }
 
-  String? _mimeTypeForFile(String fileName) {
-    final extension = fileName.split('.').last.toLowerCase();
-    return switch (extension) {
-      'jpg' || 'jpeg' => 'image/jpeg',
-      'png' => 'image/png',
-      'webp' => 'image/webp',
-      'pdf' => 'application/pdf',
-      'doc' => 'application/msword',
-      'docx' =>
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      _ => null,
-    };
-  }
-
-  ChatAttachmentKind? _attachmentKindForMime(String? mimeType) {
-    if (mimeType == null) return null;
-    if (mimeType.startsWith('image/')) return ChatAttachmentKind.image;
-    if (mimeType == 'application/pdf' ||
-        mimeType == 'application/msword' ||
-        mimeType ==
-            'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
-      return ChatAttachmentKind.document;
-    }
-    return null;
-  }
-
   void _showSnackBar(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(
@@ -899,6 +994,7 @@ class _ChatScreenState extends State<ChatScreen>
     setState(
       () => _messages = [..._withoutDuplicateCaseRequest(message), message],
     );
+    unawaited(_ensureMediaUrls());
     _scrollToBottom();
   }
 
@@ -911,6 +1007,7 @@ class _ChatScreenState extends State<ChatScreen>
       setState(
         () => _messages = [..._withoutDuplicateCaseRequest(message), message],
       );
+      unawaited(_ensureMediaUrls());
       _scrollToBottom();
       return;
     }
@@ -918,6 +1015,7 @@ class _ChatScreenState extends State<ChatScreen>
     final nextMessages = [..._messages];
     nextMessages[index] = message;
     setState(() => _messages = nextMessages);
+    unawaited(_ensureMediaUrls());
   }
 
   /// Remove o card sintético de solicitação de caso (id `case_request_<id>`)
@@ -956,6 +1054,7 @@ class _ChatScreenState extends State<ChatScreen>
     );
     if (!mounted) return;
     setState(() => _messages = messages);
+    unawaited(_ensureMediaUrls());
     _scrollToBottom();
   }
 
@@ -1392,149 +1491,190 @@ class _ChatScreenState extends State<ChatScreen>
         ],
       ),
       body: SafeArea(
-        child: Column(
-          children: [
-            AnimatedSize(
-              duration: const Duration(milliseconds: 250),
-              curve: Curves.easeOutCubic,
-              child: _showTriageBanner
-                  ? _TriageBanner(
-                      counterpartLabel: _triageCounterpartLabel,
-                      onTap: _startTriage,
-                    )
-                  : const SizedBox(width: double.infinity),
-            ),
-            Expanded(
-              child: _isLoading
-                  ? const Padding(
-                      padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
-                      child: JuriiSkeletonList(
-                        itemCount: 6,
-                        itemHeight: 72,
-                        gap: 10,
-                      ),
-                    )
-                  : _loadFailed && _messages.isEmpty
-                  ? _ChatLoadErrorState(onRetry: _loadMessages)
-                  : _messages.isEmpty
-                  ? const _EmptyChatState()
-                  : ListView.builder(
-                      controller: _scrollController,
-                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                      itemCount: _messages.length,
-                      itemBuilder: (context, index) {
-                        final message = _messages[index];
-                        final fromRight = message.author == MessageAuthor.me;
-                        return JuriiStaggeredItem(
-                          key: ValueKey('chat_message_${message.id}'),
-                          index: index,
-                          beginOffset: Offset(fromRight ? 18 : -18, 8),
-                          child: _MessageBubble(
-                            message: message,
-                            counterpartName: widget.conversation.officeName,
-                            counterpartInitials: widget.conversation.initials,
-                            canRespondToCaseRequest:
-                                !widget.isLawyer &&
-                                message.isPendingCaseRequest,
-                            isRespondingCaseRequest:
-                                _respondingCaseRequestId ==
-                                message.caseRequestId,
-                            // Só o cliente aciona o advogado sugerido; para o
-                            // escritório o card é o registro da sugestão.
-                            canMessageRecommendedLawyer: !widget.isLawyer,
-                            isOpeningRecommendedLawyerChat:
-                                _openingRecommendedLawyerId != null &&
-                                _openingRecommendedLawyerId ==
-                                    message.lawyerRecommendation?.lawyerId,
-                            onMessageRecommendedLawyer:
-                                _openRecommendedLawyerChat,
-                            onAcceptCaseRequest: () =>
-                                _respondToCaseRequestFromChat(
-                                  message,
-                                  accepted: true,
-                                ),
-                            onDeclineCaseRequest: () =>
-                                _respondToCaseRequestFromChat(
-                                  message,
-                                  accepted: false,
-                                ),
-                            onOpenAttachment: _openAttachment,
+        // O menu "+" precisa saber quanto espaço REAL sobra (barra e teclado já
+        // descontados) para se limitar em vez de empurrar o composer para fora.
+        child: LayoutBuilder(
+          builder: (context, bodyConstraints) {
+            // Reserva fixa para o composer e um naco da conversa; o menu
+            // fica com o resto e rola quando não couber. Fração pura não
+            // servia: a que cabia com o teclado aberto encolhia o menu à
+            // toa no caso normal, que é o teclado fechado.
+            final plusMenuMaxHeight = math.max(
+              0.0,
+              bodyConstraints.maxHeight - 180,
+            );
+            return Column(
+              children: [
+                AnimatedSize(
+                  duration: const Duration(milliseconds: 250),
+                  curve: Curves.easeOutCubic,
+                  child: _showTriageBanner
+                      ? _TriageBanner(
+                          counterpartLabel: _triageCounterpartLabel,
+                          onTap: _startTriage,
+                        )
+                      : const SizedBox(width: double.infinity),
+                ),
+                Expanded(
+                  child: _isLoading
+                      ? const Padding(
+                          padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+                          child: JuriiSkeletonList(
+                            itemCount: 6,
+                            itemHeight: 72,
+                            gap: 10,
                           ),
-                        );
-                      },
-                    ),
-            ),
-            AnimatedSize(
-              duration: const Duration(milliseconds: 200),
-              curve: Curves.easeOutCubic,
-              child: _showTriageHint && !_isBlocked
-                  ? const _TriageHintChip()
-                  : const SizedBox(width: double.infinity),
-            ),
-            // Menu do "+": abre deslizando para cima, junto do composer.
-            // Fora da árvore quando fechado (não fica "invisível" clicável)
-            // e quando a conversa bloqueia (senão ficava órfão e clicável
-            // sobre a barra de bloqueio, sem botão para fechá-lo).
-            AnimatedBuilder(
-              animation: _plusMenuController,
-              builder: (context, _) {
-                if (_plusMenuController.isDismissed || _isBlocked) {
-                  return const SizedBox(width: double.infinity);
-                }
-                return ClipRect(
-                  child: SizeTransition(
-                    sizeFactor: _plusMenuAnimation,
-                    alignment: Alignment.bottomCenter,
-                    child: SlideTransition(
-                      position: Tween<Offset>(
-                        begin: const Offset(0, 0.35),
-                        end: Offset.zero,
-                      ).animate(_plusMenuAnimation),
-                      child: FadeTransition(
-                        opacity: _plusMenuAnimation,
-                        child: _PlusMenuSheet(
-                          showTriage: _triageAvailable,
-                          onTakePhoto: () {
-                            _closePlusMenu();
-                            _sendPhoto(ImageSource.camera);
+                        )
+                      : _loadFailed && _messages.isEmpty
+                      ? _ChatLoadErrorState(onRetry: _loadMessages)
+                      : _messages.isEmpty
+                      ? const _EmptyChatState()
+                      : ListView.builder(
+                          controller: _scrollController,
+                          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                          itemCount: _messages.length,
+                          itemBuilder: (context, index) {
+                            final message = _messages[index];
+                            final fromRight =
+                                message.author == MessageAuthor.me;
+                            final mediaPath =
+                                message.attachment?.isMedia == true
+                                ? message.attachment!.storagePath
+                                : null;
+                            return JuriiStaggeredItem(
+                              key: ValueKey('chat_message_${message.id}'),
+                              index: index,
+                              beginOffset: Offset(fromRight ? 18 : -18, 8),
+                              child: _MessageBubble(
+                                message: message,
+                                counterpartName: widget.conversation.officeName,
+                                counterpartInitials:
+                                    widget.conversation.initials,
+                                canRespondToCaseRequest:
+                                    !widget.isLawyer &&
+                                    message.isPendingCaseRequest,
+                                isRespondingCaseRequest:
+                                    _respondingCaseRequestId ==
+                                    message.caseRequestId,
+                                // Só o cliente aciona o advogado sugerido; para o
+                                // escritório o card é o registro da sugestão.
+                                canMessageRecommendedLawyer: !widget.isLawyer,
+                                isOpeningRecommendedLawyerChat:
+                                    _openingRecommendedLawyerId != null &&
+                                    _openingRecommendedLawyerId ==
+                                        message.lawyerRecommendation?.lawyerId,
+                                onMessageRecommendedLawyer:
+                                    _openRecommendedLawyerChat,
+                                onAcceptCaseRequest: () =>
+                                    _respondToCaseRequestFromChat(
+                                      message,
+                                      accepted: true,
+                                    ),
+                                onDeclineCaseRequest: () =>
+                                    _respondToCaseRequestFromChat(
+                                      message,
+                                      accepted: false,
+                                    ),
+                                onOpenAttachment: _openAttachment,
+                                onRetryMedia: (attachment) => unawaited(
+                                  _retryMedia(attachment, automatic: false),
+                                ),
+                                onAutoRetryMedia: (attachment) => unawaited(
+                                  _retryMedia(attachment, automatic: true),
+                                ),
+                                mediaUrl: mediaPath == null
+                                    ? null
+                                    : _mediaUrls.cachedUrlFor(mediaPath),
+                                isLoadingMediaUrl:
+                                    mediaPath != null &&
+                                    _mediaUrls.isPending(mediaPath),
+                              ),
+                            );
                           },
-                          onPickPhoto: () {
-                            _closePlusMenu();
-                            _sendPhoto(ImageSource.gallery);
-                          },
-                          onAttach: () {
-                            _closePlusMenu();
-                            _sendAttachment();
-                          },
-                          onTriage: _startTriage,
+                        ),
+                ),
+                AnimatedSize(
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeOutCubic,
+                  child: _showTriageHint && !_isBlocked
+                      ? const _TriageHintChip()
+                      : const SizedBox(width: double.infinity),
+                ),
+                // Menu do "+": abre deslizando para cima, junto do composer.
+                // Fora da árvore quando fechado (não fica "invisível" clicável)
+                // e quando a conversa bloqueia (senão ficava órfão e clicável
+                // sobre a barra de bloqueio, sem botão para fechá-lo).
+                AnimatedBuilder(
+                  animation: _plusMenuController,
+                  builder: (context, _) {
+                    if (_plusMenuController.isDismissed || _isBlocked) {
+                      return const SizedBox(width: double.infinity);
+                    }
+                    return ClipRect(
+                      child: SizeTransition(
+                        sizeFactor: _plusMenuAnimation,
+                        alignment: Alignment.bottomCenter,
+                        child: SlideTransition(
+                          position: Tween<Offset>(
+                            begin: const Offset(0, 0.35),
+                            end: Offset.zero,
+                          ).animate(_plusMenuAnimation),
+                          child: FadeTransition(
+                            opacity: _plusMenuAnimation,
+                            child: _PlusMenuSheet(
+                              maxHeight: plusMenuMaxHeight,
+                              showTriage: _triageAvailable,
+                              onTakePhoto: () {
+                                _closePlusMenu();
+                                _sendPhoto(ImageSource.camera);
+                              },
+                              onPickPhoto: () {
+                                _closePlusMenu();
+                                _sendPhoto(ImageSource.gallery);
+                              },
+                              onRecordVideo: () {
+                                _closePlusMenu();
+                                _sendVideo(ImageSource.camera);
+                              },
+                              onPickVideo: () {
+                                _closePlusMenu();
+                                _sendVideo(ImageSource.gallery);
+                              },
+                              onAttach: () {
+                                _closePlusMenu();
+                                _sendAttachment();
+                              },
+                              onTriage: _startTriage,
+                            ),
+                          ),
                         ),
                       ),
-                    ),
+                    );
+                  },
+                ),
+                if (_isBlocked)
+                  _BlockedConversationBar(
+                    blockedByMe: _blockedByMe,
+                    isBusy: _isTogglingBlock,
+                    onUnblock: _blockedByMe
+                        ? () => _setConversationBlocked(false)
+                        : null,
+                  )
+                else
+                  _Composer(
+                    controller: _messageController,
+                    isLawyer: widget.isLawyer,
+                    counterpartLabel: _triageCounterpartLabel,
+                    isSending: _isSending,
+                    isUploadingAttachment: _isUploadingAttachment,
+                    isPlusMenuOpen: _isPlusMenuOpen,
+                    showTriageDot: _triageDotVisible,
+                    onSend: _sendMessage,
+                    onTogglePlusMenu: _togglePlusMenu,
                   ),
-                );
-              },
-            ),
-            if (_isBlocked)
-              _BlockedConversationBar(
-                blockedByMe: _blockedByMe,
-                isBusy: _isTogglingBlock,
-                onUnblock: _blockedByMe
-                    ? () => _setConversationBlocked(false)
-                    : null,
-              )
-            else
-              _Composer(
-                controller: _messageController,
-                isLawyer: widget.isLawyer,
-                counterpartLabel: _triageCounterpartLabel,
-                isSending: _isSending,
-                isUploadingAttachment: _isUploadingAttachment,
-                isPlusMenuOpen: _isPlusMenuOpen,
-                showTriageDot: _triageDotVisible,
-                onSend: _sendMessage,
-                onTogglePlusMenu: _togglePlusMenu,
-              ),
-          ],
+              ],
+            );
+          },
         ),
       ),
     );
@@ -1906,6 +2046,12 @@ class _MessageBubble extends StatelessWidget {
   final VoidCallback onAcceptCaseRequest;
   final VoidCallback onDeclineCaseRequest;
   final ValueChanged<ChatAttachment> onOpenAttachment;
+  final ValueChanged<ChatAttachment> onRetryMedia;
+  final ValueChanged<ChatAttachment> onAutoRetryMedia;
+
+  /// URL assinada da mídia desta mensagem (`null` enquanto não há uma válida).
+  final String? mediaUrl;
+  final bool isLoadingMediaUrl;
 
   const _MessageBubble({
     required this.message,
@@ -1919,6 +2065,10 @@ class _MessageBubble extends StatelessWidget {
     required this.onAcceptCaseRequest,
     required this.onDeclineCaseRequest,
     required this.onOpenAttachment,
+    required this.onRetryMedia,
+    required this.onAutoRetryMedia,
+    required this.mediaUrl,
+    required this.isLoadingMediaUrl,
   });
 
   @override
@@ -1949,6 +2099,22 @@ class _MessageBubble extends StatelessWidget {
     final colors = context.jColors;
     final isMine = message.author == MessageAuthor.me;
     final isSystem = message.author == MessageAuthor.system;
+    final attachment = message.attachment;
+
+    // "Foto enviada" / "Vídeo enviado" é rótulo que o servidor grava para a
+    // prévia da lista de conversas, não texto de ninguém. Dentro do balão a
+    // mídia já se explica, e repetir o rótulo embaixo dela é ruído.
+    //
+    // Só vale COM anexo: alguém que digita literalmente "Documento enviado"
+    // (confirmando que mandou por outro canal) tem texto de verdade, e escondê-
+    // -lo entregaria um balão vazio dos dois lados, sem erro nem log.
+    final bodyText =
+        attachment != null && isChatAttachmentAutoBody(message.text)
+        ? ''
+        : message.text.trim();
+    final showsTimeOverMedia =
+        attachment != null && attachment.isMedia && bodyText.isEmpty;
+
     final alignment = isMine ? Alignment.centerRight : Alignment.centerLeft;
     final bubbleColor = isSystem
         ? colors.lightGold
@@ -1965,7 +2131,11 @@ class _MessageBubble extends StatelessWidget {
         ),
         child: Container(
           margin: const EdgeInsets.only(bottom: 10),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          // Mídia sem legenda ocupa o balão quase inteiro (só a borda fina que
+          // dá o formato); com legenda, o respiro normal de texto volta.
+          padding: showsTimeOverMedia
+              ? const EdgeInsets.all(4)
+              : const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
             color: bubbleColor,
             borderRadius: BorderRadius.only(
@@ -1981,43 +2151,61 @@ class _MessageBubble extends StatelessWidget {
                 ? CrossAxisAlignment.end
                 : CrossAxisAlignment.start,
             children: [
-              if (message.attachment != null) ...[
-                _AttachmentTile(
-                  attachment: message.attachment!,
-                  isMine: isMine,
-                  onTap: () => onOpenAttachment(message.attachment!),
-                ),
-                if (message.text.trim().isNotEmpty) const SizedBox(height: 8),
+              if (attachment != null) ...[
+                if (attachment.isMedia)
+                  ChatMediaBubble(
+                    attachment: attachment,
+                    signedUrl: mediaUrl,
+                    isLoadingUrl: isLoadingMediaUrl,
+                    isMine: isMine,
+                    time: message.time,
+                    read: message.read,
+                    showTimestamp: showsTimeOverMedia,
+                    onOpen: () => onOpenAttachment(attachment),
+                    onRetry: () => onRetryMedia(attachment),
+                    onAutoRetry: () => onAutoRetryMedia(attachment),
+                  )
+                else
+                  _AttachmentTile(
+                    attachment: attachment,
+                    isMine: isMine,
+                    onTap: () => onOpenAttachment(attachment),
+                  ),
+                if (bodyText.isNotEmpty) const SizedBox(height: 8),
               ],
-              if (message.text.trim().isNotEmpty)
+              if (bodyText.isNotEmpty)
                 Text(
-                  message.text,
+                  bodyText,
                   style: TextStyle(color: textColor, height: 1.35),
                 ),
-              const SizedBox(height: 6),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    message.time,
-                    style: TextStyle(
-                      color: isMine
-                          ? colors.card.withValues(alpha: 0.70)
-                          : colors.textSecondary,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
+              // Mídia carrega a própria hora sobreposta, no canto da foto; a
+              // linha de baixo repetiria a informação e empurraria o balão.
+              if (!showsTimeOverMedia) ...[
+                const SizedBox(height: 6),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      message.time,
+                      style: TextStyle(
+                        color: isMine
+                            ? colors.card.withValues(alpha: 0.70)
+                            : colors.textSecondary,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                  ),
-                  if (isMine) ...[
-                    const SizedBox(width: 4),
-                    Icon(
-                      message.read ? Icons.done_all : Icons.done,
-                      size: 14,
-                      color: colors.card.withValues(alpha: 0.70),
-                    ),
+                    if (isMine) ...[
+                      const SizedBox(width: 4),
+                      Icon(
+                        message.read ? Icons.done_all : Icons.done,
+                        size: 14,
+                        color: colors.card.withValues(alpha: 0.70),
+                      ),
+                    ],
                   ],
-                ],
-              ),
+                ),
+              ],
             ],
           ),
         ),
@@ -2026,6 +2214,9 @@ class _MessageBubble extends StatelessWidget {
   }
 }
 
+/// Cartão de DOCUMENTO. Foto e vídeo não passam mais por aqui — viram
+/// [ChatMediaBubble]. Só continua atendendo o que não tem prévia possível
+/// (PDF, DOC) e o `kind` desconhecido, que cai em documento por segurança.
 class _AttachmentTile extends StatelessWidget {
   const _AttachmentTile({
     required this.attachment,
@@ -2039,9 +2230,7 @@ class _AttachmentTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final icon = attachment.isImage
-        ? Icons.image_outlined
-        : attachment.mimeType == 'application/pdf'
+    final icon = attachment.mimeType == 'application/pdf'
         ? Icons.picture_as_pdf_outlined
         : Icons.description_outlined;
     final colors = context.jColors;
@@ -2096,9 +2285,7 @@ class _AttachmentTile extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    attachment.isImage
-                        ? 'Foto - ${attachment.sizeLabel}'
-                        : 'Documento - ${attachment.sizeLabel}',
+                    'Documento - ${attachment.sizeLabel}',
                     style: TextStyle(
                       color: secondaryColor,
                       fontWeight: FontWeight.w600,
@@ -2110,96 +2297,6 @@ class _AttachmentTile extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             Icon(Icons.open_in_new, color: secondaryColor, size: 16),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ImageAttachmentDialog extends StatelessWidget {
-  const _ImageAttachmentDialog({
-    required this.attachment,
-    required this.signedUrl,
-  });
-
-  final ChatAttachment attachment;
-  final String signedUrl;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.jColors;
-
-    return Dialog(
-      insetPadding: const EdgeInsets.all(18),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.sizeOf(context).height * 0.82,
-          maxWidth: 720,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 10, 8, 8),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      attachment.fileName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: colors.textPrimary,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close),
-                    tooltip: 'Fechar',
-                  ),
-                ],
-              ),
-            ),
-            Flexible(
-              child: ClipRRect(
-                borderRadius: const BorderRadius.vertical(
-                  bottom: Radius.circular(18),
-                ),
-                child: InteractiveViewer(
-                  minScale: 0.8,
-                  maxScale: 4,
-                  child: Image.network(
-                    signedUrl,
-                    fit: BoxFit.contain,
-                    loadingBuilder: (context, child, loadingProgress) {
-                      if (loadingProgress == null) return child;
-                      return SizedBox(
-                        height: 320,
-                        child: Center(
-                          child: CircularProgressIndicator(
-                            color: colors.primary,
-                          ),
-                        ),
-                      );
-                    },
-                    errorBuilder: (context, error, stackTrace) {
-                      return SizedBox(
-                        height: 260,
-                        child: Center(
-                          child: Text(
-                            'Não foi possível carregar a imagem.',
-                            style: TextStyle(color: colors.textSecondary),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ),
-            ),
           ],
         ),
       ),
@@ -2702,16 +2799,24 @@ class _TriageHintChip extends StatelessWidget {
 /// o cliente) a triagem com IA. Sobe em slide/fade junto do composer.
 class _PlusMenuSheet extends StatelessWidget {
   const _PlusMenuSheet({
+    required this.maxHeight,
     required this.showTriage,
     required this.onTakePhoto,
     required this.onPickPhoto,
+    required this.onRecordVideo,
+    required this.onPickVideo,
     required this.onAttach,
     required this.onTriage,
   });
 
+  /// Altura máxima do menu, medida no espaço real do corpo da tela.
+  final double maxHeight;
+
   final bool showTriage;
   final VoidCallback onTakePhoto;
   final VoidCallback onPickPhoto;
+  final VoidCallback onRecordVideo;
+  final VoidCallback onPickVideo;
   final VoidCallback onAttach;
   final VoidCallback onTriage;
 
@@ -2726,6 +2831,16 @@ class _PlusMenuSheet extends StatelessWidget {
         onTap: onTakePhoto,
       ),
       (icon: Icons.photo_outlined, label: 'Enviar foto', onTap: onPickPhoto),
+      (
+        icon: Icons.videocam_outlined,
+        label: 'Gravar vídeo',
+        onTap: onRecordVideo,
+      ),
+      (
+        icon: Icons.video_library_outlined,
+        label: 'Enviar vídeo',
+        onTap: onPickVideo,
+      ),
       (icon: Icons.attach_file, label: 'Anexar arquivo', onTap: onAttach),
       if (showTriage)
         (icon: Icons.auto_awesome, label: 'Triagem com IA', onTap: onTriage),
@@ -2738,35 +2853,45 @@ class _PlusMenuSheet extends StatelessWidget {
         color: colors.card,
         border: Border(top: BorderSide(color: colors.divider)),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Duas colunas por linha: quatro opções lado a lado não cabem
-          // legíveis em 320dp.
-          for (var row = 0; row * 2 < options.length; row++) ...[
-            if (row > 0) const SizedBox(height: 10),
-            Row(
-              children: [
-                for (var col = 0; col < 2; col++) ...[
-                  if (col > 0) const SizedBox(width: 10),
-                  Expanded(
-                    child: row * 2 + col < options.length
-                        ? JuriiStaggeredItem(
-                            index: row * 2 + col,
-                            beginOffset: const Offset(0, 8),
-                            child: _PlusMenuOption(
-                              icon: options[row * 2 + col].icon,
-                              label: options[row * 2 + col].label,
-                              onTap: options[row * 2 + col].onTap,
-                            ),
-                          )
-                        : const SizedBox.shrink(),
-                  ),
-                ],
+      // Teto + rolagem: com fonte de acessibilidade grande, ou numa tela muito
+      // baixa, as opções passam a rolar dentro do menu em vez de empurrarem o
+      // composer para fora da tela. O teto vem medido de fora (o espaço real
+      // do corpo, já descontados barra e teclado) porque aqui dentro o Scaffold
+      // já consumiu o viewInsets e MediaQuery devolveria a tela inteira.
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: maxHeight),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Duas colunas por linha: quatro opções lado a lado não cabem
+              // legíveis em 320dp.
+              for (var row = 0; row * 2 < options.length; row++) ...[
+                if (row > 0) const SizedBox(height: 10),
+                Row(
+                  children: [
+                    for (var col = 0; col < 2; col++) ...[
+                      if (col > 0) const SizedBox(width: 10),
+                      Expanded(
+                        child: row * 2 + col < options.length
+                            ? JuriiStaggeredItem(
+                                index: row * 2 + col,
+                                beginOffset: const Offset(0, 8),
+                                child: _PlusMenuOption(
+                                  icon: options[row * 2 + col].icon,
+                                  label: options[row * 2 + col].label,
+                                  onTap: options[row * 2 + col].onTap,
+                                ),
+                              )
+                            : const SizedBox.shrink(),
+                      ),
+                    ],
+                  ],
+                ),
               ],
-            ),
-          ],
-        ],
+            ],
+          ),
+        ),
       ),
     );
   }

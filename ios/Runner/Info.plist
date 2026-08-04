@@ -5,9 +5,11 @@
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>A câmera é usada para fotografar documentos e enviá-los na conversa com o advogado.</string>
+	<string>A câmera é usada para fotografar ou gravar em vídeo documentos e situações e enviá-los na conversa com o advogado.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>O microfone é usado apenas para gravar o som dos vídeos que você envia na conversa com o advogado.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>A galeria é usada para escolher fotos e documentos e enviá-los na conversa com o advogado.</string>
+	<string>A galeria é usada para escolher fotos, vídeos e documentos e enviá-los na conversa com o advogado.</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>

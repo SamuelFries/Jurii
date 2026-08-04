@@ -154,6 +154,10 @@ void main() {
     expect(find.text('Anexar arquivo'), findsOneWidget);
     expect(find.text('Tirar foto'), findsOneWidget);
     expect(find.text('Enviar foto'), findsOneWidget);
+    // Vídeo tem entradas próprias: sem elas, o único caminho seria "Anexar
+    // arquivo", que ninguém procura para mandar um vídeo.
+    expect(find.text('Gravar vídeo'), findsOneWidget);
+    expect(find.text('Enviar vídeo'), findsOneWidget);
     expect(find.text('Triagem com IA'), findsOneWidget);
 
     // Fecha de novo com slide reverso.

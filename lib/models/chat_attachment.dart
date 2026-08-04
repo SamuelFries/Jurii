@@ -1,14 +1,19 @@
 enum ChatAttachmentKind {
   image('image'),
+  video('video'),
   document('document');
 
   const ChatAttachmentKind(this.value);
 
   final String value;
 
+  /// Valor desconhecido cai em [document] de propósito: um tipo novo criado no
+  /// servidor vira um cartão de arquivo (que sempre abre externamente) em vez
+  /// de tentar renderizar mídia que este app ainda não sabe desenhar.
   static ChatAttachmentKind fromValue(String? value) {
     return switch (value) {
       'image' => ChatAttachmentKind.image,
+      'video' => ChatAttachmentKind.video,
       _ => ChatAttachmentKind.document,
     };
   }
@@ -36,6 +41,12 @@ class ChatAttachment {
   });
 
   bool get isImage => kind == ChatAttachmentKind.image;
+
+  bool get isVideo => kind == ChatAttachmentKind.video;
+
+  /// Mídia é o que aparece DENTRO do balão (foto e vídeo); documento continua
+  /// como cartão com nome e tamanho, porque não há o que pré-visualizar.
+  bool get isMedia => isImage || isVideo;
 
   String get sizeLabel {
     if (fileSizeBytes >= 1024 * 1024) {
