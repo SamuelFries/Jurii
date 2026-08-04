@@ -77,7 +77,7 @@ class _CaseDetailsScreenState extends State<CaseDetailsScreen>
     // na frente da pessoa continuava velha. Assina o próprio caso: filtro no
     // servidor, e a RLS de case_movements ainda corta o resto.
     subscribeToRealtime(
-      channelName: 'case_movements:${widget.caseId}',
+      channelPrefix: 'case_movements',
       table: 'case_movements',
       filterColumn: 'case_id',
       filterValue: widget.caseId,

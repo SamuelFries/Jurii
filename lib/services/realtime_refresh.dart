@@ -18,6 +18,7 @@ import 'supabase_config.dart';
 /// dependente do formato da linha crua nem de RLS no cliente.
 mixin RealtimeRefresh<T extends StatefulWidget> on State<T> {
   RealtimeChannel? _realtimeChannel;
+  String? _realtimeChannelName;
   bool _hasSubscribedOnce = false;
   Timer? _debounce;
 
@@ -25,20 +26,39 @@ mixin RealtimeRefresh<T extends StatefulWidget> on State<T> {
   /// vez) vira UM refetch. Sem isso, cada linha dispararia uma consulta.
   static const Duration _debounceWindow = Duration(milliseconds: 300);
 
-  /// Assina [table]; com [filterColumn]/[filterValue] o servidor já corta o
-  /// que não interessa. Sem eles, quem corta é a RLS da tabela — o
-  /// assinante só recebe as linhas que já poderia ler.
+  /// Assina [table] filtrando por [filterColumn] = [filterValue].
+  ///
+  /// O filtro é OBRIGATÓRIO de propósito: assinar uma tabela inteira apostando
+  /// que a RLS corta por assinante deixa a privacidade dependendo do serviço de
+  /// Realtime, e um evento indevido viria com a linha crua no payload. Corte
+  /// por coluna no servidor; a RLS fica como segunda camada.
+  ///
+  /// O nome do canal é montado AQUI (prefixo + uid) porque interpolar o uid na
+  /// chamada tocaria `SupabaseConfig.client` antes desta guarda — e no modo
+  /// demo, sem Supabase inicializado, isso estoura `StateError` no initState.
   void subscribeToRealtime({
-    required String channelName,
+    required String channelPrefix,
     required String table,
+    required String filterColumn,
+    required String filterValue,
     required VoidCallback onChange,
-    String? filterColumn,
-    String? filterValue,
     PostgresChangeEvent event = PostgresChangeEvent.all,
   }) {
     if (!SupabaseConfig.isReady) return;
-    if (SupabaseConfig.client.auth.currentUser == null) return;
-    if (_realtimeChannel != null) return;
+    final userId = SupabaseConfig.client.auth.currentUser?.id;
+    if (userId == null) return;
+
+    final channelName = '$channelPrefix:$userId:$filterValue';
+    // Mesmo canal: nada a fazer. Canal DIFERENTE (o filtro mudou — ex.: o
+    // usuário trocou de escritório): derruba o antigo e assina o novo, senão
+    // a tela ficaria recebendo eventos do alvo anterior para sempre.
+    if (_realtimeChannel != null) {
+      if (_realtimeChannelName == channelName) return;
+      SupabaseConfig.client.removeChannel(_realtimeChannel!);
+      _realtimeChannel = null;
+      _hasSubscribedOnce = false;
+    }
+    _realtimeChannelName = channelName;
 
     void schedule() {
       _debounce?.cancel();
@@ -53,13 +73,11 @@ mixin RealtimeRefresh<T extends StatefulWidget> on State<T> {
           event: event,
           schema: 'public',
           table: table,
-          filter: filterColumn == null || filterValue == null
-              ? null
-              : PostgresChangeFilter(
-                  type: PostgresChangeFilterType.eq,
-                  column: filterColumn,
-                  value: filterValue,
-                ),
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: filterColumn,
+            value: filterValue,
+          ),
           callback: (_) => schedule(),
         )
         .subscribe((status, [error]) {
