@@ -521,7 +521,9 @@ class MessagingRepository {
         read: row['read_at'] != null,
       ),
       metadata: _metadataFromRow(row['metadata']),
-      createdAt: DateTime.tryParse(row['created_at'] as String? ?? '')?.toLocal(),
+      createdAt: DateTime.tryParse(
+        row['created_at'] as String? ?? '',
+      )?.toLocal(),
       deletedForAll: row['deleted_for_all_at'] != null,
     );
   }
