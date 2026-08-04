@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../data/mock/mock_messages.dart';
 import '../models/conversation.dart';
 import '../repositories/messaging_repository.dart';
+import '../services/realtime_refresh.dart';
 import '../services/supabase_config.dart';
 import '../theme/app_colors.dart';
 import '../widgets/conversation_card.dart';
@@ -22,7 +23,8 @@ class MessagesScreen extends StatefulWidget {
   State<MessagesScreen> createState() => _MessagesScreenState();
 }
 
-class _MessagesScreenState extends State<MessagesScreen> {
+class _MessagesScreenState extends State<MessagesScreen>
+    with RealtimeRefresh<MessagesScreen> {
   final MessagingRepository _repository = const MessagingRepository();
   late Future<List<Conversation>> _conversationsFuture;
 
@@ -30,6 +32,27 @@ class _MessagesScreenState extends State<MessagesScreen> {
   void initState() {
     super.initState();
     _conversationsFuture = _loadConversations();
+    // Mensagem nova em QUALQUER conversa do usuário mexe nesta lista (último
+    // texto, horário, ordem). Sem filtro de coluna de propósito: quem corta é
+    // a RLS de `messages` — o assinante só recebe o que já poderia ler.
+    subscribeToRealtime(
+      channelName: 'client_conversations:${SupabaseConfig.client.auth.currentUser?.id}',
+      table: 'messages',
+      event: PostgresChangeEvent.insert,
+      onChange: _refreshSilently,
+    );
+  }
+
+  /// Recarrega sem trocar o Future exibido: o realtime não pode piscar o
+  /// skeleton nem derrubar a lista para o estado de erro.
+  Future<void> _refreshSilently() async {
+    try {
+      final conversations = await _loadConversations();
+      if (!mounted) return;
+      setState(() => _conversationsFuture = Future.value(conversations));
+    } catch (_) {
+      // Mantém o que está na tela; o refresh manual e o retry seguem.
+    }
   }
 
   Future<List<Conversation>> _loadConversations() async {

@@ -6,6 +6,7 @@ import '../models/case_details.dart';
 import '../models/case_movement.dart';
 import '../models/case_update.dart';
 import '../repositories/case_repository.dart';
+import '../services/realtime_refresh.dart';
 import '../repositories/law_firm_repository.dart';
 import '../repositories/lawyer_profile_repository.dart';
 import '../theme/app_colors.dart';
@@ -42,7 +43,8 @@ class CaseDetailsScreen extends StatefulWidget {
   State<CaseDetailsScreen> createState() => _CaseDetailsScreenState();
 }
 
-class _CaseDetailsScreenState extends State<CaseDetailsScreen> {
+class _CaseDetailsScreenState extends State<CaseDetailsScreen>
+    with RealtimeRefresh<CaseDetailsScreen> {
   late Future<List<CaseUpdate>> _updatesFuture;
   Future<List<CaseMovement>>? _movementsFuture;
   String? _cnjNumber;
@@ -69,6 +71,29 @@ class _CaseDetailsScreenState extends State<CaseDetailsScreen> {
     if (_cnjNumber != null) {
       _movementsFuture = widget.repository.fetchCaseMovements(widget.caseId);
     }
+    unawaited(_loadDetails());
+    // A sync do DataJud roda de hora em hora e insere movimentos sem o
+    // usuário fazer nada. Com o caso aberto, a notificação chegava e a tela
+    // na frente da pessoa continuava velha. Assina o próprio caso: filtro no
+    // servidor, e a RLS de case_movements ainda corta o resto.
+    subscribeToRealtime(
+      channelName: 'case_movements:${widget.caseId}',
+      table: 'case_movements',
+      filterColumn: 'case_id',
+      filterValue: widget.caseId,
+      event: PostgresChangeEvent.insert,
+      onChange: _refreshMovements,
+    );
+  }
+
+  /// Movimento novo chegou pela sync: refaz a timeline. O rótulo do caso e
+  /// o resto do detalhe também mudam no mesmo evento (ingest_case_movements
+  /// atualiza last_update_label), então recarrega os dois.
+  void _refreshMovements() {
+    if (_cnjNumber == null) return;
+    setState(() {
+      _movementsFuture = widget.repository.fetchCaseMovements(widget.caseId);
+    });
     unawaited(_loadDetails());
   }
 
