@@ -124,7 +124,7 @@ class LawFirmVerificationScreen extends StatelessWidget {
                     const SizedBox(width: 14),
                     Expanded(
                       child: Text(
-                        'A aprovação do escritório é independente da verificação por OAB. O responsável pode ser dono, administrador ou secretário.',
+                        'A aprovação do escritório é independente da verificação por OAB. O responsável pode ser sócio, administrador ou secretário.',
                         style: TextStyle(
                           fontSize: 13,
                           height: 1.6,

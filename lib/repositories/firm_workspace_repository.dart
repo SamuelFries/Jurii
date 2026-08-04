@@ -49,7 +49,7 @@ class FirmWorkspaceRepository {
 
     // Em ambiente real, uma verificacao aprovada prova apenas que o escritorio
     // foi validado; autoridade vem exclusivamente de membership ativo. Isso
-    // impede que um ex-dono continue entrando pela verificacao historica.
+    // impede que um ex-socio continue entrando pela verificacao historica.
     if (SupabaseConfig.isReady) return null;
 
     if (verification?.status != LawFirmVerificationStatus.approved) {

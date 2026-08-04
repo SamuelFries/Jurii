@@ -1,5 +1,7 @@
 enum FirmRole {
-  owner('owner', 'Dono', 'Dono'),
+  // 'owner' e o identificador do banco (roles && array['owner', ...] em
+  // dezenas de RPCs); muda so o rotulo que o usuario le.
+  owner('owner', 'Sócio(a)', 'Sócio'),
   admin('admin', 'Admin', 'Admin'),
   lawyer('lawyer', 'Advogado(a)', 'Advogado'),
   secretary('secretary', 'Secretário(a)', 'Secretaria'),

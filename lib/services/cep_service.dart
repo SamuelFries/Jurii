@@ -14,7 +14,7 @@ class CepCoordinates {
 
 /// Geocodificação de CEP via BrasilAPI (gratuita, sem chave).
 ///
-/// Usada UMA vez, no cadastro do escritório: o dono informa o CEP e o app
+/// Usada UMA vez, no cadastro do escritório: o sócio informa o CEP e o app
 /// resolve as coordenadas antes do submit. Best-effort — sem coordenadas o
 /// cadastro segue normalmente, só não há distância na descoberta.
 class CepService {

@@ -110,7 +110,7 @@ class _FirmCasesScreenState extends State<FirmCasesScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'Apenas dono, admin e secretaria podem atribuir casos.',
+            'Apenas sócio, admin e secretária podem atribuir casos.',
           ),
         ),
       );
@@ -169,7 +169,7 @@ class _FirmCasesScreenState extends State<FirmCasesScreen> {
           'enquanto ela estiver bloqueada.';
     }
     if (message.contains('Only office case managers')) {
-      return 'Apenas dono, admin e secretaria podem atribuir casos.';
+      return 'Apenas sócio, admin e secretária podem atribuir casos.';
     }
     if (message.contains('Target member must be an active lawyer')) {
       return 'Escolha um advogado ativo do escritório.';

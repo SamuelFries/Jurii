@@ -144,7 +144,7 @@ class FirmTeamScreen extends StatelessWidget {
     if (!canInvite || onInviteLawyer == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Apenas donos e admins podem convidar advogados.'),
+          content: Text('Apenas sócios e admins podem convidar advogados.'),
         ),
       );
       return;
@@ -185,7 +185,7 @@ class FirmTeamScreen extends StatelessWidget {
     if (workspace?.canManageMembers != true || onUpdateMemberRoles == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Apenas donos e admins podem editar cargos.'),
+          content: Text('Apenas sócios e admins podem editar cargos.'),
         ),
       );
       return;
@@ -193,7 +193,9 @@ class FirmTeamScreen extends StatelessWidget {
 
     if (member.effectiveRoles.hasOwner && workspace?.isOwner != true) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Apenas donos podem alterar outro dono.')),
+        const SnackBar(
+          content: Text('Apenas sócios podem alterar outro sócio.'),
+        ),
       );
       return;
     }
@@ -280,13 +282,13 @@ class _MemberRolesSheetState extends State<_MemberRolesSheet> {
   String _friendlyError(Object error) {
     final message = error.toString();
     if (message.contains('Only active office owners and admins')) {
-      return 'Apenas donos e admins ativos podem editar cargos.';
+      return 'Apenas sócios e admins ativos podem editar cargos.';
     }
     if (message.contains('Only owners can grant or remove owner role')) {
-      return 'Apenas donos podem conceder ou remover o cargo de dono.';
+      return 'Apenas sócios podem conceder ou remover o cargo de sócio.';
     }
     if (message.contains('Office must keep at least one owner')) {
-      return 'O escritório precisa manter pelo menos um dono ativo.';
+      return 'O escritório precisa manter pelo menos um sócio ativo.';
     }
     if (message.contains('Invalid firm roles')) {
       return 'A lista de cargos tem um valor inválido.';
@@ -560,7 +562,7 @@ class _InviteLawyerSheetState extends State<_InviteLawyerSheet> {
     final normalizedMessage = message.toLowerCase();
 
     if (message.contains('Only active office owners')) {
-      return 'Apenas donos e admins ativos podem convidar advogados.';
+      return 'Apenas sócios e admins ativos podem convidar advogados.';
     }
 
     if (message.contains('Too many invite attempts')) {
