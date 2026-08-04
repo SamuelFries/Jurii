@@ -35,6 +35,5 @@ class PushTokenRepository {
   }
 
   bool get _ready =>
-      SupabaseConfig.isReady &&
-      SupabaseConfig.client.auth.currentUser != null;
+      SupabaseConfig.isReady && SupabaseConfig.client.auth.currentUser != null;
 }

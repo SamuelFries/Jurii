@@ -37,6 +37,7 @@ class AppColors extends ThemeExtension<AppColors> {
     required this.muted,
     required this.softShadow,
     required this.softBorder,
+    required this.readReceipt,
   });
 
   final Color primary;
@@ -66,6 +67,17 @@ class AppColors extends ThemeExtension<AppColors> {
   final Color muted;
   final Color softShadow;
   final Color softBorder;
+
+  /// Cor do tique de "visualizado" no balão da própria mensagem.
+  ///
+  /// Muda de tom entre os temas porque o FUNDO muda de lado: no tema claro o
+  /// balão de quem enviou é navy (tique claro por cima), no escuro ele é azul
+  /// claro (tique escuro por cima). Um azul só não serviria nos dois.
+  final Color readReceipt;
+
+  /// Tique de "visualizado" sobre superfície SEMPRE escura — o véu que fica em
+  /// cima da foto ou do vídeo, que não acompanha o tema.
+  static const Color readReceiptOnDark = Color(0xFF6FC3FF);
 
   static const AppColors light = AppColors(
     primary: Color(0xFF0A1C3B),
@@ -97,6 +109,7 @@ class AppColors extends ThemeExtension<AppColors> {
     muted: Color(0xFFB8C0D4),
     softShadow: Color(0x140A1C3B),
     softBorder: Color(0x220A1C3B),
+    readReceipt: readReceiptOnDark,
   );
 
   /// Tema escuro mantendo a identidade Jurii: navy profundo como base,
@@ -129,6 +142,7 @@ class AppColors extends ThemeExtension<AppColors> {
     muted: Color(0xFF5A6784),
     softShadow: Color(0x66000000),
     softBorder: Color(0x22FFFFFF),
+    readReceipt: Color(0xFF0F3C6E),
   );
 
   @override
@@ -160,6 +174,7 @@ class AppColors extends ThemeExtension<AppColors> {
     Color? muted,
     Color? softShadow,
     Color? softBorder,
+    Color? readReceipt,
   }) {
     return AppColors(
       primary: primary ?? this.primary,
@@ -189,6 +204,7 @@ class AppColors extends ThemeExtension<AppColors> {
       muted: muted ?? this.muted,
       softShadow: softShadow ?? this.softShadow,
       softBorder: softBorder ?? this.softBorder,
+      readReceipt: readReceipt ?? this.readReceipt,
     );
   }
 
@@ -222,6 +238,7 @@ class AppColors extends ThemeExtension<AppColors> {
       dangerBorder: mix(dangerBorder, other.dangerBorder),
       divider: mix(divider, other.divider),
       muted: mix(muted, other.muted),
+      readReceipt: mix(readReceipt, other.readReceipt),
       softShadow: mix(softShadow, other.softShadow),
       softBorder: mix(softBorder, other.softBorder),
     );

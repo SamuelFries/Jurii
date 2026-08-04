@@ -69,24 +69,21 @@ class _CalendarSyncSheetState extends State<CalendarSyncSheet> {
     }
   }
 
-  Future<void> _enable() =>
-      _run(() async {
-        final token = await widget.repository.enable();
-        if (mounted) setState(() => _token = token);
-      });
+  Future<void> _enable() => _run(() async {
+    final token = await widget.repository.enable();
+    if (mounted) setState(() => _token = token);
+  });
 
-  Future<void> _reset() =>
-      _run(() async {
-        final token = await widget.repository.reset();
-        if (mounted) setState(() => _token = token);
-        _snack('Novo link gerado. O link anterior parou de funcionar.');
-      });
+  Future<void> _reset() => _run(() async {
+    final token = await widget.repository.reset();
+    if (mounted) setState(() => _token = token);
+    _snack('Novo link gerado. O link anterior parou de funcionar.');
+  });
 
-  Future<void> _disable() =>
-      _run(() async {
-        await widget.repository.disable();
-        if (mounted) setState(() => _token = null);
-      });
+  Future<void> _disable() => _run(() async {
+    await widget.repository.disable();
+    if (mounted) setState(() => _token = null);
+  });
 
   Future<void> _copy() async {
     final token = _token;
@@ -103,7 +100,9 @@ class _CalendarSyncSheetState extends State<CalendarSyncSheet> {
     final uri = Uri.parse(widget.repository.webcalUrl(token));
     final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!ok && mounted) {
-      _snack('Nenhum app de calendário respondeu. Copie o link e adicione manualmente.');
+      _snack(
+        'Nenhum app de calendário respondeu. Copie o link e adicione manualmente.',
+      );
     }
   }
 

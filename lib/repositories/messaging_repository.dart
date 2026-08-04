@@ -1,5 +1,6 @@
-import 'dart:typed_data';
+import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/chat_attachment.dart';
@@ -75,10 +76,65 @@ class MessagingRepository {
       params: {'scope_value': scope.name, 'law_firm_id_value': lawFirmId},
     );
 
-    return (rows as List<dynamic>)
+    final conversations = (rows as List<dynamic>)
         .cast<Map<String, dynamic>>()
         .map(_conversationFromRow)
         .toList();
+
+    // Carregar a lista É a entrega: a partir daqui o aparelho de quem recebe
+    // sabe que estas mensagens existem, que é exatamente o que o segundo tique
+    // afirma. Fica aqui, e não nas telas, porque são TRÊS listas (cliente,
+    // advogado e escritório) e esquecer numa delas daria um tique que só
+    // aparece dependendo de quem abriu.
+    //
+    // Sem await de propósito: confirmação de entrega nunca pode atrasar nem
+    // derrubar o carregamento da conversa.
+    unawaited(
+      markMessagesDelivered(
+        conversations
+            .map((conversation) => conversation.id)
+            .whereType<String>()
+            .toList(),
+      ),
+    );
+
+    return conversations;
+  }
+
+  /// Marca como VISTAS as mensagens que a outra parte mandou nesta conversa.
+  /// Devolve quantas mudaram — zero quando não havia nada por ler.
+  Future<int> markConversationRead(String conversationId) async {
+    if (!SupabaseConfig.isReady ||
+        SupabaseConfig.client.auth.currentUser == null) {
+      return 0;
+    }
+
+    final marked = await SupabaseConfig.client.rpc(
+      'mark_conversation_read',
+      params: {'conversation_id_value': conversationId},
+    );
+    return (marked as num?)?.toInt() ?? 0;
+  }
+
+  /// Marca como ENTREGUES as mensagens recebidas nestas conversas. Falha em
+  /// silêncio: é sinal de cortesia, não pode virar erro na cara de ninguém.
+  Future<int> markMessagesDelivered(List<String> conversationIds) async {
+    if (conversationIds.isEmpty ||
+        !SupabaseConfig.isReady ||
+        SupabaseConfig.client.auth.currentUser == null) {
+      return 0;
+    }
+
+    try {
+      final marked = await SupabaseConfig.client.rpc(
+        'mark_messages_delivered',
+        params: {'conversation_ids_value': conversationIds},
+      );
+      return (marked as num?)?.toInt() ?? 0;
+    } catch (error) {
+      debugPrint('Delivery receipt failed: $error');
+      return 0;
+    }
   }
 
   /// Estado de bloqueio da conversa. O bloqueio congela os dois lados; o
@@ -143,7 +199,7 @@ class MessagingRepository {
     final rows = await SupabaseConfig.client
         .from('messages')
         .select(
-          'id, conversation_id, sender_id, sender_type, body, metadata, read_at, created_at',
+          'id, conversation_id, sender_id, sender_type, body, metadata, read_at, delivered_at, created_at',
         )
         .eq('conversation_id', conversationId)
         .order('created_at', ascending: false)
@@ -177,7 +233,7 @@ class MessagingRepository {
           'body': body,
         })
         .select(
-          'id, conversation_id, sender_id, sender_type, body, metadata, read_at, created_at',
+          'id, conversation_id, sender_id, sender_type, body, metadata, read_at, delivered_at, created_at',
         )
         .single();
 
@@ -408,7 +464,7 @@ class MessagingRepository {
       specialty: row['specialty'] as String? ?? 'Atendimento jurídico',
       lastMessage: row['last_message'] as String? ?? 'Conversa iniciada.',
       time: _relativeTime(row['last_message_at'] as String?),
-      unreadCount: 0,
+      unreadCount: (row['unread_count'] as num?)?.toInt() ?? 0,
       type: row['type'] as String? ?? 'client_firm',
       lawFirmId: row['law_firm_id'] as String?,
       clientId: row['client_id'] as String?,
@@ -433,7 +489,10 @@ class MessagingRepository {
           : MessageAuthor.other,
       text: row['body'] as String? ?? '',
       time: _relativeTime(row['created_at'] as String?),
-      read: row['read_at'] != null,
+      status: MessageDeliveryStatus.resolve(
+        delivered: row['delivered_at'] != null,
+        read: row['read_at'] != null,
+      ),
       metadata: _metadataFromRow(row['metadata']),
     );
   }

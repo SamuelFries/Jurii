@@ -5,7 +5,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Reexporta PostgresChangeEvent: quem usa o mixin escolhe o evento sem
 /// precisar importar o pacote do Supabase direto na tela.
-export 'package:supabase_flutter/supabase_flutter.dart' show PostgresChangeEvent;
+export 'package:supabase_flutter/supabase_flutter.dart'
+    show PostgresChangeEvent;
 
 import 'supabase_config.dart';
 

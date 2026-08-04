@@ -42,8 +42,7 @@ class CalendarFeedRepository {
   }
 
   bool get _ready =>
-      SupabaseConfig.isReady &&
-      SupabaseConfig.client.auth.currentUser != null;
+      SupabaseConfig.isReady && SupabaseConfig.client.auth.currentUser != null;
 
   void _ensureReady() {
     if (!_ready) {

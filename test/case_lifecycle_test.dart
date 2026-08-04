@@ -8,10 +8,7 @@ import 'package:jurii/services/notification_router.dart';
 void main() {
   group('derivação do estado do caso do advogado', () {
     test('closed do banco vence tudo', () {
-      expect(
-        deriveLawyerCaseStatus(status: 'closed'),
-        LawyerCaseStatus.closed,
-      );
+      expect(deriveLawyerCaseStatus(status: 'closed'), LawyerCaseStatus.closed);
     });
 
     test('new_message do banco vira novidade', () {
@@ -38,7 +35,9 @@ void main() {
     // legal_cases.description é o texto que o ADVOGADO escreveu ao propor o
     // caso. Rotular como "relato do cliente" atribuiria a fala à pessoa
     // errada para os dois lados que leem o mesmo campo.
-    final fonte = File('lib/screens/case_details_screen.dart').readAsStringSync();
+    final fonte = File(
+      'lib/screens/case_details_screen.dart',
+    ).readAsStringSync();
     expect(fonte.contains('Relato do cliente'), isFalse);
     expect(fonte.contains("'Resumo do caso'"), isTrue);
   });
@@ -61,7 +60,10 @@ void main() {
     // Mesmo fato, dois tipos: o sino filtra por ESCOPO e o escopo deriva do
     // TIPO (infer_notification_scope). Reusar case_update para o advogado
     // jogaria o aviso no sino do cliente.
-    JuriiNotification build({required String type, required NotificationScope scope}) {
+    JuriiNotification build({
+      required String type,
+      required NotificationScope scope,
+    }) {
       return JuriiNotification(
         id: 'n-$type',
         title: 'Movimentação',

@@ -19,17 +19,24 @@ void main() {
     expect(find.byType(CategoryCard), findsNWidgets(6));
     expect(find.text('Divórcio e Família'), findsOneWidget);
     expect(find.text('Previdenciário'), findsOneWidget);
-    expect(find.text('Toque para filtrar advogados e escritórios.'),
-        findsOneWidget);
+    expect(
+      find.text('Toque para filtrar advogados e escritórios.'),
+      findsOneWidget,
+    );
   });
 
-  testWidgets('tap usa a área canônica do banco, não a heurística',
-      (tester) async {
+  testWidgets('tap usa a área canônica do banco, não a heurística', (
+    tester,
+  ) async {
     String? selectedArea;
     await tester.pumpWidget(
-      _host(CategoriesSection(onCategorySelected: (area) {
-        selectedArea = area;
-      })),
+      _host(
+        CategoriesSection(
+          onCategorySelected: (area) {
+            selectedArea = area;
+          },
+        ),
+      ),
     );
     await tester.pumpAndSettle();
 
@@ -50,16 +57,15 @@ void main() {
     await tester.pumpAndSettle();
 
     AnimatedContainer cardOf(String title) => tester.widget<AnimatedContainer>(
-          find
-              .ancestor(
-                of: find.text(title),
-                matching: find.byType(AnimatedContainer),
-              )
-              .last,
-        );
+      find
+          .ancestor(
+            of: find.text(title),
+            matching: find.byType(AnimatedContainer),
+          )
+          .last,
+    );
 
-    final selectedBox =
-        cardOf('Trabalhista').decoration as BoxDecoration?;
+    final selectedBox = cardOf('Trabalhista').decoration as BoxDecoration?;
     final normalBox = cardOf('Consumidor').decoration as BoxDecoration?;
     expect(selectedBox, isNotNull);
     expect(normalBox, isNotNull);

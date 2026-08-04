@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../models/chat_attachment.dart';
+import '../models/chat_message.dart';
 import '../theme/app_colors.dart';
 import 'jurii_motion.dart';
+import 'message_status_check.dart';
 
 /// Altura fixa da prévia dentro do balão.
 ///
@@ -14,12 +16,14 @@ const double kChatMediaHeight = 240;
 
 /// Opacidade do véu escuro atrás da hora e da etiqueta de duração/peso.
 ///
-/// 0.58 não é gosto: o pior caso desta interface é foto de documento em papel
-/// BRANCO, e é sobre ela que o texto branco tem que continuar legível. Nesse
-/// fundo o véu precisa de pelo menos ~0.55 para o par chegar aos 4.5:1 de
-/// contraste que o resto do app segue (test/contrast_guard_test.dart); 0.58
-/// dá 5.3:1, com folga para o antialias do texto pequeno.
-const double kChatMediaScrimAlpha = 0.58;
+/// 0.72 não é gosto: o pior caso desta interface é foto de documento em papel
+/// BRANCO, e é sobre ela que o conteúdo do véu tem que continuar legível.
+/// Quem manda no número é o TIQUE AZUL de visualizado, não o texto branco — o
+/// azul é bem mais claro que o branco em luminância, e precisa de véu mais
+/// fundo para alcançar os 4.5:1 que o resto do app segue
+/// (test/contrast_guard_test.dart). Com 0.72 o tique fica em 4.8:1 e a hora,
+/// em branco, sobra com 9.2:1.
+const double kChatMediaScrimAlpha = 0.72;
 
 /// Foto ou vídeo renderizado DENTRO do balão, com a hora sobreposta no canto —
 /// o mesmo formato de aplicativo de mensagens. Documento continua como cartão
@@ -32,7 +36,7 @@ class ChatMediaBubble extends StatelessWidget {
     required this.isLoadingUrl,
     required this.isMine,
     required this.time,
-    required this.read,
+    required this.status,
     required this.onOpen,
     required this.onRetry,
     required this.onAutoRetry,
@@ -46,7 +50,7 @@ class ChatMediaBubble extends StatelessWidget {
   final bool isLoadingUrl;
   final bool isMine;
   final String time;
-  final bool read;
+  final MessageDeliveryStatus status;
 
   /// Falso quando a mensagem tem legenda: aí a hora vai na linha de texto,
   /// embaixo, e sobrepô-la à mídia também seria repetição.
@@ -117,7 +121,7 @@ class ChatMediaBubble extends StatelessWidget {
                   bottom: 8,
                   child: _MediaTimestamp(
                     time: time,
-                    read: read,
+                    status: status,
                     showStatus: isMine,
                   ),
                 ),
@@ -284,12 +288,12 @@ class _MediaChip extends StatelessWidget {
 class _MediaTimestamp extends StatelessWidget {
   const _MediaTimestamp({
     required this.time,
-    required this.read,
+    required this.status,
     required this.showStatus,
   });
 
   final String time;
-  final bool read;
+  final MessageDeliveryStatus status;
   final bool showStatus;
 
   @override
@@ -316,10 +320,14 @@ class _MediaTimestamp extends StatelessWidget {
             ),
             if (showStatus) ...[
               const SizedBox(width: 4),
-              Icon(
-                read ? Icons.done_all : Icons.done,
+              MessageStatusCheck(
+                status: status,
+                pendingColor: Colors.white,
+                // O véu é escuro nos dois temas (é preto sobre a foto), então
+                // aqui o azul é sempre o de fundo escuro — usar o do tema
+                // deixaria o tique invisível no modo escuro.
+                readColor: AppColors.readReceiptOnDark,
                 size: 13,
-                color: Colors.white,
               ),
             ],
           ],

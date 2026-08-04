@@ -32,6 +32,7 @@ import '../widgets/jurii_empty_state.dart';
 import '../widgets/jurii_form_motion.dart';
 import '../widgets/jurii_motion.dart';
 import '../widgets/lawyer_recommendation_card.dart';
+import '../widgets/message_status_check.dart';
 import '../widgets/profile_avatar.dart';
 import '../widgets/recommend_lawyer_sheet.dart';
 import 'client_profile_screen.dart';
@@ -80,7 +81,7 @@ class ChatScreen extends StatefulWidget {
 }
 
 class _ChatScreenState extends State<ChatScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final MessagingRepository _repository = const MessagingRepository();
@@ -98,6 +99,10 @@ class _ChatScreenState extends State<ChatScreen>
       return _repository.createSignedAttachmentUrls(paths, ttl);
     },
   );
+
+  /// Só confirma leitura com o app na frente. Começa true porque a tela só é
+  /// construída quando alguém a abre.
+  bool _isForeground = true;
 
   /// Reassina antes do vencimento mesmo sem nada acontecer na conversa. Sem
   /// isto, um chat deixado aberto passa da validade da URL e TODA foto do
@@ -166,6 +171,11 @@ class _ChatScreenState extends State<ChatScreen>
   @override
   void initState() {
     super.initState();
+    // Observa o ciclo de vida para não confirmar leitura com o app no bolso:
+    // a conversa continua montada quando o usuário troca de aplicativo, e sem
+    // isso toda mensagem que chegasse enquanto ele não está olhando sairia
+    // marcada como visualizada.
+    WidgetsBinding.instance.addObserver(this);
     _loadMessages();
     _subscribeToMessages();
     // 10 minutos contra uma validade de 1 hora: qualquer tique cai dentro da
@@ -178,7 +188,17 @@ class _ChatScreenState extends State<ChatScreen>
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    _isForeground = state == AppLifecycleState.resumed;
+    // Voltou para a tela com a conversa aberta: o que chegou enquanto ela
+    // estava em segundo plano só agora foi de fato visto.
+    if (_isForeground) unawaited(_markConversationRead());
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     final channel = _messagesChannel;
     if (channel != null && SupabaseConfig.isReady) {
       SupabaseConfig.client.removeChannel(channel);
@@ -221,6 +241,7 @@ class _ChatScreenState extends State<ChatScreen>
         _loadFailed = false;
       });
       unawaited(_ensureMediaUrls());
+      unawaited(_markConversationRead());
       _scrollToBottom();
     } catch (error) {
       debugPrint('Supabase messages fetch failed: $error');
@@ -232,6 +253,19 @@ class _ChatScreenState extends State<ChatScreen>
         _loadFailed = _usesSupabase;
       });
       _scrollToBottom();
+    }
+  }
+
+  /// Confirma a leitura do que a outra parte mandou nesta conversa.
+  ///
+  /// Falha em silêncio de propósito: o tique azul é cortesia. Estourar um erro
+  /// na cara de quem só abriu a conversa seria pior que o tique não aparecer.
+  Future<void> _markConversationRead() async {
+    if (!_usesSupabase || !SupabaseConfig.isReady || !_isForeground) return;
+    try {
+      await _repository.markConversationRead(widget.conversation.id!);
+    } catch (error) {
+      debugPrint('Read receipt failed: $error');
     }
   }
 
@@ -339,11 +373,33 @@ class _ChatScreenState extends State<ChatScreen>
   }
 
   Future<void> _upsertRealtimeMessage(Map<String, dynamic> row) async {
+    final currentUserId = SupabaseConfig.client.auth.currentUser?.id;
+    final id = row['id'] as String?;
+
+    // Confirmação de leitura chega como UPDATE, uma por mensagem: abrir uma
+    // conversa com dez fotos por ler dispara dez eventos aqui. O anexo não
+    // muda num UPDATE de leitura, então reaproveitar o que já está na tela
+    // evita dez consultas ao banco só para redesenhar o tique.
+    final known = id == null ? null : _messageById(id);
+    if (known?.attachment != null) {
+      final refreshed = _repository.messageFromRow(
+        row,
+        currentUserId: currentUserId,
+      );
+      _upsertMessage(refreshed.copyWith(attachment: known!.attachment));
+      return;
+    }
+
     final message = await _repository.messageFromRowWithAttachment(
       row,
-      currentUserId: SupabaseConfig.client.auth.currentUser?.id,
+      currentUserId: currentUserId,
     );
     _upsertMessage(message);
+  }
+
+  ChatMessage? _messageById(String id) {
+    final index = _messages.indexWhere((message) => message.id == id);
+    return index == -1 ? null : _messages[index];
   }
 
   List<ChatMessage> _mockMessages() {
@@ -387,7 +443,7 @@ class _ChatScreenState extends State<ChatScreen>
           author: MessageAuthor.me,
           text: text,
           time: 'Agora',
-          read: false,
+          status: MessageDeliveryStatus.sent,
         ),
       );
       _maybeShowTriageHint(ignoredTriageBanner);
@@ -995,6 +1051,11 @@ class _ChatScreenState extends State<ChatScreen>
       () => _messages = [..._withoutDuplicateCaseRequest(message), message],
     );
     unawaited(_ensureMediaUrls());
+    // Mensagem que chegou com a conversa aberta ja nasce vista. So a do OUTRO:
+    // marcar na propria seria ida ao servidor para nao mudar nada.
+    if (message.author != MessageAuthor.me) {
+      unawaited(_markConversationRead());
+    }
     _scrollToBottom();
   }
 
@@ -1011,6 +1072,10 @@ class _ChatScreenState extends State<ChatScreen>
       _scrollToBottom();
       return;
     }
+
+    // Evento que não muda nada na tela não vira rebuild: ver
+    // [ChatMessage.rendersSameAs].
+    if (_messages[index].rendersSameAs(message)) return;
 
     final nextMessages = [..._messages];
     nextMessages[index] = message;
@@ -1055,6 +1120,7 @@ class _ChatScreenState extends State<ChatScreen>
     if (!mounted) return;
     setState(() => _messages = messages);
     unawaited(_ensureMediaUrls());
+    unawaited(_markConversationRead());
     _scrollToBottom();
   }
 
@@ -1096,7 +1162,7 @@ class _ChatScreenState extends State<ChatScreen>
       author: MessageAuthor.system,
       text: 'Solicitação de aceite do caso: ${request.title}',
       time: request.createdAtLabel,
-      read: false,
+      status: MessageDeliveryStatus.sent,
       metadata: {
         'type': 'case_request',
         'case_request_id': request.id,
@@ -2159,7 +2225,7 @@ class _MessageBubble extends StatelessWidget {
                     isLoadingUrl: isLoadingMediaUrl,
                     isMine: isMine,
                     time: message.time,
-                    read: message.read,
+                    status: message.status,
                     showTimestamp: showsTimeOverMedia,
                     onOpen: () => onOpenAttachment(attachment),
                     onRetry: () => onRetryMedia(attachment),
@@ -2197,10 +2263,10 @@ class _MessageBubble extends StatelessWidget {
                     ),
                     if (isMine) ...[
                       const SizedBox(width: 4),
-                      Icon(
-                        message.read ? Icons.done_all : Icons.done,
-                        size: 14,
-                        color: colors.card.withValues(alpha: 0.70),
+                      MessageStatusCheck(
+                        status: message.status,
+                        pendingColor: colors.card.withValues(alpha: 0.70),
+                        readColor: colors.readReceipt,
                       ),
                     ],
                   ],

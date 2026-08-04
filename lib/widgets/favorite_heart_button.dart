@@ -76,9 +76,7 @@ class _FavoriteHeartButtonState extends State<FavoriteHeartButton> {
         _isToggling = false;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Não foi possível atualizar o favorito.'),
-        ),
+        const SnackBar(content: Text('Não foi possível atualizar o favorito.')),
       );
     }
   }

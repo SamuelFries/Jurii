@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:jurii/models/chat_attachment.dart';
+import 'package:jurii/models/chat_message.dart';
+import 'package:jurii/theme/app_colors.dart';
 import 'package:jurii/theme/app_theme.dart';
 import 'package:jurii/widgets/chat_media_bubble.dart';
 import 'package:jurii/widgets/jurii_motion.dart';
@@ -41,7 +43,7 @@ void main() {
           isLoadingUrl: false,
           isMine: true,
           time: '10:04',
-          read: true,
+          status: MessageDeliveryStatus.read,
           onOpen: () {},
           onRetry: () {},
           onAutoRetry: () {},
@@ -65,7 +67,7 @@ void main() {
           isLoadingUrl: true,
           isMine: false,
           time: '10:04',
-          read: false,
+          status: MessageDeliveryStatus.sent,
           onOpen: () {},
           onRetry: () {},
           onAutoRetry: () {},
@@ -90,7 +92,7 @@ void main() {
           isLoadingUrl: false,
           isMine: false,
           time: '10:04',
-          read: false,
+          status: MessageDeliveryStatus.sent,
           onOpen: () {},
           onRetry: () => retries++,
           onAutoRetry: () {},
@@ -115,7 +117,7 @@ void main() {
           isLoadingUrl: false,
           isMine: true,
           time: '10:04',
-          read: true,
+          status: MessageDeliveryStatus.read,
           onOpen: () {},
           onRetry: () {},
           onAutoRetry: () {},
@@ -136,7 +138,11 @@ void main() {
     // A decodificação é reduzida à altura da prévia; sem isso uma conversa com
     // dez fotos de 12 MP decodifica em resolução plena e o app morre de RAM.
     expect(resize.height, isNotNull);
-    expect(resize.width, isNull, reason: 'o corte é por altura, não por largura');
+    expect(
+      resize.width,
+      isNull,
+      reason: 'o corte é por altura, não por largura',
+    );
   });
 
   testWidgets('cada URL nova que falha é reportada — quem limita é a tela', (
@@ -153,7 +159,7 @@ void main() {
         isLoadingUrl: false,
         isMine: false,
         time: '10:04',
-        read: false,
+        status: MessageDeliveryStatus.sent,
         onOpen: () {},
         onRetry: () {},
         onAutoRetry: () => retries++,
@@ -189,7 +195,7 @@ void main() {
           isLoadingUrl: false,
           isMine: true,
           time: '10:04',
-          read: true,
+          status: MessageDeliveryStatus.read,
           onOpen: () {},
           onRetry: () {},
           onAutoRetry: () {},
@@ -207,7 +213,7 @@ void main() {
           isLoadingUrl: false,
           isMine: true,
           time: '10:04',
-          read: true,
+          status: MessageDeliveryStatus.read,
           showTimestamp: false,
           onOpen: () {},
           onRetry: () {},
@@ -217,6 +223,42 @@ void main() {
     );
     expect(find.text('10:04'), findsNothing);
   });
+
+  testWidgets(
+    'o tique sobre a mídia usa o azul de fundo escuro nos dois temas',
+    (tester) async {
+      for (final tema in [AppTheme.lightTheme, AppTheme.darkTheme]) {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: tema,
+            home: Scaffold(
+              body: Center(
+                child: SizedBox(
+                  width: 300,
+                  child: ChatMediaBubble(
+                    attachment: _attachment(),
+                    signedUrl: 'https://cdn.example/foto.jpg',
+                    isLoadingUrl: false,
+                    isMine: true,
+                    time: '10:04',
+                    status: MessageDeliveryStatus.read,
+                    onOpen: () {},
+                    onRetry: () {},
+                    onAutoRetry: () {},
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+
+        // O véu sobre a foto é escuro nos DOIS temas. Se este tique seguisse o
+        // token do tema, no modo escuro ele viraria azul-marinho sobre preto.
+        final tique = tester.widget<Icon>(find.byIcon(Icons.done_all));
+        expect(tique.color, AppColors.readReceiptOnDark);
+      }
+    },
+  );
 
   testWidgets('toque abre a mídia quando há URL, e nada quando não há', (
     tester,
@@ -231,7 +273,7 @@ void main() {
           isLoadingUrl: false,
           isMine: true,
           time: '10:04',
-          read: true,
+          status: MessageDeliveryStatus.read,
           onOpen: () => opens++,
           onRetry: () {},
           onAutoRetry: () {},
@@ -251,7 +293,7 @@ void main() {
           isLoadingUrl: true,
           isMine: true,
           time: '10:04',
-          read: true,
+          status: MessageDeliveryStatus.read,
           onOpen: () => opens++,
           onRetry: () {},
           onAutoRetry: () {},
@@ -280,7 +322,7 @@ void main() {
           isLoadingUrl: false,
           isMine: false,
           time: '10:04',
-          read: false,
+          status: MessageDeliveryStatus.sent,
           onOpen: () {},
           onRetry: () {},
           onAutoRetry: () {},

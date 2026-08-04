@@ -26,11 +26,7 @@ class JuriiErrorState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.wifi_off_rounded,
-              size: 40,
-              color: colors.textSecondary,
-            ),
+            Icon(Icons.wifi_off_rounded, size: 40, color: colors.textSecondary),
             const SizedBox(height: 16),
             Text(
               title,

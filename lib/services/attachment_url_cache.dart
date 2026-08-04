@@ -8,7 +8,10 @@
 /// O [signer] e o relógio são injetados para o cache poder ser testado inteiro
 /// sem Supabase e sem esperar uma hora passar.
 typedef SignedUrlBatchSigner =
-    Future<Map<String, String>> Function(List<String> storagePaths, Duration ttl);
+    Future<Map<String, String>> Function(
+      List<String> storagePaths,
+      Duration ttl,
+    );
 
 class _CachedUrl {
   const _CachedUrl(this.url, this.expiresAt);

@@ -19,10 +19,13 @@ void main() {
     // A RPC report_conversation recusa qualquer valor fora desta lista
     // (migration 20260801120000). Se um lado mudar sem o outro, este teste
     // aponta o drift antes do usuário.
-    expect(
-      ReportReason.values.map((reason) => reason.databaseValue).toList(),
-      ['conteudo_abusivo', 'golpe_ou_fraude', 'falsa_identidade', 'spam', 'outro'],
-    );
+    expect(ReportReason.values.map((reason) => reason.databaseValue).toList(), [
+      'conteudo_abusivo',
+      'golpe_ou_fraude',
+      'falsa_identidade',
+      'spam',
+      'outro',
+    ]);
 
     for (final reason in ReportReason.values) {
       expect(reason.label, isNotEmpty);

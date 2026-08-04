@@ -24,19 +24,29 @@ void main() {
       ('escuro', AppColors.dark),
     ]) {
       test('tema $nome: textPrimary legível nas superfícies', () {
-        expect(_contrast(colors.textPrimary, colors.background),
-            greaterThanOrEqualTo(4.5));
-        expect(_contrast(colors.textPrimary, colors.card),
-            greaterThanOrEqualTo(4.5));
+        expect(
+          _contrast(colors.textPrimary, colors.background),
+          greaterThanOrEqualTo(4.5),
+        );
+        expect(
+          _contrast(colors.textPrimary, colors.card),
+          greaterThanOrEqualTo(4.5),
+        );
       });
 
       test('tema $nome: textSecondary legível nas superfícies', () {
-        expect(_contrast(colors.textSecondary, colors.background),
-            greaterThanOrEqualTo(4.5));
-        expect(_contrast(colors.textSecondary, colors.card),
-            greaterThanOrEqualTo(4.5));
-        expect(_contrast(colors.textSecondary, colors.lightBlue),
-            greaterThanOrEqualTo(4.5));
+        expect(
+          _contrast(colors.textSecondary, colors.background),
+          greaterThanOrEqualTo(4.5),
+        );
+        expect(
+          _contrast(colors.textSecondary, colors.card),
+          greaterThanOrEqualTo(4.5),
+        );
+        expect(
+          _contrast(colors.textSecondary, colors.lightBlue),
+          greaterThanOrEqualTo(4.5),
+        );
       });
     }
 
@@ -89,10 +99,25 @@ void main() {
       );
     });
 
+    test('o tique de visualizado também passa sobre foto branca', () {
+      // Este é o par mais apertado da tela: o azul do tique é bem mais claro
+      // que o branco da hora, então é ELE que decide o quão fundo o véu
+      // precisa ser — não o texto.
+      final veuSobreBranco = Color.alphaBlend(
+        Colors.black.withValues(alpha: kChatMediaScrimAlpha),
+        Colors.white,
+      );
+
+      expect(
+        _contrast(AppColors.readReceiptOnDark, veuSobreBranco),
+        greaterThanOrEqualTo(4.5),
+      );
+    });
+
     test('o véu não escurece à toa sobre foto preta', () {
       // O outro extremo: sobre foto escura o véu não precisa somar nada, mas
       // também não pode ser tão opaco a ponto de virar uma tarja preta.
-      expect(kChatMediaScrimAlpha, lessThan(0.75));
+      expect(kChatMediaScrimAlpha, lessThan(0.85));
     });
   });
 }

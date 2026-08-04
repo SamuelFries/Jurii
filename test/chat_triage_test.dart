@@ -286,10 +286,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // De volta ao chat: overview virou mensagem e o banner sumiu.
-    expect(
-      find.textContaining('Triagem da assistente Jurii'),
-      findsOneWidget,
-    );
+    expect(find.textContaining('Triagem da assistente Jurii'), findsOneWidget);
     expect(find.text('Comece com uma triagem guiada'), findsNothing);
     // Usou a triagem — não deve aparecer a dica do "+".
     expect(

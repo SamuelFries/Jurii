@@ -156,10 +156,7 @@ class _ProfessionalBioScreenState extends State<ProfessionalBioScreen> {
                         : 'Este texto aparece no seu perfil, para o cliente que '
                               'está escolhendo com quem falar. Sem ele, '
                               'mostramos uma frase padrão igual à de todo mundo.',
-                    style: TextStyle(
-                      color: colors.textSecondary,
-                      height: 1.4,
-                    ),
+                    style: TextStyle(color: colors.textSecondary, height: 1.4),
                   ),
                   const SizedBox(height: 20),
                   TextField(

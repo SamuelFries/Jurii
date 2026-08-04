@@ -49,7 +49,8 @@ void main() {
 
   group('CepService.parseCoordinates', () {
     test('parseia o formato da BrasilAPI (strings)', () {
-      const body = '{"cep":"90160093","location":{"type":"Point",'
+      const body =
+          '{"cep":"90160093","location":{"type":"Point",'
           '"coordinates":{"longitude":"-51.2224949","latitude":"-30.0546449"}}}';
       final coords = CepService.parseCoordinates(body);
       expect(coords, isNotNull);
@@ -58,14 +59,16 @@ void main() {
     });
 
     test('CEP sem coordenadas vira null (não inventa posição)', () {
-      const body = '{"cep":"01001000","location":{"type":"Point",'
+      const body =
+          '{"cep":"01001000","location":{"type":"Point",'
           '"coordinates":{}}}';
       expect(CepService.parseCoordinates(body), isNull);
     });
 
     test('lixo/faixa inválida vira null', () {
       expect(CepService.parseCoordinates('nao é json'), isNull);
-      const foraDeFaixa = '{"location":{"coordinates":'
+      const foraDeFaixa =
+          '{"location":{"coordinates":'
           '{"longitude":"-200","latitude":"-30"}}}';
       expect(CepService.parseCoordinates(foraDeFaixa), isNull);
     });

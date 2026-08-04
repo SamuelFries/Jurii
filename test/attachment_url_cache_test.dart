@@ -61,16 +61,18 @@ void main() {
     expect(cache.cachedUrlFor('a/2.jpg'), 'https://cdn/a/2.jpg');
   });
 
-  test('caminho já assinado e longe do vencimento não gera nova chamada',
-      () async {
-    final cache = buildCache();
-    await cache.ensureUrls(['a/1.jpg']);
+  test(
+    'caminho já assinado e longe do vencimento não gera nova chamada',
+    () async {
+      final cache = buildCache();
+      await cache.ensureUrls(['a/1.jpg']);
 
-    now = now.add(const Duration(minutes: 30));
-    await cache.ensureUrls(['a/1.jpg']);
+      now = now.add(const Duration(minutes: 30));
+      await cache.ensureUrls(['a/1.jpg']);
 
-    expect(signer.batches, hasLength(1));
-  });
+      expect(signer.batches, hasLength(1));
+    },
+  );
 
   test('reassina quando entra na margem de vencimento', () async {
     final cache = buildCache();
@@ -93,21 +95,23 @@ void main() {
     expect(cache.cachedUrlFor('a/1.jpg'), isNull);
   });
 
-  test('falha do assinador NÃO vira cache: a próxima tentativa vai de novo',
-      () async {
-    final cache = buildCache();
-    signer.shouldFail = true;
+  test(
+    'falha do assinador NÃO vira cache: a próxima tentativa vai de novo',
+    () async {
+      final cache = buildCache();
+      signer.shouldFail = true;
 
-    await cache.ensureUrls(['a/1.jpg']);
-    expect(cache.cachedUrlFor('a/1.jpg'), isNull);
-    expect(cache.isPending('a/1.jpg'), isFalse);
+      await cache.ensureUrls(['a/1.jpg']);
+      expect(cache.cachedUrlFor('a/1.jpg'), isNull);
+      expect(cache.isPending('a/1.jpg'), isFalse);
 
-    signer.shouldFail = false;
-    await cache.ensureUrls(['a/1.jpg']);
+      signer.shouldFail = false;
+      await cache.ensureUrls(['a/1.jpg']);
 
-    expect(signer.batches, hasLength(2));
-    expect(cache.cachedUrlFor('a/1.jpg'), 'https://cdn/a/1.jpg');
-  });
+      expect(signer.batches, hasLength(2));
+      expect(cache.cachedUrlFor('a/1.jpg'), 'https://cdn/a/1.jpg');
+    },
+  );
 
   test('chamadas concorrentes para o mesmo caminho geram UM lote', () async {
     final cache = buildCache();
@@ -126,17 +130,19 @@ void main() {
     expect(cache.cachedUrlFor('a/1.jpg'), 'https://cdn/a/1.jpg');
   });
 
-  test('forget força nova assinatura (a URL guardada acabou de falhar)',
-      () async {
-    final cache = buildCache();
-    await cache.ensureUrls(['a/1.jpg']);
+  test(
+    'forget força nova assinatura (a URL guardada acabou de falhar)',
+    () async {
+      final cache = buildCache();
+      await cache.ensureUrls(['a/1.jpg']);
 
-    cache.forget('a/1.jpg');
-    expect(cache.cachedUrlFor('a/1.jpg'), isNull);
+      cache.forget('a/1.jpg');
+      expect(cache.cachedUrlFor('a/1.jpg'), isNull);
 
-    await cache.ensureUrls(['a/1.jpg']);
-    expect(signer.batches, hasLength(2));
-  });
+      await cache.ensureUrls(['a/1.jpg']);
+      expect(signer.batches, hasLength(2));
+    },
+  );
 
   test('lote em voo não ressuscita o que o forget apagou', () async {
     final cache = buildCache();
@@ -183,15 +189,17 @@ void main() {
       expect(signer.batches, hasLength(2), reason: 'nenhuma assinatura nova');
     });
 
-    test('o teto é por caminho: uma foto quebrada não trava as outras',
-        () async {
-      final cache = buildCache();
-      await cache.ensureUrls(['a/1.jpg', 'a/2.jpg']);
+    test(
+      'o teto é por caminho: uma foto quebrada não trava as outras',
+      () async {
+        final cache = buildCache();
+        await cache.ensureUrls(['a/1.jpg', 'a/2.jpg']);
 
-      expect(cache.forgetForAutoRetry('a/1.jpg'), isTrue);
-      expect(cache.forgetForAutoRetry('a/1.jpg'), isFalse);
-      expect(cache.forgetForAutoRetry('a/2.jpg'), isTrue);
-    });
+        expect(cache.forgetForAutoRetry('a/1.jpg'), isTrue);
+        expect(cache.forgetForAutoRetry('a/1.jpg'), isFalse);
+        expect(cache.forgetForAutoRetry('a/2.jpg'), isTrue);
+      },
+    );
 
     test('o toque manual (forget) não tem teto', () async {
       final cache = buildCache();

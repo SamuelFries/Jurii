@@ -284,7 +284,6 @@ class CaseRepository {
     );
   }
 
-
   LegalCase _clientCaseFromRow(Map<String, dynamic> row) {
     return LegalCase(
       id: row['id'].toString(),

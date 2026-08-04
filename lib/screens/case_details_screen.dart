@@ -168,7 +168,9 @@ class _CaseDetailsScreenState extends State<CaseDetailsScreen>
       debugPrint('Case lifecycle action failed: $error');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Não foi possível concluir. Tente novamente.')),
+        const SnackBar(
+          content: Text('Não foi possível concluir. Tente novamente.'),
+        ),
       );
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
@@ -435,8 +437,9 @@ class _CaseDetailsScreenState extends State<CaseDetailsScreen>
                     child: _CaseMovementsSection(
                       movementsFuture: _movementsFuture,
                       onRetry: () => setState(() {
-                        _movementsFuture = widget.repository
-                            .fetchCaseMovements(widget.caseId);
+                        _movementsFuture = widget.repository.fetchCaseMovements(
+                          widget.caseId,
+                        );
                       }),
                     ),
                   ),

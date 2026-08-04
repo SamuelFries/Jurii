@@ -69,11 +69,7 @@ Widget _host(Widget section) {
 void main() {
   group('appendUniqueBy', () {
     test('anexa preservando ordem e descarta chave repetida', () {
-      final result = appendUniqueBy(
-        [1, 2, 3],
-        [3, 4, 5],
-        (value) => value,
-      );
+      final result = appendUniqueBy([1, 2, 3], [3, 4, 5], (value) => value);
       expect(result, [1, 2, 3, 4, 5]);
     });
 
@@ -118,11 +114,7 @@ void main() {
         ),
         // 'l6' repetido de propósito: a rotação horária do destaque pode
         // reapresentar um perfil na página seguinte.
-        6: DiscoveryPage.last([
-          _lawyer('l6'),
-          _lawyer('l7'),
-          _lawyer('l8'),
-        ]),
+        6: DiscoveryPage.last([_lawyer('l6'), _lawyer('l7'), _lawyer('l8')]),
       });
 
       await tester.pumpWidget(
@@ -159,7 +151,9 @@ void main() {
       repo.pendingQuery = 'lenta';
 
       await tester.pumpWidget(
-        _host(RecommendedLawyersSection(searchQuery: 'lenta', repository: repo)),
+        _host(
+          RecommendedLawyersSection(searchQuery: 'lenta', repository: repo),
+        ),
       );
       await tester.pump();
 

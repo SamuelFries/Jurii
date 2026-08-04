@@ -76,7 +76,10 @@ void main() {
 
     // Sem o plugin, initialize() estoura. O que não pode acontecer é a tela
     // ficar preta girando para sempre, sem explicação e sem saída.
-    expect(find.text('Não foi possível reproduzir este vídeo.'), findsOneWidget);
+    expect(
+      find.text('Não foi possível reproduzir este vídeo.'),
+      findsOneWidget,
+    );
     expect(find.text('Tentar de novo'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

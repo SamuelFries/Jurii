@@ -44,7 +44,10 @@ class _HarnessState extends State<_Harness> {
       home: Scaffold(
         body: JuriiLazyIndexedStack(
           index: index,
-          children: const [_Counter(label: 'A'), _Counter(label: 'B')],
+          children: const [
+            _Counter(label: 'A'),
+            _Counter(label: 'B'),
+          ],
         ),
         bottomNavigationBar: Row(
           children: [
@@ -92,9 +95,7 @@ void main() {
     expect(find.text('A: 1'), findsOneWidget);
   });
 
-  testWidgets('aba visitada continua viva depois de sair dela', (
-    tester,
-  ) async {
+  testWidgets('aba visitada continua viva depois de sair dela', (tester) async {
     await tester.pumpWidget(const _Harness());
 
     await tester.tap(find.text('aba B'));
