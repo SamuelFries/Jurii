@@ -51,12 +51,31 @@ values ('93000000-0000-0000-0000-000000000002', 'Caso Interno', 'Direito Cível'
         '91000000-0000-0000-0000-000000000002',
         '92000000-0000-0000-0000-000000000001');
 
--- Cliente legitimo com caso aceito com a advogada e com a firma.
-insert into public.legal_cases (id, title, area, client_id, assigned_lawyer_id, law_firm_id)
+-- Cliente legitimo. Desde a 20260805120000 o gate exige mais que caso
+-- aceito: caso ENCERRADO, com 24h de vida, e conversa com os DOIS lados —
+-- as tres coisas que a fraude de conta-fantoche tinha de graca.
+insert into public.legal_cases (id, title, area, client_id, assigned_lawyer_id,
+  law_firm_id, status, created_at)
 values ('93000000-0000-0000-0000-000000000003', 'Caso Legitimo', 'Direito Cível',
         '91000000-0000-0000-0000-000000000003',
         '91000000-0000-0000-0000-000000000001',
-        '92000000-0000-0000-0000-000000000001');
+        '92000000-0000-0000-0000-000000000001',
+        'closed', now() - interval '5 days');
+
+insert into public.conversations (id, type, client_id, lawyer_id, law_firm_id,
+  title, created_at)
+values ('94000000-0000-0000-0000-000000000001', 'client_firm',
+        '91000000-0000-0000-0000-000000000003',
+        '91000000-0000-0000-0000-000000000001',
+        '92000000-0000-0000-0000-000000000001',
+        'Conversa Legitima', now() - interval '6 days');
+
+insert into public.messages (conversation_id, sender_id, sender_type, body)
+values
+  ('94000000-0000-0000-0000-000000000001',
+   '91000000-0000-0000-0000-000000000003', 'client', 'preciso de ajuda'),
+  ('94000000-0000-0000-0000-000000000001',
+   '91000000-0000-0000-0000-000000000001', 'lawyer', 'vamos resolver');
 
 -- ---------------------------------------------------------------------------
 -- 1-2. Advogada nao se autoavalia (gate e submissao)
@@ -75,7 +94,7 @@ select throws_ok(
   $$select public.submit_professional_review('lawyer',
     '91000000-0000-0000-0000-000000000001', 5, 'excelente!')$$,
   '42501',
-  'Você só pode avaliar após ter um caso aceito com este profissional.',
+  'Você pode avaliar depois que o caso for encerrado pelo profissional.',
   'submissao de autoavaliacao e recusada');
 
 -- ---------------------------------------------------------------------------
@@ -104,7 +123,7 @@ select throws_ok(
   $$select public.submit_professional_review('law_firm',
     '92000000-0000-0000-0000-000000000001', 5, 'a melhor!')$$,
   '42501',
-  'Você só pode avaliar após ter um caso aceito com este profissional.',
+  'Você pode avaliar depois que o caso for encerrado pelo profissional.',
   'membro ativo nao consegue avaliar a propria firma');
 
 -- ---------------------------------------------------------------------------
