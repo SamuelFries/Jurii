@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/lawyer_recommendation.dart';
 import '../theme/app_colors.dart';
 import 'profile_avatar.dart';
+import 'chat_bubble_metrics.dart';
 
 /// Miniatura do perfil do advogado sugerido pelo escritório, exibida no chat
 /// como um card (o mesmo lugar que a caixa de aceite de caso ocupava).
@@ -36,7 +37,7 @@ class LawyerRecommendationCard extends StatelessWidget {
       alignment: Alignment.center,
       child: ConstrainedBox(
         constraints: BoxConstraints(
-          maxWidth: MediaQuery.sizeOf(context).width * 0.88,
+          maxWidth: chatCardWidthFor(MediaQuery.sizeOf(context).width),
         ),
         child: Container(
           margin: const EdgeInsets.only(bottom: 12),

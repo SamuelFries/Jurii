@@ -27,6 +27,7 @@ import '../utils/chat_attachment_rules.dart';
 import '../utils/chat_message_deletion.dart';
 import '../utils/document_file_validation.dart';
 import '../utils/safe_file_picker.dart';
+import '../widgets/chat_bubble_metrics.dart';
 import '../widgets/chat_media_bubble.dart';
 import '../widgets/chat_media_viewer.dart';
 import '../widgets/jurii_empty_state.dart';
@@ -2376,7 +2377,7 @@ class _MessageBubble extends StatelessWidget {
           alignment: isSystem ? Alignment.center : alignment,
           child: ConstrainedBox(
             constraints: BoxConstraints(
-              maxWidth: MediaQuery.sizeOf(context).width * 0.78,
+              maxWidth: chatBubbleWidthFor(MediaQuery.sizeOf(context).width),
             ),
             child: Container(
               margin: const EdgeInsets.only(bottom: 10),
@@ -2490,7 +2491,7 @@ class ChatDeletedMessagePreview extends StatelessWidget {
       alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
       child: ConstrainedBox(
         constraints: BoxConstraints(
-          maxWidth: MediaQuery.sizeOf(context).width * 0.78,
+          maxWidth: chatBubbleWidthFor(MediaQuery.sizeOf(context).width),
         ),
         child: Container(
           margin: const EdgeInsets.only(bottom: 10),
@@ -2659,7 +2660,7 @@ class _CaseRequestMessageCard extends StatelessWidget {
       alignment: Alignment.center,
       child: ConstrainedBox(
         constraints: BoxConstraints(
-          maxWidth: MediaQuery.sizeOf(context).width * 0.88,
+          maxWidth: chatCardWidthFor(MediaQuery.sizeOf(context).width),
         ),
         child: Container(
           margin: const EdgeInsets.only(bottom: 12),

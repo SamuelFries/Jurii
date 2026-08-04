@@ -3,16 +3,15 @@ import 'package:flutter/material.dart';
 import '../models/chat_attachment.dart';
 import '../models/chat_message.dart';
 import '../theme/app_colors.dart';
+import 'chat_bubble_metrics.dart';
 import 'jurii_motion.dart';
 import 'message_status_check.dart';
 
-/// Altura fixa da prévia dentro do balão.
-///
-/// Fixa porque a mensagem não carrega as dimensões da mídia: descobrir a
-/// proporção só depois do download faria cada balão pular de altura no meio da
-/// rolagem. Com altura fixa e recorte central a lista fica estável, e o toque
-/// abre a mídia inteira, sem corte.
-const double kChatMediaHeight = 240;
+/// Altura da prévia dentro do balão. Ver [kChatMediaSide] para o porquê de ser
+/// quadrada; fixa, porque a mensagem não carrega as dimensões da mídia e
+/// descobrir a proporção só depois do download faria cada balão pular de
+/// altura no meio da rolagem.
+const double kChatMediaHeight = kChatMediaSide;
 
 /// Opacidade do véu escuro atrás da hora e da etiqueta de duração/peso.
 ///
@@ -110,7 +109,10 @@ class ChatMediaBubble extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         child: SizedBox(
           height: kChatMediaHeight,
-          width: double.infinity,
+          // Teto próprio, além do teto do balão: sem ele a prévia estica até o
+          // limite do balão e, numa tela larga, vira uma faixa deitada com a
+          // foto reduzida a uma tira.
+          width: kChatMediaSide,
           child: Stack(
             fit: StackFit.expand,
             children: [
