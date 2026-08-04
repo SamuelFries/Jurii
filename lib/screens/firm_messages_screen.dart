@@ -6,6 +6,7 @@ import '../data/mock/mock_firm_workspace.dart';
 import '../models/conversation.dart';
 import '../models/firm_workspace.dart';
 import '../repositories/messaging_repository.dart';
+import '../services/realtime_refresh.dart';
 import '../services/supabase_config.dart';
 import '../theme/app_colors.dart';
 import '../widgets/conversation_card.dart';
@@ -23,7 +24,8 @@ class FirmMessagesScreen extends StatefulWidget {
   State<FirmMessagesScreen> createState() => _FirmMessagesScreenState();
 }
 
-class _FirmMessagesScreenState extends State<FirmMessagesScreen> {
+class _FirmMessagesScreenState extends State<FirmMessagesScreen>
+    with RealtimeRefresh<FirmMessagesScreen> {
   final MessagingRepository _repository = const MessagingRepository();
   int selectedSegment = 0;
   late Future<List<Conversation>> _conversationsFuture;
@@ -32,6 +34,27 @@ class _FirmMessagesScreenState extends State<FirmMessagesScreen> {
   void initState() {
     super.initState();
     _conversationsFuture = _loadConversations();
+    // Mensagem nova em QUALQUER conversa do usuário mexe nesta lista (último
+    // texto, horário, ordem). Sem filtro de coluna de propósito: quem corta é
+    // a RLS de `messages` — o assinante só recebe o que já poderia ler.
+    subscribeToRealtime(
+      channelName: 'firm_conversations:${SupabaseConfig.client.auth.currentUser?.id}',
+      table: 'messages',
+      event: PostgresChangeEvent.insert,
+      onChange: _refreshSilently,
+    );
+  }
+
+  /// Recarrega sem trocar o Future exibido: o realtime não pode piscar o
+  /// skeleton nem derrubar a lista para o estado de erro.
+  Future<void> _refreshSilently() async {
+    try {
+      final conversations = await _loadConversations();
+      if (!mounted) return;
+      setState(() => _conversationsFuture = Future.value(conversations));
+    } catch (_) {
+      // Mantém o que está na tela; o refresh manual e o retry seguem.
+    }
   }
 
   @override
