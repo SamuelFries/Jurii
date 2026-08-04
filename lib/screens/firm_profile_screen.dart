@@ -219,7 +219,7 @@ class FirmProfileScreen extends StatelessWidget {
                 icon: Icons.group_outlined,
                 iconColor: colors.officePurple,
                 label: 'Permissões da equipe',
-                subtitle: 'Dono, admins, secretárias e advogados',
+                subtitle: 'Sócios, admins, secretárias e advogados',
                 onTap: () => _showComingSoon(context),
               ),
               ProfileMenuItem(
