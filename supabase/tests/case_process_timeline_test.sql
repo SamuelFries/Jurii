@@ -5,7 +5,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(27);
+select plan(32);
 
 -- ---------------------------------------------------------------------------
 -- Fixtures: cliente, advogada, secretaria de escritorio e caso
@@ -172,6 +172,50 @@ select is(
    where id = '50000000-0000-0000-0000-000000000001'),
   'Decisão definitiva',
   'label atualizado com o titulo traduzido');
+
+-- ---------------------------------------------------------------------------
+-- Movimentacao avisa OS DOIS LADOS (20260804150000). O sino filtra por escopo
+-- e o escopo deriva do TIPO: por isso tipo proprio para o advogado.
+-- ---------------------------------------------------------------------------
+
+select is(
+  (select count(*)::int from public.notifications
+   where recipient_profile_id = '30000000-0000-0000-0000-000000000002'
+     and type = 'case_movement'),
+  1,
+  'advogada responsavel tambem e avisada da movimentacao');
+
+select is(
+  (select scope::text from public.notifications
+   where type = 'case_movement' limit 1),
+  'lawyer',
+  'escopo lawyer derivado do tipo (sino do advogado, nao o do cliente)');
+
+-- O toque abre a pagina do caso nos dois lados: metadata leva case_id e
+-- NENHUM conversation_id (destinationFor devolve legalCase).
+select results_eq(
+  $$select metadata->>'case_id', metadata ? 'conversation_id'
+    from public.notifications
+    where type in ('case_update', 'case_movement')
+    order by type$$,
+  $$values ('50000000-0000-0000-0000-000000000001', false),
+           ('50000000-0000-0000-0000-000000000001', false)$$,
+  'as duas notificacoes levam case_id e nenhuma leva conversation_id');
+
+-- O advogado precisa saber QUAL caso andou: ele tem varios, o cliente tem um.
+select ok(
+  (select body like 'Caso CNJ: %' from public.notifications
+   where type = 'case_movement' limit 1),
+  'corpo do aviso do advogado comeca pelo titulo do caso');
+
+-- Backfill continua mudo para os DOIS lados (o do cliente ja era testado).
+select is(
+  (select count(*)::int from public.notifications
+   where type = 'case_movement'
+     and created_at < (select min(created_at) from public.notifications
+                       where type = 'case_update')),
+  0,
+  'nenhum aviso de advogado veio do backfill');
 
 -- ---------------------------------------------------------------------------
 -- 19-20. Blindagens: numero trocado durante a consulta e dataHora podre

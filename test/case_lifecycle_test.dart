@@ -56,4 +56,39 @@ void main() {
 
     expect(destinationFor(notification), NotificationDestinationKind.legalCase);
   });
+
+  group('movimentação do processo avisa os dois lados', () {
+    // Mesmo fato, dois tipos: o sino filtra por ESCOPO e o escopo deriva do
+    // TIPO (infer_notification_scope). Reusar case_update para o advogado
+    // jogaria o aviso no sino do cliente.
+    JuriiNotification build({required String type, required NotificationScope scope}) {
+      return JuriiNotification(
+        id: 'n-$type',
+        title: 'Movimentação',
+        body: 'corpo',
+        type: type,
+        scope: scope,
+        createdAt: DateTime(2026, 8, 4),
+        metadata: const {'case_id': 'k1'},
+      );
+    }
+
+    test('aviso do cliente (case_update) abre o caso', () {
+      expect(
+        destinationFor(
+          build(type: 'case_update', scope: NotificationScope.client),
+        ),
+        NotificationDestinationKind.legalCase,
+      );
+    });
+
+    test('aviso do advogado (case_movement) abre o caso', () {
+      expect(
+        destinationFor(
+          build(type: 'case_movement', scope: NotificationScope.lawyer),
+        ),
+        NotificationDestinationKind.legalCase,
+      );
+    });
+  });
 }
