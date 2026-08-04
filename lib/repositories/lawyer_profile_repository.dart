@@ -1,65 +1,90 @@
 import 'dart:developer' as developer;
 
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 import '../data/legal_practice_areas.dart';
 import '../data/mock/mock_lawyers.dart';
+import '../models/discovery_page.dart';
 import '../models/lawyer_profile_summary.dart';
 import '../services/supabase_config.dart';
+import '../utils/discovery_pagination.dart';
 
 class LawyerProfileRepository {
   const LawyerProfileRepository();
 
-  Future<List<LawyerProfileSummary>> fetchRecommendedLawyers({
+  /// Primeira página menor (a home empilha várias seções); "Ver mais" traz
+  /// blocos maiores. O teto do servidor é 20 por chamada e o sentinela pede
+  /// limit + 1 — qualquer página aqui tem que caber em 19.
+  static const int firstPageSize = 6;
+  static const int nextPageSize = 10;
+
+  Future<DiscoveryPage<LawyerProfileSummary>> fetchRecommendedLawyers({
     String searchQuery = '',
+    int offset = 0,
+    int limit = firstPageSize,
   }) async {
     if (!SupabaseConfig.isReady ||
         SupabaseConfig.client.auth.currentUser == null) {
-      return _filterLawyers(mockRecommendedLawyers, searchQuery);
+      // Demo: uma página só. Offset além dela é fim de lista, não erro.
+      if (offset > 0) return const DiscoveryPage.last([]);
+      return DiscoveryPage.last(
+        _filterLawyers(mockRecommendedLawyers, searchQuery),
+      );
     }
 
     try {
       final rows = await SupabaseConfig.client.rpc(
         'fetch_recommended_lawyers',
-        params: {'limit_value': 6, 'search_value': searchQuery},
+        params: {
+          // Sentinela: uma linha a mais só para saber se há próxima página.
+          'limit_value': limit + 1,
+          'search_value': searchQuery,
+          'offset_value': offset,
+        },
       );
 
-      return (rows as List<dynamic>)
+      final parsed = (rows as List<dynamic>)
           .cast<Map<String, dynamic>>()
           .map<LawyerProfileSummary>(_fromRow)
           .toList();
-    } catch (error, stackTrace) {
-      final fallback = await _fetchRecommendedLawyersLegacy();
-      if (fallback.isNotEmpty) {
-        return _filterLawyers(fallback, searchQuery);
-      }
+      return pageFromSentinel(parsed, limit);
+    } on PostgrestException catch (error, stackTrace) {
+      // Fallback SÓ para "função não existe com esses parâmetros"
+      // (PGRST202) — o app novo contra o banco ainda sem a migration de
+      // paginação. Qualquer outro erro (rede, timeout, RLS) tem que SUBIR
+      // para o estado de erro com retry: cair no legacy nesses casos
+      // desligaria a paginação em silêncio e a lista curta pareceria
+      // completa. Página 2+ nunca tem fallback (a função antiga não
+      // pagina); o botão avisa sem derrubar o que já está na tela.
+      if (offset > 0 || error.code != 'PGRST202') rethrow;
 
       developer.log(
-        'Supabase recommended lawyers fetch failed',
+        'fetch_recommended_lawyers sem paginação no banco; usando legado',
         name: 'LawyerProfileRepository',
         error: error,
         stackTrace: stackTrace,
       );
-      // Sem fallback e com backend configurado, o erro sobe: a seção tem
-      // estado de erro com retry (a de escritórios já fazia isso; esta
-      // devolvia lista vazia e virava "Nenhum advogado recomendado").
-      if (SupabaseConfig.isReady) rethrow;
-      return const [];
+      return DiscoveryPage.last(await _fetchRecommendedLawyersLegacy(
+        searchQuery: searchQuery,
+      ));
     }
   }
 
-  Future<List<LawyerProfileSummary>> _fetchRecommendedLawyersLegacy() async {
-    try {
-      final rows = await SupabaseConfig.client.rpc(
-        'fetch_recommended_lawyers',
-        params: {'limit_value': 6},
-      );
+  /// Chamada idêntica à do app pré-paginação (a função de 2 args aceita a
+  /// busca desde a baseline — omiti-la aqui inutilizaria a busca durante a
+  /// janela de deploy). Erros sobem: a seção tem estado de erro com retry.
+  Future<List<LawyerProfileSummary>> _fetchRecommendedLawyersLegacy({
+    required String searchQuery,
+  }) async {
+    final rows = await SupabaseConfig.client.rpc(
+      'fetch_recommended_lawyers',
+      params: {'limit_value': 6, 'search_value': searchQuery},
+    );
 
-      return (rows as List<dynamic>)
-          .cast<Map<String, dynamic>>()
-          .map<LawyerProfileSummary>(_fromRow)
-          .toList();
-    } catch (_) {
-      return const [];
-    }
+    return (rows as List<dynamic>)
+        .cast<Map<String, dynamic>>()
+        .map<LawyerProfileSummary>(_fromRow)
+        .toList();
   }
 
   /// Advogados que o escritório pode sugerir a um cliente: vínculo ativo,
