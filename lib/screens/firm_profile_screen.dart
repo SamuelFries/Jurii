@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../models/firm_role.dart';
 import '../models/firm_workspace.dart';
 import '../models/lawyer_status.dart';
 import '../models/user_profile.dart';
@@ -9,6 +10,7 @@ import '../widgets/profile_menu_item.dart';
 import '../widgets/profile_menu_section.dart';
 import '../widgets/profile_avatar.dart';
 import '../widgets/theme_mode_sheet.dart';
+import 'professional_bio_screen.dart';
 
 class FirmProfileScreen extends StatelessWidget {
   const FirmProfileScreen({
@@ -27,6 +29,13 @@ class FirmProfileScreen extends StatelessWidget {
   final VoidCallback? onSwitchToLawyer;
   final VoidCallback onLogout;
   final Future<void> Function()? onDeleteAccount;
+
+  /// Apresentação é peça comercial do escritório: mesmo público que decide
+  /// sobre a organização. Secretária não edita.
+  bool get _canEditDescription {
+    final roles = workspace?.effectiveCurrentUserRoles ?? const [];
+    return roles.contains(FirmRole.owner) || roles.contains(FirmRole.admin);
+  }
 
   Future<void> _confirmDeleteAccount(BuildContext context) async {
     final colors = context.jColors;
@@ -186,6 +195,26 @@ class FirmProfileScreen extends StatelessWidget {
                 subtitle: 'CNPJ, endereço e áreas atendidas',
                 onTap: () => _showComingSoon(context),
               ),
+              // Só owner/admin: o servidor aplica o mesmo gate
+              // (is_active_law_firm_manager), este if apenas não oferece o
+              // que seria recusado.
+              if (workspace != null && _canEditDescription)
+                ProfileMenuItem(
+                  icon: Icons.badge_outlined,
+                  iconColor: colors.officePurple,
+                  label: 'Apresentação',
+                  subtitle: 'O texto que aparece no perfil do escritório',
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => ProfessionalBioScreen.lawFirm(
+                          lawFirmId: workspace!.firm.id,
+                          initialText: workspace!.firm.description,
+                        ),
+                      ),
+                    );
+                  },
+                ),
               ProfileMenuItem(
                 icon: Icons.group_outlined,
                 iconColor: colors.officePurple,
