@@ -101,6 +101,33 @@ class MessagingRepository {
     return conversations;
   }
 
+  /// Apaga as mensagens SÓ para quem chamou. Continuam inteiras para o outro
+  /// lado; o servidor passa a escondê-las de mim em toda leitura (a regra vive
+  /// na RLS de messages, então vale também para o tempo real).
+  Future<int> deleteMessagesForMe(List<String> messageIds) async {
+    return _deleteMessages('delete_messages_for_me', messageIds);
+  }
+
+  /// Apaga o CONTEÚDO para todos, deixando a lápide. O servidor recusa o que
+  /// não for meu, o que estiver fora da janela e o que for mensagem de sistema.
+  Future<int> deleteMessagesForEveryone(List<String> messageIds) async {
+    return _deleteMessages('delete_messages_for_everyone', messageIds);
+  }
+
+  Future<int> _deleteMessages(String rpc, List<String> messageIds) async {
+    if (messageIds.isEmpty ||
+        !SupabaseConfig.isReady ||
+        SupabaseConfig.client.auth.currentUser == null) {
+      return 0;
+    }
+
+    final deleted = await SupabaseConfig.client.rpc(
+      rpc,
+      params: {'message_ids_value': messageIds},
+    );
+    return (deleted as num?)?.toInt() ?? 0;
+  }
+
   /// Marca como VISTAS as mensagens que a outra parte mandou nesta conversa.
   /// Devolve quantas mudaram — zero quando não havia nada por ler.
   Future<int> markConversationRead(String conversationId) async {
@@ -199,7 +226,7 @@ class MessagingRepository {
     final rows = await SupabaseConfig.client
         .from('messages')
         .select(
-          'id, conversation_id, sender_id, sender_type, body, metadata, read_at, delivered_at, created_at',
+          'id, conversation_id, sender_id, sender_type, body, metadata, read_at, delivered_at, deleted_for_all_at, created_at',
         )
         .eq('conversation_id', conversationId)
         .order('created_at', ascending: false)
@@ -233,7 +260,7 @@ class MessagingRepository {
           'body': body,
         })
         .select(
-          'id, conversation_id, sender_id, sender_type, body, metadata, read_at, delivered_at, created_at',
+          'id, conversation_id, sender_id, sender_type, body, metadata, read_at, delivered_at, deleted_for_all_at, created_at',
         )
         .single();
 
@@ -494,6 +521,8 @@ class MessagingRepository {
         read: row['read_at'] != null,
       ),
       metadata: _metadataFromRow(row['metadata']),
+      createdAt: DateTime.tryParse(row['created_at'] as String? ?? '')?.toLocal(),
+      deletedForAll: row['deleted_for_all_at'] != null,
     );
   }
 

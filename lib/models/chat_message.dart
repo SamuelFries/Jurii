@@ -39,6 +39,15 @@ class ChatMessage {
   final Map<String, dynamic> metadata;
   final ChatAttachment? attachment;
 
+  /// Quando a mensagem foi enviada. Diferente de [time], que é rótulo pronto
+  /// para a tela, este é o instante — é dele que sai a janela de "apagar para
+  /// todos". Nulo em mensagem local (a de demonstração e a otimista, que ainda
+  /// não voltou do servidor).
+  final DateTime? createdAt;
+
+  /// A mensagem foi apagada para todos: a linha existe, o conteúdo não.
+  final bool deletedForAll;
+
   const ChatMessage({
     required this.id,
     required this.conversationKey,
@@ -48,6 +57,8 @@ class ChatMessage {
     this.status = MessageDeliveryStatus.read,
     this.metadata = const {},
     this.attachment,
+    this.createdAt,
+    this.deletedForAll = false,
   });
 
   ChatMessage copyWith({
@@ -59,6 +70,8 @@ class ChatMessage {
     MessageDeliveryStatus? status,
     Map<String, dynamic>? metadata,
     ChatAttachment? attachment,
+    DateTime? createdAt,
+    bool? deletedForAll,
   }) {
     return ChatMessage(
       id: id ?? this.id,
@@ -69,6 +82,8 @@ class ChatMessage {
       status: status ?? this.status,
       metadata: metadata ?? this.metadata,
       attachment: attachment ?? this.attachment,
+      createdAt: createdAt ?? this.createdAt,
+      deletedForAll: deletedForAll ?? this.deletedForAll,
     );
   }
 
@@ -88,6 +103,7 @@ class ChatMessage {
         text == other.text &&
         time == other.time &&
         attachment?.id == other.attachment?.id &&
+        deletedForAll == other.deletedForAll &&
         (!statusIsVisible || status == other.status) &&
         mapEquals(metadata, other.metadata);
   }

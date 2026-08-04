@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:jurii/models/chat_message.dart';
 import 'package:jurii/models/conversation.dart';
+import 'package:jurii/screens/chat_screen.dart';
 import 'package:jurii/theme/app_colors.dart';
 import 'package:jurii/theme/app_theme.dart';
 import 'package:jurii/widgets/conversation_card.dart';
@@ -191,11 +192,35 @@ void main() {
 
     test('texto diferente sempre pede redesenho', () {
       expect(
-        msg(author: MessageAuthor.other).rendersSameAs(
-          msg(author: MessageAuthor.other, text: 'outro'),
-        ),
+        msg(
+          author: MessageAuthor.other,
+        ).rendersSameAs(msg(author: MessageAuthor.other, text: 'outro')),
         isFalse,
       );
+    });
+  });
+
+  group('lápide de mensagem apagada', () {
+    Widget chat(MessageAuthor author) => MaterialApp(
+      theme: AppTheme.lightTheme,
+      home: Scaffold(
+        body: ChatDeletedMessagePreview(
+          isMine: author == MessageAuthor.me,
+          time: '10:04',
+        ),
+      ),
+    );
+
+    testWidgets('quem apagou lê na primeira pessoa', (tester) async {
+      await tester.pumpWidget(chat(MessageAuthor.me));
+      expect(find.text('Você apagou esta mensagem'), findsOneWidget);
+    });
+
+    testWidgets('do outro lado a frase é impessoal', (tester) async {
+      await tester.pumpWidget(chat(MessageAuthor.other));
+      expect(find.text('Esta mensagem foi apagada'), findsOneWidget);
+      // A hora fica: o balão continua sendo um ponto na linha do tempo.
+      expect(find.text('10:04'), findsOneWidget);
     });
   });
 }
