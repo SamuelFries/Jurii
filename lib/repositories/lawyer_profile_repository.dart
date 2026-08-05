@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:developer' as developer;
 
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -7,10 +8,13 @@ import '../data/mock/mock_lawyers.dart';
 import '../models/discovery_page.dart';
 import '../models/lawyer_profile_summary.dart';
 import '../services/supabase_config.dart';
+import 'discovery_metrics_repository.dart';
 import '../utils/discovery_pagination.dart';
 
 class LawyerProfileRepository {
   const LawyerProfileRepository();
+
+  static const _metrics = DiscoveryMetricsRepository();
 
   /// Primeira página menor (a home empilha várias seções); "Ver mais" traz
   /// blocos maiores. O teto do servidor é 20 por chamada e o sentinela pede
@@ -47,7 +51,24 @@ class LawyerProfileRepository {
           .cast<Map<String, dynamic>>()
           .map<LawyerProfileSummary>(summaryFromRow)
           .toList();
-      return pageFromSentinel(parsed, limit);
+      final page = pageFromSentinel(parsed, limit);
+
+      // Registra o alcance do que REALMENTE vai para a tela: `parsed` ainda tem
+      // a linha-sentinela da paginação, que ninguém vê e não pode contar como
+      // impressão. Sem await — medição nunca atrasa a busca de quem procura
+      // advogado.
+      unawaited(
+        _metrics.logImpressions(
+          target: DiscoveryTarget.lawyer,
+          targetIds: page.items.map((lawyer) => lawyer.id).toList(),
+          sponsoredIds: page.items
+              .where((lawyer) => lawyer.isFeatured)
+              .map((lawyer) => lawyer.id)
+              .toList(),
+        ),
+      );
+
+      return page;
     } on PostgrestException catch (error, stackTrace) {
       // Fallback SÓ para "função não existe com esses parâmetros"
       // (PGRST202) — o app novo contra o banco ainda sem a migration de

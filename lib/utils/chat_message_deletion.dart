@@ -55,7 +55,5 @@ bool canDeleteSelectionForEveryone(
   required DateTime now,
 }) {
   if (selection.isEmpty) return false;
-  return selection.every(
-    (message) => canDeleteForEveryone(message, now: now),
-  );
+  return selection.every((message) => canDeleteForEveryone(message, now: now));
 }

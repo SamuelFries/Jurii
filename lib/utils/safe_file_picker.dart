@@ -12,6 +12,11 @@ class SafePickedFile {
   String get name => _file.name;
   int get size => _file.size;
 
+  /// Caminho no disco. Só serve onde ele existe de verdade (celular); na web
+  /// o seletor devolve uma referência de blob, e quem precisa de caminho —
+  /// hoje, só o compressor de vídeo — não roda lá.
+  String get path => _file.xFile.path;
+
   Future<Uint8List> readBytes() => _file.xFile.readAsBytes();
 }
 

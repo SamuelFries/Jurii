@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../data/legal_practice_areas.dart';
@@ -10,6 +11,7 @@ import '../widgets/favorite_heart_button.dart';
 import '../widgets/profile_avatar.dart';
 import '../widgets/reviews_panel.dart';
 import 'chat_screen.dart';
+import '../repositories/discovery_metrics_repository.dart';
 
 class LawyerProfileScreen extends StatefulWidget {
   const LawyerProfileScreen({
@@ -27,6 +29,20 @@ class LawyerProfileScreen extends StatefulWidget {
 
 class _LawyerProfileScreenState extends State<LawyerProfileScreen> {
   bool _isOpeningChat = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Visita ao perfil: o passo entre "apareceu na lista" e "virou conversa".
+    // É o número do meio do funil — sem ele não dá para saber se o patrocínio
+    // trouxe gente ou só apareceu.
+    unawaited(
+      const DiscoveryMetricsRepository().logProfileView(
+        target: DiscoveryTarget.lawyer,
+        targetId: widget.lawyer.id,
+      ),
+    );
+  }
 
   Color _avatarColor(AppColors colors) => switch (widget.lawyer.avatarType) {
     'gold' => colors.accent,

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../data/legal_practice_areas.dart';
@@ -5,9 +6,12 @@ import '../models/discovery_page.dart';
 import '../models/law_firm.dart';
 import '../services/supabase_config.dart';
 import '../utils/discovery_pagination.dart';
+import 'discovery_metrics_repository.dart';
 
 class LawFirmRepository {
   const LawFirmRepository();
+
+  static const _metrics = DiscoveryMetricsRepository();
 
   /// Página inicial e blocos do "Ver mais". Teto do servidor: 30 por chamada
   /// (o sentinela pede limit + 1 — páginas têm que caber em 29).
@@ -34,7 +38,26 @@ class LawFirmRepository {
           .cast<Map<String, dynamic>>()
           .map<LawFirm>(firmFromRow)
           .toList();
-      return pageFromSentinel(parsed, limit);
+      final page = pageFromSentinel(parsed, limit);
+
+      // Só o que vai para a tela: `parsed` ainda carrega a linha-sentinela da
+      // paginação, que ninguém vê e não pode contar como impressão.
+      unawaited(
+        _metrics.logImpressions(
+          target: DiscoveryTarget.lawFirm,
+          targetIds: page.items
+              .map((firm) => firm.id)
+              .whereType<String>()
+              .toList(),
+          sponsoredIds: page.items
+              .where((firm) => firm.isFeatured)
+              .map((firm) => firm.id)
+              .whereType<String>()
+              .toList(),
+        ),
+      );
+
+      return page;
     } on PostgrestException catch (error) {
       // Fallback SÓ para "função não existe com esses parâmetros"
       // (PGRST202) — o app novo contra o banco ainda sem a migration de

@@ -20,12 +20,14 @@ import '../repositories/lawyer_profile_repository.dart';
 import '../repositories/messaging_repository.dart';
 import '../repositories/profile_repository.dart';
 import '../services/attachment_url_cache.dart';
+import '../services/video_compression_service.dart';
 import '../services/intake_ai_service.dart';
 import '../services/supabase_config.dart';
 import '../theme/app_colors.dart';
 import '../utils/chat_attachment_rules.dart';
 import '../utils/chat_message_deletion.dart';
 import '../utils/document_file_validation.dart';
+import '../utils/video_upload_policy.dart';
 import '../utils/safe_file_picker.dart';
 import '../widgets/chat_bubble_metrics.dart';
 import '../widgets/chat_media_bubble.dart';
@@ -57,6 +59,9 @@ class ChatScreen extends StatefulWidget {
   /// Serviço da triagem IA (injetável para testes; default via factory).
   final IntakeAIService? intakeService;
 
+  /// Compressor de vídeo (injetável para testes; o real depende de aparelho).
+  final VideoCompressionService? videoCompressor;
+
   /// A triagem só faz sentido quando quem vê o chat é o CLIENTE da conversa.
   /// Contextos de escritório (ex.: chat interno de equipe, que também abre
   /// com isLawyer=false) devem passar `false`.
@@ -74,6 +79,7 @@ class ChatScreen extends StatefulWidget {
     this.canRequestCase = true,
     this.canRecommendLawyer = false,
     this.intakeService,
+    this.videoCompressor,
     this.allowTriage = true,
     this.allowModeration = true,
   });
@@ -101,6 +107,19 @@ class _ChatScreenState extends State<ChatScreen>
       return _repository.createSignedAttachmentUrls(paths, ttl);
     },
   );
+
+  late final VideoCompressionService _videoCompressor =
+      widget.videoCompressor ?? const PluginVideoCompressionService();
+
+  /// Comprimir acontece ANTES do upload, então o trinco do upload sozinho não
+  /// segura: dois toques rápidos em "Enviar vídeo" iniciariam duas compressões,
+  /// e o plugin estoura StateError na segunda.
+  bool get _isBusyWithAttachment =>
+      _isUploadingAttachment || _videoCompressionProgress != null;
+
+  /// Progresso da compressão de 0 a 1, ou nulo quando não há nenhuma em curso.
+  double? _videoCompressionProgress;
+  bool _videoCompressionCancelled = false;
 
   /// Mensagens marcadas no modo de seleção (toque longo). Vazio = modo
   /// desligado; a tela inteira muda de barra quando ele liga.
@@ -621,7 +640,7 @@ class _ChatScreenState extends State<ChatScreen>
   }
 
   Future<void> _sendAttachment() async {
-    if (_isUploadingAttachment) return;
+    if (_isBusyWithAttachment) return;
 
     if (!_usesSupabase || !SupabaseConfig.isReady) {
       _showSnackBar('Anexos estão disponíveis apenas em conversas online.');
@@ -653,6 +672,11 @@ class _ChatScreenState extends State<ChatScreen>
       _showSnackBar(
         'Envie apenas fotos, vídeos (MP4 ou MOV), PDF, DOC ou DOCX.',
       );
+      return;
+    }
+
+    if (kind == ChatAttachmentKind.video) {
+      await _sendVideoFromPickedFile(file);
       return;
     }
 
@@ -692,11 +716,79 @@ class _ChatScreenState extends State<ChatScreen>
     );
   }
 
+  /// Vídeo escolhido pelo "Anexar arquivo" segue o MESMO caminho de "Enviar
+  /// vídeo": comprime, cai no original se falhar, recusa com a mesma mensagem.
+  /// Sem isto, o mesmo arquivo seria aceito por um item do menu e recusado
+  /// pelo outro — o tipo de incoerência que faz o app parecer quebrado.
+  Future<void> _sendVideoFromPickedFile(SafePickedFile file) async {
+    final decisao = decideVideoUpload(
+      sourceBytes: file.size,
+      canCompress: _videoCompressor.isSupported,
+    );
+    if (decisao.action == VideoUploadAction.reject) {
+      _showSnackBar(decisao.message!);
+      return;
+    }
+
+    var nomeArquivo = file.name;
+    var mimeFinal = chatAttachmentMimeType(file.name) ?? 'video/mp4';
+    var lerBytes = file.readBytes;
+
+    if (decisao.action == VideoUploadAction.compress) {
+      final reduzido = await _compressVideo(file.path);
+      if (!mounted) return;
+      if (reduzido == null) {
+        if (_videoCompressionCancelled) return;
+        if (file.size > maxChatVideoBytes) {
+          _showSnackBar(
+            'Não foi possível preparar o vídeo. Envie um trecho menor.',
+          );
+          return;
+        }
+      } else {
+        final recusa = videoRejectionAfterCompression(reduzido.sizeBytes);
+        if (recusa != null) {
+          _showSnackBar(recusa);
+          return;
+        }
+        nomeArquivo = mp4FileNameFor(file.name);
+        mimeFinal = 'video/mp4';
+        lerBytes = () => XFile(reduzido.path).readAsBytes();
+      }
+    }
+
+    final Uint8List bytes;
+    try {
+      bytes = await lerBytes();
+    } catch (error) {
+      debugPrint('Video read failed: $error');
+      if (mounted) _showSnackBar('Não foi possível ler o vídeo.');
+      return;
+    }
+    if (!mounted) return;
+
+    if (bytes.isEmpty || !bytesMatchMimeType(bytes, mimeFinal)) {
+      _showSnackBar('Vídeo inválido ou corrompido.');
+      return;
+    }
+
+    try {
+      await _uploadAttachment(
+        fileName: nomeArquivo,
+        mimeType: mimeFinal,
+        kind: ChatAttachmentKind.video,
+        bytes: bytes,
+      );
+    } finally {
+      unawaited(_videoCompressor.clearCache());
+    }
+  }
+
   /// Foto pela galeria ou câmera via image_picker: no iOS o plugin re-encoda
   /// para JPEG — é o que faz foto de iPhone (HEIC) chegar num formato que
   /// todos os aparelhos abrem. maxWidth também segura o tamanho do upload.
   Future<void> _sendPhoto(ImageSource source) async {
-    if (_isUploadingAttachment) return;
+    if (_isBusyWithAttachment) return;
 
     if (!_usesSupabase || !SupabaseConfig.isReady) {
       _showSnackBar('Anexos estão disponíveis apenas em conversas online.');
@@ -762,7 +854,7 @@ class _ChatScreenState extends State<ChatScreen>
   /// O teto de 25 MB é, portanto, a única coisa entre a galeria do usuário e a
   /// conta de Storage — e por isso o tamanho é conferido ANTES de ler os bytes.
   Future<void> _sendVideo(ImageSource source) async {
-    if (_isUploadingAttachment) return;
+    if (_isBusyWithAttachment) return;
 
     if (!_usesSupabase || !SupabaseConfig.isReady) {
       _showSnackBar('Anexos estão disponíveis apenas em conversas online.');
@@ -773,9 +865,12 @@ class _ChatScreenState extends State<ChatScreen>
     try {
       video = await ImagePicker().pickVideo(
         source: source,
-        // Corta a GRAVAÇÃO em 1 minuto. Vídeo escolhido na galeria ignora este
-        // limite (o sistema não recorta o que já existe) e é barrado adiante
-        // pelo tamanho — o teto de bytes é quem vale nos dois caminhos.
+        // Corta a GRAVAÇÃO em 1 minuto, que depois de comprimido em 720p dá
+        // uns 12 MB — sempre dentro do teto. É de propósito conservador: um
+        // limite maior faria a pessoa gravar, esperar a compressão inteira e
+        // só então ouvir que não coube. Vídeo escolhido na galeria ignora este
+        // limite (o sistema não recorta o que já existe) e é tratado pela
+        // política de tamanho.
         maxDuration: const Duration(minutes: 1),
       );
     } catch (error) {
@@ -805,14 +900,51 @@ class _ChatScreenState extends State<ChatScreen>
 
     final size = await video.length();
     if (!mounted) return;
-    if (size > maxChatVideoBytes) {
-      _showSnackBar(chatAttachmentSizeLimitMessage(ChatAttachmentKind.video));
+
+    final decisao = decideVideoUpload(
+      sourceBytes: size,
+      canCompress: _videoCompressor.isSupported,
+    );
+    if (decisao.action == VideoUploadAction.reject) {
+      _showSnackBar(decisao.message!);
       return;
+    }
+
+    var arquivo = video;
+    var nomeArquivo = video.name;
+    var mimeFinal = mimeType;
+
+    if (decisao.action == VideoUploadAction.compress) {
+      final reduzido = await _compressVideo(video.path);
+      if (!mounted) return;
+      if (reduzido == null) {
+        // Compressor falhou ou foi cancelado. Se o original couber, ele vai —
+        // é a rede de segurança que faz um compressor quebrado degradar para
+        // o comportamento antigo em vez de impedir o envio.
+        if (_videoCompressionCancelled) return;
+        if (size > maxChatVideoBytes) {
+          _showSnackBar(
+            'Não foi possível preparar o vídeo. Envie um trecho menor.',
+          );
+          return;
+        }
+      } else {
+        final recusa = videoRejectionAfterCompression(reduzido.sizeBytes);
+        if (recusa != null) {
+          _showSnackBar(recusa);
+          return;
+        }
+        arquivo = XFile(reduzido.path);
+        // O compressor entrega mp4 nos dois sistemas. Além de encolher, isso
+        // conserta o .mov do iPhone, que nem todo navegador reproduz.
+        nomeArquivo = mp4FileNameFor(video.name);
+        mimeFinal = 'video/mp4';
+      }
     }
 
     final Uint8List bytes;
     try {
-      bytes = await video.readAsBytes();
+      bytes = await arquivo.readAsBytes();
     } catch (error) {
       debugPrint('Video read failed: $error');
       if (mounted) _showSnackBar('Não foi possível ler o vídeo.');
@@ -820,17 +952,47 @@ class _ChatScreenState extends State<ChatScreen>
     }
     if (!mounted) return;
 
-    if (bytes.isEmpty || !bytesMatchMimeType(bytes, mimeType)) {
+    if (bytes.isEmpty || !bytesMatchMimeType(bytes, mimeFinal)) {
       _showSnackBar('Vídeo inválido ou corrompido.');
       return;
     }
 
-    await _uploadAttachment(
-      fileName: video.name,
-      mimeType: mimeType,
-      kind: ChatAttachmentKind.video,
-      bytes: bytes,
-    );
+    try {
+      await _uploadAttachment(
+        fileName: nomeArquivo,
+        mimeType: mimeFinal,
+        kind: ChatAttachmentKind.video,
+        bytes: bytes,
+      );
+    } finally {
+      // O arquivo reduzido é temporário e pesa: sem a limpeza, cada vídeo
+      // enviado deixa uma cópia ocupando espaço no aparelho.
+      unawaited(_videoCompressor.clearCache());
+    }
+  }
+
+  /// Roda a compressão mostrando progresso. Devolve `null` quando falhou ou
+  /// quando a pessoa cancelou (distinguidos por [_videoCompressionCancelled]).
+  Future<CompressedVideo?> _compressVideo(String sourcePath) async {
+    setState(() {
+      _videoCompressionProgress = 0;
+      _videoCompressionCancelled = false;
+    });
+    try {
+      return await _videoCompressor.compress(
+        sourcePath,
+        onProgress: (valor) {
+          if (mounted) setState(() => _videoCompressionProgress = valor);
+        },
+      );
+    } finally {
+      if (mounted) setState(() => _videoCompressionProgress = null);
+    }
+  }
+
+  Future<void> _cancelVideoCompression() async {
+    setState(() => _videoCompressionCancelled = true);
+    await _videoCompressor.cancel();
   }
 
   Future<void> _uploadAttachment({
@@ -1873,6 +2035,14 @@ class _ChatScreenState extends State<ChatScreen>
                       );
                     },
                   ),
+                  // Comprimir um vídeo leva de segundos a um minuto. Sem
+                  // barra e sem saída, o app parece travado — e a pessoa mata
+                  // o aplicativo achando que deu erro.
+                  if (_videoCompressionProgress != null)
+                    _VideoCompressionBar(
+                      progress: _videoCompressionProgress!,
+                      onCancel: _cancelVideoCompression,
+                    ),
                   // Composer sai de cena durante a seleção: escrever e apagar
                   // ao mesmo tempo não é fluxo nenhum, e o campo ainda roubaria
                   // o espaço da lista bem na hora de marcar várias.
@@ -1892,7 +2062,7 @@ class _ChatScreenState extends State<ChatScreen>
                       isLawyer: widget.isLawyer,
                       counterpartLabel: _triageCounterpartLabel,
                       isSending: _isSending,
-                      isUploadingAttachment: _isUploadingAttachment,
+                      isUploadingAttachment: _isBusyWithAttachment,
                       isPlusMenuOpen: _isPlusMenuOpen,
                       showTriageDot: _triageDotVisible,
                       onSend: _sendMessage,
@@ -3447,6 +3617,62 @@ class _DeleteMessagesSheet extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Barra de "preparando vídeo", com porcentagem e saída.
+class _VideoCompressionBar extends StatelessWidget {
+  const _VideoCompressionBar({required this.progress, required this.onCancel});
+
+  final double progress;
+  final VoidCallback onCancel;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.jColors;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
+      decoration: BoxDecoration(
+        color: colors.lightBlue,
+        border: Border(top: BorderSide(color: colors.divider)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Preparando vídeo… ${(progress * 100).round()}%',
+                  style: TextStyle(
+                    color: colors.textPrimary,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    // Determinado: o compressor informa o andamento, e uma
+                    // barra indeterminada esconderia justamente a informação
+                    // que faz a espera ser tolerável.
+                    value: progress,
+                    minHeight: 4,
+                    backgroundColor: colors.lightBlueBorder,
+                    color: colors.primary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          TextButton(onPressed: onCancel, child: const Text('Cancelar')),
+        ],
       ),
     );
   }
