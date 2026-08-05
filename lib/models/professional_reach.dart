@@ -81,10 +81,6 @@ class ReachSummary {
   bool get hasSponsoredReach => sponsoredReach > 0;
 
   bool get isEmpty => reach == 0 && profileViews == 0 && conversations == 0;
-
-  /// Maior alcance diário do período — a escala do gráfico.
-  int get peakReach =>
-      days.fold(0, (maior, dia) => dia.reach > maior ? dia.reach : maior);
 }
 
 /// Monta o resumo a partir da série que o servidor devolveu.

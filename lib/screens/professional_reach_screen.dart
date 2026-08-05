@@ -129,6 +129,9 @@ class _ProfessionalReachScreenState extends State<ProfessionalReachScreen> {
             : RefreshIndicator(
                 onRefresh: _carregar,
                 child: ListView(
+                  // Sem isto, conteúdo curto (painel zerado) não rola e o
+                  // puxar-para-atualizar não dispara.
+                  physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
                   children: [
                     _SeletorDeJanela(
@@ -140,7 +143,7 @@ class _ProfessionalReachScreenState extends State<ProfessionalReachScreen> {
                     if (_carregando)
                       const _EsqueletoDoPainel()
                     else if (_resumo != null)
-                      ..._conteudo(_resumo!, colors),
+                      ..._conteudo(_resumo!),
                   ],
                 ),
               ),
@@ -148,7 +151,7 @@ class _ProfessionalReachScreenState extends State<ProfessionalReachScreen> {
     );
   }
 
-  List<Widget> _conteudo(ReachSummary resumo, AppColors colors) {
+  List<Widget> _conteudo(ReachSummary resumo) {
     return [
       _CartaoDeAlcance(resumo: resumo, janela: _janela),
       const SizedBox(height: 14),

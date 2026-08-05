@@ -9,7 +9,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(18);
+select plan(22);
 
 -- ---------------------------------------------------------------------------
 -- Fixtures: duas advogadas, um cliente e um escritorio
@@ -197,6 +197,94 @@ select throws_ok(
       'law_firm', 'b6000000-0000-0000-0000-000000000001', 30)$$,
   'Not allowed',
   'quem nao fala pelo escritorio nao ve o alcance dele');
+
+-- ---------------------------------------------------------------------------
+-- Conversa iniciada = o CLIENTE escreveu. Abrir o chat nao conta.
+-- ---------------------------------------------------------------------------
+
+reset role;
+select set_config('request.jwt.claim.sub', 'b7000000-0000-0000-0000-000000000002', true);
+set local role authenticated;
+
+-- Cliente abre o chat com a advogada e nao escreve nada — que e o que
+-- acontece quando alguem toca em "conversar" e desiste.
+select public.start_or_get_lawyer_conversation(
+  'b7000000-0000-0000-0000-000000000001', '');
+
+reset role;
+select set_config('request.jwt.claim.sub', 'b7000000-0000-0000-0000-000000000001', true);
+set local role authenticated;
+
+select is(
+  (select conversations from public.fetch_professional_reach(
+    'lawyer', 'b7000000-0000-0000-0000-000000000001', 30)
+   where day = (now() at time zone 'America/Sao_Paulo')::date),
+  0,
+  'abrir o chat sem escrever NAO conta como conversa iniciada');
+
+-- Agora o cliente escreve de verdade.
+reset role;
+select set_config('request.jwt.claim.sub', 'b7000000-0000-0000-0000-000000000002', true);
+set local role authenticated;
+
+select public.start_or_get_lawyer_conversation(
+  'b7000000-0000-0000-0000-000000000001', 'preciso de ajuda');
+
+reset role;
+select set_config('request.jwt.claim.sub', 'b7000000-0000-0000-0000-000000000001', true);
+set local role authenticated;
+
+select is(
+  (select conversations from public.fetch_professional_reach(
+    'lawyer', 'b7000000-0000-0000-0000-000000000001', 30)
+   where day = (now() at time zone 'America/Sao_Paulo')::date),
+  1,
+  'a primeira mensagem do cliente e que vira lead');
+
+-- Mensagem do PROFISSIONAL nao cria lead: quando o escritorio sugere um
+-- advogado e ele escreve primeiro, ainda nao ha interesse manifestado.
+reset role;
+
+insert into public.conversations (id, type, client_id, lawyer_id, title)
+values ('b5000000-0000-0000-0000-000000000001', 'client_firm',
+        'b7000000-0000-0000-0000-000000000003',
+        'b7000000-0000-0000-0000-000000000001', 'Sugerida');
+
+insert into public.messages (conversation_id, sender_id, sender_type, body)
+values ('b5000000-0000-0000-0000-000000000001',
+        'b7000000-0000-0000-0000-000000000001', 'lawyer', 'ola, posso ajudar?');
+
+select set_config('request.jwt.claim.sub', 'b7000000-0000-0000-0000-000000000001', true);
+set local role authenticated;
+
+select is(
+  (select conversations from public.fetch_professional_reach(
+    'lawyer', 'b7000000-0000-0000-0000-000000000001', 30)
+   where day = (now() at time zone 'America/Sao_Paulo')::date),
+  1,
+  'mensagem do proprio advogado nao vira lead');
+
+-- Canal interno de equipe tem law_firm_id e nunca foi lead do escritorio.
+reset role;
+
+insert into public.conversations (id, type, client_id, law_firm_id, title)
+values ('b5000000-0000-0000-0000-000000000002', 'firm_internal',
+        'b7000000-0000-0000-0000-000000000004',
+        'b6000000-0000-0000-0000-000000000001', 'Equipe');
+
+insert into public.messages (conversation_id, sender_id, sender_type, body)
+values ('b5000000-0000-0000-0000-000000000002',
+        'b7000000-0000-0000-0000-000000000004', 'client', 'reuniao as 15h');
+
+select set_config('request.jwt.claim.sub', 'b7000000-0000-0000-0000-000000000004', true);
+set local role authenticated;
+
+select is(
+  (select conversations from public.fetch_professional_reach(
+    'law_firm', 'b6000000-0000-0000-0000-000000000001', 30)
+   where day = (now() at time zone 'America/Sao_Paulo')::date),
+  0,
+  'chat interno da equipe nao entra no lead do escritorio');
 
 -- ---------------------------------------------------------------------------
 -- A tabela nao e legivel: ela diz quem olhou quem

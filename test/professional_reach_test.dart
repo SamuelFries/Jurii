@@ -103,10 +103,7 @@ void main() {
     test('sem base de comparação a variação é nula, não infinita', () {
       // Crescer "infinito por cento" a partir de zero não é informação, e
       // mostrar isso no painel de um advogado novo seria ruído.
-      final resumo = summarizeReach([
-        _dia(1, reach: 0),
-        _dia(2, reach: 8),
-      ], 1);
+      final resumo = summarizeReach([_dia(1, reach: 0), _dia(2, reach: 8)], 1);
 
       expect(resumo.previousReach, 0);
       expect(resumo.reachChange, isNull);
@@ -130,7 +127,6 @@ void main() {
     test('série vazia devolve painel zerado', () {
       final resumo = summarizeReach(const [], 30);
       expect(resumo.isEmpty, isTrue);
-      expect(resumo.peakReach, 0);
       expect(resumo.steps, hasLength(3));
     });
   });
@@ -165,9 +161,8 @@ void main() {
     setUp(() {
       // O painel tem três cartões empilhados; no viewport padrão de teste
       // (800x600) o último não chega a ser montado e some dos finders.
-      final view = TestWidgetsFlutterBinding.instance.platformDispatcher
-          .views
-          .first;
+      final view =
+          TestWidgetsFlutterBinding.instance.platformDispatcher.views.first;
       view.physicalSize = const Size(900, 2000);
       view.devicePixelRatio = 1.0;
       addTearDown(view.reset);
@@ -183,9 +178,7 @@ void main() {
 
     testWidgets('mostra o funil com os três degraus', (tester) async {
       final repo = _FakeReachRepository(
-        summarizeReach([
-          _dia(1, reach: 240, views: 36, conversations: 5),
-        ], 1),
+        summarizeReach([_dia(1, reach: 240, views: 36, conversations: 5)], 1),
       );
 
       await tester.pumpWidget(app(repo));
@@ -270,10 +263,7 @@ void main() {
       // "Não foi possível carregar" com botão de tentar de novo faria o
       // profissional insistir num botão que não tem como funcionar: a função
       // não existe no banco, e nenhuma quantidade de toques cria ela.
-      expect(
-        find.text('Seus números estão sendo preparados'),
-        findsOneWidget,
-      );
+      expect(find.text('Seus números estão sendo preparados'), findsOneWidget);
       expect(
         find.text('Não foi possível carregar seus números.'),
         findsNothing,
@@ -289,6 +279,43 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.textContaining('Ainda sem movimento'), findsOneWidget);
+    });
+
+    testWidgets('o gráfico se descreve para leitor de tela', (tester) async {
+      final semantics = tester.ensureSemantics();
+      final repo = _FakeReachRepository(
+        summarizeReach([_dia(1, reach: 4), _dia(2, reach: 11)], 2),
+      );
+
+      await tester.pumpWidget(app(repo));
+      await tester.pumpAndSettle();
+
+      // Curva desenhada não diz nada sozinha: sem este resumo o gráfico é um
+      // retângulo vazio para quem não enxerga.
+      expect(
+        find.bySemanticsLabel(RegExp('Gráfico de alcance diário')),
+        findsOneWidget,
+      );
+      expect(
+        find.bySemanticsLabel(RegExp('Maior alcance num dia: 11 pessoas')),
+        findsOneWidget,
+      );
+
+      semantics.dispose();
+    });
+
+    testWidgets('as pontas do período aparecem como data', (tester) async {
+      final repo = _FakeReachRepository(
+        summarizeReach([_dia(1, reach: 4), _dia(9, reach: 11)], 2),
+      );
+
+      await tester.pumpWidget(app(repo));
+      await tester.pumpAndSettle();
+
+      // Trinta pontos sem nenhuma referência de data não dizem em que período
+      // o profissional está olhando.
+      expect(find.text('01/08'), findsOneWidget);
+      expect(find.text('09/08'), findsOneWidget);
     });
   });
 }

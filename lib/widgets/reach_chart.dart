@@ -4,6 +4,31 @@ import '../models/professional_reach.dart';
 import '../theme/app_colors.dart';
 import 'jurii_motion.dart';
 
+String _dataCurta(DateTime data) =>
+    '${data.day.toString().padLeft(2, '0')}/'
+    '${data.month.toString().padLeft(2, '0')}';
+
+int _maiorAlcance(List<ReachDay> days) =>
+    days.fold(0, (maior, dia) => dia.reach > maior ? dia.reach : maior);
+
+class _RotuloDeData extends StatelessWidget {
+  const _RotuloDeData({required this.texto});
+
+  final String texto;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      texto,
+      style: TextStyle(
+        color: context.jColors.textSecondary,
+        fontSize: 11,
+        fontWeight: FontWeight.w600,
+      ),
+    );
+  }
+}
+
 /// Gráfico de área do alcance diário.
 ///
 /// Desenhado à mão em vez de com biblioteca: são duas curvas e um degradê, e
@@ -21,6 +46,42 @@ class ReachChart extends StatelessWidget {
     final colors = context.jColors;
     final semAnimacao = JuriiMotion.disabled(context);
 
+    if (days.isEmpty) return SizedBox(height: height);
+
+    final primeiro = days.first.day;
+    final ultimo = days.last.day;
+
+    return Semantics(
+      // Curva desenhada não diz nada a leitor de tela. Sem este resumo, o
+      // gráfico é um retângulo vazio para quem não enxerga.
+      label:
+          'Gráfico de alcance diário, de ${_dataCurta(primeiro)} '
+          'a ${_dataCurta(ultimo)}. '
+          'Maior alcance num dia: ${_maiorAlcance(days)} pessoas.',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(
+            height: height,
+            width: double.infinity,
+            child: ExcludeSemantics(
+              child: _curva(context, colors, semAnimacao),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _RotuloDeData(texto: _dataCurta(primeiro)),
+              _RotuloDeData(texto: _dataCurta(ultimo)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _curva(BuildContext context, AppColors colors, bool semAnimacao) {
     return SizedBox(
       height: height,
       width: double.infinity,
