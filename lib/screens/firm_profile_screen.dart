@@ -11,6 +11,7 @@ import '../widgets/profile_menu_section.dart';
 import '../widgets/profile_avatar.dart';
 import '../widgets/theme_mode_sheet.dart';
 import 'professional_bio_screen.dart';
+import 'professional_reach_screen.dart';
 
 class FirmProfileScreen extends StatelessWidget {
   const FirmProfileScreen({
@@ -210,6 +211,24 @@ class FirmProfileScreen extends StatelessWidget {
                         builder: (_) => ProfessionalBioScreen.lawFirm(
                           lawFirmId: workspace!.firm.id,
                           initialText: workspace!.firm.description,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              // Mesmo portão da apresentação: quem fala pelo escritório vê o
+              // número do escritório. O servidor repete a checagem.
+              if (workspace != null && _canEditDescription)
+                ProfileMenuItem(
+                  icon: Icons.insights_outlined,
+                  iconColor: colors.officePurple,
+                  label: 'Seu alcance',
+                  subtitle: 'Quantas pessoas viram, abriram e conversaram',
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => ProfessionalReachScreen.lawFirm(
+                          lawFirmId: workspace!.firm.id,
                         ),
                       ),
                     );

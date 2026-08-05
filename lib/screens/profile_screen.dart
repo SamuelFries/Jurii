@@ -10,6 +10,7 @@ import '../utils/support_contact.dart';
 import 'edit_profile_screen.dart';
 import 'favorites_screen.dart';
 import 'professional_bio_screen.dart';
+import 'professional_reach_screen.dart';
 import 'help_center_screen.dart';
 import 'law_firm_verification_screen.dart';
 import 'lawyer_verification_screen.dart';
@@ -544,6 +545,27 @@ class ProfileScreen extends StatelessWidget {
                               MaterialPageRoute(
                                 builder: (_) =>
                                     const ProfessionalBioScreen.lawyer(),
+                              ),
+                            );
+                          },
+                        ),
+                      // O painel é o que mostra ao advogado onde ele perde
+                      // gente — e, quando o gargalo é alcance, é o que vende o
+                      // patrocínio sem ninguém precisar ligar para ele.
+                      if (isLawyerMode)
+                        ProfileMenuItem(
+                          icon: Icons.insights_outlined,
+                          iconColor: colors.primary,
+                          label: 'Seu alcance',
+                          subtitle:
+                              'Quantas pessoas viram, abriram e conversaram',
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    ProfessionalReachScreen.lawyer(
+                                      lawyerId: user.id,
+                                    ),
                               ),
                             );
                           },
