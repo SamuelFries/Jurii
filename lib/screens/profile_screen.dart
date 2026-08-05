@@ -20,9 +20,11 @@ import '../theme/theme_controller.dart';
 import '../widgets/law_firm_mode_card.dart';
 import '../widgets/theme_mode_sheet.dart';
 import '../widgets/profile_header_card.dart';
+import '../widgets/mode_switcher_sheet.dart';
 import '../widgets/profile_menu_section.dart';
 import '../widgets/profile_menu_item.dart';
 import '../widgets/professional_mode_card.dart';
+import '../models/app_mode.dart';
 import '../models/lawyer_status.dart';
 
 class ProfileScreen extends StatelessWidget {
@@ -281,10 +283,22 @@ class ProfileScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.jColors;
     final isLawyerMode = onSwitchToClient != null;
+    final currentMode = isLawyerMode ? AppMode.lawyer : AppMode.client;
     final canOpenLawFirmArea =
         isLawyerMode &&
         firmWorkspace?.fromSupabase == true &&
         onOpenLawFirmArea != null;
+
+    // O escritório entra no seletor quando há vínculo ativo — no modo cliente
+    // isso chega por onOpenLawFirmArea, no modo profissional pelo workspace.
+    final hasFirmMode = onOpenLawFirmArea != null;
+    final modeOptions = buildModeOptions(
+      onClient: onSwitchToClient,
+      onLawyer: onSwitchToLawyer,
+      onFirm: onOpenLawFirmArea,
+      hasLawyerMode: user.lawyerStatus == LawyerStatus.approved,
+      hasFirmMode: hasFirmMode,
+    );
 
     return SafeArea(
       child: SingleChildScrollView(
@@ -328,7 +342,26 @@ class ProfileScreen extends StatelessWidget {
 
               const SizedBox(height: 16),
 
-              if (isLawyerMode)
+              // Seletor único, no MESMO lugar dos três fluxos. Antes trocar
+              // de área tinha três aparências e três posições diferentes, e
+              // quem usa os três reaprendia onde procurar a cada troca.
+              if (shouldShowModeSwitcher(modeOptions))
+                _SwitchModeCard(
+                  title: 'Trocar de área',
+                  subtitle: 'Você está em ${currentMode.label}',
+                  icon: Icons.swap_horiz,
+                  color: colors.primary,
+                  onTap: () => showModeSwitcher(
+                    context,
+                    current: currentMode,
+                    options: modeOptions,
+                    lawFirmId: firmWorkspace?.firm.id,
+                  ),
+                )
+              // Quem ainda NÃO é profissional continua vendo o convite: isto
+              // é onboarding, não troca de área, e some assim que ele vira
+              // uma das opções do seletor.
+              else if (isLawyerMode)
                 _SwitchModeCard(
                   title: 'Voltar ao Modo Cliente',
                   subtitle: 'Acesse a área do cliente',

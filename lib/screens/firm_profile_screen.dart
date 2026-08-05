@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 
 import '../models/firm_role.dart';
 import '../models/firm_workspace.dart';
+import '../models/app_mode.dart';
 import '../models/lawyer_status.dart';
 import '../models/user_profile.dart';
 import '../theme/app_colors.dart';
 import '../theme/theme_controller.dart';
 import '../widgets/profile_menu_item.dart';
+import '../widgets/jurii_motion.dart';
+import '../widgets/mode_switcher_sheet.dart';
 import '../widgets/profile_menu_section.dart';
 import '../widgets/profile_avatar.dart';
 import '../widgets/theme_mode_sheet.dart';
@@ -113,6 +116,14 @@ class FirmProfileScreen extends StatelessWidget {
     );
   }
 
+  List<ModeOption> get _modeOptions => buildModeOptions(
+    onClient: onSwitchToClient,
+    onLawyer: onSwitchToLawyer,
+    onFirm: null,
+    hasLawyerMode: user.lawyerStatus == LawyerStatus.approved,
+    hasFirmMode: true,
+  );
+
   @override
   Widget build(BuildContext context) {
     final colors = context.jColors;
@@ -186,6 +197,22 @@ class FirmProfileScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 24),
+          // Mesmo lugar e mesma aparência dos outros dois fluxos: logo abaixo
+          // do cabeçalho. Antes ficava no rodapé, DEPOIS de "excluir conta" —
+          // a ação frequente embaixo da destrutiva.
+          if (shouldShowModeSwitcher(_modeOptions))
+            Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: _SwitchAreaCard(
+                subtitle: 'Você está em ${AppMode.firm.label}',
+                onTap: () => showModeSwitcher(
+                  context,
+                  current: AppMode.firm,
+                  options: _modeOptions,
+                  lawFirmId: workspace?.firm.id,
+                ),
+              ),
+            ),
           ProfileMenuSection(
             title: 'GESTÃO',
             items: [
@@ -283,29 +310,6 @@ class FirmProfileScreen extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 24),
-          SizedBox(
-            width: double.infinity,
-            height: 56,
-            child: OutlinedButton.icon(
-              onPressed: onSwitchToClient,
-              icon: const Icon(Icons.person_outline),
-              label: const Text('Voltar ao modo cliente'),
-            ),
-          ),
-          if (user.lawyerStatus == LawyerStatus.approved &&
-              onSwitchToLawyer != null) ...[
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              height: 56,
-              child: ElevatedButton.icon(
-                onPressed: onSwitchToLawyer,
-                icon: const Icon(Icons.balance_outlined),
-                label: const Text('Voltar ao modo profissional'),
-              ),
-            ),
-          ],
           const SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
@@ -323,6 +327,73 @@ class FirmProfileScreen extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Cartão de trocar de área do fluxo de escritório — o mesmo formato que o
+/// perfil de cliente e de profissional usam, para a ação parecer a mesma nos
+/// três lugares.
+class _SwitchAreaCard extends StatelessWidget {
+  const _SwitchAreaCard({required this.subtitle, required this.onTap});
+
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.jColors;
+
+    return JuriiPressable(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      semanticLabel: 'Trocar de área',
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: colors.card,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: colors.officePurpleBorder),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: colors.officePurpleSurface,
+                borderRadius: BorderRadius.circular(13),
+              ),
+              child: Icon(Icons.swap_horiz, color: colors.officePurple),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Trocar de área',
+                    style: TextStyle(
+                      color: colors.textPrimary,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      color: colors.textSecondary,
+                      fontSize: 12.5,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right, color: colors.muted),
+          ],
+        ),
       ),
     );
   }
