@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/professional_reach.dart';
 import '../repositories/discovery_metrics_repository.dart';
@@ -52,6 +53,12 @@ class _ProfessionalReachScreenState extends State<ProfessionalReachScreen> {
   bool _carregando = true;
   bool _falhou = false;
 
+  /// O banco ainda não tem a função de alcance — app novo contra banco sem a
+  /// migration. É estado TRANSITÓRIO de janela de deploy, e merece texto
+  /// próprio: "não foi possível carregar" com um botão de tentar de novo faz o
+  /// profissional insistir num botão que não tem como funcionar.
+  bool _aindaNaoDisponivel = false;
+
   @override
   void initState() {
     super.initState();
@@ -62,6 +69,7 @@ class _ProfessionalReachScreenState extends State<ProfessionalReachScreen> {
     setState(() {
       _carregando = true;
       _falhou = false;
+      _aindaNaoDisponivel = false;
     });
     try {
       final resumo = await widget.repository.fetchReach(
@@ -73,6 +81,16 @@ class _ProfessionalReachScreenState extends State<ProfessionalReachScreen> {
       setState(() {
         _resumo = resumo;
         _carregando = false;
+      });
+    } on PostgrestException catch (error) {
+      debugPrint('Reach fetch failed: $error');
+      if (!mounted) return;
+      setState(() {
+        _carregando = false;
+        // PGRST202: a função não está no banco. Qualquer outro código é falha
+        // de verdade (rede, permissão) e continua no estado de erro com retry.
+        _aindaNaoDisponivel = error.code == 'PGRST202';
+        _falhou = !_aindaNaoDisponivel;
       });
     } catch (error) {
       debugPrint('Reach fetch failed: $error');
@@ -101,7 +119,9 @@ class _ProfessionalReachScreenState extends State<ProfessionalReachScreen> {
         title: const Text('Seu alcance'),
       ),
       body: SafeArea(
-        child: _falhou
+        child: _aindaNaoDisponivel
+            ? const _AindaPreparando()
+            : _falhou
             ? JuriiErrorState(
                 title: 'Não foi possível carregar seus números.',
                 onRetry: _carregar,
@@ -486,6 +506,51 @@ class _EsqueletoDoPainel extends StatelessWidget {
         SizedBox(height: 14),
         JuriiSkeletonCard(height: 110),
       ],
+    );
+  }
+}
+
+/// Janela de deploy: o app já sabe pedir os números, o banco ainda não sabe
+/// respondê-los. Não é erro de quem está olhando, e não adianta insistir.
+class _AindaPreparando extends StatelessWidget {
+  const _AindaPreparando();
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.jColors;
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.insights_outlined, size: 42, color: colors.muted),
+            const SizedBox(height: 14),
+            Text(
+              'Seus números estão sendo preparados',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: colors.textPrimary,
+                fontWeight: FontWeight.w800,
+                fontSize: 16,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'A medição de alcance acabou de ser ativada. Assim que as '
+              'primeiras buscas passarem pelo seu perfil, os números aparecem '
+              'aqui.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: colors.textSecondary,
+                fontSize: 13,
+                height: 1.4,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

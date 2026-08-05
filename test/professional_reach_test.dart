@@ -5,6 +5,7 @@ import 'package:jurii/repositories/discovery_metrics_repository.dart';
 import 'package:jurii/repositories/professional_reach_repository.dart';
 import 'package:jurii/screens/professional_reach_screen.dart';
 import 'package:jurii/theme/app_theme.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 ReachDay _dia(
   int diaDoMes, {
@@ -39,6 +40,22 @@ class _FakeReachRepository implements ProfessionalReachRepository {
     chamadas++;
     ultimaJanela = windowDays;
     return summary;
+  }
+}
+
+/// Banco sem a migration de alcance: o mesmo PGRST202 que o app viu em
+/// produção quando a tela subiu antes do push.
+class _RepositorioSemFuncao implements ProfessionalReachRepository {
+  @override
+  Future<ReachSummary> fetchReach({
+    required DiscoveryTarget target,
+    required String targetId,
+    int windowDays = 30,
+  }) async {
+    throw const PostgrestException(
+      message: 'Could not find the function public.fetch_professional_reach',
+      code: 'PGRST202',
+    );
   }
 }
 
@@ -242,6 +259,25 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('viram você na busca'), findsNothing);
+    });
+
+    testWidgets('banco sem a migration explica em vez de pedir retry', (
+      tester,
+    ) async {
+      await tester.pumpWidget(app(_RepositorioSemFuncao()));
+      await tester.pumpAndSettle();
+
+      // "Não foi possível carregar" com botão de tentar de novo faria o
+      // profissional insistir num botão que não tem como funcionar: a função
+      // não existe no banco, e nenhuma quantidade de toques cria ela.
+      expect(
+        find.text('Seus números estão sendo preparados'),
+        findsOneWidget,
+      );
+      expect(
+        find.text('Não foi possível carregar seus números.'),
+        findsNothing,
+      );
     });
 
     testWidgets('período sem movimento explica em vez de mostrar só zeros', (
