@@ -4,11 +4,16 @@ import '../theme/app_colors.dart';
 
 /// Selo das posições patrocinadas na descoberta.
 ///
-/// Transparência: quem paga por destaque é identificado como tal — o selo
-/// acompanha todo profissional destacado, inclusive quando ele aparece fora
-/// dos slots do topo (há teto de posições patrocinadas por lista, mas o selo
-/// não tem teto). Paleta lightGold + textPrimary, o mesmo par do _InfoChip dos
-/// perfis, seguro nos dois temas.
+/// Diz "Patrocinado", e não "Destaque", pelo mesmo motivo que o Google escreve
+/// "Patrocinado" nos anúncios dele: "destaque" o cliente lê como mérito — "esse
+/// é bom" —, não como "esse pagou". O CDC (art. 36) exige que o consumidor
+/// identifique publicidade fácil e imediatamente, e num app cujo público são
+/// advogados a distinção não passa despercebida.
+///
+/// O selo acompanha TODO profissional patrocinado, inclusive quando ele aparece
+/// fora das vagas do topo: há teto de vagas por lista, o selo não tem teto.
+/// Paleta lightGold + textPrimary, o mesmo par do _InfoChip dos perfis, seguro
+/// nos dois temas.
 class FeaturedBadge extends StatelessWidget {
   const FeaturedBadge({super.key});
 
@@ -23,7 +28,7 @@ class FeaturedBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
-        'Destaque',
+        'Patrocinado',
         style: TextStyle(
           color: colors.textPrimary,
           fontSize: 10,

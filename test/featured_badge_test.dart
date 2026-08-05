@@ -48,12 +48,12 @@ void main() {
     await tester.pumpWidget(
       _wrap(LawyerProfileCard(lawyer: _lawyer(isFeatured: true))),
     );
-    expect(find.text('Destaque'), findsOneWidget);
+    expect(find.text('Patrocinado'), findsOneWidget);
   });
 
   testWidgets('card de advogado comum não mostra selo', (tester) async {
     await tester.pumpWidget(_wrap(LawyerProfileCard(lawyer: _lawyer())));
-    expect(find.text('Destaque'), findsNothing);
+    expect(find.text('Patrocinado'), findsNothing);
   });
 
   testWidgets('card de escritório destacado mostra o selo', (tester) async {
@@ -71,7 +71,7 @@ void main() {
         ),
       ),
     );
-    expect(find.text('Destaque'), findsOneWidget);
+    expect(find.text('Patrocinado'), findsOneWidget);
   });
 
   testWidgets('nome longo + selo não estoura o layout', (tester) async {
@@ -98,6 +98,6 @@ void main() {
       ),
     );
     expect(tester.takeException(), isNull);
-    expect(find.text('Destaque'), findsOneWidget);
+    expect(find.text('Patrocinado'), findsOneWidget);
   });
 }
