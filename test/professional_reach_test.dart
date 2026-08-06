@@ -329,10 +329,10 @@ void main() {
       // A contagem é por pessoa POR DIA: quem vê em três dias conta três
       // vezes. Chamar isso de "pessoas" prometeria gente diferente e
       // entregaria visualização repetida — o mesmo tipo de inflação que já
-      // apareceu na métrica de lead e na atribuição da vaga paga.
+      // apareceu na métrica de lead e na atribuição da vaga paga. O título é
+      // quem segura essa distinção agora.
       expect(find.text('VISUALIZAÇÕES NA BUSCA'), findsOneWidget);
       expect(find.text('PESSOAS QUE VIRAM VOCÊ'), findsNothing);
-      expect(find.text('a mesma pessoa conta uma vez por dia'), findsOneWidget);
     });
   });
 }

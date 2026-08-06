@@ -236,6 +236,11 @@ class _CartaoDeAlcance extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // "VISUALIZAÇÕES", e não "pessoas": a contagem é por pessoa POR DIA,
+          // então quem abre o perfil em três dias entra três vezes no total.
+          // O título carrega essa distinção sozinho — a nota explicando a
+          // regra saiu por ser ruído numa tela que já tem número, gráfico e
+          // funil competindo por atenção.
           Text(
             'VISUALIZAÇÕES NA BUSCA',
             style: TextStyle(
@@ -271,14 +276,6 @@ class _CartaoDeAlcance extends StatelessWidget {
                 ? 'nos últimos $janela dias'
                 : 'nos últimos $janela dias, contra os $janela anteriores',
             style: TextStyle(color: colors.textSecondary, fontSize: 12),
-          ),
-          const SizedBox(height: 2),
-          // A contagem é por pessoa POR DIA: quem te vê em três dias conta
-          // três vezes. Dizer "pessoas" no título seria prometer gente
-          // diferente e entregar visualização repetida.
-          Text(
-            'a mesma pessoa conta uma vez por dia',
-            style: TextStyle(color: colors.muted, fontSize: 11),
           ),
           const SizedBox(height: 16),
           ReachChart(days: resumo.days),
