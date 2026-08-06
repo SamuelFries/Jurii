@@ -85,15 +85,24 @@ void main() {
     expect(find.byKey(const Key('firm_profile_edit_button')), findsNothing);
   });
 
-  testWidgets('o lápis abre a mesma tela do item de menu', (tester) async {
+  testWidgets('o lápis é a ÚNICA porta e abre a tela completa', (
+    tester,
+  ) async {
     await tester.pumpWidget(app(_workspace(const [FirmRole.owner])));
     await tester.pumpAndSettle();
+
+    // "Dados do escritório" e "Apresentação" eram dois itens de menu para o
+    // mesmo gesto — morreram; sobrou o lápis, onde os outros fluxos ensinaram
+    // a procurar.
+    expect(find.text('Dados do escritório'), findsNothing);
+    expect(find.text('Apresentação'), findsNothing);
 
     await tester.tap(find.byKey(const Key('firm_profile_edit_button')));
     await tester.pumpAndSettle();
 
-    // Dois botões para a mesma tela não podem divergir no que fazem.
-    expect(find.text('Dados do escritório'), findsWidgets);
+    // E a tela atrás dele carrega TUDO: dados, CNPJ travado e apresentação.
+    expect(find.text('Dados do escritório'), findsOneWidget);
     expect(find.text('CNPJ'), findsOneWidget);
+    expect(find.text('APRESENTAÇÃO'), findsOneWidget);
   });
 }

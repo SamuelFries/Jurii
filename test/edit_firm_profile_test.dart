@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:jurii/models/law_firm.dart';
 import 'package:jurii/models/profile_avatar_file.dart';
 import 'package:jurii/repositories/law_firm_profile_repository.dart';
+import 'package:jurii/repositories/professional_bio_repository.dart';
 import 'package:jurii/screens/edit_firm_profile_screen.dart';
 import 'package:jurii/services/cep_service.dart';
 import 'package:jurii/theme/app_theme.dart';
@@ -23,7 +24,36 @@ const _firma = LawFirm(
   cep: '90000000',
   latitude: -30.0,
   longitude: -51.0,
+  description: 'Banca antiga de Porto Alegre.',
 );
+
+class _FakeBioRepository implements ProfessionalBioRepository {
+  _FakeBioRepository({this.erro});
+
+  final Object? erro;
+  ({String id, String? text})? recebido;
+  int chamadas = 0;
+
+  @override
+  bool get isAvailable => true;
+
+  @override
+  Future<String?> fetchMyBio() async => null;
+
+  @override
+  Future<String?> saveMyBio(String? bio) async => bio;
+
+  @override
+  Future<String?> saveLawFirmDescription({
+    required String lawFirmId,
+    required String? description,
+  }) async {
+    chamadas++;
+    if (erro != null) throw erro!;
+    recebido = (id: lawFirmId, text: description);
+    return description;
+  }
+}
 
 class _FakeFirmProfileRepository implements LawFirmProfileRepository {
   _FakeFirmProfileRepository({this.erro, this.cnpj = '12345678000190'});
@@ -111,7 +141,8 @@ void main() {
     // padrão (800x600) o botão Salvar nem chega a ser montado.
     final view =
         TestWidgetsFlutterBinding.instance.platformDispatcher.views.first;
-    view.physicalSize = const Size(1000, 2600);
+    // (altura folgada: o formulário ganhou a seção de apresentação)
+    view.physicalSize = const Size(1000, 3400);
     view.devicePixelRatio = 1.0;
     addTearDown(view.reset);
   });
@@ -120,11 +151,13 @@ void main() {
     LawFirmProfileRepository repo, {
     CepService? cep,
     LawFirm firm = _firma,
+    ProfessionalBioRepository? bio,
   }) => MaterialApp(
     theme: AppTheme.lightTheme,
     home: EditFirmProfileScreen(
       firm: firm,
       repository: repo,
+      bioRepository: bio ?? _FakeBioRepository(),
       cepService: cep ?? _FakeCepService(),
     ),
   );
@@ -491,6 +524,144 @@ void main() {
       // "Uma das áreas não é válida" deixava a pessoa procurando qual — foi
       // exatamente o que aconteceu em uso.
       expect(find.textContaining('Direito Bancário'), findsWidgets);
+    });
+  });
+
+  group('apresentação embutida', () {
+    // "Dados do escritório" e "Apresentação" eram dois itens de menu para o
+    // mesmo gesto; agora a apresentação vive neste formulário, atrás do lápis.
+    final campo = find.byKey(const Key('firm_description_field'));
+
+    testWidgets('abre com o texto atual e salva junto com os dados', (
+      tester,
+    ) async {
+      final repo = _FakeFirmProfileRepository();
+      final bio = _FakeBioRepository();
+      await tester.pumpWidget(app(repo, bio: bio));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Banca antiga de Porto Alegre.'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextFormField).first, 'Firma Nova');
+      await tester.enterText(campo, '  Banca nova, família e sucessões.  ');
+      await tester.ensureVisible(find.text('Salvar'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Salvar'));
+      await tester.pumpAndSettle();
+
+      // Apara espaço antes de mandar, e os DOIS salvamentos acontecem num
+      // toque só.
+      expect(bio.recebido?.id, 'f1');
+      expect(bio.recebido?.text, 'Banca nova, família e sucessões.');
+      expect(repo.chamadas, 1);
+      expect(repo.recebido?['name'], 'Firma Nova');
+    });
+
+    testWidgets('só a apresentação mudou: o cadastro NÃO é reescrito', (
+      tester,
+    ) async {
+      final repo = _FakeFirmProfileRepository();
+      final bio = _FakeBioRepository();
+      await tester.pumpWidget(app(repo, bio: bio));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(campo, 'Só o texto mudou.');
+      await tester.ensureVisible(find.text('Salvar'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Salvar'));
+      await tester.pumpAndSettle();
+
+      // Reescrever o cadastro idêntico gastaria uma RPC à toa — e um erro
+      // DELA assustaria quem só ajustou o texto.
+      expect(bio.chamadas, 1);
+      expect(repo.chamadas, 0);
+    });
+
+    testWidgets('limpar a apresentação envia null (texto padrão volta)', (
+      tester,
+    ) async {
+      final bio = _FakeBioRepository();
+      await tester.pumpWidget(app(_FakeFirmProfileRepository(), bio: bio));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(campo, '   ');
+      await tester.ensureVisible(find.text('Salvar'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Salvar'));
+      await tester.pumpAndSettle();
+
+      expect(bio.chamadas, 1);
+      expect(bio.recebido?.text, isNull);
+    });
+
+    testWidgets('apresentação intocada NÃO gasta a RPC dela', (tester) async {
+      final bio = _FakeBioRepository();
+      await tester.pumpWidget(app(_FakeFirmProfileRepository(), bio: bio));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextFormField).first, 'Outro Nome');
+      await tester.ensureVisible(find.text('Salvar'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Salvar'));
+      await tester.pumpAndSettle();
+
+      // Regravar o mesmo texto a cada correção de telefone seria escrita à
+      // toa — e updated_at mentindo que a apresentação mudou.
+      expect(bio.chamadas, 0);
+    });
+
+    testWidgets('dados falharam depois dela salva: retry não regrava', (
+      tester,
+    ) async {
+      final repo = _FakeFirmProfileRepository(
+        erro: Exception('PostgrestException(message: Not allowed)'),
+      );
+      final bio = _FakeBioRepository();
+      await tester.pumpWidget(app(repo, bio: bio));
+      await tester.pumpAndSettle();
+
+      // Mudou o texto E um dado: a apresentação grava, o cadastro falha.
+      await tester.enterText(find.byType(TextFormField).first, 'Outro Nome');
+      await tester.enterText(campo, 'Texto novo.');
+      await tester.ensureVisible(find.text('Salvar'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Salvar'));
+      await tester.pumpAndSettle();
+
+      // A apresentação gravou; os dados não. A tela continua aberta com o
+      // erro dos dados…
+      expect(bio.chamadas, 1);
+      expect(repo.chamadas, 1);
+      expect(find.text('Salvar'), findsOneWidget);
+
+      // …e o retry salva SÓ o que falta: regravar a apresentação a cada
+      // tentativa seria escrita repetida contra o servidor.
+      await tester.tap(find.text('Salvar'));
+      await tester.pumpAndSettle();
+      expect(bio.chamadas, 1);
+      expect(repo.chamadas, 2);
+    });
+
+    testWidgets('falha na apresentação segura tudo: nada dos dados é enviado', (
+      tester,
+    ) async {
+      final repo = _FakeFirmProfileRepository();
+      final bio = _FakeBioRepository(erro: Exception('offline'));
+      await tester.pumpWidget(app(repo, bio: bio));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(campo, 'Texto novo.');
+      await tester.ensureVisible(find.text('Salvar'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Salvar'));
+      await tester.pumpAndSettle();
+
+      // Ela vai primeiro: falhou, nada foi gravado e o erro é um só.
+      expect(repo.chamadas, 0);
+      expect(
+        find.text('Não foi possível salvar. Tente novamente.'),
+        findsOneWidget,
+      );
     });
   });
 }

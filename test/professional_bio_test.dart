@@ -141,31 +141,7 @@ void main() {
     expect(find.text('Salvar apresentação'), findsOneWidget);
   });
 
-  testWidgets('escritório abre com o texto do workspace, sem fetch', (
-    tester,
-  ) async {
-    final repo = _FakeBioRepository();
-
-    await tester.pumpWidget(
-      _host(
-        ProfessionalBioScreen.lawFirm(
-          lawFirmId: 'firma-1',
-          initialText: 'Banca de família.',
-          repository: repo,
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    expect(repo.loadCalls, 0);
-    expect(find.text('Banca de família.'), findsOneWidget);
-    expect(find.text('Como o escritório se apresenta'), findsOneWidget);
-
-    await tester.enterText(find.byType(TextField), 'Texto novo da firma.');
-    await tester.tap(find.text('Salvar apresentação'));
-    await tester.pumpAndSettle();
-
-    expect(repo.savedFirm?.id, 'firma-1');
-    expect(repo.savedFirm?.text, 'Texto novo da firma.');
-  });
+  // A apresentação do ESCRITÓRIO não mora mais aqui: vive dentro de "Dados
+  // do escritório" (EditFirmProfileScreen), atrás do lápis — coberta em
+  // test/edit_firm_profile_test.dart.
 }

@@ -4,30 +4,19 @@ import '../repositories/professional_bio_repository.dart';
 import '../theme/app_colors.dart';
 import '../widgets/jurii_error_state.dart';
 
-/// Editor da apresentação pública — a mesma tela serve o advogado (bio) e o
-/// escritório (descrição), porque o objeto é o mesmo: o texto que o cliente
-/// lê antes de decidir. Sem ele, todo perfil da Jurii exibia a mesma frase.
+/// Editor da apresentação pública do ADVOGADO — o texto que o cliente lê
+/// antes de decidir. Sem ele, todo perfil da Jurii exibia a mesma frase.
+///
+/// A variante de escritório morava aqui também, mas era um segundo botão para
+/// o mesmo gesto de descrever o escritório: hoje a apresentação da firma vive
+/// dentro de "Dados do escritório" (EditFirmProfileScreen), atrás do lápis.
 class ProfessionalBioScreen extends StatefulWidget {
   const ProfessionalBioScreen.lawyer({
     super.key,
     this.repository = const ProfessionalBioRepository(),
-  }) : lawFirmId = null,
-       initialText = null;
-
-  /// Escritório: o texto já veio no workspace, então abre preenchido sem
-  /// nova ida ao servidor.
-  const ProfessionalBioScreen.lawFirm({
-    super.key,
-    required String this.lawFirmId,
-    required this.initialText,
-    this.repository = const ProfessionalBioRepository(),
   });
 
-  final String? lawFirmId;
-  final String? initialText;
   final ProfessionalBioRepository repository;
-
-  bool get _isLawFirm => lawFirmId != null;
 
   @override
   State<ProfessionalBioScreen> createState() => _ProfessionalBioScreenState();
@@ -42,11 +31,6 @@ class _ProfessionalBioScreenState extends State<ProfessionalBioScreen> {
   @override
   void initState() {
     super.initState();
-    if (widget._isLawFirm) {
-      _controller.text = widget.initialText ?? '';
-      _isLoading = false;
-      return;
-    }
     _load();
   }
 
@@ -86,14 +70,7 @@ class _ProfessionalBioScreenState extends State<ProfessionalBioScreen> {
     // sobrou na árvore.
     final messenger = ScaffoldMessenger.of(context);
     try {
-      if (widget._isLawFirm) {
-        await widget.repository.saveLawFirmDescription(
-          lawFirmId: widget.lawFirmId!,
-          description: text.isEmpty ? null : text,
-        );
-      } else {
-        await widget.repository.saveMyBio(text.isEmpty ? null : text);
-      }
+      await widget.repository.saveMyBio(text.isEmpty ? null : text);
       if (!mounted) return;
       // Devolve o texto salvo: quem abriu a tela atualiza o que exibe sem
       // refazer o fetch.
@@ -119,7 +96,6 @@ class _ProfessionalBioScreenState extends State<ProfessionalBioScreen> {
   @override
   Widget build(BuildContext context) {
     final colors = context.jColors;
-    final isFirm = widget._isLawFirm;
 
     return Scaffold(
       backgroundColor: colors.background,
@@ -142,20 +118,14 @@ class _ProfessionalBioScreenState extends State<ProfessionalBioScreen> {
                 padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
                 children: [
                   Text(
-                    isFirm
-                        ? 'Como o escritório se apresenta'
-                        : 'Como você se apresenta',
+                    'Como você se apresenta',
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    isFirm
-                        ? 'Este texto aparece no perfil do escritório, para o '
-                              'cliente que está escolhendo com quem falar. Sem '
-                              'ele, mostramos uma descrição genérica.'
-                        : 'Este texto aparece no seu perfil, para o cliente que '
-                              'está escolhendo com quem falar. Sem ele, '
-                              'mostramos uma frase padrão igual à de todo mundo.',
+                    'Este texto aparece no seu perfil, para o cliente que '
+                    'está escolhendo com quem falar. Sem ele, mostramos uma '
+                    'frase padrão igual à de todo mundo.',
                     style: TextStyle(color: colors.textSecondary, height: 1.4),
                   ),
                   const SizedBox(height: 20),
@@ -165,12 +135,10 @@ class _ProfessionalBioScreenState extends State<ProfessionalBioScreen> {
                     minLines: 6,
                     maxLength: ProfessionalBioRepository.maxLength,
                     textCapitalization: TextCapitalization.sentences,
-                    decoration: InputDecoration(
-                      hintText: isFirm
-                          ? 'Ex.: Banca de família e sucessões em Porto Alegre, '
-                                'com atendimento presencial e online.'
-                          : 'Ex.: Atuo há 12 anos em direito de família, com '
-                                'foco em divórcio e guarda.',
+                    decoration: const InputDecoration(
+                      hintText:
+                          'Ex.: Atuo há 12 anos em direito de família, com '
+                          'foco em divórcio e guarda.',
                       alignLabelWithHint: true,
                     ),
                   ),
