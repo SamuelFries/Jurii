@@ -78,7 +78,10 @@ void main() {
     });
 
     test('nome com pontos no meio só perde a última extensão', () {
-      expect(mp4FileNameFor('caso.2026.audiencia.mov'), 'caso.2026.audiencia.mp4');
+      expect(
+        mp4FileNameFor('caso.2026.audiencia.mov'),
+        'caso.2026.audiencia.mp4',
+      );
     });
 
     test('nome sem extensão ganha uma', () {

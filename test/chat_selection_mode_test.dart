@@ -32,7 +32,9 @@ void main() {
     // Barra normal da conversa antes de qualquer seleção.
     expect(find.text('1 selecionada'), findsNothing);
 
-    await tester.longPress(find.text('Perfeito. Quais documentos preciso enviar primeiro?'));
+    await tester.longPress(
+      find.text('Perfeito. Quais documentos preciso enviar primeiro?'),
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('1 selecionada'), findsOneWidget);
@@ -75,7 +77,9 @@ void main() {
     await tester.pumpWidget(_app());
     await tester.pumpAndSettle();
 
-    final alvo = find.text('Perfeito. Quais documentos preciso enviar primeiro?');
+    final alvo = find.text(
+      'Perfeito. Quais documentos preciso enviar primeiro?',
+    );
 
     await tester.longPress(alvo);
     await tester.pumpAndSettle();
@@ -117,7 +121,9 @@ void main() {
     await tester.pumpWidget(_app());
     await tester.pumpAndSettle();
 
-    final alvo = find.text('Perfeito. Quais documentos preciso enviar primeiro?');
+    final alvo = find.text(
+      'Perfeito. Quais documentos preciso enviar primeiro?',
+    );
 
     await tester.longPress(alvo);
     await tester.pumpAndSettle();

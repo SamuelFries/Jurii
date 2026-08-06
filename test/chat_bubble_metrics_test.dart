@@ -23,7 +23,10 @@ void main() {
     });
 
     test('a virada acontece onde os dois se cruzam', () {
-      expect(chatBubbleWidthFor(kChatBubbleMaxWidth / 0.78), kChatBubbleMaxWidth);
+      expect(
+        chatBubbleWidthFor(kChatBubbleMaxWidth / 0.78),
+        kChatBubbleMaxWidth,
+      );
       expect(
         chatBubbleWidthFor(kChatBubbleMaxWidth / 0.78 - 1),
         lessThan(kChatBubbleMaxWidth),
