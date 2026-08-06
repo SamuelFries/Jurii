@@ -323,12 +323,24 @@ class _EditFirmProfileScreenState extends State<EditFirmProfileScreen> {
       // só não entra na ordenação por distância.
       var latitude = widget.firm.latitude;
       var longitude = widget.firm.longitude;
+      final cepMudou = cepDigits != widget.firm.cep;
       if (cepDigits.isEmpty) {
         // Coordenada órfã de um endereço que já não existe colocaria o
         // escritório na distância errada da descoberta.
         latitude = null;
         longitude = null;
-      } else if (cepDigits != widget.firm.cep) {
+      } else if (cepMudou || latitude == null) {
+        // Duas razões para geocodificar, não uma:
+        //
+        // (a) o CEP MUDOU — a coordenada antiga passou a apontar para o lugar
+        //     errado;
+        // (b) o CEP é o MESMO mas não há coordenada. Em produção esse é o caso
+        //     de 39 dos 40 escritórios: todos têm CEP, um só tem coordenada
+        //     (as verificações antigas gravaram o CEP sem geocodificar). Sem
+        //     esta segunda condição eles ficariam fora da ordenação por
+        //     distância para sempre — nem salvando de novo voltariam, porque o
+        //     CEP não mudou.
+        //
         // MESMO caminho do preenchimento automático, de propósito: ele guarda
         // o resultado por CEP, então tocar em "Salvar" direto do campo — que
         // dispara blur e envio quase juntos, em ordem que varia — resolve numa
@@ -337,8 +349,19 @@ class _EditFirmProfileScreenState extends State<EditFirmProfileScreen> {
         final coordinates = cepDigits == _cepConsultado
             ? _coordenadasDoCep
             : null;
-        latitude = coordinates?.latitude;
-        longitude = coordinates?.longitude;
+
+        if (coordinates != null) {
+          latitude = coordinates.latitude;
+          longitude = coordinates.longitude;
+        } else if (cepMudou) {
+          // CEP novo e geocodificação falhou: manter a coordenada antiga
+          // deixaria o escritório plotado no endereço de onde ele saiu — pior
+          // que não ter distância nenhuma.
+          latitude = null;
+          longitude = null;
+        }
+        // CEP igual e a consulta falhou: fica como estava. É best-effort, e a
+        // próxima gravação tenta de novo.
       }
 
       final updated = await widget.repository.updateProfile(

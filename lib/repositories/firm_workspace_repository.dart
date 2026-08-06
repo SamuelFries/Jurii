@@ -9,7 +9,22 @@ import '../models/law_firm.dart';
 import '../models/law_firm_verification.dart';
 import '../models/law_firm_verification_status.dart';
 import '../services/supabase_config.dart';
+import 'law_firm_repository.dart';
 
+/// Workspace do escritório: a firma, o papel de quem entrou e a equipe.
+///
+/// A conversão de linha de `law_firms` em [LawFirm] é a de
+/// [LawFirmRepository.firmFromRow], de propósito — e não uma cópia local.
+/// Existiu aqui uma segunda implementação que lia só id, nome, iniciais,
+/// rating, especialidade, áreas, reviews e avatar, descartando telefone,
+/// e-mail, site, endereço, CEP, apresentação e coordenadas, embora a query
+/// traga a linha inteira (`law_firms(*)`).
+///
+/// Não era um detalhe de exibição: este objeto é o que abre o formulário do
+/// lápis. Os campos descartados chegavam nulos, o formulário abria vazio
+/// neles, e ao salvar os vazios voltavam ao servidor como NULL — corrigir o
+/// nome apagava telefone, endereço, CEP e a coordenada que alimenta a
+/// distância na descoberta.
 class FirmWorkspaceRepository {
   const FirmWorkspaceRepository();
 
@@ -82,7 +97,7 @@ class FirmWorkspaceRepository {
     final firmRow = membership['law_firms'];
     if (firmRow is! Map<String, dynamic>) return null;
 
-    final firm = _firmFromRow(firmRow);
+    final firm = LawFirmRepository.firmFromRow(firmRow);
     final roles = _rolesFromRow(
       membership['roles'],
       membership['member_role'] as String? ?? membership['role'] as String?,
@@ -138,7 +153,7 @@ class FirmWorkspaceRepository {
         .maybeSingle();
 
     if (row == null) return null;
-    return _firmFromRow(row);
+    return LawFirmRepository.firmFromRow(row);
   }
 
   Future<List<FirmTeamMember>> _fetchTeamMembers(
@@ -230,16 +245,17 @@ class FirmWorkspaceRepository {
     String ownerProfileId,
     LawFirmVerification verification,
   ) {
-    final firm = LawFirm(
+    final firm = LawFirm.fromApprovedVerification(
       id: verification.lawFirmId ?? verification.id ?? 'approved_firm',
-      name: verification.firmName,
+      firmName: verification.firmName,
       initials: _initialsFor(verification.firmName),
-      rating: 0,
-      distance: '',
       specialty: primaryPracticeArea(verification.practiceAreas),
       practiceAreas: verification.practiceAreas,
-      reviews: 0,
-      avatarType: 'purple',
+      // Telefone, e-mail e endereço vinham DA verificação e eram descartados
+      // aqui: o formulário do lápis abria vazio neles mesmo com o dado à mão.
+      phone: verification.phone,
+      email: verification.email,
+      address: verification.address,
       avatarUrl: _lawFirmAvatarUrl(verification.avatarStoragePath),
     );
 
@@ -272,47 +288,10 @@ class FirmWorkspaceRepository {
     ];
   }
 
-  LawFirm _firmFromRow(Map<String, dynamic> row) {
-    return LawFirm(
-      id: row['id'] as String,
-      name: row['name'] as String? ?? 'Escritório',
-      initials:
-          row['initials'] as String? ??
-          _initialsFor(row['name'] as String? ?? ''),
-      rating: (row['rating'] as num?)?.toDouble() ?? 0,
-      // distance_label é legado fake (ver law_firm_repository); sem exibição.
-      distance: '',
-      specialty: row['specialty'] as String? ?? 'Escritório jurídico',
-      practiceAreas: _practiceAreasFromRow(
-        row['practice_areas'],
-        fallback: [row['specialty'] as String? ?? ''],
-      ),
-      reviews: row['reviews_count'] as int? ?? 0,
-      avatarType: row['avatar_type'] as String? ?? 'purple',
-      avatarUrl: _optionalText(row['avatar_url']),
-    );
-  }
-
   String? _lawFirmAvatarUrl(String? storagePath) {
     final path = _optionalText(storagePath);
     if (path == null) return null;
     return '/storage/v1/object/public/law-firm-avatars/$path';
-  }
-
-  List<String> _practiceAreasFromRow(Object? value, {List<String>? fallback}) {
-    final areas = value is List
-        ? value.whereType<String>().toList()
-        : const <String>[];
-    final cleanAreas = areas
-        .map((area) => area.trim())
-        .where((area) => area.isNotEmpty)
-        .toList();
-    if (cleanAreas.isNotEmpty) return cleanAreas;
-
-    return (fallback ?? const <String>[])
-        .map((area) => area.trim())
-        .where((area) => area.isNotEmpty)
-        .toList();
   }
 
   Future<void> updateMemberRoles({

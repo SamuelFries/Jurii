@@ -17,6 +17,17 @@ enum OfficeSort {
   final String label;
 }
 
+/// `true` quando ordenar por [sort] exige ter a lista INTEIRA na mão.
+///
+/// O servidor entrega por relevância, em páginas. Ordenar client-side só o que
+/// já foi carregado responde a pergunta errada — "qual o mais perto DOS DEZ
+/// PRIMEIROS" em vez de "qual o mais perto" —, e o escritório mais próximo
+/// pode estar atrás do "Ver mais".
+///
+/// Relevância é a exceção: a ordem já é a do servidor, então o topo da
+/// primeira página é o topo do conjunto e não há o que completar.
+bool sortNeedsFullList(OfficeSort sort) => sort != OfficeSort.relevance;
+
 /// Ordena a lista da descoberta SEM tocar no servidor — a troca de método é
 /// instantânea (client-side) e reaproveita os dados já carregados.
 ///
