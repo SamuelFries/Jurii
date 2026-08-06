@@ -15,7 +15,6 @@ import '../widgets/profile_menu_section.dart';
 import '../widgets/profile_avatar.dart';
 import '../widgets/theme_mode_sheet.dart';
 import 'edit_firm_profile_screen.dart';
-import 'professional_bio_screen.dart';
 import 'professional_reach_screen.dart';
 
 class FirmProfileScreen extends StatelessWidget {
@@ -260,38 +259,14 @@ class FirmProfileScreen extends StatelessWidget {
           ProfileMenuSection(
             title: 'GESTÃO',
             items: [
-              // Mesmo portão da apresentação e do painel: quem fala pelo
-              // escritório. O servidor repete a checagem.
-              if (podeEditar)
-                ProfileMenuItem(
-                  icon: Icons.apartment_outlined,
-                  iconColor: colors.officePurple,
-                  label: 'Dados do escritório',
-                  subtitle: 'Logo, contato, endereço e áreas atendidas',
-                  onTap: () => _openEdit(context),
-                ),
-              // Só owner/admin: o servidor aplica o mesmo gate
+              // "Dados do escritório" e "Apresentação" moravam aqui como dois
+              // itens — dois botões para o mesmo gesto de descrever o
+              // escritório. Agora tudo vive atrás do LÁPIS do cabeçalho, que
+              // é onde os outros dois fluxos ensinaram a procurar.
+              //
+              // Só owner/admin vê o que segue: o servidor aplica o mesmo gate
               // (is_active_law_firm_manager), este if apenas não oferece o
               // que seria recusado.
-              if (workspace != null && _canEditDescription)
-                ProfileMenuItem(
-                  icon: Icons.badge_outlined,
-                  iconColor: colors.officePurple,
-                  label: 'Apresentação',
-                  subtitle: 'O texto que aparece no perfil do escritório',
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => ProfessionalBioScreen.lawFirm(
-                          lawFirmId: workspace!.firm.id,
-                          initialText: workspace!.firm.description,
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              // Mesmo portão da apresentação: quem fala pelo escritório vê o
-              // número do escritório. O servidor repete a checagem.
               if (workspace != null && _canEditDescription)
                 ProfileMenuItem(
                   icon: Icons.insights_outlined,

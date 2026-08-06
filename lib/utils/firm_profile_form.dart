@@ -31,6 +31,7 @@ class FirmProfileDraft {
     required this.cep,
     required this.primaryArea,
     required this.practiceAreas,
+    this.description = '',
     this.hasNewLogo = false,
     this.removeLogo = false,
   });
@@ -43,8 +44,30 @@ class FirmProfileDraft {
   final String cep;
   final String primaryArea;
   final List<String> practiceAreas;
+
+  /// Apresentação pública (a "bio" do escritório). Vive no mesmo formulário
+  /// dos dados desde que os dois itens de menu viraram um lápis só.
+  final String description;
   final bool hasNewLogo;
   final bool removeLogo;
+
+  /// Recorte imutável com outra apresentação — usado quando ela é gravada por
+  /// uma RPC separada da dos dados: salva a apresentação, o retrato avança só
+  /// nela, e uma falha nos dados logo depois não volta a botão mentindo que a
+  /// apresentação ainda está pendente.
+  FirmProfileDraft withDescription(String value) => FirmProfileDraft(
+    name: name,
+    phone: phone,
+    email: email,
+    websiteUrl: websiteUrl,
+    address: address,
+    cep: cep,
+    primaryArea: primaryArea,
+    practiceAreas: practiceAreas,
+    description: value,
+    hasNewLogo: hasNewLogo,
+    removeLogo: removeLogo,
+  );
 
   /// `true` quando nada mudou em relação a [original].
   ///
@@ -61,6 +84,7 @@ class FirmProfileDraft {
         _digits(cep) == _digits(original.cep) &&
         primaryArea == original.primaryArea &&
         _sameAreas(practiceAreas, original.practiceAreas) &&
+        description.trim() == original.description.trim() &&
         !hasNewLogo &&
         !removeLogo;
   }

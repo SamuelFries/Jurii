@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/law_firm.dart';
 import '../models/profile_avatar_file.dart';
 import '../repositories/law_firm_profile_repository.dart';
+import '../repositories/professional_bio_repository.dart';
 import 'package:flutter/services.dart';
 
 import '../services/cep_service.dart';
@@ -24,16 +25,23 @@ import '../widgets/profile_avatar.dart';
 /// mudança de endereço ou erro de digitação no nome ficavam para sempre. E o
 /// endereço alimenta a ordenação por distância da descoberta, então "não dá
 /// para corrigir" mexia em quem o cliente encontra.
+///
+/// A APRESENTAÇÃO também vive aqui: "Dados do escritório" e "Apresentação"
+/// eram dois itens de menu para o mesmo gesto — descrever o escritório para o
+/// cliente — e ninguém sabia em qual dos dois estava o quê. Um lápis, uma
+/// tela, tudo dentro.
 class EditFirmProfileScreen extends StatefulWidget {
   const EditFirmProfileScreen({
     super.key,
     required this.firm,
     this.repository = const LawFirmProfileRepository(),
+    this.bioRepository = const ProfessionalBioRepository(),
     this.cepService = const CepService(),
   });
 
   final LawFirm firm;
   final LawFirmProfileRepository repository;
+  final ProfessionalBioRepository bioRepository;
   final CepService cepService;
 
   @override
@@ -58,6 +66,9 @@ class _EditFirmProfileScreenState extends State<EditFirmProfileScreen> {
   late final _cepController = TextEditingController(
     text: widget.firm.cep ?? '',
   );
+  late final _descriptionController = TextEditingController(
+    text: widget.firm.description ?? '',
+  );
 
   late String _primaryArea = widget.firm.specialty;
   late List<String> _areas = [...widget.firm.practiceAreas];
@@ -81,8 +92,10 @@ class _EditFirmProfileScreenState extends State<EditFirmProfileScreen> {
   Future<void>? _cepEmCurso;
 
   /// Retrato de como o cadastro estava ao abrir. É contra ele que o botão de
-  /// salvar decide se há o que gravar.
-  late final FirmProfileDraft _original = _draft();
+  /// salvar decide se há o que gravar. Não é final: a apresentação grava por
+  /// RPC própria, e quando ela é salva o retrato avança só nela — assim uma
+  /// falha nos dados logo depois não re-salva a apresentação no retry.
+  late FirmProfileDraft _original = _draft();
   ProfileAvatarFile? _selectedLogo;
   bool _removeLogo = false;
   bool _isPickingLogo = false;
@@ -98,6 +111,7 @@ class _EditFirmProfileScreenState extends State<EditFirmProfileScreen> {
     cep: _cepController.text,
     primaryArea: _primaryArea,
     practiceAreas: _areas,
+    description: _descriptionController.text,
     hasNewLogo: _selectedLogo != null,
     removeLogo: _removeLogo,
   );
@@ -150,6 +164,7 @@ class _EditFirmProfileScreenState extends State<EditFirmProfileScreen> {
     _websiteController,
     _addressController,
     _cepController,
+    _descriptionController,
   ];
 
   @override
@@ -185,6 +200,7 @@ class _EditFirmProfileScreenState extends State<EditFirmProfileScreen> {
     _websiteController.dispose();
     _addressController.dispose();
     _cepController.dispose();
+    _descriptionController.dispose();
     super.dispose();
   }
 
@@ -265,6 +281,41 @@ class _EditFirmProfileScreenState extends State<EditFirmProfileScreen> {
     final messenger = ScaffoldMessenger.of(context);
 
     try {
+      // Dois salvamentos separados porque são duas RPCs — e ambas já existem
+      // em produção (estender a RPC dos dados quebraria o app na janela de
+      // deploy). Cada uma só roda quando o SEU pedaço mudou: corrigir um
+      // telefone não regrava a apresentação, e ajustar o texto não reescreve
+      // o cadastro inteiro à toa.
+      final novaApresentacao = _descriptionController.text.trim();
+      final apresentacaoMudou = novaApresentacao != _original.description.trim();
+      // Neutraliza a apresentação na comparação: sobra "algum DADO mudou?".
+      final dadosMudaram = !_draft()
+          .withDescription(_original.description)
+          .matches(_original);
+
+      // A apresentação vai PRIMEIRO: se falhar, nada foi gravado e o erro é
+      // um só. Se gravar e os dados falharem adiante, o retrato avança só
+      // nela — o retry salva o resto sem regravá-la.
+      if (apresentacaoMudou) {
+        await widget.bioRepository.saveLawFirmDescription(
+          lawFirmId: widget.firm.id,
+          // Vazio vira NULL para o texto padrão voltar quando o gestor limpa.
+          description: novaApresentacao.isEmpty ? null : novaApresentacao,
+        );
+        _original = _original.withDescription(novaApresentacao);
+      }
+
+      if (!dadosMudaram) {
+        // Só a apresentação mudou. Devolve a firma como sinal de "recarregue
+        // o workspace" — o texto novo chega por lá.
+        if (!mounted) return;
+        navigator.pop(widget.firm);
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Apresentação salva.')),
+        );
+        return;
+      }
+
       final cepDigits = digitsOnly(_cepController.text);
 
       // Endereço mudou é o único momento em que vale gastar uma chamada de
@@ -351,7 +402,7 @@ class _EditFirmProfileScreenState extends State<EditFirmProfileScreen> {
 
     return PopScope(
       // Sair com alteração pendente perde tudo em silêncio — e este formulário
-      // tem seis campos, então costuma ser bastante coisa.
+      // tem sete campos mais a apresentação, então costuma ser bastante coisa.
       canPop: !_hasChanges || _isSaving,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) _confirmarDescarte();
@@ -550,6 +601,40 @@ class _EditFirmProfileScreenState extends State<EditFirmProfileScreen> {
                           setState(() => _primaryArea = value ?? _primaryArea),
                     ),
                   ],
+
+                  const SizedBox(height: 24),
+                  Text(
+                    'APRESENTAÇÃO',
+                    style: TextStyle(
+                      color: colors.textSecondary,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.6,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  // Morava numa tela própria ("Apresentação" no menu), mas era
+                  // o mesmo gesto desta: descrever o escritório para o
+                  // cliente. Dois lugares para isso = ninguém sabe onde está
+                  // o quê. Um lápis, uma tela, tudo dentro.
+                  TextFormField(
+                    key: const Key('firm_description_field'),
+                    controller: _descriptionController,
+                    maxLines: 6,
+                    minLines: 4,
+                    maxLength: ProfessionalBioRepository.maxLength,
+                    textCapitalization: TextCapitalization.sentences,
+                    decoration: const InputDecoration(
+                      hintText:
+                          'Ex.: Banca de família e sucessões em Porto Alegre, '
+                          'com atendimento presencial e online.',
+                      helperText:
+                          'É o texto que o cliente lê no perfil do escritório. '
+                          'Vazio, mostramos uma descrição genérica.',
+                      helperMaxLines: 2,
+                      alignLabelWithHint: true,
+                    ),
+                  ),
 
                   if (_errorMessage != null) ...[
                     const SizedBox(height: 18),
