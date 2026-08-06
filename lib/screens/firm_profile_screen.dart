@@ -131,10 +131,28 @@ class FirmProfileScreen extends StatelessWidget {
     hasFirmMode: true,
   );
 
+  /// Abre a edição do cadastro. O lápis do cabeçalho e o item de menu chamam
+  /// este mesmo caminho — dois botões para a mesma tela não podem divergir no
+  /// que fazem ao voltar.
+  Future<void> _openEdit(BuildContext context) async {
+    final firm = workspace?.firm;
+    if (firm == null) return;
+
+    final atualizado = await Navigator.of(context).push<LawFirm>(
+      MaterialPageRoute(builder: (_) => EditFirmProfileScreen(firm: firm)),
+    );
+    // Sem recarregar, o cabeçalho continuaria com o nome e o logo antigos até
+    // a próxima abertura do app.
+    if (atualizado != null) onRefreshWorkspace?.call();
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = context.jColors;
     final workspaceName = workspace?.firm.name ?? 'Escritório';
+    // Mesmo portão do item de menu: quem não pode editar não ganha um lápis
+    // que abriria uma tela recusada pelo servidor.
+    final podeEditar = workspace != null && _canEditDescription;
 
     return SafeArea(
       child: ListView(
@@ -200,6 +218,25 @@ class FirmProfileScreen extends StatelessWidget {
                     ],
                   ),
                 ),
+                // O mesmo lápis do cabeçalho dos outros dois fluxos, no mesmo
+                // canto: quem edita o próprio perfil no modo cliente ou
+                // profissional procura aqui por reflexo.
+                if (podeEditar)
+                  IconButton(
+                    key: const Key('firm_profile_edit_button'),
+                    tooltip: 'Editar dados do escritório',
+                    onPressed: () => _openEdit(context),
+                    constraints: const BoxConstraints.tightFor(
+                      width: 36,
+                      height: 36,
+                    ),
+                    padding: EdgeInsets.zero,
+                    style: IconButton.styleFrom(
+                      backgroundColor: colors.card.withValues(alpha: 0.15),
+                      foregroundColor: colors.card,
+                    ),
+                    icon: const Icon(Icons.edit_outlined, size: 18),
+                  ),
               ],
             ),
           ),
@@ -225,24 +262,13 @@ class FirmProfileScreen extends StatelessWidget {
             items: [
               // Mesmo portão da apresentação e do painel: quem fala pelo
               // escritório. O servidor repete a checagem.
-              if (workspace != null && _canEditDescription)
+              if (podeEditar)
                 ProfileMenuItem(
                   icon: Icons.apartment_outlined,
                   iconColor: colors.officePurple,
                   label: 'Dados do escritório',
                   subtitle: 'Logo, contato, endereço e áreas atendidas',
-                  onTap: () async {
-                    final atualizado = await Navigator.of(context)
-                        .push<LawFirm>(
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                EditFirmProfileScreen(firm: workspace!.firm),
-                          ),
-                        );
-                    // Sem recarregar, o cabeçalho continuaria com o nome e o
-                    // logo antigos até a próxima abertura do app.
-                    if (atualizado != null) onRefreshWorkspace?.call();
-                  },
+                  onTap: () => _openEdit(context),
                 ),
               // Só owner/admin: o servidor aplica o mesmo gate
               // (is_active_law_firm_manager), este if apenas não oferece o
