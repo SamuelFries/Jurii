@@ -81,6 +81,18 @@ Duas camadas equivalentes:
 - **Local**: `lib/data/legal_practice_areas.dart` espelha as regras para
   fallback offline, chips e testes.
 
+**Taxonomia (39 áreas) e apelidos** — migration `20260816120000`. A lista
+canônica vive em `legal_practice_areas`; `legal_practice_area_aliases` mapeia
+grafia → área ("Direito do Trabalho" → "Direito Trabalhista"), inclusive
+um-para-dois ("Direito de Família e Sucessões" → duas áreas).
+`canonical_practice_areas(text[])` traduz, e **toda porta de escrita passa por
+ela**: `update_lawyer_practice_areas`, `submit_lawyer_verification`,
+`update_law_firm_profile` e um gatilho em `law_firm_verifications` (a única
+porta que não passa por RPC). Guardar duas grafias da mesma área tem o mesmo
+efeito de não ter a área: o profissional não aparece para quem filtra pela
+grafia canônica. `test/practice_areas_sync_test.dart` garante que a lista, os
+apelidos e os termos do app não divergem do seed do banco.
+
 O casamento de termos respeita **limites de palavra** (`_searchIntentTermMatches`
 + `_containsAtWordBoundary`): termos-sigla curtos não casam dentro de outra
 palavra (antes `iss` casava em "dem**iss**ao" → falso Tributário). As áreas são

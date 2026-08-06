@@ -10,6 +10,7 @@ import '../utils/support_contact.dart';
 import 'edit_profile_screen.dart';
 import 'favorites_screen.dart';
 import 'change_password_screen.dart';
+import 'practice_areas_screen.dart';
 import 'professional_bio_screen.dart';
 import 'professional_reach_screen.dart';
 import 'help_center_screen.dart';
@@ -610,6 +611,26 @@ class ProfileScreen extends StatelessWidget {
                               MaterialPageRoute(
                                 builder: (_) =>
                                     const ProfessionalBioScreen.lawyer(),
+                              ),
+                            );
+                          },
+                        ),
+                      // Sem esta entrada, quem foi aprovado com "Direito
+                      // Cível" ficava com "Direito Cível" para sempre: a RPC
+                      // existia desde a 20260805180000 e nenhuma tela a
+                      // chamava. Com a taxonomia em 39 áreas, isso passaria a
+                      // significar que as áreas novas só valeriam para quem se
+                      // cadastrasse depois.
+                      if (isLawyerMode)
+                        ProfileMenuItem(
+                          icon: Icons.category_outlined,
+                          iconColor: colors.officePurple,
+                          label: 'Áreas de atuação',
+                          subtitle: 'O que você atende — usado pela busca',
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => const PracticeAreasScreen(),
                               ),
                             );
                           },

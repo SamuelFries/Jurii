@@ -145,6 +145,7 @@ class _LawyerVerificationFormScreenState
               const SizedBox(height: 16),
 
               TextField(
+                key: const Key('oab_number_field'),
                 controller: oabController,
                 keyboardType: TextInputType.number,
                 inputFormatters: [
