@@ -72,5 +72,100 @@ void main() {
           '{"longitude":"-200","latitude":"-30"}}}';
       expect(CepService.parseCoordinates(foraDeFaixa), isNull);
     });
+
+    test('a resposta REAL da BrasilAPI hoje não traz coordenada', () {
+      // Corpo copiado da resposta de 06/08/2026 para o CEP do escritório que
+      // motivou a investigação. O `coordinates` vem VAZIO — foi assim em 10 de
+      // 10 CEPs testados, e é por isso que existe a cascata: sem ela, o app
+      // gravava CEP e endereço e nunca gravava coordenada, e o cartão do
+      // escritório aparecia sem distância.
+      const real =
+          '{"cep":"90540140","state":"RS","city":"Porto Alegre",'
+          '"neighborhood":"Auxiliadora","street":"Rua Germano Petersen '
+          'Júnior","service":"open-cep","location":{"type":"Point",'
+          '"coordinates":{}}}';
+
+      expect(CepService.parseCoordinates(real), isNull);
+
+      // O ENDEREÇO, esse vem — e é por isso que a BrasilAPI segue sendo a
+      // primeira porta da cascata.
+      final lookup = CepService.parseLookup(real);
+      expect(lookup!.street, 'Rua Germano Petersen Júnior');
+      expect(lookup.city, 'Porto Alegre');
+      expect(lookup.state, 'RS');
+      expect(lookup.hasAddress, isTrue, reason: 'dá para consultar por endereço');
+      expect(lookup.coordinates, isNull);
+    });
+  });
+
+  group('CepService — as outras fontes da cascata', () {
+    test('AwesomeAPI: lat/lng como strings', () {
+      // Resposta real de 06/08/2026 para o mesmo CEP que a BrasilAPI não
+      // geocodifica.
+      const body =
+          '{"cep":"90540140","city":"Porto Alegre","lat":"-30.0193337",'
+          '"lng":"-51.1902671"}';
+      final coords = CepService.parseAwesomeCoordinates(body);
+      expect(coords, isNotNull);
+      expect(coords!.latitude, closeTo(-30.0193, 0.001));
+      expect(coords.longitude, closeTo(-51.1903, 0.001));
+    });
+
+    test('AwesomeAPI sem coordenada vira null', () {
+      expect(
+        CepService.parseAwesomeCoordinates('{"cep":"69900000"}'),
+        isNull,
+      );
+      expect(CepService.parseAwesomeCoordinates('nao é json'), isNull);
+    });
+
+    test('Nominatim: primeiro resultado da lista', () {
+      const body =
+          '[{"lat":"-30.0170250","lon":"-51.1904777",'
+          '"display_name":"Rua Germano Petersen Júnior, Porto Alegre"},'
+          '{"lat":"-1","lon":"-1"}]';
+      final coords = CepService.parseNominatimCoordinates(body);
+      expect(coords, isNotNull);
+      expect(coords!.latitude, closeTo(-30.0170, 0.001));
+      expect(coords.longitude, closeTo(-51.1905, 0.001));
+    });
+
+    test('Nominatim sem resultado vira null (não inventa posição)', () {
+      expect(CepService.parseNominatimCoordinates('[]'), isNull);
+      expect(CepService.parseNominatimCoordinates('nao é json'), isNull);
+      expect(CepService.parseNominatimCoordinates('{}'), isNull);
+    });
+
+    test('toda fonte recusa coordenada fora do planeta', () {
+      // Coordenada inválida gravada vira "12.482 km" no cartão e ordena a
+      // descoberta errado — pior que não ter distância.
+      expect(
+        CepService.parseAwesomeCoordinates('{"lat":"91","lng":"0"}'),
+        isNull,
+      );
+      expect(
+        CepService.parseNominatimCoordinates('[{"lat":"0","lon":"181"}]'),
+        isNull,
+      );
+    });
+
+    test('as duas fontes concordam dentro da tolerância de um rótulo em km', () {
+      // Medido: AwesomeAPI -30.0193/-51.1903, Nominatim -30.0170/-51.1905.
+      // ~250 m de diferença, que some no arredondamento de "2,3 km".
+      final awesome = CepService.parseAwesomeCoordinates(
+        '{"lat":"-30.0193337","lng":"-51.1902671"}',
+      )!;
+      final osm = CepService.parseNominatimCoordinates(
+        '[{"lat":"-30.0170250","lon":"-51.1904777"}]',
+      )!;
+
+      final km = haversineKm(
+        lat1: awesome.latitude,
+        lon1: awesome.longitude,
+        lat2: osm.latitude,
+        lon2: osm.longitude,
+      );
+      expect(km, lessThan(0.5));
+    });
   });
 }
