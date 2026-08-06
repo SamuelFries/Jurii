@@ -3,8 +3,13 @@ import 'package:flutter/material.dart';
 import '../models/law_firm.dart';
 import '../models/profile_avatar_file.dart';
 import '../repositories/law_firm_profile_repository.dart';
+import 'package:flutter/services.dart';
+
 import '../services/cep_service.dart';
 import '../theme/app_colors.dart';
+import '../utils/cep_input_formatter.dart';
+import '../utils/firm_profile_form.dart';
+import '../utils/phone_input_formatter.dart';
 import '../utils/profile_avatar_validation.dart';
 import '../utils/safe_file_picker.dart';
 import '../utils/validators.dart';
@@ -57,14 +62,111 @@ class _EditFirmProfileScreenState extends State<EditFirmProfileScreen> {
   late List<String> _areas = [...widget.firm.practiceAreas];
 
   bool _showAreaError = false;
+  bool _isLookingUpCep = false;
+
+  /// Coordenadas já resolvidas para [_cepConsultado]. A consulta ao sair do
+  /// campo e a de salvar pediriam o MESMO CEP à BrasilAPI duas vezes; guardar
+  /// o resultado deixa uma só.
+  CepCoordinates? _coordenadasDoCep;
+  String? _cepConsultado;
+
+  /// Consulta de CEP em andamento. Tocar em "Salvar" direto do campo de CEP
+  /// dispara o blur e o envio ao mesmo tempo — sem esperar a que já está em
+  /// curso, os dois pediriam o mesmo CEP à BrasilAPI.
+  Future<void>? _cepEmCurso;
+
+  /// Retrato de como o cadastro estava ao abrir. É contra ele que o botão de
+  /// salvar decide se há o que gravar.
+  late final FirmProfileDraft _original = _draft();
   ProfileAvatarFile? _selectedLogo;
   bool _removeLogo = false;
   bool _isPickingLogo = false;
   bool _isSaving = false;
   String? _errorMessage;
 
+  FirmProfileDraft _draft() => FirmProfileDraft(
+    name: _nameController.text,
+    phone: _phoneController.text,
+    email: _emailController.text,
+    websiteUrl: _websiteController.text,
+    address: _addressController.text,
+    cep: _cepController.text,
+    primaryArea: _primaryArea,
+    practiceAreas: _areas,
+    hasNewLogo: _selectedLogo != null,
+    removeLogo: _removeLogo,
+  );
+
+  bool get _hasChanges => !_draft().matches(_original);
+
+  /// Busca o endereço do CEP e preenche o campo. Chamado quando o campo perde
+  /// o foco com oito dígitos — não a cada tecla, que seria uma chamada de rede
+  /// por dígito.
+  Future<void> _lookupCep() {
+    final busca = _lookupCepInterno();
+    _cepEmCurso = busca;
+    return busca;
+  }
+
+  Future<void> _lookupCepInterno() async {
+    final digits = digitsOnly(_cepController.text);
+    // Foco entra e sai mais de uma vez numa edição normal; sem esta guarda,
+    // cada ida e volta ao campo custaria outra consulta do MESMO CEP.
+    if (digits.length != 8 || _isLookingUpCep || digits == _cepConsultado) {
+      return;
+    }
+
+    setState(() => _isLookingUpCep = true);
+    try {
+      final resultado = await widget.cepService.lookupFull(digits);
+      if (!mounted || resultado == null) return;
+
+      setState(() {
+        _cepConsultado = digits;
+        _coordenadasDoCep = resultado.coordinates;
+      });
+
+      final endereco = resultado.formattedAddress;
+      // Só preenche o que está VAZIO: sobrescrever um endereço já digitado
+      // apagaria o número e o complemento, que o CEP não sabe.
+      if (endereco.isNotEmpty && _addressController.text.trim().isEmpty) {
+        setState(() => _addressController.text = endereco);
+      }
+    } finally {
+      if (mounted) setState(() => _isLookingUpCep = false);
+    }
+  }
+
+  /// Todos os campos de texto da tela, na ordem em que aparecem.
+  List<TextEditingController> get _controllers => [
+    _nameController,
+    _phoneController,
+    _emailController,
+    _websiteController,
+    _addressController,
+    _cepController,
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    // Observa os controllers em vez de usar Form.onChanged: o callback do Form
+    // não dispara de forma confiável em todos os caminhos de edição, e o botão
+    // de salvar depende disto para saber que há o que gravar.
+    for (final controller in _controllers) {
+      controller.addListener(_onFieldChanged);
+    }
+  }
+
+  void _onFieldChanged() {
+    if (mounted) setState(() {});
+  }
+
   @override
   void dispose() {
+    for (final controller in _controllers) {
+      controller.removeListener(_onFieldChanged);
+    }
     _nameController.dispose();
     _phoneController.dispose();
     _emailController.dispose();
@@ -137,6 +239,11 @@ class _EditFirmProfileScreenState extends State<EditFirmProfileScreen> {
       return;
     }
 
+    // Espera a consulta que o blur disparou, senão a linha abaixo não veria o
+    // resultado dela e pediria o mesmo CEP de novo.
+    await _cepEmCurso;
+    if (!mounted) return;
+
     setState(() {
       _isSaving = true;
       _errorMessage = null;
@@ -153,13 +260,22 @@ class _EditFirmProfileScreenState extends State<EditFirmProfileScreen> {
       // só não entra na ordenação por distância.
       var latitude = widget.firm.latitude;
       var longitude = widget.firm.longitude;
-      if (cepDigits.length == 8 && cepDigits != widget.firm.cep) {
-        final coordinates = await widget.cepService.lookup(cepDigits);
-        latitude = coordinates?.latitude;
-        longitude = coordinates?.longitude;
-      } else if (cepDigits.isEmpty) {
+      if (cepDigits.isEmpty) {
+        // Coordenada órfã de um endereço que já não existe colocaria o
+        // escritório na distância errada da descoberta.
         latitude = null;
         longitude = null;
+      } else if (cepDigits != widget.firm.cep) {
+        // MESMO caminho do preenchimento automático, de propósito: ele guarda
+        // o resultado por CEP, então tocar em "Salvar" direto do campo — que
+        // dispara blur e envio quase juntos, em ordem que varia — resolve numa
+        // consulta só, qualquer que seja quem chegar primeiro.
+        await _lookupCep();
+        final coordinates = cepDigits == _cepConsultado
+            ? _coordenadasDoCep
+            : null;
+        latitude = coordinates?.latitude;
+        longitude = coordinates?.longitude;
       }
 
       final updated = await widget.repository.updateProfile(
@@ -167,7 +283,7 @@ class _EditFirmProfileScreenState extends State<EditFirmProfileScreen> {
         name: _nameController.text,
         phone: _phoneController.text,
         email: _emailController.text,
-        websiteUrl: _websiteController.text,
+        websiteUrl: normalizeWebsiteUrl(_websiteController.text),
         address: _addressController.text,
         cep: cepDigits.isEmpty ? null : cepDigits,
         latitude: latitude,
@@ -213,184 +329,245 @@ class _EditFirmProfileScreenState extends State<EditFirmProfileScreen> {
   Widget build(BuildContext context) {
     final colors = context.jColors;
 
-    return Scaffold(
-      backgroundColor: colors.background,
-      appBar: AppBar(
+    return PopScope(
+      // Sair com alteração pendente perde tudo em silêncio — e este formulário
+      // tem seis campos, então costuma ser bastante coisa.
+      canPop: !_hasChanges || _isSaving,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _confirmarDescarte();
+      },
+      child: Scaffold(
         backgroundColor: colors.background,
-        title: const Text('Dados do escritório'),
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Center(child: _logo(colors)),
-                const SizedBox(height: 20),
+        appBar: AppBar(
+          backgroundColor: colors.background,
+          title: const Text('Dados do escritório'),
+        ),
+        body: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Center(child: _logo(colors)),
+                  const SizedBox(height: 20),
 
-                TextFormField(
-                  controller: _nameController,
-                  textCapitalization: TextCapitalization.words,
-                  decoration: const InputDecoration(
-                    labelText: 'Nome do escritório',
-                    prefixIcon: Icon(Icons.apartment_outlined),
-                  ),
-                  validator: (value) => (value == null || value.trim().isEmpty)
-                      ? 'Informe o nome do escritório'
-                      : null,
-                ),
-                const SizedBox(height: 16),
-
-                TextFormField(
-                  controller: _phoneController,
-                  keyboardType: TextInputType.phone,
-                  decoration: const InputDecoration(
-                    labelText: 'Telefone',
-                    prefixIcon: Icon(Icons.phone_outlined),
-                  ),
-                  validator: validateOptionalPhoneField,
-                ),
-                const SizedBox(height: 16),
-
-                TextFormField(
-                  controller: _emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(
-                    labelText: 'E-mail de contato',
-                    prefixIcon: Icon(Icons.mail_outline),
-                  ),
-                  validator: (value) {
-                    final email = value?.trim() ?? '';
-                    if (email.isEmpty) return null;
-                    return isValidEmail(email)
-                        ? null
-                        : 'Informe um e-mail válido';
-                  },
-                ),
-                const SizedBox(height: 16),
-
-                TextFormField(
-                  controller: _websiteController,
-                  keyboardType: TextInputType.url,
-                  decoration: const InputDecoration(
-                    labelText: 'Site',
-                    prefixIcon: Icon(Icons.link),
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                TextFormField(
-                  controller: _addressController,
-                  decoration: const InputDecoration(
-                    labelText: 'Endereço',
-                    prefixIcon: Icon(Icons.place_outlined),
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                TextFormField(
-                  controller: _cepController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'CEP',
-                    prefixIcon: Icon(Icons.markunread_mailbox_outlined),
-                    helperText: 'Usado para mostrar a distância até você',
-                  ),
-                  validator: (value) {
-                    final digits = digitsOnly(value ?? '');
-                    if (digits.isEmpty) return null;
-                    return digits.length == 8 ? null : 'CEP tem 8 dígitos';
-                  },
-                ),
-                const SizedBox(height: 24),
-
-                Text(
-                  'ÁREAS ATENDIDAS',
-                  style: TextStyle(
-                    color: colors.textSecondary,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.6,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                PracticeAreaSelector(
-                  selectedAreas: _areas,
-                  showError: _showAreaError,
-                  selectedColor: colors.officePurple,
-                  onChanged: (selected) => setState(() {
-                    _areas = selected;
-                    // A principal precisa continuar entre as escolhidas: sem
-                    // isto, desmarcar a área principal deixaria o escritório
-                    // com uma especialidade que ele já não atende.
-                    if (!selected.contains(_primaryArea)) {
-                      _primaryArea = selected.isEmpty ? '' : selected.first;
-                    }
-                  }),
-                ),
-
-                if (_areas.length > 1) ...[
-                  const SizedBox(height: 16),
-                  DropdownButtonFormField<String>(
-                    initialValue: _areas.contains(_primaryArea)
-                        ? _primaryArea
-                        : _areas.first,
+                  TextFormField(
+                    controller: _nameController,
+                    textCapitalization: TextCapitalization.words,
                     decoration: const InputDecoration(
-                      labelText: 'Área principal',
-                      prefixIcon: Icon(Icons.star_outline),
-                      helperText: 'É ela que aparece no cartão do escritório',
+                      labelText: 'Nome do escritório',
+                      prefixIcon: Icon(Icons.apartment_outlined),
                     ),
-                    items: [
-                      for (final area in _areas)
-                        DropdownMenuItem(value: area, child: Text(area)),
-                    ],
-                    onChanged: (value) =>
-                        setState(() => _primaryArea = value ?? _primaryArea),
+                    validator: (value) =>
+                        (value == null || value.trim().isEmpty)
+                        ? 'Informe o nome do escritório'
+                        : null,
                   ),
-                ],
+                  const SizedBox(height: 16),
 
-                if (_errorMessage != null) ...[
-                  const SizedBox(height: 18),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: colors.dangerSurface,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: colors.dangerBorder),
+                  TextFormField(
+                    controller: _phoneController,
+                    keyboardType: TextInputType.phone,
+                    inputFormatters: const [PhoneInputFormatter()],
+                    decoration: const InputDecoration(
+                      labelText: 'Telefone',
+                      prefixIcon: Icon(Icons.phone_outlined),
                     ),
-                    child: Text(
-                      _errorMessage!,
-                      style: TextStyle(
-                        color: colors.danger,
-                        fontWeight: FontWeight.w600,
+                    validator: validateOptionalPhoneField,
+                  ),
+                  const SizedBox(height: 16),
+
+                  TextFormField(
+                    controller: _emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: const InputDecoration(
+                      labelText: 'E-mail de contato',
+                      prefixIcon: Icon(Icons.mail_outline),
+                    ),
+                    validator: (value) {
+                      final email = value?.trim() ?? '';
+                      if (email.isEmpty) return null;
+                      return isValidEmail(email)
+                          ? null
+                          : 'Informe um e-mail válido';
+                    },
+                  ),
+                  const SizedBox(height: 16),
+
+                  TextFormField(
+                    controller: _websiteController,
+                    keyboardType: TextInputType.url,
+                    decoration: const InputDecoration(
+                      labelText: 'Site',
+                      prefixIcon: Icon(Icons.link),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  TextFormField(
+                    controller: _addressController,
+                    decoration: const InputDecoration(
+                      labelText: 'Endereço',
+                      prefixIcon: Icon(Icons.place_outlined),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  Focus(
+                    // Busca ao SAIR do campo, e não a cada tecla: uma chamada de
+                    // rede por dígito seriam oito para digitar um CEP.
+                    onFocusChange: (temFoco) {
+                      if (!temFoco) _lookupCep();
+                    },
+                    child: TextFormField(
+                      controller: _cepController,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [
+                        const CepInputFormatter(),
+                        LengthLimitingTextInputFormatter(9),
+                      ],
+                      decoration: InputDecoration(
+                        labelText: 'CEP',
+                        prefixIcon: const Icon(
+                          Icons.markunread_mailbox_outlined,
+                        ),
+                        helperText:
+                            'Preenche o endereço e mostra a distância até o cliente',
+                        suffixIcon: _isLookingUpCep
+                            ? const Padding(
+                                padding: EdgeInsets.all(12),
+                                child: SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                ),
+                              )
+                            : null,
+                      ),
+                      validator: (value) {
+                        final digits = digitsOnly(value ?? '');
+                        if (digits.isEmpty) return null;
+                        return digits.length == 8 ? null : 'CEP tem 8 dígitos';
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  Text(
+                    'ÁREAS ATENDIDAS',
+                    style: TextStyle(
+                      color: colors.textSecondary,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.6,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  PracticeAreaSelector(
+                    selectedAreas: _areas,
+                    showError: _showAreaError,
+                    selectedColor: colors.officePurple,
+                    onChanged: (selected) => setState(() {
+                      _areas = selected;
+                      if (selected.isNotEmpty) _showAreaError = false;
+                      // A principal precisa continuar entre as escolhidas: sem
+                      // isto, desmarcar a área principal deixaria o escritório
+                      // com uma especialidade que ele já não atende.
+                      if (!selected.contains(_primaryArea)) {
+                        _primaryArea = selected.isEmpty ? '' : selected.first;
+                      }
+                    }),
+                  ),
+
+                  if (_areas.length > 1) ...[
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<String>(
+                      initialValue: _areas.contains(_primaryArea)
+                          ? _primaryArea
+                          : _areas.first,
+                      decoration: const InputDecoration(
+                        labelText: 'Área principal',
+                        prefixIcon: Icon(Icons.star_outline),
+                        helperText: 'É ela que aparece no cartão do escritório',
+                      ),
+                      items: [
+                        for (final area in _areas)
+                          DropdownMenuItem(value: area, child: Text(area)),
+                      ],
+                      onChanged: (value) =>
+                          setState(() => _primaryArea = value ?? _primaryArea),
+                    ),
+                  ],
+
+                  if (_errorMessage != null) ...[
+                    const SizedBox(height: 18),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: colors.dangerSurface,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: colors.dangerBorder),
+                      ),
+                      child: Text(
+                        _errorMessage!,
+                        style: TextStyle(
+                          color: colors.danger,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
+                  ],
+
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    height: 54,
+                    child: ElevatedButton(
+                      // Desligado sem alterações: um "Salvar" sempre ativo
+                      // convida a gravar sem querer, e cada gravação reescreve o
+                      // cartão que o cliente vê na descoberta.
+                      onPressed: _isSaving || !_hasChanges ? null : _submit,
+                      child: _isSaving
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Text('Salvar'),
+                    ),
                   ),
                 ],
-
-                const SizedBox(height: 24),
-                SizedBox(
-                  height: 54,
-                  child: ElevatedButton(
-                    onPressed: _isSaving ? null : _submit,
-                    child: _isSaving
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text('Salvar'),
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
         ),
       ),
     );
+  }
+
+  Future<void> _confirmarDescarte() async {
+    final descartar = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Descartar alterações?'),
+        content: const Text('O que você mudou nesta tela não foi salvo.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Continuar editando'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Descartar'),
+          ),
+        ],
+      ),
+    );
+    if (descartar == true && mounted) Navigator.of(context).pop();
   }
 
   Widget _logo(AppColors colors) {

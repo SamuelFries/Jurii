@@ -10,6 +10,8 @@ import '../models/pending_verification_upload.dart';
 import '../models/user_profile.dart';
 import '../repositories/law_firm_verification_repository.dart';
 import '../services/cep_service.dart';
+import '../utils/cep_input_formatter.dart';
+import '../utils/phone_input_formatter.dart';
 import '../services/supabase_config.dart';
 import '../theme/app_colors.dart';
 import '../utils/document_file_validation.dart';
@@ -207,7 +209,7 @@ class _LawFirmVerificationFormScreenState
                 controller: phoneController,
                 keyboardType: TextInputType.phone,
                 inputFormatters: [
-                  _PhoneInputFormatter(),
+                  const PhoneInputFormatter(),
                   LengthLimitingTextInputFormatter(15),
                 ],
                 decoration: InputDecoration(
@@ -246,7 +248,7 @@ class _LawFirmVerificationFormScreenState
                 controller: cepController,
                 keyboardType: TextInputType.number,
                 inputFormatters: [
-                  _CepInputFormatter(),
+                  const CepInputFormatter(),
                   LengthLimitingTextInputFormatter(9),
                 ],
                 decoration: InputDecoration(
@@ -788,57 +790,5 @@ class _CnpjInputFormatter extends TextInputFormatter {
       buffer.write(digits[index]);
     }
     return buffer.toString();
-  }
-}
-
-class _PhoneInputFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
-    final digits = newValue.text.replaceAll(RegExp(r'\D'), '');
-    final limitedDigits = digits.length > 11 ? digits.substring(0, 11) : digits;
-    final formattedPhone = _formatPhone(limitedDigits);
-    return TextEditingValue(
-      text: formattedPhone,
-      selection: TextSelection.collapsed(offset: formattedPhone.length),
-    );
-  }
-
-  String _formatPhone(String digits) {
-    final buffer = StringBuffer();
-    for (var index = 0; index < digits.length; index++) {
-      if (index == 0) {
-        buffer.write('(');
-      } else if (index == 2) {
-        buffer.write(') ');
-      } else if (index == (digits.length > 10 ? 7 : 6)) {
-        buffer.write('-');
-      }
-      buffer.write(digits[index]);
-    }
-    return buffer.toString();
-  }
-}
-
-class _CepInputFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
-    final digits = newValue.text.replaceAll(RegExp(r'\D'), '');
-    final limitedDigits = digits.length > 8 ? digits.substring(0, 8) : digits;
-    final buffer = StringBuffer();
-    for (var index = 0; index < limitedDigits.length; index++) {
-      if (index == 5) buffer.write('-');
-      buffer.write(limitedDigits[index]);
-    }
-    final formatted = buffer.toString();
-    return TextEditingValue(
-      text: formatted,
-      selection: TextSelection.collapsed(offset: formatted.length),
-    );
   }
 }

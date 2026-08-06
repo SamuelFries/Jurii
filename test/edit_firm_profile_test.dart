@@ -59,6 +59,7 @@ class _FakeFirmProfileRepository implements LawFirmProfileRepository {
       'latitude': latitude,
       'longitude': longitude,
       'primaryArea': primaryArea,
+      'websiteUrl': websiteUrl,
       'practiceAreas': practiceAreas,
       'removeLogo': removeLogo,
     };
@@ -70,7 +71,9 @@ class _FakeFirmProfileRepository implements LawFirmProfileRepository {
 /// Geocodificação previsível: devolve sempre a mesma coordenada, e conta
 /// quantas vezes foi chamada.
 class _FakeCepService implements CepService {
+  static const endereco = 'Av. Ipiranga, Praia de Belas, Porto Alegre';
   int chamadas = 0;
+  int buscasCompletas = 0;
 
   @override
   get client => null;
@@ -79,6 +82,22 @@ class _FakeCepService implements CepService {
   Future<CepCoordinates?> lookup(String cep) async {
     chamadas++;
     return const CepCoordinates(latitude: -30.03, longitude: -51.22);
+  }
+
+  @override
+  Future<CepLookup?> lookupFull(String cep) async {
+    buscasCompletas++;
+    chamadas++;
+    final partes = endereco.split(', ');
+    return CepLookup(
+      coordinates: const CepCoordinates(latitude: -30.03, longitude: -51.22),
+      street: partes.isNotEmpty ? partes[0] : null,
+      neighborhood: partes.length > 1 ? partes[1] : null,
+      city: partes.length > 2 ? partes[2].split(' - ').first : null,
+      state: partes.length > 2 && partes[2].contains(' - ')
+          ? partes[2].split(' - ').last
+          : null,
+    );
   }
 }
 
@@ -125,6 +144,8 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextFormField).first, 'Firma Nova');
+    await tester.ensureVisible(find.text('Salvar'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Salvar'));
     await tester.pumpAndSettle();
 
@@ -137,6 +158,8 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextFormField).first, '   ');
+    await tester.ensureVisible(find.text('Salvar'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Salvar'));
     await tester.pumpAndSettle();
 
@@ -151,6 +174,10 @@ void main() {
     await tester.pumpWidget(app(repo, cep: cep));
     await tester.pumpAndSettle();
 
+    // Mexe só no telefone: o CEP fica como estava.
+    await tester.enterText(find.byType(TextFormField).at(1), '51988887777');
+    await tester.ensureVisible(find.text('Salvar'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Salvar'));
     await tester.pumpAndSettle();
 
@@ -165,6 +192,8 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextFormField).at(5), '90160091');
+    await tester.ensureVisible(find.text('Salvar'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Salvar'));
     await tester.pumpAndSettle();
 
@@ -181,6 +210,8 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextFormField).at(5), '');
+    await tester.ensureVisible(find.text('Salvar'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Salvar'));
     await tester.pumpAndSettle();
 
@@ -195,6 +226,8 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextFormField).at(5), '123');
+    await tester.ensureVisible(find.text('Salvar'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Salvar'));
     await tester.pumpAndSettle();
 
@@ -211,6 +244,9 @@ void main() {
     await tester.pumpWidget(app(repo));
     await tester.pumpAndSettle();
 
+    await tester.enterText(find.byType(TextFormField).first, 'Firma Nova');
+    await tester.ensureVisible(find.text('Salvar'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Salvar'));
     await tester.pumpAndSettle();
 
@@ -245,11 +281,110 @@ void main() {
     // especialidade que ele já não atende.
     await tester.tap(find.text('Direito Cível').first);
     await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Salvar'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Salvar'));
     await tester.pumpAndSettle();
 
     final areas = repo.recebido?['practiceAreas'] as List<String>;
     expect(areas, isNot(contains('Direito Cível')));
     expect(repo.recebido?['primaryArea'], isIn(areas));
+  });
+
+  testWidgets('o CEP preenche o endereço quando ele está vazio', (
+    tester,
+  ) async {
+    final repo = _FakeFirmProfileRepository();
+    await tester.pumpWidget(
+      app(
+        repo,
+        firm: const LawFirm(
+          id: 'f1',
+          name: 'Firma',
+          initials: 'F',
+          rating: 5,
+          distance: '',
+          specialty: 'Direito Cível',
+          practiceAreas: ['Direito Cível'],
+          reviews: 0,
+          avatarType: 'blue',
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Digitar rua, bairro e cidade que o CEP já determina é trabalho repetido
+    // — e digitado errado deixa o cadastro dizendo uma coisa e a coordenada
+    // apontando outra.
+    await tester.enterText(find.byType(TextFormField).at(5), '90160091');
+    await tester.tap(find.byType(TextFormField).at(0));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Av. Ipiranga, Praia de Belas, Porto Alegre'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('endereço já preenchido NÃO é sobrescrito pelo CEP', (
+    tester,
+  ) async {
+    // Sobrescrever apagaria número e complemento, que o CEP não sabe.
+    final repo = _FakeFirmProfileRepository();
+    await tester.pumpWidget(app(repo));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextFormField).at(5), '90160091');
+    await tester.tap(find.byType(TextFormField).at(0));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Rua Velha, 10'), findsOneWidget);
+  });
+
+  testWidgets('sem alterações o botão de salvar fica desligado', (
+    tester,
+  ) async {
+    await tester.pumpWidget(app(_FakeFirmProfileRepository()));
+    await tester.pumpAndSettle();
+
+    // Um "Salvar" sempre ativo convida a gravar sem querer, e cada gravação
+    // reescreve o cartão que o cliente vê na descoberta.
+    final antes = tester.widget<ElevatedButton>(find.byType(ElevatedButton));
+    expect(antes.onPressed, isNull);
+
+    await tester.enterText(find.byType(TextFormField).first, 'Firma Nova');
+    await tester.pumpAndSettle();
+
+    final depois = tester.widget<ElevatedButton>(find.byType(ElevatedButton));
+    expect(depois.onPressed, isNotNull);
+  });
+
+  testWidgets('sair com alteração pendente pede confirmação', (tester) async {
+    await tester.pumpWidget(app(_FakeFirmProfileRepository()));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextFormField).first, 'Firma Nova');
+    await tester.pumpAndSettle();
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+
+    // Seis campos de formulário perdidos em silêncio seriam bastante coisa.
+    expect(find.text('Descartar alterações?'), findsOneWidget);
+  });
+
+  testWidgets('o site ganha esquema antes de ser gravado', (tester) async {
+    final repo = _FakeFirmProfileRepository();
+    await tester.pumpWidget(app(repo));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextFormField).at(3), 'weber.com.br');
+    await tester.ensureVisible(find.text('Salvar'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Salvar'));
+    await tester.pumpAndSettle();
+
+    // Sem esquema a URL não abre: vira busca no navegador, ou nada.
+    expect(repo.recebido?['websiteUrl'], 'https://weber.com.br');
   });
 }

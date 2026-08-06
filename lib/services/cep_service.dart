@@ -12,6 +12,35 @@ class CepCoordinates {
   final double longitude;
 }
 
+/// O que a BrasilAPI sabe sobre um CEP: onde fica, e o endereço por escrito.
+class CepLookup {
+  const CepLookup({
+    this.coordinates,
+    this.street,
+    this.neighborhood,
+    this.city,
+    this.state,
+  });
+
+  final CepCoordinates? coordinates;
+  final String? street;
+  final String? neighborhood;
+  final String? city;
+  final String? state;
+
+  /// Endereço numa linha, do jeito que vai para o cadastro. Vazio quando o
+  /// CEP não trouxe nada aproveitável — CEP de cidade inteira, por exemplo,
+  /// não tem rua.
+  String get formattedAddress {
+    final partes = [
+      street,
+      neighborhood,
+      [city, state].where((p) => p != null && p.isNotEmpty).join(' - '),
+    ].where((p) => p != null && p.trim().isNotEmpty).cast<String>();
+    return partes.join(', ');
+  }
+}
+
 /// Geocodificação de CEP via BrasilAPI (gratuita, sem chave).
 ///
 /// Usada UMA vez, no cadastro do escritório: o sócio informa o CEP e o app
@@ -21,6 +50,44 @@ class CepService {
   const CepService({this.client});
 
   final http.Client? client;
+
+  /// Consulta completa: coordenadas E endereço.
+  ///
+  /// Preencher o endereço sozinho é o que evita a pessoa digitar rua, bairro e
+  /// cidade que o CEP já determina — e digitar errado, deixando o cadastro
+  /// dizendo uma coisa e a coordenada apontando outra.
+  Future<CepLookup?> lookupFull(String cep) async {
+    final digits = cep.replaceAll(RegExp(r'\D'), '');
+    if (digits.length != 8) return null;
+
+    try {
+      final httpClient = client ?? http.Client();
+      final response = await httpClient
+          .get(Uri.parse('https://brasilapi.com.br/api/cep/v2/$digits'))
+          .timeout(const Duration(seconds: 6));
+      if (response.statusCode != 200) return null;
+      return parseLookup(response.body);
+    } catch (error) {
+      debugPrint('BrasilAPI cep lookup failed: $error');
+      return null;
+    }
+  }
+
+  @visibleForTesting
+  static CepLookup? parseLookup(String body) {
+    try {
+      final json = jsonDecode(body) as Map<String, dynamic>;
+      return CepLookup(
+        coordinates: parseCoordinates(body),
+        street: (json['street'] as String?)?.trim(),
+        neighborhood: (json['neighborhood'] as String?)?.trim(),
+        city: (json['city'] as String?)?.trim(),
+        state: (json['state'] as String?)?.trim(),
+      );
+    } catch (_) {
+      return null;
+    }
+  }
 
   Future<CepCoordinates?> lookup(String cep) async {
     final digits = cep.replaceAll(RegExp(r'\D'), '');
