@@ -240,7 +240,12 @@ class _OfficesSectionState extends State<OfficesSection> {
       return;
     }
 
-    setState(() => _sort = sort);
+    setState(() {
+      _sort = sort;
+      // Relevância nunca precisou do conjunto inteiro; manter o aviso aqui
+      // seria alarme sobre um problema que esta ordenação não tem.
+      if (!_precisaDaListaInteira(sort)) _listaTruncada = false;
+    });
     if (_precisaDaListaInteira(sort)) await _completarLista(gesture);
   }
 
@@ -258,6 +263,8 @@ class _OfficesSectionState extends State<OfficesSection> {
       _lawFirms = null;
       _loadFailed = false;
       _hasMore = false;
+      // Aviso é sobre a lista ANTERIOR; busca nova recomeça sem ele.
+      _listaTruncada = false;
       // Sem zerar aqui, uma página 2 em voo da BUSCA ANTERIOR deixaria o
       // spinner preso para sempre: a resposta atrasada é descartada pela
       // guarda de geração ANTES de limpar a flag.
@@ -293,7 +300,10 @@ class _OfficesSectionState extends State<OfficesSection> {
   }
 
   Future<void> _loadMore() async {
-    if (_isLoadingMore) return;
+    // Completar a lista já está paginando: os dois avançam _nextOffset, e
+    // juntos pulariam um bloco inteiro de escritórios — que então não
+    // apareceria para ninguém.
+    if (_isLoadingMore || _isCompletingList) return;
     final generation = _generation;
     setState(() => _isLoadingMore = true);
     try {
@@ -312,6 +322,8 @@ class _OfficesSectionState extends State<OfficesSection> {
           (office) => office.id,
         );
         _hasMore = page.hasMore;
+        // Chegou ao fim carregando à mão: a ordenação passou a cobrir tudo.
+        if (!_hasMore) _listaTruncada = false;
       });
     } catch (_) {
       if (!mounted || generation != _generation) return;
