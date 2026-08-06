@@ -118,6 +118,7 @@ class LawFirmRepository {
       email: row['email'] as String?,
       websiteUrl: row['website_url'] as String?,
       address: row['address'] as String?,
+      cep: _optionalText(row['cep']),
       // Ausente no fallback de leitura direta da tabela — vira false, sem selo.
       isFeatured: row['is_featured'] as bool? ?? false,
       isSponsoredSlot: row['is_sponsored_slot'] as bool? ?? false,

@@ -15,6 +15,10 @@ class LawFirm {
   final String? websiteUrl;
   final String? address;
 
+  /// Oito dígitos, sem máscara — é o que o formulário de edição reenvia e o
+  /// que gera as coordenadas usadas na distância da descoberta.
+  final String? cep;
+
   /// Posição patrocinada ativa na descoberta (destaque pago/cortesia).
   /// Vem de `is_featured` no RPC de descoberta; default false para mocks e
   /// para caminhos que não expõem o campo (ex.: fallback de leitura direta).
@@ -52,6 +56,7 @@ class LawFirm {
     this.email,
     this.websiteUrl,
     this.address,
+    this.cep,
     this.isFeatured = false,
     this.isSponsoredSlot = false,
     this.latitude,

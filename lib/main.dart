@@ -859,6 +859,7 @@ class _JuriiAppState extends State<JuriiApp> {
                 : null,
             onLogout: _handleLogout,
             onDeleteAccount: _handleDeleteAccount,
+            onRefreshWorkspace: _refreshFirmWorkspace,
           )
         : _isLawyerMode
         ? LawyerNavigation(
@@ -1051,10 +1052,12 @@ class FirmNavigation extends StatefulWidget {
     this.onSwitchToLawyer,
     required this.onLogout,
     required this.onDeleteAccount,
+    this.onRefreshWorkspace,
   });
 
   final UserProfile user;
   final FirmWorkspace? workspace;
+  final VoidCallback? onRefreshWorkspace;
   final Future<void> Function({
     required String oabState,
     required String oabNumber,
@@ -1101,6 +1104,7 @@ class _FirmNavigationState extends State<FirmNavigation> {
         onSwitchToLawyer: widget.onSwitchToLawyer,
         onLogout: widget.onLogout,
         onDeleteAccount: widget.onDeleteAccount,
+        onRefreshWorkspace: widget.onRefreshWorkspace,
       ),
     ];
 
