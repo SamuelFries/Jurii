@@ -216,7 +216,7 @@ void main() {
 
       expect(find.text('Patrocínio ativo'), findsOneWidget);
       expect(
-        find.textContaining('40 das 100 pessoas'),
+        find.textContaining('40 das 100 visualizações'),
         findsOneWidget,
         reason: 'o número do patrocínio é o que justifica a renovação',
       );
@@ -316,6 +316,23 @@ void main() {
       // o profissional está olhando.
       expect(find.text('01/08'), findsOneWidget);
       expect(find.text('09/08'), findsOneWidget);
+    });
+
+    testWidgets('o titulo nao promete gente diferente', (tester) async {
+      final repo = _FakeReachRepository(
+        summarizeReach([_dia(1, reach: 240)], 1),
+      );
+
+      await tester.pumpWidget(app(repo));
+      await tester.pumpAndSettle();
+
+      // A contagem é por pessoa POR DIA: quem vê em três dias conta três
+      // vezes. Chamar isso de "pessoas" prometeria gente diferente e
+      // entregaria visualização repetida — o mesmo tipo de inflação que já
+      // apareceu na métrica de lead e na atribuição da vaga paga.
+      expect(find.text('VISUALIZAÇÕES NA BUSCA'), findsOneWidget);
+      expect(find.text('PESSOAS QUE VIRAM VOCÊ'), findsNothing);
+      expect(find.text('a mesma pessoa conta uma vez por dia'), findsOneWidget);
     });
   });
 }

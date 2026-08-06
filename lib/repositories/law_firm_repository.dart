@@ -50,7 +50,7 @@ class LawFirmRepository {
               .whereType<String>()
               .toList(),
           sponsoredIds: page.items
-              .where((firm) => firm.isFeatured)
+              .where((firm) => firm.isSponsoredSlot)
               .map((firm) => firm.id)
               .whereType<String>()
               .toList(),
@@ -120,6 +120,7 @@ class LawFirmRepository {
       address: row['address'] as String?,
       // Ausente no fallback de leitura direta da tabela — vira false, sem selo.
       isFeatured: row['is_featured'] as bool? ?? false,
+      isSponsoredSlot: row['is_sponsored_slot'] as bool? ?? false,
       latitude: (row['latitude'] as num?)?.toDouble(),
       longitude: (row['longitude'] as num?)?.toDouble(),
     );

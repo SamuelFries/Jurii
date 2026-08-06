@@ -28,12 +28,8 @@
 -- metrica que se vende melhor, porque impressao repetida do mesmo usuario
 -- nunca foi cliente novo.
 
--- O dia e o de SAO PAULO, nao o UTC. Um advogado que olha o painel as 22h ve
--- a atividade da noite dele; com UTC, tudo depois das 21h vazaria para o dia
--- seguinte e o grafico ficaria com um deslocamento sistematico de 3 horas.
--- Produto brasileiro (OAB, CPF, CNJ): nao ha ambiguidade sobre qual fuso.
 create table if not exists public.discovery_events (
-  day date not null default (now() at time zone 'America/Sao_Paulo')::date,
+  day date not null default (now() at time zone 'utc')::date,
   event_type text not null check (event_type in ('impression', 'profile_view')),
   target_type text not null check (target_type in ('lawyer', 'law_firm')),
   target_id uuid not null,
@@ -187,13 +183,10 @@ begin
   end if;
 
   return query
-  with hoje as (
-    select (now() at time zone 'America/Sao_Paulo')::date as dia
-  ),
-  dias as (
+  with dias as (
     select generate_series(
-      (select dia from hoje) - (janela - 1),
-      (select dia from hoje),
+      (now() at time zone 'utc')::date - (janela - 1),
+      (now() at time zone 'utc')::date,
       interval '1 day'
     )::date as day
   ),
@@ -208,37 +201,15 @@ begin
     from public.discovery_events e
     where e.target_type = target_type_value
       and e.target_id = target_id_value
-      and e.day >= (select dia from hoje) - (janela - 1)
+      and e.day >= (now() at time zone 'utc')::date - (janela - 1)
     group by e.day
   ),
-  -- Conversa iniciada = o CLIENTE mandou a primeira mensagem.
-  --
-  -- Contar linhas de public.conversations, que era o que estava aqui, contava
-  -- quem apenas ABRIU o chat: start_or_get_*_conversation cria a linha sempre,
-  -- e so grava mensagem se houver texto. Abrir e fechar virava lead — e este e
-  -- o numero que justifica o preco do patrocinio, entao inflar aqui e inflar a
-  -- fatura.
-  --
-  -- Tambem so conta mensagem do CLIENTE: quando o escritorio sugere um
-  -- advogado e ele escreve primeiro, ainda nao ha interesse manifestado.
-  -- E o dia e o da PRIMEIRA MENSAGEM, nao o da criacao da linha: quem abre o
-  -- chat num dia e escreve no outro vira lead no dia em que escreveu.
   conversas as (
     select
-      (primeira.enviada_em at time zone 'America/Sao_Paulo')::date as day,
+      (c.created_at at time zone 'utc')::date as day,
       count(*)::integer as total
     from public.conversations c
-    cross join lateral (
-      select min(m.created_at) as enviada_em
-      from public.messages m
-      where m.conversation_id = c.id
-        and m.sender_type = 'client'
-    ) primeira
-    where primeira.enviada_em is not null
-      -- Canal interno de equipe tem law_firm_id preenchido e nunca foi lead.
-      and c.type <> 'firm_internal'
-      and (primeira.enviada_em at time zone 'America/Sao_Paulo')::date
-        >= (select dia from hoje) - (janela - 1)
+    where c.created_at >= (now() at time zone 'utc')::date - (janela - 1)
       and (
         (target_type_value = 'lawyer' and c.lawyer_id = target_id_value)
         or (target_type_value = 'law_firm' and c.law_firm_id = target_id_value)

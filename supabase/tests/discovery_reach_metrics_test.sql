@@ -9,7 +9,12 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(22);
+select plan(25);
+
+-- O dia de referencia e o de SAO PAULO, o mesmo que a funcao usa. Comparar com
+-- o dia UTC funcionaria 21 horas por dia e falharia entre 21h e meia-noite,
+-- quando os dois calendarios divergem — o tipo de teste que quebra sozinho de
+-- madrugada e some quando alguem vai olhar.
 
 -- ---------------------------------------------------------------------------
 -- Fixtures: duas advogadas, um cliente e um escritorio
@@ -164,14 +169,14 @@ select is(
 select is(
   (select reach from public.fetch_professional_reach(
     'lawyer', 'b7000000-0000-0000-0000-000000000001', 30)
-   where day = (now() at time zone 'utc')::date),
+   where day = (now() at time zone 'America/Sao_Paulo')::date),
   2,
   'o painel mostra 2 pessoas alcancadas hoje');
 
 select is(
   (select sponsored_reach from public.fetch_professional_reach(
     'lawyer', 'b7000000-0000-0000-0000-000000000001', 30)
-   where day = (now() at time zone 'utc')::date),
+   where day = (now() at time zone 'America/Sao_Paulo')::date),
   1,
   'e separa quantas vieram de vaga paga');
 
@@ -285,6 +290,71 @@ select is(
    where day = (now() at time zone 'America/Sao_Paulo')::date),
   0,
   'chat interno da equipe nao entra no lead do escritorio');
+
+-- ---------------------------------------------------------------------------
+-- Vaga paga NAO e a mesma coisa que ter patrocinio ativo
+-- ---------------------------------------------------------------------------
+
+reset role;
+
+-- Tres advogadas patrocinadas na mesma area. As vagas sao 2: uma delas
+-- aparece organicamente, e essa impressao nao pode ser atribuida a vaga.
+insert into auth.users (id, aud, role, email, encrypted_password,
+  email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
+select
+  ('b4000000-0000-0000-0000-00000000000' || n)::uuid,
+  'authenticated', 'authenticated', 'paga' || n || '@alcance.test', '',
+  now(), '{}'::jsonb,
+  ('{"full_name":"Paga ' || n || '"}')::jsonb, now(), now()
+from generate_series(1, 3) as n;
+
+update public.profiles set lawyer_status = 'approved'
+where id::text like 'b4000000-%';
+
+insert into public.lawyer_profiles (id, oab_number, oab_state, primary_area, practice_areas)
+select
+  ('b4000000-0000-0000-0000-00000000000' || n)::uuid,
+  '90000' || n, 'RS', 'Direito Tributário', array['Direito Tributário']
+from generate_series(1, 3) as n;
+
+insert into public.featured_placements (target_type, lawyer_id, starts_at, ends_at)
+select 'lawyer', ('b4000000-0000-0000-0000-00000000000' || n)::uuid,
+       now() - interval '1 day', now() + interval '30 days'
+from generate_series(1, 3) as n;
+
+select set_config('request.jwt.claim.sub', 'b7000000-0000-0000-0000-000000000002', true);
+set local role authenticated;
+
+select is(
+  (select count(*)::int
+   from public.fetch_recommended_lawyers(10, 'tributário', 0)
+   where is_featured),
+  3,
+  'as tres tem selo de patrocinado — o selo nao tem teto');
+
+select is(
+  (select count(*)::int
+   from public.fetch_recommended_lawyers(10, 'tributário', 0)
+   where is_sponsored_slot),
+  2,
+  'mas so DUAS ocupam vaga paga — e so essas a medicao pode atribuir a vaga');
+
+reset role;
+
+-- ---------------------------------------------------------------------------
+-- Escritorio nao infla o proprio alcance navegando na descoberta
+-- ---------------------------------------------------------------------------
+
+select set_config('request.jwt.claim.sub', 'b7000000-0000-0000-0000-000000000004', true);
+set local role authenticated;
+
+select is(
+  public.log_discovery_events('impression', 'law_firm',
+    array['b6000000-0000-0000-0000-000000000001'::uuid]),
+  0,
+  'dono navegando na descoberta nao conta alcance do proprio escritorio');
+
+reset role;
 
 -- ---------------------------------------------------------------------------
 -- A tabela nao e legivel: ela diz quem olhou quem
