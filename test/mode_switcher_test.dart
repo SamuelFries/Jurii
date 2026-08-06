@@ -4,6 +4,11 @@ import 'package:jurii/models/app_mode.dart';
 import 'package:jurii/models/jurii_notification.dart';
 import 'package:jurii/repositories/notification_repository.dart';
 import 'package:jurii/theme/app_theme.dart';
+import 'package:jurii/models/law_firm_verification.dart';
+import 'package:jurii/models/lawyer_status.dart';
+import 'package:jurii/models/law_firm_verification_status.dart';
+import 'package:jurii/models/user_profile.dart';
+import 'package:jurii/screens/profile_screen.dart';
 import 'package:jurii/widgets/mode_switcher_sheet.dart';
 
 class _FakeNotifications extends NotificationRepository {
@@ -21,10 +26,7 @@ void main() {
   group('quais áreas entram na lista', () {
     test('só cliente não vale seletor', () {
       // Um botão que abre uma lista de um item só não é navegação, é ruído.
-      final opcoes = buildModeOptions(
-        hasLawyerMode: false,
-        hasFirmMode: false,
-      );
+      final opcoes = buildModeOptions(hasLawyerMode: false, hasFirmMode: false);
       expect(opcoes, hasLength(1));
       expect(shouldShowModeSwitcher(opcoes), isFalse);
     });
@@ -135,7 +137,11 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(escolhido, AppMode.firm);
-      expect(find.text('Trocar de área'), findsNothing, reason: 'a folha fecha');
+      expect(
+        find.text('Trocar de área'),
+        findsNothing,
+        reason: 'a folha fecha',
+      );
     });
 
     testWidgets('mostra o que está esperando nos OUTROS fluxos', (
@@ -193,6 +199,49 @@ void main() {
       );
 
       expect(find.text('Ainda não liberado para sua conta'), findsOneWidget);
+    });
+  });
+
+  group('seletor e convite nao competem pelo mesmo espaco', () {
+    testWidgets('cliente com escritorio ve o seletor, nao dois caminhos', (
+      tester,
+    ) async {
+      // Era o defeito visto em uso: a tela mostrava "Trocar de área" E
+      // "Área do Escritório", um debaixo do outro, levando ao mesmo lugar.
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.lightTheme,
+          home: Scaffold(
+            body: ProfileScreen(
+              user: const UserProfile(
+                id: 'u1',
+                name: 'Leonardo',
+                email: 'l@x.com',
+                initials: 'L',
+                memberSince: '2026-07-25',
+                lawyerStatus: LawyerStatus.client,
+              ),
+              lawFirmVerification: const LawFirmVerification(
+                ownerProfileId: 'u1',
+                firmName: 'Firma',
+                cnpj: '12.345.678/0001-90',
+                phone: '11999999999',
+                email: 'c@x.com',
+                address: 'Rua',
+                practiceAreas: ['Direito Cível'],
+                documents: [],
+                status: LawFirmVerificationStatus.approved,
+              ),
+              onVerificationSubmitted: (_) {},
+              onOpenLawFirmArea: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Trocar de área'), findsOneWidget);
+      expect(find.text('Área do Escritório'), findsNothing);
     });
   });
 }

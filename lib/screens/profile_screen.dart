@@ -292,11 +292,12 @@ class ProfileScreen extends StatelessWidget {
     // O escritório entra no seletor quando há vínculo ativo — no modo cliente
     // isso chega por onOpenLawFirmArea, no modo profissional pelo workspace.
     final hasFirmMode = onOpenLawFirmArea != null;
+    final isApprovedLawyer = user.lawyerStatus == LawyerStatus.approved;
     final modeOptions = buildModeOptions(
       onClient: onSwitchToClient,
       onLawyer: onSwitchToLawyer,
       onFirm: onOpenLawFirmArea,
-      hasLawyerMode: user.lawyerStatus == LawyerStatus.approved,
+      hasLawyerMode: isApprovedLawyer,
       hasFirmMode: hasFirmMode,
     );
 
@@ -345,7 +346,14 @@ class ProfileScreen extends StatelessWidget {
               // Seletor único, no MESMO lugar dos três fluxos. Antes trocar
               // de área tinha três aparências e três posições diferentes, e
               // quem usa os três reaprendia onde procurar a cada troca.
-              if (shouldShowModeSwitcher(modeOptions))
+              // TROCAR de área e CONVIDAR para uma área nova são coisas
+              // diferentes, e antes disputavam o mesmo espaço: a tela mostrava
+              // o seletor E o cartão do escritório, dois caminhos para o mesmo
+              // lugar, um debaixo do outro.
+              //
+              // Agora o seletor cuida do que já existe, e cada cartão abaixo
+              // aparece só enquanto AQUELA área ainda não é da pessoa.
+              if (shouldShowModeSwitcher(modeOptions)) ...[
                 _SwitchModeCard(
                   title: 'Trocar de área',
                   subtitle: 'Você está em ${currentMode.label}',
@@ -357,19 +365,14 @@ class ProfileScreen extends StatelessWidget {
                     options: modeOptions,
                     lawFirmId: firmWorkspace?.firm.id,
                   ),
-                )
-              // Quem ainda NÃO é profissional continua vendo o convite: isto
-              // é onboarding, não troca de área, e some assim que ele vira
-              // uma das opções do seletor.
-              else if (isLawyerMode)
-                _SwitchModeCard(
-                  title: 'Voltar ao Modo Cliente',
-                  subtitle: 'Acesse a área do cliente',
-                  icon: Icons.person_outline,
-                  color: colors.primary,
-                  onTap: onSwitchToClient ?? () {},
-                )
-              else
+                ),
+                if (!isLawyerMode && !isApprovedLawyer)
+                  const SizedBox(height: 12),
+              ],
+
+              // Convite para virar profissional: some quando ele já é, porque
+              // aí a área vive no seletor.
+              if (!isLawyerMode && !isApprovedLawyer)
                 ProfessionalModeCard(
                   lawyerStatus: user.lawyerStatus,
                   onTap: () {
@@ -403,7 +406,12 @@ class ProfileScreen extends StatelessWidget {
                   },
                 ),
 
+              // Idem para o escritório: enquanto a verificação corre, o cartão
+              // é o lugar de ver o andamento. Assim que o vínculo abre, a área
+              // passa a viver no seletor e o cartão sai — senão ficam dois
+              // caminhos para o mesmo lugar, um debaixo do outro.
               if (!isLawyerMode &&
+                  !hasFirmMode &&
                   lawFirmVerification != null &&
                   lawFirmVerification!.status !=
                       LawFirmVerificationStatus.rejected) ...[
@@ -595,10 +603,9 @@ class ProfileScreen extends StatelessWidget {
                           onTap: () {
                             Navigator.of(context).push(
                               MaterialPageRoute(
-                                builder: (_) =>
-                                    ProfessionalReachScreen.lawyer(
-                                      lawyerId: user.id,
-                                    ),
+                                builder: (_) => ProfessionalReachScreen.lawyer(
+                                  lawyerId: user.id,
+                                ),
                               ),
                             );
                           },
