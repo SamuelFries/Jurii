@@ -119,35 +119,73 @@ void main() {
     },
   );
 
-  group('ordenar exige a lista inteira', () {
-    // O servidor entrega por relevância, 10 por página; em produção há 40
-    // escritórios. Ordenar client-side só a página carregada respondia "qual
-    // o mais perto DOS DEZ PRIMEIROS" — o mais próximo podia estar atrás do
-    // "Ver mais" e só entrava na conta depois de carregado.
-    test('distância e avaliação precisam; relevância não', () {
-      expect(sortNeedsFullList(OfficeSort.distance), isTrue);
-      expect(sortNeedsFullList(OfficeSort.rating), isTrue);
-
-      // A ordem já é a do servidor: o topo da página 1 é o topo do conjunto,
-      // e completar a lista só gastaria requisição.
-      expect(sortNeedsFullList(OfficeSort.relevance), isFalse);
+  group('o que vai para o servidor', () {
+    // Desde a 20260817120000 quem ordena e o SERVIDOR: so ele ve o conjunto
+    // inteiro. Ordenar client-side uma lista paginada respondia "qual o mais
+    // perto DOS DEZ PRIMEIROS" — o mais proximo podia estar na pagina 4.
+    test('cada criterio tem um valor estavel de contrato', () {
+      expect(OfficeSort.relevance.serverValue, 'relevance');
+      expect(OfficeSort.rating.serverValue, 'rating');
+      expect(OfficeSort.distance.serverValue, 'distance');
     });
 
-    test('todo método novo precisa decidir de que lado está', () {
-      // Barreira: acrescentar um critério ao enum sem passar por aqui o
-      // deixaria ordenando um recorte em silêncio.
+    test('o rotulo da tela e o valor do contrato sao coisas diferentes', () {
+      // O texto e PT-BR e pode mudar por decisao de copy; o contrato com o
+      // banco nao pode mudar junto.
       for (final sort in OfficeSort.values) {
         expect(
-          sortNeedsFullList(sort),
-          sort == OfficeSort.relevance ? isFalse : isTrue,
-          reason: 'decida se ${sort.name} ordena sobre o conjunto ou o recorte',
+          sort.serverValue,
+          isNot(sort.label),
+          reason: 'nao derive o valor do banco a partir do rotulo da tela',
         );
+        expect(sort.serverValue, matches(RegExp(r'^[a-z]+$')));
       }
     });
 
-    test('o mais perto pode estar fora da primeira página', () {
-      // Prova de que o recorte muda a RESPOSTA, não só a ordem: o escritório
-      // mais próximo é o último da ordem de relevância.
+    test('a posicao do usuario SO viaja na ordenacao por distancia', () {
+      // Mandar coordenada junto de "Avaliacao" seria enviar localizacao para
+      // uma pergunta que nao e sobre localizacao.
+      for (final sort in [OfficeSort.relevance, OfficeSort.rating]) {
+        final params = discoverySortParams(
+          sort,
+          userLatitude: -30.02,
+          userLongitude: -51.22,
+        );
+        expect(params.keys, ['sort_value'], reason: '${sort.name} nao precisa');
+      }
+
+      final comDistancia = discoverySortParams(
+        OfficeSort.distance,
+        userLatitude: -30.02,
+        userLongitude: -51.22,
+      );
+      expect(comDistancia['sort_value'], 'distance');
+      expect(comDistancia['user_latitude'], -30.02);
+      expect(comDistancia['user_longitude'], -51.22);
+    });
+
+    test('sem posicao, distancia vai sem coordenada (o servidor decide)', () {
+      expect(
+        discoverySortParams(OfficeSort.distance).keys,
+        ['sort_value'],
+        reason: 'GPS negado nao pode virar coordenada nula no fio',
+      );
+      // Meia coordenada nao ordena nada e o servidor a descartaria; nao
+      // enviar da o mesmo resultado com um dado a menos no fio.
+      expect(
+        discoverySortParams(OfficeSort.distance, userLatitude: -30.02).keys,
+        ['sort_value'],
+      );
+      expect(
+        discoverySortParams(OfficeSort.distance, userLongitude: -51.22).keys,
+        ['sort_value'],
+      );
+    });
+
+    test('o mais perto pode estar fora da primeira pagina', () {
+      // Por que a ordenacao TEM que ser do servidor: o recorte muda a
+      // RESPOSTA, nao so a ordem. Aqui o mais proximo e o ultimo da ordem de
+      // relevancia — client-side ele so apareceria depois do "Ver mais".
       final pagina1 = [
         _firm('a', lat: -30.10, lng: -51.20),
         _firm('b', lat: -30.20, lng: -51.20),
