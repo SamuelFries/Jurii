@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/firm_role.dart';
 import '../models/firm_workspace.dart';
 import '../models/app_mode.dart';
+import '../models/law_firm.dart';
 import '../models/lawyer_status.dart';
 import '../models/user_profile.dart';
 import '../theme/app_colors.dart';
@@ -13,6 +14,7 @@ import '../widgets/mode_switcher_sheet.dart';
 import '../widgets/profile_menu_section.dart';
 import '../widgets/profile_avatar.dart';
 import '../widgets/theme_mode_sheet.dart';
+import 'edit_firm_profile_screen.dart';
 import 'professional_bio_screen.dart';
 import 'professional_reach_screen.dart';
 
@@ -25,6 +27,7 @@ class FirmProfileScreen extends StatelessWidget {
     this.onSwitchToLawyer,
     required this.onLogout,
     this.onDeleteAccount,
+    this.onRefreshWorkspace,
   });
 
   final UserProfile user;
@@ -32,6 +35,10 @@ class FirmProfileScreen extends StatelessWidget {
   final VoidCallback onSwitchToClient;
   final VoidCallback? onSwitchToLawyer;
   final VoidCallback onLogout;
+
+  /// Recarrega o workspace depois de editar o cadastro. Sem isto o cabeçalho
+  /// segue com o nome e o logo antigos até a próxima abertura do app.
+  final VoidCallback? onRefreshWorkspace;
   final Future<void> Function()? onDeleteAccount;
 
   /// Apresentação é peça comercial do escritório: mesmo público que decide
@@ -216,13 +223,27 @@ class FirmProfileScreen extends StatelessWidget {
           ProfileMenuSection(
             title: 'GESTÃO',
             items: [
-              ProfileMenuItem(
-                icon: Icons.apartment_outlined,
-                iconColor: colors.officePurple,
-                label: 'Dados do escritório',
-                subtitle: 'CNPJ, endereço e áreas atendidas',
-                onTap: () => _showComingSoon(context),
-              ),
+              // Mesmo portão da apresentação e do painel: quem fala pelo
+              // escritório. O servidor repete a checagem.
+              if (workspace != null && _canEditDescription)
+                ProfileMenuItem(
+                  icon: Icons.apartment_outlined,
+                  iconColor: colors.officePurple,
+                  label: 'Dados do escritório',
+                  subtitle: 'Logo, contato, endereço e áreas atendidas',
+                  onTap: () async {
+                    final atualizado = await Navigator.of(context)
+                        .push<LawFirm>(
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                EditFirmProfileScreen(firm: workspace!.firm),
+                          ),
+                        );
+                    // Sem recarregar, o cabeçalho continuaria com o nome e o
+                    // logo antigos até a próxima abertura do app.
+                    if (atualizado != null) onRefreshWorkspace?.call();
+                  },
+                ),
               // Só owner/admin: o servidor aplica o mesmo gate
               // (is_active_law_firm_manager), este if apenas não oferece o
               // que seria recusado.
