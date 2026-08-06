@@ -31,6 +31,19 @@ Future<SafePickedFile?> pickSingleFile({
     type: FileType.custom,
     allowMultiple: false,
     allowedExtensions: allowedExtensions,
+    // Na WEB isto é obrigatório, e a falha não é óbvia: sem `withData`, o
+    // file_picker devolve `bytes: null` e um data-URL no lugar do caminho — e
+    // `PlatformFile.xFile`, na web, faz `XFile.fromData(bytes!)`. O `!`
+    // estoura, a leitura vira null e TODO seletor do app (foto de perfil,
+    // documento do chat, vídeo, documento de verificação) responde "não foi
+    // possível ler o arquivo" sem nenhuma pista do porquê.
+    //
+    // Só na web: no celular, `xFile` aponta para o arquivo em disco e lê sob
+    // demanda, que é justamente o que impede um vídeo de 800 MB escolhido por
+    // engano de virar OOM antes da checagem de tamanho. Na web não existe
+    // esse caminho preguiçoso — o navegador materializa o blob de qualquer
+    // jeito, então o teto de tamanho é a única proteção que resta lá.
+    withData: kIsWeb,
   );
   final file = picked?.files.single;
   if (file == null) return null;
