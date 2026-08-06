@@ -9,6 +9,7 @@ import '../data/legal_documents.dart';
 import '../utils/support_contact.dart';
 import 'edit_profile_screen.dart';
 import 'favorites_screen.dart';
+import 'change_password_screen.dart';
 import 'professional_bio_screen.dart';
 import 'professional_reach_screen.dart';
 import 'help_center_screen.dart';
@@ -143,6 +144,29 @@ class ProfileScreen extends StatelessWidget {
                             ),
                           ],
                         ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  // Trocar a senha vem ANTES da zona de perigo: é a ação
+                  // frequente do menu, e deixá-la abaixo de "excluir conta"
+                  // obrigaria a passar os olhos pela destrutiva toda vez.
+                  ProfileMenuSection(
+                    title: 'ACESSO',
+                    items: [
+                      ProfileMenuItem(
+                        icon: Icons.password_outlined,
+                        iconColor: colors.primary,
+                        label: 'Alterar senha',
+                        subtitle: 'Troque a senha de acesso da sua conta',
+                        onTap: () {
+                          Navigator.of(sheetContext).pop();
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const ChangePasswordScreen(),
+                            ),
+                          );
+                        },
                       ),
                     ],
                   ),
