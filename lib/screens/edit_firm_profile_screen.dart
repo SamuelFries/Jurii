@@ -329,7 +329,15 @@ class _EditFirmProfileScreenState extends State<EditFirmProfileScreen> {
     if (message.contains('invalid email')) return 'Confira o e-mail.';
     if (message.contains('invalid cep')) return 'Confira o CEP.';
     if (message.contains('invalid practice area')) {
-      return 'Uma das áreas escolhidas não é válida.';
+      // O servidor NOMEIA a área recusada; engolir o nome deixava a pessoa
+      // procurando qual das dez seria — foi exatamente o que aconteceu em uso.
+      final nome = RegExp(
+        r'invalid practice area: ([^,)\n"]+)',
+        caseSensitive: false,
+      ).firstMatch(error.toString())?.group(1)?.trim();
+      return nome == null || nome.isEmpty
+          ? 'Uma das áreas escolhidas não é válida.'
+          : 'A área "$nome" não está mais disponível. Escolha outra.';
     }
     if (message.contains('avatar')) {
       return 'Não foi possível atualizar o logo. Tente outra imagem.';
@@ -505,6 +513,10 @@ class _EditFirmProfileScreenState extends State<EditFirmProfileScreen> {
                   const SizedBox(height: 10),
                   PracticeAreaSelector(
                     selectedAreas: _areas,
+                    // Áreas do cadastro antigo aparecem marcadas em vez de
+                    // sumirem: invisíveis, elas iam junto no salvamento e
+                    // voltavam recusadas, sem a pessoa poder ver a culpada.
+                    extraAreas: widget.firm.practiceAreas,
                     showError: _showAreaError,
                     selectedColor: colors.officePurple,
                     onChanged: (selected) => setState(() {

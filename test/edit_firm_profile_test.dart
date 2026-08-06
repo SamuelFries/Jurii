@@ -426,4 +426,71 @@ void main() {
     final botao = tester.widget<ElevatedButton>(find.byType(ElevatedButton));
     expect(botao.onPressed, isNull);
   });
+
+  group('áreas herdadas do cadastro antigo', () {
+    const firmaLegada = LawFirm(
+      id: 'f1',
+      name: 'Firma Antiga',
+      initials: 'FA',
+      rating: 5,
+      distance: '',
+      specialty: 'Direito do Trabalho',
+      // Valores reais de produção: o cadastro é anterior à lista canônica.
+      practiceAreas: ['Direito do Trabalho', 'Direito Bancário'],
+      reviews: 0,
+      avatarType: 'blue',
+    );
+
+    testWidgets('aparecem na tela em vez de irem escondidas', (tester) async {
+      await tester.pumpWidget(
+        app(_FakeFirmProfileRepository(), firm: firmaLegada),
+      );
+      await tester.pumpAndSettle();
+
+      // Invisíveis, elas iam junto no salvamento e voltavam recusadas — sem a
+      // pessoa poder sequer ver qual era a culpada.
+      expect(find.text('Direito do Trabalho'), findsWidgets);
+      expect(find.text('Direito Bancário'), findsWidgets);
+    });
+
+    testWidgets('salvar o telefone não esbarra nelas', (tester) async {
+      final repo = _FakeFirmProfileRepository();
+      await tester.pumpWidget(app(repo, firm: firmaLegada));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextFormField).at(2), '51999990000');
+      await tester.ensureVisible(find.text('Salvar'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Salvar'));
+      await tester.pumpAndSettle();
+
+      // O campo é mascarado; o servidor recebe o texto e normaliza.
+      expect(repo.recebido?['phone'], '(51) 99999-0000');
+      expect(
+        repo.recebido?['practiceAreas'],
+        containsAll(['Direito do Trabalho', 'Direito Bancário']),
+        reason: 'a área herdada segue no cadastro, não some em silêncio',
+      );
+    });
+
+    testWidgets('a recusa do servidor nomeia a área', (tester) async {
+      final repo = _FakeFirmProfileRepository(
+        erro: Exception(
+          'PostgrestException(message: Invalid practice area: Direito Bancário)',
+        ),
+      );
+      await tester.pumpWidget(app(repo, firm: firmaLegada));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextFormField).first, 'Outro Nome');
+      await tester.ensureVisible(find.text('Salvar'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Salvar'));
+      await tester.pumpAndSettle();
+
+      // "Uma das áreas não é válida" deixava a pessoa procurando qual — foi
+      // exatamente o que aconteceu em uso.
+      expect(find.textContaining('Direito Bancário'), findsWidgets);
+    });
+  });
 }

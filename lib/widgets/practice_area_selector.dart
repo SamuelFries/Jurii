@@ -13,6 +13,7 @@ class PracticeAreaSelector extends StatelessWidget {
     this.label = 'Áreas de atuação',
     this.errorText = 'Selecione pelo menos uma área',
     this.selectedColor,
+    this.extraAreas = const [],
   });
 
   final List<String> selectedAreas;
@@ -23,6 +24,27 @@ class PracticeAreaSelector extends StatelessWidget {
 
   /// Cor do chip selecionado; quando nula, segue a paleta do tema ativo.
   final Color? selectedColor;
+
+  /// Áreas que existem no cadastro mas NÃO estão no vocabulário canônico.
+  ///
+  /// Escritórios cadastrados antes da lista existir têm área em texto livre
+  /// ("Direito do Trabalho", "Direito Bancário"). Sem mostrá-las, o seletor
+  /// mentiria: os chips apareceriam todos desmarcados enquanto o cadastro
+  /// carrega áreas invisíveis — que iam junto no salvamento e voltavam
+  /// recusadas, sem a pessoa poder sequer ver a culpada.
+  ///
+  /// Elas aparecem marcadas e podem ser removidas. Uma vez removidas, não
+  /// voltam: o vocabulário novo é o canônico.
+  final List<String> extraAreas;
+
+  /// Canônicas primeiro, depois as herdadas que ainda estão marcadas.
+  List<String> get _areasVisiveis => [
+    ...legalPracticeAreas,
+    ...extraAreas.where(
+      (area) =>
+          !legalPracticeAreas.contains(area) && selectedAreas.contains(area),
+    ),
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -38,11 +60,14 @@ class PracticeAreaSelector extends StatelessWidget {
       child: Wrap(
         spacing: 10,
         runSpacing: 10,
-        children: legalPracticeAreas.map((area) {
+        children: _areasVisiveis.map((area) {
           final selected = selectedAreas.contains(area);
           return _PracticeAreaChip(
             area: area,
             selected: selected,
+            // Herdada fica visualmente distinta: é área que continua valendo,
+            // mas que o cadastro novo não oferece mais.
+            legacy: !legalPracticeAreas.contains(area),
             selectedColor: effectiveSelectedColor,
             onTap: () => _toggleArea(area),
           );
@@ -67,12 +92,16 @@ class _PracticeAreaChip extends StatelessWidget {
     required this.selected,
     required this.selectedColor,
     required this.onTap,
+    this.legacy = false,
   });
 
   final String area;
   final bool selected;
   final Color selectedColor;
   final VoidCallback onTap;
+
+  /// Área herdada de um cadastro anterior à lista canônica.
+  final bool legacy;
 
   @override
   Widget build(BuildContext context) {
@@ -81,7 +110,7 @@ class _PracticeAreaChip extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(999),
       pressedScale: 0.96,
-      semanticLabel: area,
+      semanticLabel: legacy ? '$area, área herdada do cadastro antigo' : area,
       child: AnimatedContainer(
         duration: JuriiMotion.fast,
         curve: JuriiMotion.ease,
@@ -105,10 +134,15 @@ class _PracticeAreaChip extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (legacy)
+              Padding(
+                padding: const EdgeInsets.only(right: 6),
+                child: Icon(Icons.history, color: colors.muted, size: 14),
+              ),
             AnimatedSize(
               duration: JuriiMotion.fast,
               curve: JuriiMotion.ease,
-              child: selected
+              child: selected && !legacy
                   ? Padding(
                       padding: const EdgeInsets.only(right: 6),
                       child: Icon(Icons.check, color: selectedColor, size: 14),
