@@ -46,6 +46,52 @@ class NotificationRepository {
     }
   }
 
+  /// Quantas notificações esperam em CADA fluxo.
+  ///
+  /// Existe para o seletor de modo poder marcar onde há algo esperando: o sino
+  /// de cada fluxo conta só o próprio escopo, então quem está no modo cliente
+  /// não fica sabendo que chegou uma solicitação de caso no modo advogado.
+  /// Para quem tem os três fluxos, isso não é atrito de navegação — é lead que
+  /// só aparece quando a pessoa lembra de trocar de modo.
+  ///
+  /// Falha em silêncio devolvendo zeros: contador é enfeite de navegação, e
+  /// derrubar a tela por causa dele seria trocar um problema por um pior.
+  Future<Map<NotificationScope, int>> fetchUnreadCountsByScope({
+    String? lawFirmId,
+  }) async {
+    if (!SupabaseConfig.isReady ||
+        SupabaseConfig.client.auth.currentUser == null) {
+      return {
+        for (final scope in NotificationScope.values)
+          scope: mockNotifications
+              .where((n) => n.scope == scope && n.isUnread)
+              .length,
+      };
+    }
+
+    try {
+      final rows = await SupabaseConfig.client.rpc(
+        'fetch_unread_notification_counts',
+        params: {'law_firm_id_value': lawFirmId},
+      );
+
+      final porEscopo = <NotificationScope, int>{
+        for (final scope in NotificationScope.values) scope: 0,
+      };
+      for (final row in (rows as List<dynamic>).cast<Map<String, dynamic>>()) {
+        final scope = NotificationScope.values.firstWhere(
+          (value) => value.databaseValue == row['scope'],
+          orElse: () => NotificationScope.client,
+        );
+        porEscopo[scope] = (row['unread'] as num?)?.toInt() ?? 0;
+      }
+      return porEscopo;
+    } catch (error) {
+      debugPrint('Unread counts by scope failed: $error');
+      return {for (final scope in NotificationScope.values) scope: 0};
+    }
+  }
+
   Future<int> fetchUnreadCount({
     required NotificationScope scope,
     String? lawFirmId,

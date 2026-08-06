@@ -597,8 +597,14 @@ void main() {
       ),
     );
 
-    await tester.tap(find.text('Área do Escritório'));
-    await tester.pump();
+    // O cartão "Área do Escritório" saiu daqui: quando o vínculo já está
+    // aberto, a área vive no seletor. Deixar os dois dava dois caminhos para o
+    // mesmo lugar, um debaixo do outro. O que importa continua valendo — o
+    // cliente com escritório aprovado chega lá.
+    await tester.tap(find.text('Trocar de área'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Escritório'));
+    await tester.pumpAndSettle();
 
     expect(openedFirmArea, isTrue);
   });

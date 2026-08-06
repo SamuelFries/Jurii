@@ -20,9 +20,11 @@ import '../theme/theme_controller.dart';
 import '../widgets/law_firm_mode_card.dart';
 import '../widgets/theme_mode_sheet.dart';
 import '../widgets/profile_header_card.dart';
+import '../widgets/mode_switcher_sheet.dart';
 import '../widgets/profile_menu_section.dart';
 import '../widgets/profile_menu_item.dart';
 import '../widgets/professional_mode_card.dart';
+import '../models/app_mode.dart';
 import '../models/lawyer_status.dart';
 
 class ProfileScreen extends StatelessWidget {
@@ -281,10 +283,23 @@ class ProfileScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.jColors;
     final isLawyerMode = onSwitchToClient != null;
+    final currentMode = isLawyerMode ? AppMode.lawyer : AppMode.client;
     final canOpenLawFirmArea =
         isLawyerMode &&
         firmWorkspace?.fromSupabase == true &&
         onOpenLawFirmArea != null;
+
+    // O escritório entra no seletor quando há vínculo ativo — no modo cliente
+    // isso chega por onOpenLawFirmArea, no modo profissional pelo workspace.
+    final hasFirmMode = onOpenLawFirmArea != null;
+    final isApprovedLawyer = user.lawyerStatus == LawyerStatus.approved;
+    final modeOptions = buildModeOptions(
+      onClient: onSwitchToClient,
+      onLawyer: onSwitchToLawyer,
+      onFirm: onOpenLawFirmArea,
+      hasLawyerMode: isApprovedLawyer,
+      hasFirmMode: hasFirmMode,
+    );
 
     return SafeArea(
       child: SingleChildScrollView(
@@ -328,15 +343,36 @@ class ProfileScreen extends StatelessWidget {
 
               const SizedBox(height: 16),
 
-              if (isLawyerMode)
+              // Seletor único, no MESMO lugar dos três fluxos. Antes trocar
+              // de área tinha três aparências e três posições diferentes, e
+              // quem usa os três reaprendia onde procurar a cada troca.
+              // TROCAR de área e CONVIDAR para uma área nova são coisas
+              // diferentes, e antes disputavam o mesmo espaço: a tela mostrava
+              // o seletor E o cartão do escritório, dois caminhos para o mesmo
+              // lugar, um debaixo do outro.
+              //
+              // Agora o seletor cuida do que já existe, e cada cartão abaixo
+              // aparece só enquanto AQUELA área ainda não é da pessoa.
+              if (shouldShowModeSwitcher(modeOptions)) ...[
                 _SwitchModeCard(
-                  title: 'Voltar ao Modo Cliente',
-                  subtitle: 'Acesse a área do cliente',
-                  icon: Icons.person_outline,
+                  title: 'Trocar de área',
+                  subtitle: 'Você está em ${currentMode.label}',
+                  icon: Icons.swap_horiz,
                   color: colors.primary,
-                  onTap: onSwitchToClient ?? () {},
-                )
-              else
+                  onTap: () => showModeSwitcher(
+                    context,
+                    current: currentMode,
+                    options: modeOptions,
+                    lawFirmId: firmWorkspace?.firm.id,
+                  ),
+                ),
+                if (!isLawyerMode && !isApprovedLawyer)
+                  const SizedBox(height: 12),
+              ],
+
+              // Convite para virar profissional: some quando ele já é, porque
+              // aí a área vive no seletor.
+              if (!isLawyerMode && !isApprovedLawyer)
                 ProfessionalModeCard(
                   lawyerStatus: user.lawyerStatus,
                   onTap: () {
@@ -370,7 +406,12 @@ class ProfileScreen extends StatelessWidget {
                   },
                 ),
 
+              // Idem para o escritório: enquanto a verificação corre, o cartão
+              // é o lugar de ver o andamento. Assim que o vínculo abre, a área
+              // passa a viver no seletor e o cartão sai — senão ficam dois
+              // caminhos para o mesmo lugar, um debaixo do outro.
               if (!isLawyerMode &&
+                  !hasFirmMode &&
                   lawFirmVerification != null &&
                   lawFirmVerification!.status !=
                       LawFirmVerificationStatus.rejected) ...[
@@ -562,10 +603,9 @@ class ProfileScreen extends StatelessWidget {
                           onTap: () {
                             Navigator.of(context).push(
                               MaterialPageRoute(
-                                builder: (_) =>
-                                    ProfessionalReachScreen.lawyer(
-                                      lawyerId: user.id,
-                                    ),
+                                builder: (_) => ProfessionalReachScreen.lawyer(
+                                  lawyerId: user.id,
+                                ),
                               ),
                             );
                           },
