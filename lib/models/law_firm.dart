@@ -20,6 +20,15 @@ class LawFirm {
   /// para caminhos que não expõem o campo (ex.: fallback de leitura direta).
   final bool isFeatured;
 
+  /// Ocupou uma das (no máximo duas) VAGAS PAGAS desta lista.
+  ///
+  /// Diferente de [isFeatured], que só diz que há patrocínio ativo: quem paga
+  /// também aparece organicamente quando as vagas já estão tomadas. O selo na
+  /// tela segue [isFeatured] — quem pagou é identificado sempre. Só a MEDIÇÃO
+  /// usa este campo, porque atribuir à vaga uma impressão que ela não entregou
+  /// infla o número que justifica a renovação.
+  final bool isSponsoredSlot;
+
   /// Coordenadas do escritório (derivadas do CEP no cadastro). Nulas quando o
   /// escritório ainda não informou CEP — sem elas não há distância, e o app
   /// mostra o fallback de sempre. A distância em si é calculada NO APARELHO
@@ -44,6 +53,7 @@ class LawFirm {
     this.websiteUrl,
     this.address,
     this.isFeatured = false,
+    this.isSponsoredSlot = false,
     this.latitude,
     this.longitude,
   });

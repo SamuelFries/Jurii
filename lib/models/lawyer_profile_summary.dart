@@ -21,6 +21,15 @@ class LawyerProfileSummary {
   /// e para RPCs que não expõem o campo (ex.: fetch_law_firm_lawyers).
   final bool isFeatured;
 
+  /// Ocupou uma das (no máximo duas) VAGAS PAGAS desta lista.
+  ///
+  /// Diferente de [isFeatured], que só diz que há patrocínio ativo: quem paga
+  /// também aparece organicamente quando as vagas já estão tomadas. O selo na
+  /// tela segue [isFeatured] — quem pagou é identificado sempre. Só a MEDIÇÃO
+  /// usa este campo, porque atribuir à vaga uma impressão que ela não entregou
+  /// infla o número que justifica a renovação.
+  final bool isSponsoredSlot;
+
   const LawyerProfileSummary({
     required this.id,
     required this.name,
@@ -35,6 +44,7 @@ class LawyerProfileSummary {
     required this.avatarType,
     this.photoUrl,
     this.isFeatured = false,
+    this.isSponsoredSlot = false,
   });
 
   String get oabLabel => 'OAB/$oabState $oabNumber';

@@ -237,7 +237,7 @@ class _CartaoDeAlcance extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'PESSOAS QUE VIRAM VOCÊ',
+            'VISUALIZAÇÕES NA BUSCA',
             style: TextStyle(
               color: colors.textSecondary,
               fontSize: 11,
@@ -271,6 +271,14 @@ class _CartaoDeAlcance extends StatelessWidget {
                 ? 'nos últimos $janela dias'
                 : 'nos últimos $janela dias, contra os $janela anteriores',
             style: TextStyle(color: colors.textSecondary, fontSize: 12),
+          ),
+          const SizedBox(height: 2),
+          // A contagem é por pessoa POR DIA: quem te vê em três dias conta
+          // três vezes. Dizer "pessoas" no título seria prometer gente
+          // diferente e entregar visualização repetida.
+          Text(
+            'a mesma pessoa conta uma vez por dia',
+            style: TextStyle(color: colors.muted, fontSize: 11),
           ),
           const SizedBox(height: 16),
           ReachChart(days: resumo.days),
@@ -419,9 +427,9 @@ class _CartaoDePatrocinio extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              '${resumo.sponsoredReach} das ${resumo.reach} pessoas que viram '
-              'você chegaram por uma vaga patrocinada — $fatia% do seu alcance '
-              'no período.',
+              '${resumo.sponsoredReach} das ${resumo.reach} visualizações '
+              'vieram de uma vaga patrocinada — $fatia% do seu alcance no '
+              'período.',
               style: TextStyle(
                 color: colors.textPrimary,
                 fontSize: 13,

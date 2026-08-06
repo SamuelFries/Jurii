@@ -62,7 +62,7 @@ class LawyerProfileRepository {
           target: DiscoveryTarget.lawyer,
           targetIds: page.items.map((lawyer) => lawyer.id).toList(),
           sponsoredIds: page.items
-              .where((lawyer) => lawyer.isFeatured)
+              .where((lawyer) => lawyer.isSponsoredSlot)
               .map((lawyer) => lawyer.id)
               .toList(),
         ),
@@ -174,6 +174,7 @@ class LawyerProfileRepository {
       avatarType: row['avatar_type'] as String? ?? 'navy',
       photoUrl: row['avatar_url'] as String?,
       isFeatured: row['is_featured'] as bool? ?? false,
+      isSponsoredSlot: row['is_sponsored_slot'] as bool? ?? false,
     );
   }
 
