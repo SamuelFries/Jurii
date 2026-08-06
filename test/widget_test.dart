@@ -808,7 +808,9 @@ void main() {
     await tester.tap(find.text('Começar Verificação'));
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(TextField), '123456');
+    // Por chave: o seletor de áreas passou a ter o próprio campo de busca (são
+    // 39 áreas), então `byType(TextField)` acha mais de um.
+    await tester.enterText(find.byKey(const Key('oab_number_field')), '123456');
     await tester.ensureVisible(find.text('Estado da OAB'));
     await tester.tap(find.byType(DropdownButtonFormField<String>).at(0));
     await tester.pumpAndSettle();

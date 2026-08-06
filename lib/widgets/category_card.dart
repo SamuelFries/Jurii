@@ -36,6 +36,14 @@ class CategoryCard extends StatelessWidget {
     'receipt_long_outlined': Icons.receipt_long_outlined,
     'business_center_outlined': Icons.business_center_outlined,
     'elderly_outlined': Icons.elderly_outlined,
+    'medical_services_outlined': Icons.medical_services_outlined,
+    'account_balance_wallet_outlined': Icons.account_balance_wallet_outlined,
+    'agriculture_outlined': Icons.agriculture_outlined,
+    'pets_outlined': Icons.pets_outlined,
+    'school_outlined': Icons.school_outlined,
+    'flight_outlined': Icons.flight_outlined,
+    'park_outlined': Icons.park_outlined,
+    'how_to_vote_outlined': Icons.how_to_vote_outlined,
   };
 
   @override

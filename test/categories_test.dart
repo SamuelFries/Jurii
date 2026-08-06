@@ -12,13 +12,16 @@ Widget _host(Widget child) {
 }
 
 void main() {
-  testWidgets('grid mostra as 6 categorias canônicas', (tester) async {
+  testWidgets('grid mostra as 9 categorias canônicas', (tester) async {
     await tester.pumpWidget(_host(const CategoriesSection()));
     await tester.pumpAndSettle();
 
-    expect(find.byType(CategoryCard), findsNWidgets(6));
+    expect(find.byType(CategoryCard), findsNWidgets(9));
     expect(find.text('Divórcio e Família'), findsOneWidget);
     expect(find.text('Previdenciário'), findsOneWidget);
+    // Quem navega em vez de digitar precisa de porta de entrada para as áreas
+    // novas de maior demanda.
+    expect(find.text('Inventário e Herança'), findsOneWidget);
     expect(
       find.text('Toque para filtrar advogados e escritórios.'),
       findsOneWidget,

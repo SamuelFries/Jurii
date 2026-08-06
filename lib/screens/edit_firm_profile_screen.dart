@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import '../services/cep_service.dart';
 import '../theme/app_colors.dart';
 import '../utils/cep_input_formatter.dart';
+import '../utils/cnpj_input_formatter.dart';
 import '../utils/firm_profile_form.dart';
 import '../utils/phone_input_formatter.dart';
 import '../utils/profile_avatar_validation.dart';
@@ -63,6 +64,10 @@ class _EditFirmProfileScreenState extends State<EditFirmProfileScreen> {
 
   bool _showAreaError = false;
   bool _isLookingUpCep = false;
+
+  /// CNPJ verificado, só para leitura. Nulo enquanto carrega e quando não há
+  /// verificação aprovada.
+  String? _cnpj;
 
   /// Coordenadas já resolvidas para [_cepConsultado]. A consulta ao sair do
   /// campo e a de salvar pediriam o MESMO CEP à BrasilAPI duas vezes; guardar
@@ -156,6 +161,13 @@ class _EditFirmProfileScreenState extends State<EditFirmProfileScreen> {
     for (final controller in _controllers) {
       controller.addListener(_onFieldChanged);
     }
+    _carregarCnpj();
+  }
+
+  Future<void> _carregarCnpj() async {
+    final cnpj = await widget.repository.fetchCnpj(widget.firm.id);
+    if (!mounted) return;
+    setState(() => _cnpj = cnpj);
   }
 
   void _onFieldChanged() {
@@ -317,7 +329,15 @@ class _EditFirmProfileScreenState extends State<EditFirmProfileScreen> {
     if (message.contains('invalid email')) return 'Confira o e-mail.';
     if (message.contains('invalid cep')) return 'Confira o CEP.';
     if (message.contains('invalid practice area')) {
-      return 'Uma das áreas escolhidas não é válida.';
+      // O servidor NOMEIA a área recusada; engolir o nome deixava a pessoa
+      // procurando qual das dez seria — foi exatamente o que aconteceu em uso.
+      final nome = RegExp(
+        r'invalid practice area: ([^,)\n"]+)',
+        caseSensitive: false,
+      ).firstMatch(error.toString())?.group(1)?.trim();
+      return nome == null || nome.isEmpty
+          ? 'Uma das áreas escolhidas não é válida.'
+          : 'A área "$nome" não está mais disponível. Escolha outra.';
     }
     if (message.contains('avatar')) {
       return 'Não foi possível atualizar o logo. Tente outra imagem.';
@@ -364,6 +384,30 @@ class _EditFirmProfileScreenState extends State<EditFirmProfileScreen> {
                         (value == null || value.trim().isEmpty)
                         ? 'Informe o nome do escritório'
                         : null,
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Só leitura: o CNPJ é o dado VERIFICADO do escritório, e
+                  // mudá-lo seria mudar de empresa — não é correção de
+                  // cadastro, é nova verificação. Mostrar travado explica isso
+                  // melhor do que simplesmente não ter o campo, que pareceria
+                  // esquecimento.
+                  TextFormField(
+                    key: const Key('firm_cnpj_field'),
+                    enabled: false,
+                    readOnly: true,
+                    controller: TextEditingController(
+                      text: _cnpj == null ? '' : formatCnpj(_cnpj!),
+                    ),
+                    decoration: InputDecoration(
+                      labelText: 'CNPJ',
+                      prefixIcon: const Icon(Icons.badge_outlined),
+                      suffixIcon: Icon(Icons.lock_outline, color: colors.muted),
+                      helperText:
+                          'Verificado. Para corrigi-lo é preciso uma nova '
+                          'verificação do escritório.',
+                      hintText: _cnpj == null ? 'Carregando…' : null,
+                    ),
                   ),
                   const SizedBox(height: 16),
 
@@ -469,6 +513,10 @@ class _EditFirmProfileScreenState extends State<EditFirmProfileScreen> {
                   const SizedBox(height: 10),
                   PracticeAreaSelector(
                     selectedAreas: _areas,
+                    // Áreas do cadastro antigo aparecem marcadas em vez de
+                    // sumirem: invisíveis, elas iam junto no salvamento e
+                    // voltavam recusadas, sem a pessoa poder ver a culpada.
+                    extraAreas: widget.firm.practiceAreas,
                     showError: _showAreaError,
                     selectedColor: colors.officePurple,
                     onChanged: (selected) => setState(() {

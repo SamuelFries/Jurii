@@ -706,5 +706,255 @@ class RuleBasedIntakeAIService implements IntakeAIService {
         reason: 'Registro oficial para investigação.',
       ),
     ],
+    // Áreas acrescentadas com a taxonomia de 39 (20260816120000). Área sem
+    // entrada aqui não quebra — cai em [_generalDocuments] —, mas o cliente
+    // chega na conversa sem o documento que decide o caso, e a primeira
+    // resposta do advogado vira "me manda tal papel".
+    'Direito das Sucessões': [
+      RecommendedDocument(
+        title: 'Certidão de óbito',
+        reason: 'Abre o inventário e conta o prazo legal.',
+      ),
+      RecommendedDocument(
+        title: 'Documentos dos bens (matrículas, extratos, veículos)',
+        reason: 'Definem o que entra na partilha.',
+      ),
+      RecommendedDocument(
+        title: 'Certidões de nascimento e casamento dos herdeiros',
+        reason: 'Provam quem tem direito à herança.',
+      ),
+      RecommendedDocument(
+        title: 'Testamento, se existir',
+        reason: 'Muda a forma e o rito do inventário.',
+      ),
+    ],
+    'Direito Bancário': [
+      RecommendedDocument(
+        title: 'Contrato do empréstimo ou financiamento',
+        reason: 'É onde estão os juros e as tarifas discutidos.',
+      ),
+      RecommendedDocument(
+        title: 'Extratos com os descontos questionados',
+        reason: 'Mostram o que foi cobrado e desde quando.',
+      ),
+      RecommendedDocument(
+        title: 'Protocolos de atendimento no banco',
+        reason: 'Comprovam a tentativa de resolver antes do processo.',
+      ),
+    ],
+    'Direito Médico e da Saúde': [
+      RecommendedDocument(
+        title: 'Prontuário e exames',
+        reason: 'Base técnica de qualquer discussão sobre o atendimento.',
+      ),
+      RecommendedDocument(
+        title: 'Relatório e pedido médico do tratamento',
+        reason: 'É o que obriga o plano ou o SUS a responder.',
+      ),
+      RecommendedDocument(
+        title: 'Negativa por escrito do plano de saúde',
+        reason: 'Sem ela o plano alega que nunca recusou.',
+      ),
+      RecommendedDocument(
+        title: 'Notas e comprovantes do que você pagou',
+        reason: 'Definem o valor a ser reembolsado.',
+      ),
+    ],
+    'Direito Administrativo': [
+      RecommendedDocument(
+        title: 'Edital e sua inscrição (concursos)',
+        reason: 'O edital é a regra que vincula a administração.',
+      ),
+      RecommendedDocument(
+        title: 'Publicação no diário oficial',
+        reason: 'Marca a data do ato e conta o prazo.',
+      ),
+      RecommendedDocument(
+        title: 'Processo administrativo ou auto de infração',
+        reason: 'Identifica exatamente o ato questionado.',
+      ),
+    ],
+    'Direito Securitário': [
+      RecommendedDocument(
+        title: 'Apólice completa',
+        reason: 'É onde estão as coberturas e as exclusões.',
+      ),
+      RecommendedDocument(
+        title: 'Aviso de sinistro e negativa da seguradora',
+        reason: 'Fixam a data do pedido e o motivo da recusa.',
+      ),
+      RecommendedDocument(
+        title: 'Comprovantes de pagamento do prêmio',
+        reason: 'Afastam a alegação de contrato suspenso.',
+      ),
+    ],
+    'Direito da Criança e do Adolescente': [
+      RecommendedDocument(
+        title: 'Certidão de nascimento da criança',
+        reason: 'Comprova filiação e idade.',
+      ),
+      RecommendedDocument(
+        title: 'Relatórios do conselho tutelar ou da escola',
+        reason: 'Registram o histórico que embasa a medida.',
+      ),
+      RecommendedDocument(
+        title: 'Laudos médicos ou psicológicos',
+        reason: 'Sustentam pedidos de proteção com urgência.',
+      ),
+    ],
+    'Direito do Idoso': [
+      RecommendedDocument(
+        title: 'Documento e comprovante de renda do idoso',
+        reason: 'Base de benefícios, prioridade e curatela.',
+      ),
+      RecommendedDocument(
+        title: 'Extratos com descontos ou empréstimos não reconhecidos',
+        reason: 'Mostram o abuso financeiro.',
+      ),
+      RecommendedDocument(
+        title: 'Laudos médicos',
+        reason: 'Fundamentam curatela e pedidos de tratamento.',
+      ),
+    ],
+    'Direito Ambiental': [
+      RecommendedDocument(
+        title: 'Auto de infração ou notificação do órgão ambiental',
+        reason: 'Define o que foi autuado e o prazo de defesa.',
+      ),
+      RecommendedDocument(
+        title: 'Licenças e CAR da área',
+        reason: 'Provam a regularidade do imóvel.',
+      ),
+      RecommendedDocument(
+        title: 'Fotos e imagens de satélite da área',
+        reason: 'Documentam o estado do local antes e depois.',
+      ),
+    ],
+    'Direito Agrário': [
+      RecommendedDocument(
+        title: 'Matrícula do imóvel rural e georreferenciamento',
+        reason: 'Definem limites e titularidade da terra.',
+      ),
+      RecommendedDocument(
+        title: 'Contrato de arrendamento ou parceria',
+        reason: 'Base da relação discutida.',
+      ),
+      RecommendedDocument(
+        title: 'Notas de safra e contratos de venda',
+        reason: 'Comprovam produção e prejuízo.',
+      ),
+    ],
+    'Direito Militar': [
+      RecommendedDocument(
+        title: 'Boletim interno ou nota de punição',
+        reason: 'É o ato que se pretende anular.',
+      ),
+      RecommendedDocument(
+        title: 'Documentos do processo disciplinar',
+        reason: 'Mostram se houve defesa e contraditório.',
+      ),
+      RecommendedDocument(
+        title: 'Laudos e juntas médicas',
+        reason: 'Base de reforma e incapacidade.',
+      ),
+    ],
+    'Direito Educacional': [
+      RecommendedDocument(
+        title: 'Contrato de prestação de serviço educacional',
+        reason: 'Fixa mensalidade, reajuste e regras do curso.',
+      ),
+      RecommendedDocument(
+        title: 'Histórico escolar e comprovante de matrícula',
+        reason: 'Provam a situação acadêmica discutida.',
+      ),
+      RecommendedDocument(
+        title: 'Comunicados da instituição',
+        reason: 'Registram a decisão que se quer reverter.',
+      ),
+    ],
+    'Direito Imigratório': [
+      RecommendedDocument(
+        title: 'Passaporte e vistos anteriores',
+        reason: 'Reconstroem o histórico migratório.',
+      ),
+      RecommendedDocument(
+        title: 'Protocolo ou decisão da Polícia Federal',
+        reason: 'Identifica o pedido e o motivo da recusa.',
+      ),
+      RecommendedDocument(
+        title: 'Certidões do país de origem, com apostilamento',
+        reason: 'Sem apostila o documento estrangeiro não é aceito.',
+      ),
+    ],
+    'Direito da Propriedade Intelectual': [
+      RecommendedDocument(
+        title: 'Registro ou pedido no INPI',
+        reason: 'Define desde quando o direito existe.',
+      ),
+      RecommendedDocument(
+        title: 'Provas do uso indevido (prints, fotos, anúncios)',
+        reason: 'Documentam a violação antes que ela suma.',
+      ),
+      RecommendedDocument(
+        title: 'Provas da sua própria autoria e do uso anterior',
+        reason: 'Sustentam o direito mesmo sem registro.',
+      ),
+    ],
+    'Direito Sindical': [
+      RecommendedDocument(
+        title: 'Convenção ou acordo coletivo vigente',
+        reason: 'É a norma que rege a categoria.',
+      ),
+      RecommendedDocument(
+        title: 'Atas de assembleia e editais',
+        reason: 'Provam a regularidade das decisões sindicais.',
+      ),
+      RecommendedDocument(
+        title: 'Comprovantes de descontos sindicais',
+        reason: 'Base da discussão sobre contribuição.',
+      ),
+    ],
+    'Direito Eleitoral': [
+      RecommendedDocument(
+        title: 'Certidões de quitação eleitoral e criminais',
+        reason: 'Definem a elegibilidade.',
+      ),
+      RecommendedDocument(
+        title: 'Prestação de contas e extratos da campanha',
+        reason: 'Base da defesa nas contas rejeitadas.',
+      ),
+      RecommendedDocument(
+        title: 'Provas da propaganda questionada',
+        reason: 'Registram o material antes de sair do ar.',
+      ),
+    ],
+    'Direito Notarial e Registral': [
+      RecommendedDocument(
+        title: 'Matrícula atualizada do imóvel',
+        reason: 'Mostra o que está registrado hoje.',
+      ),
+      RecommendedDocument(
+        title: 'Escrituras e contratos anteriores',
+        reason: 'Reconstroem a cadeia de titularidade.',
+      ),
+      RecommendedDocument(
+        title: 'Nota devolutiva do cartório',
+        reason: 'Diz exatamente o que o registro exigiu.',
+      ),
+    ],
+    'Direito Urbanístico': [
+      RecommendedDocument(
+        title: 'Alvará, projeto aprovado e habite-se',
+        reason: 'Provam a regularidade da construção.',
+      ),
+      RecommendedDocument(
+        title: 'Notificação ou embargo da prefeitura',
+        reason: 'Define o ato e o prazo de defesa.',
+      ),
+      RecommendedDocument(
+        title: 'Matrícula do imóvel e planta da área',
+        reason: 'Base de qualquer discussão sobre uso do solo.',
+      ),
+    ],
   };
 }
