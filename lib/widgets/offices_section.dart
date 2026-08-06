@@ -59,6 +59,25 @@ class _OfficesSectionState extends State<OfficesSection> {
   /// a escolha mais recente.
   int _sortGesture = 0;
 
+  /// Completando as páginas restantes para que a ordenação cubra o conjunto
+  /// inteiro, e não só a primeira página.
+  bool _isCompletingList = false;
+
+  /// A lista foi truncada pelo teto de páginas — a ordenação cobre só o que
+  /// coube. Dito na tela: ordenação que mente por baixo é pior que ordenação
+  /// que avisa.
+  bool _listaTruncada = false;
+
+  /// Teto de páginas ao completar a lista para ordenar.
+  ///
+  /// Ordenar por distância ou avaliação exige ter TODOS os candidatos na mão —
+  /// a ordem do servidor é por relevância, então o mais perto pode ser o 37º.
+  /// Com 40 escritórios em produção isso são 3 requisições. O teto existe para
+  /// o dia em que forem 5 mil: aí a lista para, a tela avisa, e a ordenação
+  /// vira assunto de servidor (decisão de produto, porque a posição do usuário
+  /// hoje nunca sai do aparelho).
+  static const int _maxPaginasAoCompletar = 20;
+
   bool get _shouldUseMock {
     if (!SupabaseConfig.isReady) return true;
     return SupabaseConfig.client.auth.currentUser == null;
@@ -111,8 +130,72 @@ class _OfficesSectionState extends State<OfficesSection> {
   bool get _showLocationChip =>
       !_shouldUseMock && _userPosition == null && !_locationChipDismissed;
 
-  /// Troca de ordenação em tempo real: o sort é client-side sobre a lista já
-  /// carregada — nenhuma ida ao servidor, a lista reordena na hora.
+  /// Ordenação sobre a lista INTEIRA precisa da lista inteira.
+  ///
+  /// O servidor entrega por relevância, 10 por página. Ordenar client-side só
+  /// o que está carregado responde a pergunta errada: "qual o mais perto DOS
+  /// DEZ PRIMEIROS" em vez de "qual o mais perto". O escritório mais próximo
+  /// pode estar atrás do "Ver mais" e só entrava na conta depois de carregado.
+  ///
+  /// Relevância não precisa: a ordem já é a do servidor, e o topo da página 1
+  /// é o topo do conjunto. No modo demo não há páginas a completar.
+  bool _precisaDaListaInteira(OfficeSort sort) =>
+      sortNeedsFullList(sort) && !_shouldUseMock;
+
+  Future<void> _completarLista(int gesture) async {
+    if (!_hasMore || _isCompletingList) return;
+
+    setState(() {
+      _isCompletingList = true;
+      _listaTruncada = false;
+    });
+
+    final generation = _generation;
+    var paginas = 0;
+
+    try {
+      while (_hasMore && paginas < _maxPaginasAoCompletar) {
+        final page = await widget.repository.fetchRecommendedLawFirms(
+          searchQuery: widget.searchQuery,
+          offset: _nextOffset,
+          limit: LawFirmRepository.nextPageSize,
+        );
+        // Busca trocada ou outra ordenação escolhida no meio: a resposta
+        // atrasada não pode mais mexer na tela.
+        if (!mounted || generation != _generation || gesture != _sortGesture) {
+          return;
+        }
+        paginas++;
+        setState(() {
+          _nextOffset += page.items.length;
+          _lawFirms = appendUniqueBy(
+            _lawFirms ?? const [],
+            page.items,
+            (office) => office.id,
+          );
+          _hasMore = page.hasMore;
+        });
+        // Servidor sem mais nada a entregar, mesmo dizendo que há: sem esta
+        // saída o laço giraria até o teto pedindo página vazia.
+        if (page.items.isEmpty) break;
+      }
+      if (!mounted || generation != _generation || gesture != _sortGesture) {
+        return;
+      }
+      setState(() => _listaTruncada = _hasMore);
+    } catch (_) {
+      if (!mounted || generation != _generation) return;
+      // O que já entrou fica e é ordenado; a tela avisa que a ordenação não
+      // cobre tudo, em vez de fingir que cobre.
+      setState(() => _listaTruncada = true);
+    } finally {
+      if (mounted) setState(() => _isCompletingList = false);
+    }
+  }
+
+  /// Troca de ordenação. Relevância reordena na hora (a ordem já é a do
+  /// servidor); avaliação e distância completam a lista antes, senão
+  /// ordenariam só a primeira página.
   Future<void> _changeSort(OfficeSort sort) async {
     if (sort == _sort) return;
     final gesture = ++_sortGesture;
@@ -153,10 +236,17 @@ class _OfficesSectionState extends State<OfficesSection> {
         _userPosition = position;
         _sort = sort;
       });
+      await _completarLista(gesture);
       return;
     }
 
-    setState(() => _sort = sort);
+    setState(() {
+      _sort = sort;
+      // Relevância nunca precisou do conjunto inteiro; manter o aviso aqui
+      // seria alarme sobre um problema que esta ordenação não tem.
+      if (!_precisaDaListaInteira(sort)) _listaTruncada = false;
+    });
+    if (_precisaDaListaInteira(sort)) await _completarLista(gesture);
   }
 
   @override
@@ -173,6 +263,8 @@ class _OfficesSectionState extends State<OfficesSection> {
       _lawFirms = null;
       _loadFailed = false;
       _hasMore = false;
+      // Aviso é sobre a lista ANTERIOR; busca nova recomeça sem ele.
+      _listaTruncada = false;
       // Sem zerar aqui, uma página 2 em voo da BUSCA ANTERIOR deixaria o
       // spinner preso para sempre: a resposta atrasada é descartada pela
       // guarda de geração ANTES de limpar a flag.
@@ -198,6 +290,9 @@ class _OfficesSectionState extends State<OfficesSection> {
         _hasMore = page.hasMore;
         _nextOffset = page.items.length;
       });
+      // Busca nova com ordenação por distância/avaliação já ativa: sem isto a
+      // ordenação voltaria a cobrir só os dez primeiros resultados da busca.
+      if (_precisaDaListaInteira(_sort)) await _completarLista(_sortGesture);
     } catch (_) {
       if (!mounted || generation != _generation) return;
       setState(() => _loadFailed = true);
@@ -205,7 +300,10 @@ class _OfficesSectionState extends State<OfficesSection> {
   }
 
   Future<void> _loadMore() async {
-    if (_isLoadingMore) return;
+    // Completar a lista já está paginando: os dois avançam _nextOffset, e
+    // juntos pulariam um bloco inteiro de escritórios — que então não
+    // apareceria para ninguém.
+    if (_isLoadingMore || _isCompletingList) return;
     final generation = _generation;
     setState(() => _isLoadingMore = true);
     try {
@@ -224,6 +322,8 @@ class _OfficesSectionState extends State<OfficesSection> {
           (office) => office.id,
         );
         _hasMore = page.hasMore;
+        // Chegou ao fim carregando à mão: a ordenação passou a cobrir tudo.
+        if (!_hasMore) _listaTruncada = false;
       });
     } catch (_) {
       if (!mounted || generation != _generation) return;
@@ -275,7 +375,11 @@ class _OfficesSectionState extends State<OfficesSection> {
               _SortChip(
                 label: sort.label,
                 selected: _sort == sort,
-                busy: _isLocating && sort == OfficeSort.distance,
+                // Gira enquanto pede o GPS ou enquanto completa a lista: são
+                // as duas esperas que antecedem a reordenação.
+                busy:
+                    (_isLocating && sort == OfficeSort.distance) ||
+                    (_isCompletingList && _sort == sort),
                 onTap: () => _changeSort(sort),
               ),
               if (sort != OfficeSort.values.last) const SizedBox(width: 8),
@@ -311,9 +415,9 @@ class _OfficesSectionState extends State<OfficesSection> {
       );
     }
 
-    // O sort é client-side sobre TUDO que já foi carregado: página nova
-    // entra e a lista inteira reordena (um escritório da página 2 com nota
-    // maior sobe para o topo em "Avaliação" — comportamento desejado).
+    // O sort é client-side, e por isso a lista precisa estar COMPLETA antes
+    // (ver _completarLista): ordenar só a primeira página responderia "qual o
+    // mais perto dos dez primeiros" em vez de "qual o mais perto".
     final lawFirms = sortLawFirms(
       loaded,
       _sort,
@@ -368,6 +472,10 @@ class _OfficesSectionState extends State<OfficesSection> {
               );
             },
           ),
+          if (_listaTruncada) ...[
+            const SizedBox(height: 12),
+            _AvisoDeOrdenacaoParcial(sort: _sort),
+          ],
           if (_hasMore) ...[
             const SizedBox(height: 12),
             DiscoveryLoadMoreButton(
@@ -376,6 +484,50 @@ class _OfficesSectionState extends State<OfficesSection> {
               onPressed: _loadMore,
             ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Aviso de que a ordenação não cobre a lista inteira.
+///
+/// Só aparece quando completar a lista falhou ou bateu no teto de páginas.
+/// Ordenação que mente por baixo — dizendo "mais perto" sobre um recorte — é
+/// pior que ordenação que avisa: o cliente escolhe advogado com base nela.
+class _AvisoDeOrdenacaoParcial extends StatelessWidget {
+  const _AvisoDeOrdenacaoParcial({required this.sort});
+
+  final OfficeSort sort;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.jColors;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colors.lightGold,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: colors.lightGoldBorder),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.info_outline, size: 16, color: colors.accent),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'A ordenação por ${sort.label.toLowerCase()} cobre os '
+              'escritórios já carregados. Toque em "Ver mais" para incluir o '
+              'restante.',
+              style: TextStyle(
+                color: colors.textSecondary,
+                fontSize: 12,
+                height: 1.35,
+              ),
+            ),
+          ),
         ],
       ),
     );

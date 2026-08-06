@@ -118,4 +118,60 @@ void main() {
       ]);
     },
   );
+
+  group('ordenar exige a lista inteira', () {
+    // O servidor entrega por relevância, 10 por página; em produção há 40
+    // escritórios. Ordenar client-side só a página carregada respondia "qual
+    // o mais perto DOS DEZ PRIMEIROS" — o mais próximo podia estar atrás do
+    // "Ver mais" e só entrava na conta depois de carregado.
+    test('distância e avaliação precisam; relevância não', () {
+      expect(sortNeedsFullList(OfficeSort.distance), isTrue);
+      expect(sortNeedsFullList(OfficeSort.rating), isTrue);
+
+      // A ordem já é a do servidor: o topo da página 1 é o topo do conjunto,
+      // e completar a lista só gastaria requisição.
+      expect(sortNeedsFullList(OfficeSort.relevance), isFalse);
+    });
+
+    test('todo método novo precisa decidir de que lado está', () {
+      // Barreira: acrescentar um critério ao enum sem passar por aqui o
+      // deixaria ordenando um recorte em silêncio.
+      for (final sort in OfficeSort.values) {
+        expect(
+          sortNeedsFullList(sort),
+          sort == OfficeSort.relevance ? isFalse : isTrue,
+          reason: 'decida se ${sort.name} ordena sobre o conjunto ou o recorte',
+        );
+      }
+    });
+
+    test('o mais perto pode estar fora da primeira página', () {
+      // Prova de que o recorte muda a RESPOSTA, não só a ordem: o escritório
+      // mais próximo é o último da ordem de relevância.
+      final pagina1 = [
+        _firm('a', lat: -30.10, lng: -51.20),
+        _firm('b', lat: -30.20, lng: -51.20),
+      ];
+      final pagina2 = [_firm('c', lat: -30.01, lng: -51.20)];
+
+      const lat = -30.0;
+      const lon = -51.2;
+
+      final soPagina1 = sortLawFirms(
+        pagina1,
+        OfficeSort.distance,
+        userLatitude: lat,
+        userLongitude: lon,
+      );
+      expect(soPagina1.first.id, 'a', reason: 'o melhor do recorte');
+
+      final completa = sortLawFirms(
+        [...pagina1, ...pagina2],
+        OfficeSort.distance,
+        userLatitude: lat,
+        userLongitude: lon,
+      );
+      expect(completa.first.id, 'c', reason: 'o melhor de verdade');
+    });
+  });
 }

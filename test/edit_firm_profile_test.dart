@@ -105,7 +105,14 @@ class _FakeFirmProfileRepository implements LawFirmProfileRepository {
 /// Geocodificação previsível: devolve sempre a mesma coordenada, e conta
 /// quantas vezes foi chamada.
 class _FakeCepService implements CepService {
+  _FakeCepService({this.semCoordenada = false});
+
   static const endereco = 'Av. Ipiranga, Praia de Belas, Porto Alegre';
+
+  /// Geocodificação que não resolve (BrasilAPI fora do ar, ou CEP de cidade
+  /// inteira, que não tem coordenada).
+  final bool semCoordenada;
+
   int chamadas = 0;
   int buscasCompletas = 0;
 
@@ -115,6 +122,7 @@ class _FakeCepService implements CepService {
   @override
   Future<CepCoordinates?> lookup(String cep) async {
     chamadas++;
+    if (semCoordenada) return null;
     return const CepCoordinates(latitude: -30.03, longitude: -51.22);
   }
 
@@ -122,6 +130,7 @@ class _FakeCepService implements CepService {
   Future<CepLookup?> lookupFull(String cep) async {
     buscasCompletas++;
     chamadas++;
+    if (semCoordenada) return const CepLookup();
     final partes = endereco.split(', ');
     return CepLookup(
       coordinates: const CepCoordinates(latitude: -30.03, longitude: -51.22),
@@ -524,6 +533,129 @@ void main() {
       // "Uma das áreas não é válida" deixava a pessoa procurando qual — foi
       // exatamente o que aconteceu em uso.
       expect(find.textContaining('Direito Bancário'), findsWidgets);
+    });
+  });
+
+  group('coordenada da distância', () {
+    // Em produção, 40 escritórios têm CEP e só UM tem coordenada: as
+    // verificações antigas gravaram o CEP sem geocodificar. Sem cuidado aqui,
+    // esses 39 ficariam fora da ordenação por distância para sempre.
+    const semCoordenada = LawFirm(
+      id: 'f1',
+      name: 'Firma Antiga',
+      initials: 'FA',
+      rating: 4.8,
+      distance: '',
+      specialty: 'Direito Cível',
+      practiceAreas: ['Direito Cível'],
+      reviews: 12,
+      avatarType: 'blue',
+      phone: '5133334444',
+      address: 'Rua Velha, 10',
+      cep: '90000000',
+    );
+
+    testWidgets('CEP igual e SEM coordenada: geocodifica e recupera', (
+      tester,
+    ) async {
+      final repo = _FakeFirmProfileRepository();
+      final cep = _FakeCepService();
+      await tester.pumpWidget(app(repo, cep: cep, firm: semCoordenada));
+      await tester.pumpAndSettle();
+
+      // Ninguém mexe no CEP: corrige só o telefone.
+      await tester.enterText(find.byType(TextFormField).at(2), '51988887777');
+      await tester.ensureVisible(find.text('Salvar'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Salvar'));
+      await tester.pumpAndSettle();
+
+      // Sem isto o escritório nunca voltaria para a distância — nem salvando
+      // de novo, porque o CEP não mudou.
+      expect(cep.chamadas, greaterThan(0));
+      expect(repo.recebido?['latitude'], -30.03);
+      expect(repo.recebido?['longitude'], -51.22);
+    });
+
+    testWidgets('CEP igual e COM coordenada: não gasta geocodificação', (
+      tester,
+    ) async {
+      final repo = _FakeFirmProfileRepository();
+      final cep = _FakeCepService();
+      await tester.pumpWidget(app(repo, cep: cep));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextFormField).first, 'Nome Novo');
+      await tester.ensureVisible(find.text('Salvar'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Salvar'));
+      await tester.pumpAndSettle();
+
+      // Uma chamada de rede por gravação, para reconfirmar o que já se sabe,
+      // é desperdício — e a coordenada tem que sobreviver intacta.
+      expect(cep.chamadas, 0);
+      expect(repo.recebido?['latitude'], -30.0);
+      expect(repo.recebido?['longitude'], -51.0);
+    });
+
+    testWidgets('CEP MUDOU e a consulta falhou: coordenada antiga NÃO fica', (
+      tester,
+    ) async {
+      final repo = _FakeFirmProfileRepository();
+      final cep = _FakeCepService(semCoordenada: true);
+      await tester.pumpWidget(app(repo, cep: cep));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextFormField).at(6), '90160091');
+      await tester.ensureVisible(find.text('Salvar'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Salvar'));
+      await tester.pumpAndSettle();
+
+      // Manter a coordenada do endereço de onde o escritório SAIU é pior que
+      // não ter distância: ele apareceria plotado no lugar errado.
+      expect(repo.recebido?['cep'], '90160091');
+      expect(repo.recebido?['latitude'], isNull);
+      expect(repo.recebido?['longitude'], isNull);
+    });
+
+    testWidgets('CEP igual, sem coordenada, consulta falhou: salva mesmo assim', (
+      tester,
+    ) async {
+      final repo = _FakeFirmProfileRepository();
+      final cep = _FakeCepService(semCoordenada: true);
+      await tester.pumpWidget(app(repo, cep: cep, firm: semCoordenada));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextFormField).first, 'Nome Novo');
+      await tester.ensureVisible(find.text('Salvar'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Salvar'));
+      await tester.pumpAndSettle();
+
+      // Best-effort: a BrasilAPI fora do ar não pode impedir o gestor de
+      // corrigir o nome do escritório.
+      expect(repo.chamadas, 1);
+      expect(repo.recebido?['name'], 'Nome Novo');
+      expect(repo.recebido?['latitude'], isNull);
+    });
+
+    testWidgets('apagar o CEP zera a coordenada', (tester) async {
+      final repo = _FakeFirmProfileRepository();
+      await tester.pumpWidget(app(repo));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextFormField).at(6), '');
+      await tester.ensureVisible(find.text('Salvar'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Salvar'));
+      await tester.pumpAndSettle();
+
+      // Coordenada órfã de um endereço que já não existe colocaria o
+      // escritório na distância errada da descoberta.
+      expect(repo.recebido?['cep'], isNull);
+      expect(repo.recebido?['latitude'], isNull);
+      expect(repo.recebido?['longitude'], isNull);
     });
   });
 

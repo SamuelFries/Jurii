@@ -63,5 +63,44 @@ class LawFirm {
     this.longitude,
   });
 
+  /// Escritório montado a partir da própria verificação aprovada.
+  ///
+  /// Caminho de exceção: só é usado quando a linha de `law_firms` não pôde ser
+  /// lida (modo demo, sem Supabase). Carrega telefone, e-mail e endereço da
+  /// verificação de propósito — é o mesmo formulário do lápis que consome este
+  /// objeto, e campo que chega nulo aqui abre vazio lá.
+  factory LawFirm.fromApprovedVerification({
+    required String id,
+    required String firmName,
+    required String initials,
+    required String specialty,
+    required List<String> practiceAreas,
+    required String phone,
+    required String email,
+    required String address,
+    String? avatarUrl,
+  }) {
+    String? naoVazio(String value) {
+      final texto = value.trim();
+      return texto.isEmpty ? null : texto;
+    }
+
+    return LawFirm(
+      id: id,
+      name: firmName,
+      initials: initials,
+      rating: 0,
+      distance: '',
+      specialty: specialty,
+      practiceAreas: practiceAreas,
+      reviews: 0,
+      avatarType: 'purple',
+      avatarUrl: avatarUrl,
+      phone: naoVazio(phone),
+      email: naoVazio(email),
+      address: naoVazio(address),
+    );
+  }
+
   bool get hasCoordinates => latitude != null && longitude != null;
 }
