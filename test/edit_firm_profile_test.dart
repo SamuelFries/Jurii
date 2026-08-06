@@ -26,14 +26,18 @@ const _firma = LawFirm(
 );
 
 class _FakeFirmProfileRepository implements LawFirmProfileRepository {
-  _FakeFirmProfileRepository({this.erro});
+  _FakeFirmProfileRepository({this.erro, this.cnpj = '12345678000190'});
 
   final Object? erro;
+  final String? cnpj;
   Map<String, Object?>? recebido;
   int chamadas = 0;
 
   @override
   LawFirmLogoStorage get logoStorage => const LawFirmLogoStorage();
+
+  @override
+  Future<String?> fetchCnpj(String lawFirmId) async => cnpj;
 
   @override
   Future<LawFirm> updateProfile({
@@ -175,7 +179,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // Mexe só no telefone: o CEP fica como estava.
-    await tester.enterText(find.byType(TextFormField).at(1), '51988887777');
+    await tester.enterText(find.byType(TextFormField).at(2), '51988887777');
     await tester.ensureVisible(find.text('Salvar'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Salvar'));
@@ -191,7 +195,7 @@ void main() {
     await tester.pumpWidget(app(repo, cep: cep));
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(TextFormField).at(5), '90160091');
+    await tester.enterText(find.byType(TextFormField).at(6), '90160091');
     await tester.ensureVisible(find.text('Salvar'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Salvar'));
@@ -209,7 +213,7 @@ void main() {
     await tester.pumpWidget(app(repo));
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(TextFormField).at(5), '');
+    await tester.enterText(find.byType(TextFormField).at(6), '');
     await tester.ensureVisible(find.text('Salvar'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Salvar'));
@@ -225,7 +229,7 @@ void main() {
     await tester.pumpWidget(app(repo));
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(TextFormField).at(5), '123');
+    await tester.enterText(find.byType(TextFormField).at(6), '123');
     await tester.ensureVisible(find.text('Salvar'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Salvar'));
@@ -316,7 +320,7 @@ void main() {
     // Digitar rua, bairro e cidade que o CEP já determina é trabalho repetido
     // — e digitado errado deixa o cadastro dizendo uma coisa e a coordenada
     // apontando outra.
-    await tester.enterText(find.byType(TextFormField).at(5), '90160091');
+    await tester.enterText(find.byType(TextFormField).at(6), '90160091');
     await tester.tap(find.byType(TextFormField).at(0));
     await tester.pumpAndSettle();
 
@@ -334,7 +338,7 @@ void main() {
     await tester.pumpWidget(app(repo));
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(TextFormField).at(5), '90160091');
+    await tester.enterText(find.byType(TextFormField).at(6), '90160091');
     await tester.tap(find.byType(TextFormField).at(0));
     await tester.pumpAndSettle();
 
@@ -378,7 +382,7 @@ void main() {
     await tester.pumpWidget(app(repo));
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(TextFormField).at(3), 'weber.com.br');
+    await tester.enterText(find.byType(TextFormField).at(4), 'weber.com.br');
     await tester.ensureVisible(find.text('Salvar'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Salvar'));
@@ -386,5 +390,40 @@ void main() {
 
     // Sem esquema a URL não abre: vira busca no navegador, ou nada.
     expect(repo.recebido?['websiteUrl'], 'https://weber.com.br');
+  });
+
+  testWidgets('o CNPJ aparece formatado e travado', (tester) async {
+    await tester.pumpWidget(app(_FakeFirmProfileRepository()));
+    await tester.pumpAndSettle();
+
+    // Mostrar travado explica melhor do que simplesmente não ter o campo, que
+    // pareceria esquecimento.
+    expect(find.text('12.345.678/0001-90'), findsOneWidget);
+
+    final campo = tester.widget<TextFormField>(
+      find.byKey(const Key('firm_cnpj_field')),
+    );
+    expect(campo.enabled, isFalse);
+  });
+
+  testWidgets('sem verificação aprovada o campo fica vazio, não quebra', (
+    tester,
+  ) async {
+    await tester.pumpWidget(app(_FakeFirmProfileRepository(cnpj: null)));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('firm_cnpj_field')), findsOneWidget);
+    expect(find.text('12.345.678/0001-90'), findsNothing);
+  });
+
+  testWidgets('o CNPJ não conta como alteração', (tester) async {
+    final repo = _FakeFirmProfileRepository();
+    await tester.pumpWidget(app(repo));
+    await tester.pumpAndSettle();
+
+    // Ele chega depois do primeiro build, por uma consulta própria: se
+    // entrasse no cálculo, o botão de salvar ligaria sozinho ao carregar.
+    final botao = tester.widget<ElevatedButton>(find.byType(ElevatedButton));
+    expect(botao.onPressed, isNull);
   });
 }

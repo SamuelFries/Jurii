@@ -11,6 +11,7 @@ import '../models/user_profile.dart';
 import '../repositories/law_firm_verification_repository.dart';
 import '../services/cep_service.dart';
 import '../utils/cep_input_formatter.dart';
+import '../utils/cnpj_input_formatter.dart';
 import '../utils/phone_input_formatter.dart';
 import '../services/supabase_config.dart';
 import '../theme/app_colors.dart';
@@ -192,7 +193,7 @@ class _LawFirmVerificationFormScreenState
                 controller: cnpjController,
                 keyboardType: TextInputType.number,
                 inputFormatters: [
-                  _CnpjInputFormatter(),
+                  const CnpjInputFormatter(),
                   LengthLimitingTextInputFormatter(18),
                 ],
                 decoration: InputDecoration(
@@ -759,36 +760,5 @@ class _LawFirmVerificationFormScreenState
       return 'Faça login novamente para enviar o cadastro do escritório.';
     }
     return 'Não foi possível enviar o cadastro do escritório. Tente novamente.';
-  }
-}
-
-class _CnpjInputFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
-    final digits = newValue.text.replaceAll(RegExp(r'\D'), '');
-    final limitedDigits = digits.length > 14 ? digits.substring(0, 14) : digits;
-    final formattedCnpj = _formatCnpj(limitedDigits);
-    return TextEditingValue(
-      text: formattedCnpj,
-      selection: TextSelection.collapsed(offset: formattedCnpj.length),
-    );
-  }
-
-  String _formatCnpj(String digits) {
-    final buffer = StringBuffer();
-    for (var index = 0; index < digits.length; index++) {
-      if (index == 2 || index == 5) {
-        buffer.write('.');
-      } else if (index == 8) {
-        buffer.write('/');
-      } else if (index == 12) {
-        buffer.write('-');
-      }
-      buffer.write(digits[index]);
-    }
-    return buffer.toString();
   }
 }

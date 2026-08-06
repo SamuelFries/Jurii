@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import '../services/cep_service.dart';
 import '../theme/app_colors.dart';
 import '../utils/cep_input_formatter.dart';
+import '../utils/cnpj_input_formatter.dart';
 import '../utils/firm_profile_form.dart';
 import '../utils/phone_input_formatter.dart';
 import '../utils/profile_avatar_validation.dart';
@@ -63,6 +64,10 @@ class _EditFirmProfileScreenState extends State<EditFirmProfileScreen> {
 
   bool _showAreaError = false;
   bool _isLookingUpCep = false;
+
+  /// CNPJ verificado, só para leitura. Nulo enquanto carrega e quando não há
+  /// verificação aprovada.
+  String? _cnpj;
 
   /// Coordenadas já resolvidas para [_cepConsultado]. A consulta ao sair do
   /// campo e a de salvar pediriam o MESMO CEP à BrasilAPI duas vezes; guardar
@@ -156,6 +161,13 @@ class _EditFirmProfileScreenState extends State<EditFirmProfileScreen> {
     for (final controller in _controllers) {
       controller.addListener(_onFieldChanged);
     }
+    _carregarCnpj();
+  }
+
+  Future<void> _carregarCnpj() async {
+    final cnpj = await widget.repository.fetchCnpj(widget.firm.id);
+    if (!mounted) return;
+    setState(() => _cnpj = cnpj);
   }
 
   void _onFieldChanged() {
@@ -364,6 +376,30 @@ class _EditFirmProfileScreenState extends State<EditFirmProfileScreen> {
                         (value == null || value.trim().isEmpty)
                         ? 'Informe o nome do escritório'
                         : null,
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Só leitura: o CNPJ é o dado VERIFICADO do escritório, e
+                  // mudá-lo seria mudar de empresa — não é correção de
+                  // cadastro, é nova verificação. Mostrar travado explica isso
+                  // melhor do que simplesmente não ter o campo, que pareceria
+                  // esquecimento.
+                  TextFormField(
+                    key: const Key('firm_cnpj_field'),
+                    enabled: false,
+                    readOnly: true,
+                    controller: TextEditingController(
+                      text: _cnpj == null ? '' : formatCnpj(_cnpj!),
+                    ),
+                    decoration: InputDecoration(
+                      labelText: 'CNPJ',
+                      prefixIcon: const Icon(Icons.badge_outlined),
+                      suffixIcon: Icon(Icons.lock_outline, color: colors.muted),
+                      helperText:
+                          'Verificado. Para corrigi-lo é preciso uma nova '
+                          'verificação do escritório.',
+                      hintText: _cnpj == null ? 'Carregando…' : null,
+                    ),
                   ),
                   const SizedBox(height: 16),
 

@@ -67,6 +67,33 @@ class LawFirmProfileRepository {
 
   final LawFirmLogoStorage logoStorage;
 
+  /// CNPJ verificado do escritório, para exibição.
+  ///
+  /// Vem de `law_firm_verifications`, e não de `law_firms`: copiá-lo para a
+  /// tabela do escritório o colocaria a um `select` de distância de vazar nos
+  /// RPCs de descoberta, que devolvem law_firms para qualquer cliente. O
+  /// servidor só o entrega a quem já pode editar o cadastro.
+  ///
+  /// Devolve `null` em silêncio quando não há verificação aprovada ou quem
+  /// pediu não é gestor: é um campo informativo, e derrubar a tela de edição
+  /// por causa dele seria trocar um problema por um pior.
+  Future<String?> fetchCnpj(String lawFirmId) async {
+    if (!SupabaseConfig.isReady ||
+        SupabaseConfig.client.auth.currentUser == null) {
+      return null;
+    }
+    try {
+      final cnpj = await SupabaseConfig.client.rpc(
+        'fetch_law_firm_cnpj',
+        params: {'law_firm_id_value': lawFirmId},
+      );
+      return (cnpj as String?)?.trim().isEmpty ?? true ? null : cnpj as String;
+    } catch (error) {
+      debugPrint('Firm cnpj fetch failed: $error');
+      return null;
+    }
+  }
+
   /// Grava o cadastro. O servidor repete cada validação e é quem decide se
   /// quem chamou fala pelo escritório.
   Future<LawFirm> updateProfile({

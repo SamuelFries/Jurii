@@ -9,7 +9,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(20);
+select plan(24);
 
 insert into auth.users (id, aud, role, email, encrypted_password,
   email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
@@ -205,6 +205,60 @@ select is(
     null, null, null, null, null, 'remove')),
   null,
   'remove limpa o logo');
+
+-- ---------------------------------------------------------------------------
+-- CNPJ: visivel para quem edita, invisivel para o resto
+-- ---------------------------------------------------------------------------
+
+reset role;
+
+insert into public.law_firm_verifications
+  (id, owner_profile_id, law_firm_id, firm_name, cnpj, phone, email, address,
+   practice_areas, status, reviewed_at)
+values
+  ('e6000000-0000-0000-0000-000000000001',
+   'e9000000-0000-0000-0000-000000000001',
+   'e8000000-0000-0000-0000-000000000001', 'Weber e Silva',
+   '12345678000190', '5133334444', 'c@w.com', 'Rua', array['Direito Cível'],
+   'approved', now());
+
+select set_config('request.jwt.claim.sub', 'e9000000-0000-0000-0000-000000000001', true);
+set local role authenticated;
+
+select is(
+  public.fetch_law_firm_cnpj('e8000000-0000-0000-0000-000000000001'),
+  '12345678000190',
+  'gestor ve o CNPJ do proprio escritorio');
+
+reset role;
+select set_config('request.jwt.claim.sub', 'e9000000-0000-0000-0000-000000000002', true);
+set local role authenticated;
+
+-- O CNPJ nao esta em law_firms de proposito: copiar para la o colocaria a um
+-- select de distancia de vazar nos RPCs de descoberta.
+select is(
+  public.fetch_law_firm_cnpj('e8000000-0000-0000-0000-000000000001'),
+  null,
+  'secretaria nao ve o CNPJ');
+
+reset role;
+select set_config('request.jwt.claim.sub', 'e9000000-0000-0000-0000-000000000003', true);
+set local role authenticated;
+
+select is(
+  public.fetch_law_firm_cnpj('e8000000-0000-0000-0000-000000000001'),
+  null,
+  'quem nao e do escritorio nao ve o CNPJ');
+
+reset role;
+
+select ok(
+  not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'law_firms'
+      and column_name = 'cnpj'
+  ),
+  'law_firms continua SEM coluna de cnpj — a descoberta nunca o devolve');
 
 -- ---------------------------------------------------------------------------
 -- Grants
