@@ -272,9 +272,12 @@ select ok(
     'public.fetch_recommended_lawyers(int, text, int)', 'execute'),
   'authenticated executa fetch_recommended_lawyers paginada');
 
+-- A de escritorios ganhou ordenacao no servidor (20260817120000): mais tres
+-- argumentos, todos com default.
 select ok(
   has_function_privilege('authenticated',
-    'public.fetch_recommended_law_firms(int, text, int)', 'execute'),
+    'public.fetch_recommended_law_firms(int, text, int, text, double precision, double precision)',
+    'execute'),
   'authenticated executa fetch_recommended_law_firms paginada');
 
 select ok(
@@ -284,7 +287,8 @@ select ok(
 
 select ok(
   not has_function_privilege('anon',
-    'public.fetch_recommended_law_firms(int, text, int)', 'execute'),
+    'public.fetch_recommended_law_firms(int, text, int, text, double precision, double precision)',
+    'execute'),
   'anon NAO executa fetch_recommended_law_firms');
 
 select * from finish();

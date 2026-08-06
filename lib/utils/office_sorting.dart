@@ -5,31 +5,56 @@ import 'geo_distance.dart';
 enum OfficeSort {
   /// A ordem do servidor: posições patrocinadas no topo + relevância da busca
   /// + nota. É o padrão.
-  relevance('Relevância'),
+  relevance('Relevância', 'relevance'),
 
   /// Melhor avaliação primeiro (nota, depois volume de avaliações).
-  rating('Avaliação'),
+  rating('Avaliação', 'rating'),
 
   /// Mais perto primeiro. Exige a posição do usuário.
-  distance('Distância');
+  distance('Distância', 'distance');
 
-  const OfficeSort(this.label);
+  const OfficeSort(this.label, this.serverValue);
+
   final String label;
+
+  /// O que vai em `sort_value` na RPC. Separado do rótulo de propósito: o
+  /// texto da tela é PT-BR e pode mudar por decisão de copy; o contrato com o
+  /// banco não pode mudar junto.
+  final String serverValue;
 }
 
-/// `true` quando ordenar por [sort] exige ter a lista INTEIRA na mão.
+/// Os parâmetros de ordenação que vão para a RPC da descoberta.
 ///
-/// O servidor entrega por relevância, em páginas. Ordenar client-side só o que
-/// já foi carregado responde a pergunta errada — "qual o mais perto DOS DEZ
-/// PRIMEIROS" em vez de "qual o mais perto" —, e o escritório mais próximo
-/// pode estar atrás do "Ver mais".
+/// Existe separado da chamada para ser exercitável sem servidor — o que
+/// importa aqui é uma regra de PRIVACIDADE, e regra de privacidade não pode
+/// depender de alguém lembrar dela ao escrever o `params:`.
 ///
-/// Relevância é a exceção: a ordem já é a do servidor, então o topo da
-/// primeira página é o topo do conjunto e não há o que completar.
-bool sortNeedsFullList(OfficeSort sort) => sort != OfficeSort.relevance;
+/// A posição do usuário só viaja quando a ordenação PEDIDA precisa dela.
+/// Mandar coordenada junto de "Avaliação" seria enviar localização para uma
+/// pergunta que não é sobre localização.
+Map<String, Object> discoverySortParams(
+  OfficeSort sort, {
+  double? userLatitude,
+  double? userLongitude,
+}) {
+  final params = <String, Object>{'sort_value': sort.serverValue};
+  if (sort != OfficeSort.distance) return params;
+  // Meia coordenada não ordena nada, e o servidor a descartaria de qualquer
+  // forma; não enviar é o mesmo resultado com um dado a menos no fio.
+  if (userLatitude == null || userLongitude == null) return params;
+  params['user_latitude'] = userLatitude;
+  params['user_longitude'] = userLongitude;
+  return params;
+}
 
-/// Ordena a lista da descoberta SEM tocar no servidor — a troca de método é
-/// instantânea (client-side) e reaproveita os dados já carregados.
+/// Ordena a lista já carregada.
+///
+/// Desde a 20260817120000 quem ordena de verdade é o SERVIDOR: só ele vê o
+/// conjunto inteiro, e ordenar client-side uma lista paginada respondia "qual
+/// o mais perto DOS DEZ PRIMEIROS". Esta função continua existindo para o modo
+/// demo (mocks, sem servidor) e como rede de segurança contra um servidor que
+/// devolva a ordem antiga durante a janela de deploy — sobre a página já
+/// carregada, ordenar de novo não piora nada.
 ///
 /// Decisão de produto: o boost do destaque pago vive APENAS na ordenação por
 /// relevância (a ordem do servidor). Quando o usuário escolhe explicitamente

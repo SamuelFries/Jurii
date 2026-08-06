@@ -6,6 +6,7 @@ import '../models/discovery_page.dart';
 import '../models/law_firm.dart';
 import '../services/supabase_config.dart';
 import '../utils/discovery_pagination.dart';
+import '../utils/office_sorting.dart';
 import 'discovery_metrics_repository.dart';
 
 class LawFirmRepository {
@@ -22,6 +23,9 @@ class LawFirmRepository {
     String searchQuery = '',
     int offset = 0,
     int limit = firstPageSize,
+    OfficeSort sort = OfficeSort.relevance,
+    double? userLatitude,
+    double? userLongitude,
   }) async {
     try {
       final rows = await SupabaseConfig.client.rpc(
@@ -31,6 +35,17 @@ class LawFirmRepository {
           'limit_value': limit + 1,
           'search_value': searchQuery,
           'offset_value': offset,
+          // Ordenar no SERVIDOR é o que faz a ordem valer sobre o conjunto
+          // inteiro: client-side, "mais perto" significava "mais perto dos
+          // dez primeiros", porque a lista chega paginada.
+          //
+          // Quais parâmetros viajam (e quando a posição do usuário viaja
+          // junto) é decidido em discoverySortParams, que é testado.
+          ...discoverySortParams(
+            sort,
+            userLatitude: userLatitude,
+            userLongitude: userLongitude,
+          ),
         },
       );
 
