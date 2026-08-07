@@ -29,11 +29,16 @@ class LawFirmVerificationFormScreen extends StatefulWidget {
     required this.user,
     this.onVerificationSubmitted,
     this.repository = const LawFirmVerificationRepository(),
+    this.cepService = const CepService(),
   });
 
   final UserProfile user;
   final ValueChanged<LawFirmVerification>? onVerificationSubmitted;
   final LawFirmVerificationRepository repository;
+
+  /// Injetável para o teste exercitar o preenchimento sem ir à rede — mesmo
+  /// contrato da tela de edição do cadastro.
+  final CepService cepService;
 
   @override
   State<LawFirmVerificationFormScreen> createState() =>
@@ -56,6 +61,21 @@ class _LawFirmVerificationFormScreenState
   final Map<String, PendingVerificationUpload> _pickedFiles = {};
   PendingVerificationUpload? _profilePhoto;
   bool _demoProfilePhotoSelected = false;
+
+  /// Consulta de CEP em andamento (evita duas para o mesmo CEP quando o blur
+  /// e o envio disparam quase juntos, em ordem que varia).
+  Future<void>? _cepEmCurso;
+  bool _consultandoCep = false;
+
+  /// Resultado da última consulta, guardado por CEP. É daqui que saem tanto o
+  /// endereço preenchido quanto as coordenadas do envio — uma consulta só.
+  CepLookup? _resultadoDoCep;
+  String? _cepConsultado;
+
+  /// O CEP tem 8 dígitos e a consulta não trouxe nada. Sem isto a falha morre
+  /// num `debugPrint`, que não existe em release: a pessoa fica olhando um
+  /// campo que não preenche e não sabe se esperou pouco ou digitou errado.
+  bool _cepNaoEncontrado = false;
 
   bool get formIsValid {
     return _dataStepComplete &&
@@ -124,6 +144,53 @@ class _LawFirmVerificationFormScreenState
   ];
 
   void _handleTextChanged() => setState(() {});
+
+  /// Busca o endereço do CEP e preenche os campos que o CEP determina.
+  ///
+  /// O endereço JÁ vinha nesta chamada e era jogado fora: o envio usava
+  /// `CepService.lookup`, que por dentro é `lookupFull(...)?.coordinates`.
+  /// Resultado: o escritório digitava à mão os ~70 caracteres de
+  /// "Rua Germano Petersen Júnior, 70 - 1102, Auxiliadora, Porto Alegre - RS"
+  /// enquanto o app tinha a rua, o bairro, a cidade e a UF na resposta. Agora
+  /// o que sobra para digitar é o número e o complemento.
+  Future<void> _lookupCep() {
+    final busca = _lookupCepInterno();
+    _cepEmCurso = busca;
+    return busca;
+  }
+
+  Future<void> _lookupCepInterno() async {
+    final digits = _onlyDigits(cepController.text);
+    // Foco entra e sai mais de uma vez num preenchimento normal; sem esta
+    // guarda, cada ida e volta custaria outra consulta do MESMO CEP.
+    if (digits.length != 8 || _consultandoCep || digits == _cepConsultado) {
+      return;
+    }
+
+    setState(() {
+      _consultandoCep = true;
+      _cepNaoEncontrado = false;
+    });
+    try {
+      final resultado = await widget.cepService.lookupFull(digits);
+      if (!mounted) return;
+
+      setState(() {
+        _cepConsultado = digits;
+        _resultadoDoCep = resultado;
+        _cepNaoEncontrado = resultado == null;
+      });
+
+      final endereco = resultado?.formattedAddress ?? '';
+      // Só preenche o que está VAZIO: sobrescrever apagaria o número e o
+      // complemento, que o CEP não sabe.
+      if (endereco.isNotEmpty && addressController.text.trim().isEmpty) {
+        setState(() => addressController.text = endereco);
+      }
+    } finally {
+      if (mounted) setState(() => _consultandoCep = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -234,6 +301,7 @@ class _LawFirmVerificationFormScreenState
               ),
               const SizedBox(height: 14),
               TextField(
+                key: const Key('firm_verification_address_field'),
                 controller: addressController,
                 textCapitalization: TextCapitalization.words,
                 decoration: InputDecoration(
@@ -245,7 +313,14 @@ class _LawFirmVerificationFormScreenState
                 ),
               ),
               const SizedBox(height: 14),
-              TextField(
+              Focus(
+                // Busca ao SAIR do campo, e não a cada tecla: uma chamada de
+                // rede por dígito seriam oito para digitar um CEP.
+                onFocusChange: (temFoco) {
+                  if (!temFoco) _lookupCep();
+                },
+                child: TextField(
+                key: const Key('firm_verification_cep_field'),
                 controller: cepController,
                 keyboardType: TextInputType.number,
                 inputFormatters: [
@@ -254,11 +329,25 @@ class _LawFirmVerificationFormScreenState
                 ],
                 decoration: InputDecoration(
                   hintText: 'CEP do escritório',
-                  helperText:
-                      'Usado para mostrar a distância até clientes próximos.',
+                  helperText: _cepNaoEncontrado
+                      ? 'Não encontramos esse CEP. Confira, ou preencha o '
+                            'endereço à mão.'
+                      : 'Preenche o endereço e mostra a distância até o cliente.',
+                  helperMaxLines: 2,
                   errorText: showErrors && !_cepIsValid
                       ? 'Informe um CEP válido'
                       : null,
+                  suffixIcon: _consultandoCep
+                      ? const Padding(
+                          padding: EdgeInsets.all(12),
+                          child: SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        )
+                      : null,
+                ),
                 ),
               ),
               const SizedBox(height: 32),
@@ -545,12 +634,22 @@ class _LawFirmVerificationFormScreenState
     });
 
     try {
-      // Geocodifica o CEP (BrasilAPI) para a distância na descoberta.
-      // Best-effort: sem coordenadas o cadastro segue — o comprovante de
-      // endereço já cobre a conferência humana.
+      // Geocodifica o CEP para a distância na descoberta. Best-effort: sem
+      // coordenadas o cadastro segue — o comprovante de endereço já cobre a
+      // conferência humana.
+      //
+      // MESMO caminho do preenchimento automático, de propósito: ele guarda o
+      // resultado por CEP, então enviar direto do campo — que dispara blur e
+      // envio quase juntos, em ordem que varia — resolve numa consulta só.
       final cepDigits = _onlyDigits(cepController.text);
-      final coordinates = SupabaseConfig.isReady
-          ? await const CepService().lookup(cepDigits)
+      await _cepEmCurso;
+      if (!mounted) return;
+      if (SupabaseConfig.isReady && cepDigits != _cepConsultado) {
+        await _lookupCep();
+        if (!mounted) return;
+      }
+      final coordinates = cepDigits == _cepConsultado
+          ? _resultadoDoCep?.coordinates
           : null;
 
       final verification = SupabaseConfig.isReady
