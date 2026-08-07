@@ -36,6 +36,8 @@ class LawFirmVerificationRepository {
     required String phone,
     required String email,
     required String address,
+    String? addressNumber,
+    String? addressComplement,
     required List<String> practiceAreas,
     required List<LawFirmVerificationDocument> documents,
     List<PendingVerificationUpload> uploads = const [],
@@ -78,6 +80,10 @@ class LawFirmVerificationRepository {
           'phone': phone,
           'email': email,
           'address': address,
+          if (addressNumber != null && addressNumber.isNotEmpty)
+            'address_number': addressNumber,
+          if (addressComplement != null && addressComplement.isNotEmpty)
+            'address_complement': addressComplement,
           // CEP + coordenadas (BrasilAPI no submit). Best-effort: sem eles o
           // cadastro segue; o escritório só fica sem distância na descoberta.
           // O check do banco exige lat/lng aos pares.

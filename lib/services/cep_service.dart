@@ -92,7 +92,15 @@ class CepService {
   /// Preencher o endereço sozinho é o que evita a pessoa digitar rua, bairro e
   /// cidade que o CEP já determina — e digitar errado, deixando o cadastro
   /// dizendo uma coisa e a coordenada apontando outra.
-  Future<CepLookup?> lookupFull(String cep) async {
+  /// [addressNumber] afina a coordenada quando existe.
+  ///
+  /// Medido em 07/08/2026 para o CEP 90540140: o centroide da rua e o número
+  /// 70 ficam a 305 m um do outro. Não muda a decisão de ninguém num rótulo de
+  /// "2,3 km", mas é de graça — e a busca com número não é menos confiável:
+  /// em 5 endereços testados, todo caso que resolveu pela rua também resolveu
+  /// com o número, e o único que falhou falhou dos dois jeitos. Por isso a
+  /// tentativa com número vem antes, com queda para a rua.
+  Future<CepLookup?> lookupFull(String cep, {String? addressNumber}) async {
     final digits = _digits(cep);
     if (digits.length != 8) return null;
 
@@ -100,10 +108,15 @@ class CepService {
     final base = await _brasilApi(httpClient, digits);
 
     // Coordenada já veio junto (raro, mas quando vem é a melhor: mesma fonte
-    // do endereço, sem risco de discordar dele).
-    if (base?.coordinates != null) return base;
+    // do endereço, sem risco de discordar dele). Com número na mão, ainda
+    // vale tentar afinar — o CEP sozinho é centroide.
+    if (base?.coordinates != null && !_temNumero(addressNumber)) return base;
 
     final coordenadas =
+        (_temNumero(addressNumber)
+            ? await _nominatim(httpClient, digits, base, addressNumber)
+            : null) ??
+        base?.coordinates ??
         await _awesomeApi(httpClient, digits) ??
         await _nominatim(httpClient, digits, base);
 
@@ -115,8 +128,16 @@ class CepService {
   }
 
   /// Só as coordenadas. Mesma cascata, para quem não precisa do endereço.
-  Future<CepCoordinates?> lookup(String cep) async =>
-      (await lookupFull(cep))?.coordinates;
+  Future<CepCoordinates?> lookup(String cep, {String? addressNumber}) async =>
+      (await lookupFull(cep, addressNumber: addressNumber))?.coordinates;
+
+  /// "s/n", "sn" e afins não são número de porta: mandá-los ao Nominatim só
+  /// faz a busca falhar e cair na rua, gastando uma requisição para nada.
+  static bool _temNumero(String? value) {
+    final texto = (value ?? '').trim();
+    if (texto.isEmpty) return false;
+    return RegExp(r'\d').hasMatch(texto);
+  }
 
   // ---------------------------------------------------------------------
   // Fontes
@@ -154,8 +175,9 @@ class CepService {
   Future<CepCoordinates?> _nominatim(
     http.Client httpClient,
     String digits,
-    CepLookup? endereco,
-  ) async {
+    CepLookup? endereco, [
+    String? addressNumber,
+  ]) async {
     try {
       // Com rua + cidade + UF a busca acerta CEPs que a consulta por código
       // sozinha erra — foi o caso do 90540140. Sem endereço, sobra o CEP.
@@ -164,7 +186,11 @@ class CepService {
         'limit': '1',
         'country': 'Brazil',
         if (endereco?.hasAddress == true) ...{
-          'street': endereco!.street!,
+          // O Nominatim espera o número ANTES do logradouro no campo `street`
+          // ("70 Rua X"); em outra ordem ele ignora o número em silêncio.
+          'street': _temNumero(addressNumber)
+              ? '${addressNumber!.trim()} ${endereco!.street!}'
+              : endereco!.street!,
           'city': endereco.city!,
           if ((endereco.state ?? '').isNotEmpty) 'state': endereco.state!,
         } else

@@ -52,6 +52,8 @@ class _LawFirmVerificationFormScreenState
   final phoneController = TextEditingController();
   final emailController = TextEditingController();
   final addressController = TextEditingController();
+  final addressNumberController = TextEditingController();
+  final addressComplementController = TextEditingController();
   final cepController = TextEditingController();
   bool showErrors = false;
   bool isSubmitting = false;
@@ -71,6 +73,9 @@ class _LawFirmVerificationFormScreenState
   /// endereço preenchido quanto as coordenadas do envio — uma consulta só.
   CepLookup? _resultadoDoCep;
   String? _cepConsultado;
+
+  /// O número usado na última consulta — parte da chave junto com o CEP.
+  String? _numeroConsultado;
 
   /// O CEP tem 8 dígitos e a consulta não trouxe nada. Sem isto a falha morre
   /// num `debugPrint`, que não existe em release: a pessoa fica olhando um
@@ -130,6 +135,8 @@ class _LawFirmVerificationFormScreenState
     phoneController.dispose();
     emailController.dispose();
     addressController.dispose();
+    addressNumberController.dispose();
+    addressComplementController.dispose();
     cepController.dispose();
     super.dispose();
   }
@@ -140,6 +147,8 @@ class _LawFirmVerificationFormScreenState
     phoneController,
     emailController,
     addressController,
+    addressNumberController,
+    addressComplementController,
     cepController,
   ];
 
@@ -163,7 +172,10 @@ class _LawFirmVerificationFormScreenState
     final digits = _onlyDigits(cepController.text);
     // Foco entra e sai mais de uma vez num preenchimento normal; sem esta
     // guarda, cada ida e volta custaria outra consulta do MESMO CEP.
-    if (digits.length != 8 || _consultandoCep || digits == _cepConsultado) {
+    final numero = addressNumberController.text.trim();
+    if (digits.length != 8 ||
+        _consultandoCep ||
+        (digits == _cepConsultado && numero == _numeroConsultado)) {
       return;
     }
 
@@ -172,11 +184,15 @@ class _LawFirmVerificationFormScreenState
       _cepNaoEncontrado = false;
     });
     try {
-      final resultado = await widget.cepService.lookupFull(digits);
+      final resultado = await widget.cepService.lookupFull(
+        digits,
+        addressNumber: addressNumberController.text,
+      );
       if (!mounted) return;
 
       setState(() {
         _cepConsultado = digits;
+        _numeroConsultado = numero;
         _resultadoDoCep = resultado;
         _cepNaoEncontrado = resultado == null;
       });
@@ -245,6 +261,7 @@ class _LawFirmVerificationFormScreenState
               ),
               const SizedBox(height: 16),
               TextField(
+                key: const Key('firm_verification_name_field'),
                 controller: firmNameController,
                 textCapitalization: TextCapitalization.words,
                 decoration: InputDecoration(
@@ -257,6 +274,7 @@ class _LawFirmVerificationFormScreenState
               ),
               const SizedBox(height: 14),
               TextField(
+                key: const Key('firm_verification_cnpj_field'),
                 controller: cnpjController,
                 keyboardType: TextInputType.number,
                 inputFormatters: [
@@ -274,6 +292,7 @@ class _LawFirmVerificationFormScreenState
               ),
               const SizedBox(height: 14),
               TextField(
+                key: const Key('firm_verification_phone_field'),
                 controller: phoneController,
                 keyboardType: TextInputType.phone,
                 inputFormatters: [
@@ -289,6 +308,7 @@ class _LawFirmVerificationFormScreenState
               ),
               const SizedBox(height: 14),
               TextField(
+                key: const Key('firm_verification_email_field'),
                 controller: emailController,
                 keyboardType: TextInputType.emailAddress,
                 decoration: InputDecoration(
@@ -313,6 +333,53 @@ class _LawFirmVerificationFormScreenState
                 ),
               ),
               const SizedBox(height: 14),
+
+              // O que o CEP NÃO sabe, e o que o cliente precisa para chegar.
+              // Opcionais de propósito: existe "s/n", existe "Km 12", e
+              // exigir faria a pessoa inventar um número para o formulário
+              // deixar salvar — número inventado é pior que ausente, porque
+              // parece certo.
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    flex: 2,
+                    // O número também refina a coordenada, então sair dele
+                    // dispara a consulta: sem isto, quem digita o CEP e SÓ
+                    // DEPOIS o número ficaria com o centroide da rua.
+                    child: Focus(
+                      onFocusChange: (temFoco) {
+                        if (!temFoco) _lookupCep();
+                      },
+                      child: TextField(
+                        key: const Key('firm_verification_number_field'),
+                        controller: addressNumberController,
+                        keyboardType: TextInputType.streetAddress,
+                        maxLength: 20,
+                        decoration: const InputDecoration(
+                          hintText: 'Número (ou s/n)',
+                          counterText: '',
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    flex: 3,
+                    child: TextField(
+                      key: const Key('firm_verification_complement_field'),
+                      controller: addressComplementController,
+                      textCapitalization: TextCapitalization.sentences,
+                      maxLength: 60,
+                      decoration: const InputDecoration(
+                        hintText: 'Complemento (sala, andar…)',
+                        counterText: '',
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
               Focus(
                 // Busca ao SAIR do campo, e não a cada tecla: uma chamada de
                 // rede por dígito seriam oito para digitar um CEP.
@@ -320,34 +387,34 @@ class _LawFirmVerificationFormScreenState
                   if (!temFoco) _lookupCep();
                 },
                 child: TextField(
-                key: const Key('firm_verification_cep_field'),
-                controller: cepController,
-                keyboardType: TextInputType.number,
-                inputFormatters: [
-                  const CepInputFormatter(),
-                  LengthLimitingTextInputFormatter(9),
-                ],
-                decoration: InputDecoration(
-                  hintText: 'CEP do escritório',
-                  helperText: _cepNaoEncontrado
-                      ? 'Não encontramos esse CEP. Confira, ou preencha o '
-                            'endereço à mão.'
-                      : 'Preenche o endereço e mostra a distância até o cliente.',
-                  helperMaxLines: 2,
-                  errorText: showErrors && !_cepIsValid
-                      ? 'Informe um CEP válido'
-                      : null,
-                  suffixIcon: _consultandoCep
-                      ? const Padding(
-                          padding: EdgeInsets.all(12),
-                          child: SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          ),
-                        )
-                      : null,
-                ),
+                  key: const Key('firm_verification_cep_field'),
+                  controller: cepController,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [
+                    const CepInputFormatter(),
+                    LengthLimitingTextInputFormatter(9),
+                  ],
+                  decoration: InputDecoration(
+                    hintText: 'CEP do escritório',
+                    helperText: _cepNaoEncontrado
+                        ? 'Não encontramos esse CEP. Confira, ou preencha o '
+                              'endereço à mão.'
+                        : 'Preenche o endereço e mostra a distância até o cliente.',
+                    helperMaxLines: 2,
+                    errorText: showErrors && !_cepIsValid
+                        ? 'Informe um CEP válido'
+                        : null,
+                    suffixIcon: _consultandoCep
+                        ? const Padding(
+                            padding: EdgeInsets.all(12),
+                            child: SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          )
+                        : null,
+                  ),
                 ),
               ),
               const SizedBox(height: 32),
@@ -659,6 +726,8 @@ class _LawFirmVerificationFormScreenState
               phone: phoneController.text.trim(),
               email: emailController.text.trim(),
               address: addressController.text.trim(),
+              addressNumber: addressNumberController.text.trim(),
+              addressComplement: addressComplementController.text.trim(),
               practiceAreas: selectedAreas,
               documents: documents,
               uploads: _pickedFiles.values.toList(),
@@ -674,6 +743,8 @@ class _LawFirmVerificationFormScreenState
               phone: phoneController.text.trim(),
               email: emailController.text.trim(),
               address: addressController.text.trim(),
+              addressNumber: addressNumberController.text.trim(),
+              addressComplement: addressComplementController.text.trim(),
               practiceAreas: selectedAreas,
               documents: documents,
               status: LawFirmVerificationStatus.pending,

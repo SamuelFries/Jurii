@@ -246,7 +246,7 @@ class _LawFirmProfileScreenState extends State<LawFirmProfileScreen> {
                   const SizedBox(height: 10),
                   _ContactRow(
                     icon: Icons.location_city_outlined,
-                    label: widget.lawFirm.address ?? 'Atendimento remoto',
+                    label: widget.lawFirm.fullAddress ?? 'Atendimento remoto',
                   ),
                 ],
               ),

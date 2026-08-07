@@ -20,19 +20,21 @@ class _FakeCepService implements CepService {
 
   final CepLookup? resultado;
   final List<String> consultas = [];
+  final List<String> numeros = [];
 
   @override
   get client => null;
 
   @override
-  Future<CepLookup?> lookupFull(String cep) async {
+  Future<CepLookup?> lookupFull(String cep, {String? addressNumber}) async {
     consultas.add(cep);
+    numeros.add(addressNumber ?? '');
     return resultado;
   }
 
   @override
-  Future<CepCoordinates?> lookup(String cep) async =>
-      (await lookupFull(cep))?.coordinates;
+  Future<CepCoordinates?> lookup(String cep, {String? addressNumber}) async =>
+      (await lookupFull(cep, addressNumber: addressNumber))?.coordinates;
 }
 
 void main() {
@@ -137,5 +139,45 @@ void main() {
     await digitarCep(tester, '905401');
 
     expect(servico.consultas, isEmpty);
+  });
+
+  testWidgets('digitar o número DEPOIS do CEP refina a coordenada', (
+    tester,
+  ) async {
+    final servico = _FakeCepService();
+    await abrir(tester, servico);
+
+    await digitarCep(tester, '90540140');
+    expect(servico.consultas, ['90540140']);
+
+    // O guarda de deduplicação olha CEP E número: sem isso, quem digita o
+    // CEP e só depois o número ficaria com a coordenada no centroide da rua
+    // para sempre — o CEP não mudou. Medido: 305 m de diferença.
+    await tester.enterText(
+      find.byKey(const Key('firm_verification_number_field')),
+      '70',
+    );
+    await tester.pump();
+    await tester.tap(endereco);
+    await tester.pumpAndSettle();
+
+    expect(servico.numeros, ['', '70']);
+  });
+
+  testWidgets('"s/n" não vira busca por número', (tester) async {
+    final servico = _FakeCepService();
+    await abrir(tester, servico);
+
+    await tester.enterText(
+      find.byKey(const Key('firm_verification_number_field')),
+      's/n',
+    );
+    await tester.pump();
+    await digitarCep(tester, '90540140');
+
+    // Mandar "s/n" ao Nominatim só faz a busca falhar e cair na rua,
+    // gastando uma requisição para nada — quem decide isso é o CepService,
+    // então aqui basta garantir que o valor chega até ele.
+    expect(servico.numeros, ['s/n']);
   });
 }

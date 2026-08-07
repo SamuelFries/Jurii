@@ -11,6 +11,10 @@ class LawFirmVerification {
   final String phone;
   final String email;
   final String address;
+
+  /// O que o CEP nao sabe. Opcionais — existe "s/n", existe "Km 12".
+  final String? addressNumber;
+  final String? addressComplement;
   final List<String> practiceAreas;
   final List<LawFirmVerificationDocument> documents;
   final LawFirmVerificationStatus status;
@@ -28,6 +32,8 @@ class LawFirmVerification {
     required this.phone,
     required this.email,
     required this.address,
+    this.addressNumber,
+    this.addressComplement,
     required this.practiceAreas,
     required this.documents,
     required this.status,

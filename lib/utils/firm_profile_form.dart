@@ -29,6 +29,8 @@ class FirmProfileDraft {
     required this.websiteUrl,
     required this.address,
     required this.cep,
+    this.addressNumber = '',
+    this.addressComplement = '',
     required this.primaryArea,
     required this.practiceAreas,
     this.description = '',
@@ -42,6 +44,11 @@ class FirmProfileDraft {
   final String websiteUrl;
   final String address;
   final String cep;
+
+  /// O que o CEP não sabe. Entram na comparação como qualquer outro campo:
+  /// fora dela, mudar o número da sala não acenderia o botão de salvar.
+  final String addressNumber;
+  final String addressComplement;
   final String primaryArea;
   final List<String> practiceAreas;
 
@@ -62,6 +69,8 @@ class FirmProfileDraft {
     websiteUrl: websiteUrl,
     address: address,
     cep: cep,
+    addressNumber: addressNumber,
+    addressComplement: addressComplement,
     primaryArea: primaryArea,
     practiceAreas: practiceAreas,
     description: value,
@@ -81,6 +90,8 @@ class FirmProfileDraft {
         normalizeWebsiteUrl(websiteUrl) ==
             normalizeWebsiteUrl(original.websiteUrl) &&
         address.trim() == original.address.trim() &&
+        addressNumber.trim() == original.addressNumber.trim() &&
+        addressComplement.trim() == original.addressComplement.trim() &&
         _digits(cep) == _digits(original.cep) &&
         primaryArea == original.primaryArea &&
         _sameAreas(practiceAreas, original.practiceAreas) &&

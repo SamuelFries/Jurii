@@ -256,6 +256,8 @@ class FirmWorkspaceRepository {
       phone: verification.phone,
       email: verification.email,
       address: verification.address,
+      addressNumber: verification.addressNumber,
+      addressComplement: verification.addressComplement,
       avatarUrl: _lawFirmAvatarUrl(verification.avatarStoragePath),
     );
 

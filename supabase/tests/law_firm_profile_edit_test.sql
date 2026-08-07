@@ -321,11 +321,13 @@ reset role;
 select ok(
   has_function_privilege('authenticated',
     'public.update_law_firm_profile(uuid, text, text, text, text, text, text,'
-    || ' double precision, double precision, text, text[], text, text)',
+    || ' double precision, double precision, text, text[], text, text,'
+    || ' text, text)',
     'execute')
   and not has_function_privilege('anon',
     'public.update_law_firm_profile(uuid, text, text, text, text, text, text,'
-    || ' double precision, double precision, text, text[], text, text)',
+    || ' double precision, double precision, text, text[], text, text,'
+    || ' text, text)',
     'execute'),
   'so authenticated executa a edicao');
 
