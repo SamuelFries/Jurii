@@ -66,6 +66,12 @@ class _EditFirmProfileScreenState extends State<EditFirmProfileScreen> {
   late final _cepController = TextEditingController(
     text: widget.firm.cep ?? '',
   );
+  late final _numberController = TextEditingController(
+    text: widget.firm.addressNumber ?? '',
+  );
+  late final _complementController = TextEditingController(
+    text: widget.firm.addressComplement ?? '',
+  );
   late final _descriptionController = TextEditingController(
     text: widget.firm.description ?? '',
   );
@@ -85,6 +91,11 @@ class _EditFirmProfileScreenState extends State<EditFirmProfileScreen> {
   /// o resultado deixa uma só.
   CepCoordinates? _coordenadasDoCep;
   String? _cepConsultado;
+
+  /// O número usado na última consulta. Faz parte da chave junto com o CEP:
+  /// quem digita o CEP e SÓ DEPOIS o número deixaria a coordenada no
+  /// centroide da rua para sempre, porque o CEP não mudou.
+  String? _numeroConsultado;
 
   /// Consulta de CEP em andamento. Tocar em "Salvar" direto do campo de CEP
   /// dispara o blur e o envio ao mesmo tempo — sem esperar a que já está em
@@ -108,6 +119,8 @@ class _EditFirmProfileScreenState extends State<EditFirmProfileScreen> {
     email: _emailController.text,
     websiteUrl: _websiteController.text,
     address: _addressController.text,
+    addressNumber: _numberController.text,
+    addressComplement: _complementController.text,
     cep: _cepController.text,
     primaryArea: _primaryArea,
     practiceAreas: _areas,
@@ -131,17 +144,24 @@ class _EditFirmProfileScreenState extends State<EditFirmProfileScreen> {
     final digits = digitsOnly(_cepController.text);
     // Foco entra e sai mais de uma vez numa edição normal; sem esta guarda,
     // cada ida e volta ao campo custaria outra consulta do MESMO CEP.
-    if (digits.length != 8 || _isLookingUpCep || digits == _cepConsultado) {
+    final numero = _numberController.text.trim();
+    if (digits.length != 8 ||
+        _isLookingUpCep ||
+        (digits == _cepConsultado && numero == _numeroConsultado)) {
       return;
     }
 
     setState(() => _isLookingUpCep = true);
     try {
-      final resultado = await widget.cepService.lookupFull(digits);
+      final resultado = await widget.cepService.lookupFull(
+        digits,
+        addressNumber: _numberController.text,
+      );
       if (!mounted || resultado == null) return;
 
       setState(() {
         _cepConsultado = digits;
+        _numeroConsultado = numero;
         _coordenadasDoCep = resultado.coordinates;
       });
 
@@ -163,6 +183,8 @@ class _EditFirmProfileScreenState extends State<EditFirmProfileScreen> {
     _emailController,
     _websiteController,
     _addressController,
+    _numberController,
+    _complementController,
     _cepController,
     _descriptionController,
   ];
@@ -199,6 +221,8 @@ class _EditFirmProfileScreenState extends State<EditFirmProfileScreen> {
     _emailController.dispose();
     _websiteController.dispose();
     _addressController.dispose();
+    _numberController.dispose();
+    _complementController.dispose();
     _cepController.dispose();
     _descriptionController.dispose();
     super.dispose();
@@ -287,7 +311,8 @@ class _EditFirmProfileScreenState extends State<EditFirmProfileScreen> {
       // telefone não regrava a apresentação, e ajustar o texto não reescreve
       // o cadastro inteiro à toa.
       final novaApresentacao = _descriptionController.text.trim();
-      final apresentacaoMudou = novaApresentacao != _original.description.trim();
+      final apresentacaoMudou =
+          novaApresentacao != _original.description.trim();
       // Neutraliza a apresentação na comparação: sobra "algum DADO mudou?".
       final dadosMudaram = !_draft()
           .withDescription(_original.description)
@@ -324,12 +349,18 @@ class _EditFirmProfileScreenState extends State<EditFirmProfileScreen> {
       var latitude = widget.firm.latitude;
       var longitude = widget.firm.longitude;
       final cepMudou = cepDigits != widget.firm.cep;
+      // Número novo também move a coordenada (~305 m medidos): sem isto,
+      // acrescentar o número a um cadastro que já tinha CEP não refinaria
+      // nada, porque o CEP não mudou.
+      final numeroMudou =
+          _numberController.text.trim() !=
+          (widget.firm.addressNumber ?? '').trim();
       if (cepDigits.isEmpty) {
         // Coordenada órfã de um endereço que já não existe colocaria o
         // escritório na distância errada da descoberta.
         latitude = null;
         longitude = null;
-      } else if (cepMudou || latitude == null) {
+      } else if (cepMudou || numeroMudou || latitude == null) {
         // Duas razões para geocodificar, não uma:
         //
         // (a) o CEP MUDOU — a coordenada antiga passou a apontar para o lugar
@@ -371,6 +402,8 @@ class _EditFirmProfileScreenState extends State<EditFirmProfileScreen> {
         email: _emailController.text,
         websiteUrl: normalizeWebsiteUrl(_websiteController.text),
         address: _addressController.text,
+        addressNumber: _numberController.text,
+        addressComplement: _complementController.text,
         cep: cepDigits.isEmpty ? null : cepDigits,
         latitude: latitude,
         longitude: longitude,
@@ -448,6 +481,7 @@ class _EditFirmProfileScreenState extends State<EditFirmProfileScreen> {
                   const SizedBox(height: 20),
 
                   TextFormField(
+                    key: const Key('firm_name_field'),
                     controller: _nameController,
                     textCapitalization: TextCapitalization.words,
                     decoration: const InputDecoration(
@@ -486,6 +520,7 @@ class _EditFirmProfileScreenState extends State<EditFirmProfileScreen> {
                   const SizedBox(height: 16),
 
                   TextFormField(
+                    key: const Key('firm_phone_field'),
                     controller: _phoneController,
                     keyboardType: TextInputType.phone,
                     inputFormatters: const [PhoneInputFormatter()],
@@ -498,6 +533,7 @@ class _EditFirmProfileScreenState extends State<EditFirmProfileScreen> {
                   const SizedBox(height: 16),
 
                   TextFormField(
+                    key: const Key('firm_email_field'),
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
                     decoration: const InputDecoration(
@@ -515,6 +551,7 @@ class _EditFirmProfileScreenState extends State<EditFirmProfileScreen> {
                   const SizedBox(height: 16),
 
                   TextFormField(
+                    key: const Key('firm_website_field'),
                     controller: _websiteController,
                     keyboardType: TextInputType.url,
                     decoration: const InputDecoration(
@@ -525,11 +562,63 @@ class _EditFirmProfileScreenState extends State<EditFirmProfileScreen> {
                   const SizedBox(height: 16),
 
                   TextFormField(
+                    key: const Key('firm_address_field'),
                     controller: _addressController,
                     decoration: const InputDecoration(
                       labelText: 'Endereço',
                       prefixIcon: Icon(Icons.place_outlined),
+                      helperText: 'Rua, bairro e cidade — o CEP preenche',
                     ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Número e complemento em campos próprios: é o que o CEP
+                  // NÃO sabe, e o que o cliente precisa para chegar. Os dois
+                  // são opcionais de propósito — existe "s/n", existe "Km 12",
+                  // e exigir faria a pessoa inventar um número para o
+                  // formulário deixar salvar.
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        flex: 2,
+                        // O número também refina a coordenada, então sair
+                        // dele dispara a consulta: sem isto, quem digita o
+                        // CEP e SÓ DEPOIS o número ficaria com o centroide
+                        // da rua.
+                        child: Focus(
+                          onFocusChange: (temFoco) {
+                            if (!temFoco) _lookupCep();
+                          },
+                          child: TextFormField(
+                            key: const Key('firm_address_number_field'),
+                            controller: _numberController,
+                            keyboardType: TextInputType.streetAddress,
+                            maxLength: 20,
+                            decoration: const InputDecoration(
+                              labelText: 'Número',
+                              hintText: 'ou s/n',
+                              counterText: '',
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        flex: 3,
+                        child: TextFormField(
+                          key: const Key('firm_address_complement_field'),
+                          controller: _complementController,
+                          textCapitalization: TextCapitalization.sentences,
+                          maxLength: 60,
+                          decoration: const InputDecoration(
+                            labelText: 'Complemento',
+                            hintText: 'sala, andar…',
+                            counterText: '',
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 16),
 
@@ -540,6 +629,7 @@ class _EditFirmProfileScreenState extends State<EditFirmProfileScreen> {
                       if (!temFoco) _lookupCep();
                     },
                     child: TextFormField(
+                      key: const Key('firm_cep_field'),
                       controller: _cepController,
                       keyboardType: TextInputType.number,
                       inputFormatters: [

@@ -17,18 +17,18 @@ Widget _testApp({ValueChanged<LawFirmVerification>? onVerificationSubmitted}) {
 }
 
 Future<void> _fillRequiredFirmData(WidgetTester tester) async {
-  await tester.enterText(find.byType(TextField).at(0), 'Fries Advogados');
-  await tester.enterText(find.byType(TextField).at(1), '12345678000190');
-  await tester.enterText(find.byType(TextField).at(2), '11999999999');
+  await tester.enterText(find.byKey(const Key('firm_verification_name_field')), 'Fries Advogados');
+  await tester.enterText(find.byKey(const Key('firm_verification_cnpj_field')), '12345678000190');
+  await tester.enterText(find.byKey(const Key('firm_verification_phone_field')), '11999999999');
   await tester.enterText(
-    find.byType(TextField).at(3),
+    find.byKey(const Key('firm_verification_email_field')),
     'contato@friesadvogados.com',
   );
   await tester.enterText(
-    find.byType(TextField).at(4),
+    find.byKey(const Key('firm_verification_address_field')),
     'Avenida Paulista, 1000',
   );
-  await tester.enterText(find.byType(TextField).at(5), '01310100');
+  await tester.enterText(find.byKey(const Key('firm_verification_cep_field')), '01310100');
 
   await tester.ensureVisible(find.text('Direito Trabalhista'));
   await tester.tap(find.text('Direito Trabalhista'));

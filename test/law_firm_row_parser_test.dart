@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:jurii/models/law_firm.dart';
 import 'package:jurii/repositories/law_firm_repository.dart';
 
 /// Uma linha de `law_firms` como o Supabase devolve — TODAS as colunas, que é
@@ -81,5 +82,52 @@ void main() {
             'LawFirmRepository.firmFromRow para não perder campo de novo',
       );
     }
+  });
+
+  group('endereço montado para o cliente', () {
+    LawFirm comEndereco({String? numero, String? complemento}) =>
+        LawFirmRepository.firmFromRow({
+          ..._linhaCompleta(),
+          'address_number': numero,
+          'address_complement': complemento,
+        });
+
+    test('número e complemento entram na mesma ordem, sempre', () {
+      // O cliente precisa do número para CHEGAR. Cada escritório escrevia do
+      // seu jeito dentro do texto livre — "70 - 1102", "n 70 sala 1102".
+      expect(
+        comEndereco(numero: '70', complemento: 'sala 1102').fullAddress,
+        'Av. Ipiranga, 100, 70 - sala 1102',
+      );
+    });
+
+    test('sem complemento, só o número', () {
+      expect(comEndereco(numero: '70').fullAddress, 'Av. Ipiranga, 100, 70');
+    });
+
+    test('cadastro antigo não ganha vírgula pendurada', () {
+      // Os 40 cadastros de produção já têm o número escrito dentro de
+      // `address`. Compor de novo duplicaria; sem número, devolve intacto.
+      expect(comEndereco().fullAddress, 'Av. Ipiranga, 100');
+    });
+
+    test('sem endereço nenhum devolve null, não string vazia', () {
+      // O perfil público faz `fullAddress ?? "Atendimento remoto"`: string
+      // vazia passaria pelo `??` e o cliente leria um espaço em branco.
+      final semNada = LawFirmRepository.firmFromRow({
+        ..._linhaCompleta(),
+        'address': null,
+        'address_number': '70',
+      });
+      expect(semNada.fullAddress, isNull);
+    });
+
+    test('só complemento também aparece', () {
+      // "s/n, fundos" é endereço de verdade.
+      expect(
+        comEndereco(complemento: 'fundos').fullAddress,
+        'Av. Ipiranga, 100, fundos',
+      );
+    });
   });
 }

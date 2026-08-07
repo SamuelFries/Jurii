@@ -77,6 +77,8 @@ class _FakeFirmProfileRepository implements LawFirmProfileRepository {
     String? email,
     String? websiteUrl,
     String? address,
+    String? addressNumber,
+    String? addressComplement,
     String? cep,
     double? latitude,
     double? longitude,
@@ -89,6 +91,8 @@ class _FakeFirmProfileRepository implements LawFirmProfileRepository {
     recebido = {
       'name': name,
       'phone': phone,
+      'addressNumber': addressNumber,
+      'addressComplement': addressComplement,
       'cep': cep,
       'latitude': latitude,
       'longitude': longitude,
@@ -120,14 +124,14 @@ class _FakeCepService implements CepService {
   get client => null;
 
   @override
-  Future<CepCoordinates?> lookup(String cep) async {
+  Future<CepCoordinates?> lookup(String cep, {String? addressNumber}) async {
     chamadas++;
     if (semCoordenada) return null;
     return const CepCoordinates(latitude: -30.03, longitude: -51.22);
   }
 
   @override
-  Future<CepLookup?> lookupFull(String cep) async {
+  Future<CepLookup?> lookupFull(String cep, {String? addressNumber}) async {
     buscasCompletas++;
     chamadas++;
     if (semCoordenada) return const CepLookup();
@@ -189,7 +193,7 @@ void main() {
     await tester.pumpWidget(app(repo));
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(TextFormField).first, 'Firma Nova');
+    await tester.enterText(find.byKey(const Key('firm_name_field')), 'Firma Nova');
     await tester.ensureVisible(find.text('Salvar'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Salvar'));
@@ -203,7 +207,7 @@ void main() {
     await tester.pumpWidget(app(repo));
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(TextFormField).first, '   ');
+    await tester.enterText(find.byKey(const Key('firm_name_field')), '   ');
     await tester.ensureVisible(find.text('Salvar'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Salvar'));
@@ -221,7 +225,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // Mexe só no telefone: o CEP fica como estava.
-    await tester.enterText(find.byType(TextFormField).at(2), '51988887777');
+    await tester.enterText(find.byKey(const Key('firm_phone_field')), '51988887777');
     await tester.ensureVisible(find.text('Salvar'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Salvar'));
@@ -237,7 +241,7 @@ void main() {
     await tester.pumpWidget(app(repo, cep: cep));
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(TextFormField).at(6), '90160091');
+    await tester.enterText(find.byKey(const Key('firm_cep_field')), '90160091');
     await tester.ensureVisible(find.text('Salvar'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Salvar'));
@@ -255,7 +259,7 @@ void main() {
     await tester.pumpWidget(app(repo));
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(TextFormField).at(6), '');
+    await tester.enterText(find.byKey(const Key('firm_cep_field')), '');
     await tester.ensureVisible(find.text('Salvar'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Salvar'));
@@ -271,7 +275,7 @@ void main() {
     await tester.pumpWidget(app(repo));
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(TextFormField).at(6), '123');
+    await tester.enterText(find.byKey(const Key('firm_cep_field')), '123');
     await tester.ensureVisible(find.text('Salvar'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Salvar'));
@@ -290,7 +294,7 @@ void main() {
     await tester.pumpWidget(app(repo));
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(TextFormField).first, 'Firma Nova');
+    await tester.enterText(find.byKey(const Key('firm_name_field')), 'Firma Nova');
     await tester.ensureVisible(find.text('Salvar'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Salvar'));
@@ -362,8 +366,8 @@ void main() {
     // Digitar rua, bairro e cidade que o CEP já determina é trabalho repetido
     // — e digitado errado deixa o cadastro dizendo uma coisa e a coordenada
     // apontando outra.
-    await tester.enterText(find.byType(TextFormField).at(6), '90160091');
-    await tester.tap(find.byType(TextFormField).at(0));
+    await tester.enterText(find.byKey(const Key('firm_cep_field')), '90160091');
+    await tester.tap(find.byKey(const Key('firm_name_field')));
     await tester.pumpAndSettle();
 
     expect(
@@ -380,8 +384,8 @@ void main() {
     await tester.pumpWidget(app(repo));
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(TextFormField).at(6), '90160091');
-    await tester.tap(find.byType(TextFormField).at(0));
+    await tester.enterText(find.byKey(const Key('firm_cep_field')), '90160091');
+    await tester.tap(find.byKey(const Key('firm_name_field')));
     await tester.pumpAndSettle();
 
     expect(find.text('Rua Velha, 10'), findsOneWidget);
@@ -398,7 +402,7 @@ void main() {
     final antes = tester.widget<ElevatedButton>(find.byType(ElevatedButton));
     expect(antes.onPressed, isNull);
 
-    await tester.enterText(find.byType(TextFormField).first, 'Firma Nova');
+    await tester.enterText(find.byKey(const Key('firm_name_field')), 'Firma Nova');
     await tester.pumpAndSettle();
 
     final depois = tester.widget<ElevatedButton>(find.byType(ElevatedButton));
@@ -409,7 +413,7 @@ void main() {
     await tester.pumpWidget(app(_FakeFirmProfileRepository()));
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(TextFormField).first, 'Firma Nova');
+    await tester.enterText(find.byKey(const Key('firm_name_field')), 'Firma Nova');
     await tester.pumpAndSettle();
 
     await tester.binding.handlePopRoute();
@@ -424,7 +428,7 @@ void main() {
     await tester.pumpWidget(app(repo));
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(TextFormField).at(4), 'weber.com.br');
+    await tester.enterText(find.byKey(const Key('firm_website_field')), 'weber.com.br');
     await tester.ensureVisible(find.text('Salvar'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Salvar'));
@@ -500,7 +504,7 @@ void main() {
       await tester.pumpWidget(app(repo, firm: firmaLegada));
       await tester.pumpAndSettle();
 
-      await tester.enterText(find.byType(TextFormField).at(2), '51999990000');
+      await tester.enterText(find.byKey(const Key('firm_phone_field')), '51999990000');
       await tester.ensureVisible(find.text('Salvar'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Salvar'));
@@ -524,7 +528,7 @@ void main() {
       await tester.pumpWidget(app(repo, firm: firmaLegada));
       await tester.pumpAndSettle();
 
-      await tester.enterText(find.byType(TextFormField).first, 'Outro Nome');
+      await tester.enterText(find.byKey(const Key('firm_name_field')), 'Outro Nome');
       await tester.ensureVisible(find.text('Salvar'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Salvar'));
@@ -564,7 +568,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Ninguém mexe no CEP: corrige só o telefone.
-      await tester.enterText(find.byType(TextFormField).at(2), '51988887777');
+      await tester.enterText(find.byKey(const Key('firm_phone_field')), '51988887777');
       await tester.ensureVisible(find.text('Salvar'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Salvar'));
@@ -585,7 +589,7 @@ void main() {
       await tester.pumpWidget(app(repo, cep: cep));
       await tester.pumpAndSettle();
 
-      await tester.enterText(find.byType(TextFormField).first, 'Nome Novo');
+      await tester.enterText(find.byKey(const Key('firm_name_field')), 'Nome Novo');
       await tester.ensureVisible(find.text('Salvar'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Salvar'));
@@ -606,7 +610,7 @@ void main() {
       await tester.pumpWidget(app(repo, cep: cep));
       await tester.pumpAndSettle();
 
-      await tester.enterText(find.byType(TextFormField).at(6), '90160091');
+      await tester.enterText(find.byKey(const Key('firm_cep_field')), '90160091');
       await tester.ensureVisible(find.text('Salvar'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Salvar'));
@@ -627,7 +631,7 @@ void main() {
       await tester.pumpWidget(app(repo, cep: cep, firm: semCoordenada));
       await tester.pumpAndSettle();
 
-      await tester.enterText(find.byType(TextFormField).first, 'Nome Novo');
+      await tester.enterText(find.byKey(const Key('firm_name_field')), 'Nome Novo');
       await tester.ensureVisible(find.text('Salvar'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Salvar'));
@@ -645,7 +649,7 @@ void main() {
       await tester.pumpWidget(app(repo));
       await tester.pumpAndSettle();
 
-      await tester.enterText(find.byType(TextFormField).at(6), '');
+      await tester.enterText(find.byKey(const Key('firm_cep_field')), '');
       await tester.ensureVisible(find.text('Salvar'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Salvar'));
@@ -674,7 +678,7 @@ void main() {
 
       expect(find.text('Banca antiga de Porto Alegre.'), findsOneWidget);
 
-      await tester.enterText(find.byType(TextFormField).first, 'Firma Nova');
+      await tester.enterText(find.byKey(const Key('firm_name_field')), 'Firma Nova');
       await tester.enterText(campo, '  Banca nova, família e sucessões.  ');
       await tester.ensureVisible(find.text('Salvar'));
       await tester.pumpAndSettle();
@@ -731,7 +735,7 @@ void main() {
       await tester.pumpWidget(app(_FakeFirmProfileRepository(), bio: bio));
       await tester.pumpAndSettle();
 
-      await tester.enterText(find.byType(TextFormField).first, 'Outro Nome');
+      await tester.enterText(find.byKey(const Key('firm_name_field')), 'Outro Nome');
       await tester.ensureVisible(find.text('Salvar'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Salvar'));
@@ -753,7 +757,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Mudou o texto E um dado: a apresentação grava, o cadastro falha.
-      await tester.enterText(find.byType(TextFormField).first, 'Outro Nome');
+      await tester.enterText(find.byKey(const Key('firm_name_field')), 'Outro Nome');
       await tester.enterText(campo, 'Texto novo.');
       await tester.ensureVisible(find.text('Salvar'));
       await tester.pumpAndSettle();

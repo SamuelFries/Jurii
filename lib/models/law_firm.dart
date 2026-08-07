@@ -15,6 +15,15 @@ class LawFirm {
   final String? websiteUrl;
   final String? address;
 
+  /// Numero e complemento, separados do resto do endereco.
+  ///
+  /// Opcionais: existe "s/n", existe "Km 12", existe escritorio rural. E
+  /// nulos nos cadastros anteriores a 20260819120000, que guardaram tudo
+  /// dentro de [address] — por isso [fullAddress] cai para [address] quando
+  /// nao ha numero, em vez de montar frase pela metade.
+  final String? addressNumber;
+  final String? addressComplement;
+
   /// Oito dígitos, sem máscara — é o que o formulário de edição reenvia e o
   /// que gera as coordenadas usadas na distância da descoberta.
   final String? cep;
@@ -56,6 +65,8 @@ class LawFirm {
     this.email,
     this.websiteUrl,
     this.address,
+    this.addressNumber,
+    this.addressComplement,
     this.cep,
     this.isFeatured = false,
     this.isSponsoredSlot = false,
@@ -78,6 +89,8 @@ class LawFirm {
     required String phone,
     required String email,
     required String address,
+    String? addressNumber,
+    String? addressComplement,
     String? avatarUrl,
   }) {
     String? naoVazio(String value) {
@@ -99,8 +112,31 @@ class LawFirm {
       phone: naoVazio(phone),
       email: naoVazio(email),
       address: naoVazio(address),
+      addressNumber: addressNumber == null ? null : naoVazio(addressNumber),
+      addressComplement:
+          addressComplement == null ? null : naoVazio(addressComplement),
     );
   }
 
   bool get hasCoordinates => latitude != null && longitude != null;
+
+  /// O endereco como o CLIENTE le, montado sempre do mesmo jeito.
+  ///
+  /// "Rua Germano Petersen Júnior, Auxiliadora, Porto Alegre - RS, 70 - sala
+  /// 1102". Sem numero, devolve [address] intacto: os cadastros antigos ja
+  /// tem o numero escrito dentro dele, e acrescentar de novo duplicaria.
+  String? get fullAddress {
+    final base = address?.trim();
+    if (base == null || base.isEmpty) return null;
+
+    final numero = addressNumber?.trim() ?? '';
+    final complemento = addressComplement?.trim() ?? '';
+    if (numero.isEmpty && complemento.isEmpty) return base;
+
+    final sufixo = [
+      if (numero.isNotEmpty) numero,
+      if (complemento.isNotEmpty) complemento,
+    ].join(' - ');
+    return '$base, $sufixo';
+  }
 }
