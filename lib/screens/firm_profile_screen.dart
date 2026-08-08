@@ -14,6 +14,7 @@ import '../widgets/mode_switcher_sheet.dart';
 import '../widgets/profile_menu_section.dart';
 import '../widgets/profile_avatar.dart';
 import '../widgets/theme_mode_sheet.dart';
+import 'business_hours_screen.dart';
 import 'edit_firm_profile_screen.dart';
 import 'professional_reach_screen.dart';
 
@@ -290,13 +291,24 @@ class FirmProfileScreen extends StatelessWidget {
                 subtitle: 'Sócios, admins, secretárias e advogados',
                 onTap: () => _showComingSoon(context),
               ),
-              ProfileMenuItem(
-                icon: Icons.schedule_outlined,
-                iconColor: colors.officePurple,
-                label: 'Horários de atendimento',
-                subtitle: 'Disponibilidade do escritório',
-                onTap: () => _showComingSoon(context),
-              ),
+              // Não é enfeite de cadastro: é o que responde a pergunta que o
+              // cliente faz antes de escrever — "adianta mandar mensagem
+              // agora?". Mesmo portão do resto da gestão.
+              if (workspace != null && _canEditDescription)
+                ProfileMenuItem(
+                  icon: Icons.schedule_outlined,
+                  iconColor: colors.officePurple,
+                  label: 'Horários de atendimento',
+                  subtitle: 'Quando o escritório atende',
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            BusinessHoursScreen(lawFirmId: workspace!.firm.id),
+                      ),
+                    );
+                  },
+                ),
             ],
           ),
           const SizedBox(height: 24),
