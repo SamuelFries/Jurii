@@ -57,6 +57,12 @@ class _FirmPlanScreenState extends State<FirmPlanScreen> {
   String? _selecionado;
   bool _confirmando = false;
 
+  /// Ciclo de cobrança escolhido na chave Mensal | Anual.
+  ///
+  /// Começa no ANUAL de propósito, com o desconto à vista: é o padrão das
+  /// assinaturas de software, e quem prefere mensal troca num toque.
+  String _ciclo = 'annual';
+
   @override
   void initState() {
     super.initState();
@@ -95,7 +101,10 @@ class _FirmPlanScreenState extends State<FirmPlanScreen> {
     setState(() => _confirmando = true);
     final messenger = ScaffoldMessenger.of(context);
     try {
-      final assinatura = await widget.repository.choosePlan(escolhido);
+      final assinatura = await widget.repository.choosePlan(
+        escolhido,
+        billingCycle: _ciclo,
+      );
       if (!mounted) return;
 
       if (widget._isUpgrade) {
@@ -106,9 +115,14 @@ class _FirmPlanScreenState extends State<FirmPlanScreen> {
         return;
       }
 
-      // Substitui a paywall na pilha: voltar da verificação não pode cair na
-      // escolha de plano de novo — o plano já está escolhido.
-      Navigator.of(context).pushReplacement(
+      // push, e não pushReplacement: voltar da verificação DEVOLVE esta
+      // tela, porque mudar de ideia sobre o plano é caminho legítimo.
+      // Reconfirmar apenas troca o plano na mesma assinatura (a RPC não
+      // renova o teste), então ir e voltar quantas vezes quiser não custa
+      // nada. A primeira versão substituía a tela na pilha e a pessoa ficava
+      // presa no plano escolhido.
+      setState(() => _confirmando = false);
+      Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => LawFirmVerificationScreen(
             user: widget.user!,
@@ -176,7 +190,17 @@ class _FirmPlanScreenState extends State<FirmPlanScreen> {
                             height: 1.4,
                           ),
                         ),
-                        const SizedBox(height: 18),
+                        const SizedBox(height: 16),
+                        _ChaveDeCiclo(
+                          ciclo: _ciclo,
+                          desconto: planos
+                              ?.map((p) => p.annualDiscountPercent)
+                              .whereType<int>()
+                              .fold<int?>(null, (a, b) => a == null ? b : (a < b ? a : b)),
+                          onChanged: (valor) =>
+                              setState(() => _ciclo = valor),
+                        ),
+                        const SizedBox(height: 14),
                         if (planos == null)
                           const JuriiSkeletonList(
                             itemCount: 3,
@@ -189,6 +213,7 @@ class _FirmPlanScreenState extends State<FirmPlanScreen> {
                               index: i,
                               child: _CartaoDePlano(
                                 plano: planos[i],
+                                anual: _ciclo == 'annual',
                                 selecionado: _selecionado == planos[i].code,
                                 recomendado: planos[i].code == _recomendado,
                                 atual: planos[i].code == widget.upgradeDe,
@@ -234,7 +259,7 @@ class _FirmPlanScreenState extends State<FirmPlanScreen> {
                           const SizedBox(height: 12),
                           Text(
                             'Mais de 25 advogados? Fale com a gente pelo '
-                            'suporte — montamos um plano sob medida.',
+                            'suporte. Montamos um plano sob medida.',
                             style: TextStyle(
                               color: colors.textSecondary,
                               fontSize: 12,
@@ -287,6 +312,7 @@ class _FirmPlanScreenState extends State<FirmPlanScreen> {
 class _CartaoDePlano extends StatelessWidget {
   const _CartaoDePlano({
     required this.plano,
+    required this.anual,
     required this.selecionado,
     required this.recomendado,
     required this.atual,
@@ -294,10 +320,15 @@ class _CartaoDePlano extends StatelessWidget {
   });
 
   final LicensePlan plano;
+
+  /// A chave está no anual E este plano tem preço anual.
+  final bool anual;
   final bool selecionado;
   final bool recomendado;
   final bool atual;
   final VoidCallback onTap;
+
+  bool get _mostraAnual => anual && plano.annualPriceCents != null;
 
   @override
   Widget build(BuildContext context) {
@@ -405,8 +436,13 @@ class _CartaoDePlano extends StatelessWidget {
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
+                // No anual o número grande continua sendo POR MÊS (o
+                // equivalente), no padrão das assinaturas de software; o
+                // total do ano vem pequeno logo abaixo, sem esconder nada.
                 Text(
-                  plano.priceLabel,
+                  _mostraAnual
+                      ? plano.annualMonthlyLabel!
+                      : plano.priceLabel,
                   style: TextStyle(
                     color: colors.textPrimary,
                     fontSize: 22,
@@ -417,6 +453,14 @@ class _CartaoDePlano extends StatelessWidget {
                   '/mês',
                   style: TextStyle(color: colors.textSecondary, fontSize: 12),
                 ),
+                if (_mostraAnual)
+                  Text(
+                    '${plano.annualTotalLabel!}/ano',
+                    style: TextStyle(
+                      color: colors.muted,
+                      fontSize: 10.5,
+                    ),
+                  ),
               ],
             ),
             const SizedBox(width: 10),
@@ -429,6 +473,98 @@ class _CartaoDePlano extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// A chave Mensal | Anual, com o desconto anunciado nela mesma.
+class _ChaveDeCiclo extends StatelessWidget {
+  const _ChaveDeCiclo({
+    required this.ciclo,
+    required this.desconto,
+    required this.onChanged,
+  });
+
+  final String ciclo;
+
+  /// Menor desconto entre os planos, para o selo nunca prometer mais do que
+  /// algum plano entrega. Nulo enquanto os planos carregam.
+  final int? desconto;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.jColors;
+
+    Widget opcao(String valor, String rotulo, {String? selo}) {
+      final ativa = ciclo == valor;
+      return Expanded(
+        child: JuriiPressable(
+          onTap: () => onChanged(valor),
+          borderRadius: BorderRadius.circular(10),
+          semanticLabel: selo == null ? rotulo : '$rotulo, $selo',
+          semanticSelected: ativa,
+          child: AnimatedContainer(
+            duration: JuriiMotion.fast,
+            curve: JuriiMotion.ease,
+            padding: const EdgeInsets.symmetric(vertical: 9),
+            decoration: BoxDecoration(
+              color: ativa ? colors.card : Colors.transparent,
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: [
+                if (ativa)
+                  BoxShadow(
+                    color: colors.softShadow,
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  rotulo,
+                  style: TextStyle(
+                    color: ativa ? colors.officePurple : colors.textSecondary,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13,
+                  ),
+                ),
+                if (selo != null)
+                  Text(
+                    selo,
+                    style: TextStyle(
+                      color: ativa ? colors.success : colors.textSecondary,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      key: const Key('chave_de_ciclo'),
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: colors.officePurpleSurface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: colors.officePurpleBorder),
+      ),
+      child: Row(
+        children: [
+          opcao('monthly', 'Mensal'),
+          opcao(
+            'annual',
+            'Anual',
+            selo: desconto == null ? null : 'economize $desconto%',
+          ),
+        ],
       ),
     );
   }

@@ -9,6 +9,7 @@ class LicensePlan {
     required this.name,
     required this.maxLawyers,
     required this.monthlyPriceCents,
+    this.annualPriceCents,
     this.sortOrder = 0,
   });
 
@@ -18,6 +19,9 @@ class LicensePlan {
   /// Nulo = sem teto (reservado para negociação direta).
   final int? maxLawyers;
   final int monthlyPriceCents;
+
+  /// Preço do ano inteiro, pago de uma vez. Nulo = plano sem opção anual.
+  final int? annualPriceCents;
   final int sortOrder;
 
   factory LicensePlan.fromRow(Map<String, dynamic> row) => LicensePlan(
@@ -25,14 +29,41 @@ class LicensePlan {
     name: row['name'] as String? ?? '',
     maxLawyers: (row['max_lawyers'] as num?)?.toInt(),
     monthlyPriceCents: (row['monthly_price_cents'] as num?)?.toInt() ?? 0,
+    annualPriceCents: (row['annual_price_cents'] as num?)?.toInt(),
     sortOrder: (row['sort_order'] as num?)?.toInt() ?? 0,
   );
 
-  /// "R$ 349" — sem centavos quando o preço é redondo, que é como preço de
+  /// "R$ 349", sem centavos quando o preço é redondo, que é como preço de
   /// plano se escreve no Brasil.
-  String get priceLabel {
-    final reais = monthlyPriceCents ~/ 100;
-    final centavos = monthlyPriceCents % 100;
+  String get priceLabel => formatPrice(monthlyPriceCents);
+
+  /// O equivalente MENSAL do plano anual ("R$ 279"): é o número que a tela
+  /// mostra grande, no padrão das assinaturas de software. O total do ano
+  /// aparece pequeno, em [annualTotalLabel].
+  String? get annualMonthlyLabel {
+    final total = annualPriceCents;
+    if (total == null) return null;
+    return formatPrice((total / 12).round());
+  }
+
+  String? get annualTotalLabel {
+    final total = annualPriceCents;
+    if (total == null) return null;
+    return formatPrice(total);
+  }
+
+  /// Desconto do anual sobre 12 mensalidades, em % inteiro. Calculado, não
+  /// declarado: se o preço mudar na tabela, o selo acompanha sozinho.
+  int? get annualDiscountPercent {
+    final total = annualPriceCents;
+    if (total == null || monthlyPriceCents == 0) return null;
+    final cheio = monthlyPriceCents * 12;
+    return (100 - (total * 100 / cheio)).round();
+  }
+
+  static String formatPrice(int cents) {
+    final reais = cents ~/ 100;
+    final centavos = cents % 100;
     final inteiro = _milhar(reais);
     return centavos == 0
         ? 'R\$ $inteiro'
@@ -82,6 +113,7 @@ class LicenseSubscription {
     required this.ownerProfileId,
     required this.planCode,
     required this.status,
+    this.billingCycle = 'monthly',
     this.trialEndsAt,
     this.lawFirmId,
     this.plan,
@@ -91,6 +123,10 @@ class LicenseSubscription {
   final String ownerProfileId;
   final String planCode;
   final LicenseStatus status;
+
+  /// 'monthly' ou 'annual'. Registrado na escolha: na hora de cobrar (fora do
+  /// app), é o que diz o que foi combinado.
+  final String billingCycle;
   final DateTime? trialEndsAt;
   final String? lawFirmId;
 
@@ -104,6 +140,7 @@ class LicenseSubscription {
       ownerProfileId: row['owner_profile_id']?.toString() ?? '',
       planCode: row['plan_code'] as String? ?? '',
       status: LicenseStatus.fromValue(row['status'] as String?),
+      billingCycle: row['billing_cycle'] as String? ?? 'monthly',
       trialEndsAt: row['trial_ends_at'] == null
           ? null
           : DateTime.tryParse(row['trial_ends_at'].toString()),
@@ -128,9 +165,11 @@ class LicenseSubscription {
     return dias < 0 ? 0 : dias;
   }
 
-  /// "Escritório · teste grátis, 23 dias restantes" — o subtítulo do perfil.
+  /// "Escritório · anual · teste grátis, 23 dias restantes": o subtítulo do
+  /// perfil. O ciclo só aparece quando é anual, porque mensal é o comum.
   String statusLabel(DateTime agora) {
-    final nome = plan?.name ?? planCode;
+    final base = plan?.name ?? planCode;
+    final nome = billingCycle == 'annual' ? '$base · anual' : base;
     return switch (status) {
       LicenseStatus.trialing =>
         '$nome · teste grátis, ${_dias(diasRestantesDeTeste(agora))}',

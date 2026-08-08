@@ -9,6 +9,7 @@ const mockLicensePlans = [
     name: 'Essencial',
     maxLawyers: 3,
     monthlyPriceCents: 14900,
+    annualPriceCents: 142800,
     sortOrder: 10,
   ),
   LicensePlan(
@@ -16,6 +17,7 @@ const mockLicensePlans = [
     name: 'Escritório',
     maxLawyers: 10,
     monthlyPriceCents: 34900,
+    annualPriceCents: 334800,
     sortOrder: 20,
   ),
   LicensePlan(
@@ -23,6 +25,7 @@ const mockLicensePlans = [
     name: 'Banca',
     maxLawyers: 25,
     monthlyPriceCents: 69900,
+    annualPriceCents: 670800,
     sortOrder: 30,
   ),
 ];

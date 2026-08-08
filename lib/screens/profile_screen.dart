@@ -626,7 +626,7 @@ class ProfileScreen extends StatelessWidget {
                           icon: Icons.category_outlined,
                           iconColor: colors.officePurple,
                           label: 'Áreas de atuação',
-                          subtitle: 'O que você atende — usado pela busca',
+                          subtitle: 'O que você atende, usado pela busca',
                           onTap: () {
                             Navigator.of(context).push(
                               MaterialPageRoute(

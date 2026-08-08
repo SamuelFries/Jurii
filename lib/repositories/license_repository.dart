@@ -64,13 +64,17 @@ class LicenseRepository {
 
   /// Escolhe (ou troca) o plano. No primeiro uso cria o teste grátis de 30
   /// dias; nas trocas o fim do teste NÃO renova — o servidor garante.
-  Future<LicenseSubscription> choosePlan(String planCode) async {
+  Future<LicenseSubscription> choosePlan(
+    String planCode, {
+    String billingCycle = 'monthly',
+  }) async {
     if (_demo) {
       // Demo: a paywall é atravessável para o fluxo inteiro ser demonstrável.
       return LicenseSubscription(
         id: 'demo',
         ownerProfileId: 'demo',
         planCode: planCode,
+        billingCycle: billingCycle,
         status: LicenseStatus.trialing,
         trialEndsAt: DateTime.now().add(const Duration(days: 30)),
       );
@@ -78,7 +82,10 @@ class LicenseRepository {
 
     final rows = await SupabaseConfig.client.rpc(
       'choose_law_firm_plan',
-      params: {'plan_code_value': planCode},
+      params: {
+        'plan_code_value': planCode,
+        'billing_cycle_value': billingCycle,
+      },
     );
 
     final row = (rows as List<dynamic>).cast<Map<String, dynamic>>().first;
