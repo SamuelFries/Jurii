@@ -569,6 +569,13 @@ class _InviteLawyerSheetState extends State<_InviteLawyerSheet> {
       return 'Muitas tentativas em pouco tempo. Aguarde antes de tentar novamente.';
     }
 
+    if (message.contains('Lawyer seat limit reached')) {
+      // O teto é do PLANO, não do alvo do convite: dizer qual é o problema
+      // (e onde resolve) evita a pessoa reescrever a OAB três vezes.
+      return 'Seu plano atual não comporta mais advogados. Troque de plano '
+          'em Perfil > Plano para convidar.';
+    }
+
     if (normalizedMessage.contains('permission denied') &&
         normalizedMessage.contains('invite_verified_lawyer_to_law_firm')) {
       debugPrint('Invite RPC permission denied: $message');

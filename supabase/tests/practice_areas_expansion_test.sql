@@ -262,6 +262,14 @@ reset role;
 -- entrou.
 -- ---------------------------------------------------------------------------
 
+-- A paywall do licenciamento (20260821120000) exige assinatura para INSERIR
+-- verificacao; o fixture abaixo e o pedagio deste teste, que testa OUTRA
+-- coisa.
+insert into public.law_firm_license_subscriptions
+  (owner_profile_id, plan_code, status, trial_ends_at)
+values
+  ('ea000000-0000-0000-0000-000000000002', 'escritorio', 'trialing', now() + interval '30 days');
+
 set local role authenticated;
 
 insert into public.law_firm_verifications

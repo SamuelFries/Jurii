@@ -290,6 +290,15 @@ select set_config(
   '93000000-0000-0000-0000-000000000001',
   true
 );
+-- A paywall do licenciamento (20260821120000) exige assinatura para INSERIR
+-- verificacao; o fixture abaixo e o pedagio deste teste, que testa OUTRA
+-- coisa.
+insert into public.law_firm_license_subscriptions
+  (owner_profile_id, plan_code, status, trial_ends_at)
+values
+  ('93000000-0000-0000-0000-000000000001', 'escritorio', 'trialing',
+   now() + interval '30 days');
+
 select set_config('request.jwt.claim.role', 'authenticated', true);
 select set_config(
   'request.jwt.claims',

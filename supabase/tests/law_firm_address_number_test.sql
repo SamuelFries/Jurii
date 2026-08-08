@@ -128,6 +128,14 @@ select ok(
     'address_complement', 'insert'),
   'authenticated pode gravar numero e complemento na verificacao');
 
+-- A paywall do licenciamento (20260821120000) exige assinatura para INSERIR
+-- verificacao; o fixture abaixo e o pedagio deste teste, que testa OUTRA
+-- coisa.
+insert into public.law_firm_license_subscriptions
+  (owner_profile_id, plan_code, status, trial_ends_at)
+values
+  ('ee000000-0000-0000-0000-000000000002', 'escritorio', 'trialing', now() + interval '30 days');
+
 set local role authenticated;
 select set_config('request.jwt.claim.sub', 'ee000000-0000-0000-0000-000000000002', true);
 
