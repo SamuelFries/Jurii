@@ -18,7 +18,14 @@ class LicenseRepository {
 
     final rows = await SupabaseConfig.client
         .from('law_firm_license_plans')
-        .select('code, name, max_lawyers, monthly_price_cents, sort_order')
+        // Lista explícita: coluna esquecida aqui chega NULA no model, sem
+        // erro nenhum. Foi o que aconteceu com annual_price_cents, e o
+        // efeito na tela foi a chave Mensal/Anual não mudar preço nem
+        // mostrar desconto. O teste de sincronia abaixo trava isso.
+        .select(
+          'code, name, max_lawyers, monthly_price_cents, '
+          'annual_price_cents, sort_order',
+        )
         .eq('is_active', true)
         .order('sort_order');
 
