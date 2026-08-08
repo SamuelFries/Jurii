@@ -14,7 +14,7 @@ import 'practice_areas_screen.dart';
 import 'professional_bio_screen.dart';
 import 'professional_reach_screen.dart';
 import 'help_center_screen.dart';
-import 'law_firm_verification_screen.dart';
+import 'firm_benefits_screen.dart';
 import 'lawyer_verification_screen.dart';
 import 'legal_document_screen.dart';
 import '../theme/app_colors.dart';
@@ -746,10 +746,13 @@ class ProfileScreen extends StatelessWidget {
                           ? 'Revise os dados e envie uma nova solicitação'
                           : 'Valide CNPJ, documentos e responsável legal',
                       onTap: () {
+                        // Funil do licenciamento: vantagens → plano →
+                        // verificação. Quem já escolheu plano pula a paywall
+                        // (a tela de vantagens confere e ajusta o CTA).
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => LawFirmVerificationScreen(
+                            builder: (_) => FirmBenefitsScreen(
                               user: user,
                               onVerificationSubmitted:
                                   onLawFirmVerificationSubmitted,

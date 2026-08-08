@@ -453,7 +453,7 @@ void main() {
     expect(find.text('Começar Verificação'), findsOneWidget);
   });
 
-  testWidgets('law firm registration item opens verification screen', (
+  testWidgets('law firm registration item opens the benefits pitch', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(
@@ -472,8 +472,13 @@ void main() {
     await tester.tap(find.text('Cadastrar escritório'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Cadastre seu\nEscritório'), findsOneWidget);
-    expect(find.text('Começar cadastro'), findsOneWidget);
+    // O funil do licenciamento começa pela venda, não pelo formulário:
+    // vantagens → plano (paywall) → verificação.
+    expect(
+      find.text('Seu escritório,\nonde o cliente procura'),
+      findsOneWidget,
+    );
+    expect(find.text('Conhecer os planos'), findsOneWidget);
   });
 
   testWidgets('submitting law firm verification emits pending verification', (
@@ -497,6 +502,13 @@ void main() {
 
     await tester.ensureVisible(find.text('Cadastrar escritório'));
     await tester.tap(find.text('Cadastrar escritório'));
+    await tester.pumpAndSettle();
+
+    // Funil novo: vantagens → paywall (plano recomendado já selecionado;
+    // no demo a escolha é atravessável) → checklist → formulário.
+    await tester.tap(find.byKey(const Key('firm_benefits_cta')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('confirmar_plano')));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('Começar cadastro'));
     await tester.tap(find.text('Começar cadastro'));

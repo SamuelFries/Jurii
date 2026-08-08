@@ -63,17 +63,9 @@ class LawFirmVerificationScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 28),
-              _infoPanel(
-                colors,
-                title: 'O que o escritório poderá fazer',
-                children: const [
-                  _InfoLine('Receber leads voltados para escritórios'),
-                  _InfoLine('Convidar advogados e equipe administrativa'),
-                  _InfoLine('Acompanhar casos por advogado'),
-                  _InfoLine('Visualizar dashboards de desempenho'),
-                ],
-              ),
-              const SizedBox(height: 20),
+              // O painel "o que o escritório poderá fazer" morava aqui e
+              // saiu: a tela de vantagens (FirmBenefitsScreen) acabou de
+              // vender exatamente isso — repetir na tela seguinte é eco.
               _infoPanel(
                 colors,
                 title: 'O que será necessário',
@@ -209,37 +201,6 @@ class LawFirmVerificationScreen extends StatelessWidget {
           ),
           const SizedBox(height: 18),
           ...children,
-        ],
-      ),
-    );
-  }
-}
-
-class _InfoLine extends StatelessWidget {
-  const _InfoLine(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.jColors;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(Icons.check_circle, color: colors.success, size: 20),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              text,
-              style: TextStyle(
-                color: colors.textPrimary,
-                fontSize: 14,
-                height: 1.4,
-              ),
-            ),
-          ),
         ],
       ),
     );

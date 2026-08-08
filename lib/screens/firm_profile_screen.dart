@@ -14,7 +14,11 @@ import '../widgets/mode_switcher_sheet.dart';
 import '../widgets/profile_menu_section.dart';
 import '../widgets/profile_avatar.dart';
 import '../widgets/theme_mode_sheet.dart';
+import '../models/law_firm_license.dart';
+import '../repositories/license_repository.dart';
+import '../services/supabase_config.dart';
 import 'business_hours_screen.dart';
+import 'firm_plan_screen.dart';
 import 'edit_firm_profile_screen.dart';
 import 'professional_reach_screen.dart';
 
@@ -28,7 +32,10 @@ class FirmProfileScreen extends StatelessWidget {
     required this.onLogout,
     this.onDeleteAccount,
     this.onRefreshWorkspace,
+    this.licenseRepository = const LicenseRepository(),
   });
+
+  final LicenseRepository licenseRepository;
 
   final UserProfile user;
   final FirmWorkspace? workspace;
@@ -257,9 +264,12 @@ class FirmProfileScreen extends StatelessWidget {
                 ),
               ),
             ),
-          ProfileMenuSection(
-            title: 'GESTÃO',
-            items: [
+          _GestaoComPlano(
+            lawFirmId: workspace?.firm.id,
+            podeVerPlano: workspace != null && _canEditDescription,
+            currentUserId: user.id,
+            repository: licenseRepository,
+            baseItems: [
               // "Dados do escritório" e "Apresentação" moravam aqui como dois
               // itens — dois botões para o mesmo gesto de descrever o
               // escritório. Agora tudo vive atrás do LÁPIS do cabeçalho, que
@@ -429,6 +439,113 @@ class _SwitchAreaCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// A seção GESTÃO com o plano anexado ao fim.
+///
+/// Existe porque ProfileMenuSection recebe DADOS (ProfileMenuItem), não
+/// widgets — e o plano precisa de um fetch próprio. Busca a assinatura do
+/// escritório e, quando ela existe, acrescenta a linha "Plano". Escritórios
+/// aprovados antes do licenciamento não têm assinatura e não ganham linha
+/// cobrando isso: entraram antes da regra.
+///
+/// A troca fica com QUEM CONTRATOU — mudar a conta dos outros não é gestão,
+/// é surpresa na fatura.
+class _GestaoComPlano extends StatefulWidget {
+  const _GestaoComPlano({
+    required this.lawFirmId,
+    required this.podeVerPlano,
+    required this.currentUserId,
+    required this.repository,
+    required this.baseItems,
+  });
+
+  final String? lawFirmId;
+  final bool podeVerPlano;
+  final String currentUserId;
+  final LicenseRepository repository;
+  final List<ProfileMenuItem> baseItems;
+
+  @override
+  State<_GestaoComPlano> createState() => _GestaoComPlanoState();
+}
+
+class _GestaoComPlanoState extends State<_GestaoComPlano> {
+  LicenseSubscription? _assinatura;
+
+  @override
+  void initState() {
+    super.initState();
+    _carregar();
+  }
+
+  Future<void> _carregar() async {
+    final lawFirmId = widget.lawFirmId;
+    if (lawFirmId == null || !widget.podeVerPlano) return;
+    try {
+      final assinatura = await widget.repository.fetchFirmLicense(lawFirmId);
+      if (!mounted) return;
+      setState(() => _assinatura = assinatura);
+    } catch (_) {
+      // Falha de rede some em silêncio: o plano é informação a mais no menu,
+      // e um erro aqui competiria com as ações de gestão.
+    }
+  }
+
+  bool get _souQuemContratou {
+    final dona = _assinatura?.ownerProfileId;
+    if (dona == null || dona.isEmpty) return false;
+    if (SupabaseConfig.isReady &&
+        SupabaseConfig.client.auth.currentUser != null) {
+      return dona == SupabaseConfig.client.auth.currentUser!.id;
+    }
+    return dona == widget.currentUserId;
+  }
+
+  Future<void> _abrirTroca(BuildContext context) async {
+    final assinatura = _assinatura;
+    if (assinatura == null) return;
+
+    if (!_souQuemContratou) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Só quem contratou o plano pode alterá-lo.'),
+        ),
+      );
+      return;
+    }
+
+    final nova = await Navigator.of(context).push<LicenseSubscription>(
+      MaterialPageRoute(
+        builder: (_) => FirmPlanScreen.upgrade(upgradeDe: assinatura.planCode),
+      ),
+    );
+    // Rebusca em vez de usar o retorno: a RPC devolve a assinatura SEM o join
+    // do plano, e o subtítulo mostraria o código cru ("banca") no lugar do
+    // nome ("Banca").
+    if (nova != null && mounted) await _carregar();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.jColors;
+    final assinatura = _assinatura;
+
+    return ProfileMenuSection(
+      title: 'GESTÃO',
+      items: [
+        ...widget.baseItems,
+        if (assinatura != null)
+          ProfileMenuItem(
+            icon: Icons.workspace_premium_outlined,
+            iconColor: colors.officePurple,
+            label: 'Plano',
+            subtitle: assinatura.statusLabel(DateTime.now()),
+            onTap: () => _abrirTroca(context),
+          ),
+      ],
     );
   }
 }
