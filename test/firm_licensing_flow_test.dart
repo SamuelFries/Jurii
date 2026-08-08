@@ -21,6 +21,7 @@ class _FakeLicenseRepository implements LicenseRepository {
   final bool falhaAoListar;
 
   String? escolhido;
+  String? cicloEscolhido;
 
   @override
   Future<List<LicensePlan>> fetchPlans() async {
@@ -36,8 +37,12 @@ class _FakeLicenseRepository implements LicenseRepository {
       minha;
 
   @override
-  Future<LicenseSubscription> choosePlan(String planCode) async {
+  Future<LicenseSubscription> choosePlan(
+    String planCode, {
+    String billingCycle = 'monthly',
+  }) async {
     escolhido = planCode;
+    cicloEscolhido = billingCycle;
     if (erroAoEscolher != null) throw erroAoEscolher!;
     return LicenseSubscription(
       id: 's1',
@@ -127,6 +132,24 @@ void main() {
       expect(find.text('Cadastre seu\nEscritório'), findsOneWidget);
       expect(find.text('Todos os planos incluem tudo.'), findsNothing);
     });
+
+    testWidgets('quem reentrou com plano escolhido ainda pode trocá-lo', (
+      tester,
+    ) async {
+      await abrir(
+        tester,
+        FirmBenefitsScreen(
+          user: mockCurrentUser,
+          licenseRepository: _FakeLicenseRepository(minha: _assinaturaAtiva()),
+        ),
+      );
+
+      // Sem esta porta, a troca só existiria depois da aprovação.
+      await tester.tap(find.byKey(const Key('firm_benefits_trocar_plano')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Plano atual'), findsOneWidget);
+    });
   });
 
   group('paywall (escolha do plano)', () {
@@ -144,16 +167,55 @@ void main() {
       expect(find.text('Essencial'), findsOneWidget);
       expect(find.text('Escritório'), findsOneWidget);
       expect(find.text('Banca'), findsOneWidget);
+
+      // A chave nasce no ANUAL, com o desconto anunciado nela e o número
+      // grande sendo o equivalente POR MÊS (padrão de assinatura de
+      // software). O total do ano fica visível logo abaixo, sem esconder.
+      expect(find.text('economize 20%'), findsOneWidget);
+      expect(find.text('R\$ 119'), findsOneWidget);
+      expect(find.text('R\$ 279'), findsOneWidget);
+      expect(find.text('R\$ 559'), findsOneWidget);
+      expect(find.text('R\$ 3.348/ano'), findsOneWidget);
+
+      // Na mensal, os cheios.
+      await tester.tap(find.text('Mensal'));
+      await tester.pumpAndSettle();
       expect(find.text('R\$ 149'), findsOneWidget);
       expect(find.text('R\$ 349'), findsOneWidget);
       expect(find.text('R\$ 699'), findsOneWidget);
+      expect(find.textContaining('/ano'), findsNothing);
+
       expect(find.text('Até 10 advogados'), findsOneWidget);
       expect(find.text('Recomendado'), findsOneWidget);
       // Sem cartão e cobrança fora do app: o que o teste grátis significa.
       expect(find.textContaining('30 dias grátis'), findsOneWidget);
     });
 
-    testWidgets('confirma o plano selecionado e segue para a verificação', (
+    testWidgets('o ciclo escolhido na chave viaja com a confirmação', (
+      tester,
+    ) async {
+      final repo = _FakeLicenseRepository();
+      await abrir(
+        tester,
+        FirmPlanScreen(user: mockCurrentUser, repository: repo),
+      );
+
+      // Nasce no anual: confirmar direto contrata o anual.
+      await tester.tap(find.byKey(const Key('confirmar_plano')));
+      await tester.pumpAndSettle();
+      expect(repo.cicloEscolhido, 'annual');
+
+      // Volta, troca para mensal e reconfirma: o ciclo acompanha.
+      await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Mensal'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('confirmar_plano')));
+      await tester.pumpAndSettle();
+      expect(repo.cicloEscolhido, 'monthly');
+    });
+
+    testWidgets('confirma o plano e VOLTAR devolve a escolha', (
       tester,
     ) async {
       final repo = _FakeLicenseRepository();
@@ -169,10 +231,25 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(repo.escolhido, 'banca');
-      // A paywall é SUBSTITUÍDA na pilha: voltar da verificação não pode
-      // cair na escolha de plano de novo.
       expect(find.text('Cadastre seu\nEscritório'), findsOneWidget);
-      expect(find.byKey(const Key('confirmar_plano')), findsNothing);
+
+      // Mudar de ideia é caminho legítimo: voltar da verificação devolve a
+      // paywall (a primeira versão substituía a tela na pilha e a pessoa
+      // ficava presa no plano escolhido).
+      // A tela de checklist usa um botão de voltar próprio, não o da AppBar.
+      await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('confirmar_plano')), findsOneWidget);
+
+      await tester.tap(find.text('Essencial'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('confirmar_plano')));
+      await tester.pumpAndSettle();
+
+      // Reconfirmar troca o plano na mesma assinatura e segue em frente.
+      expect(repo.escolhido, 'essencial');
+      expect(find.text('Cadastre seu\nEscritório'), findsOneWidget);
     });
 
     testWidgets('falha ao confirmar vira texto, e a tela não fecha', (

@@ -425,7 +425,7 @@ class _CartaoDePatrocinio extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               '${resumo.sponsoredReach} das ${resumo.reach} visualizações '
-              'vieram de uma vaga patrocinada — $fatia% do seu alcance no '
+              'vieram de uma vaga patrocinada: $fatia% do seu alcance no '
               'período.',
               style: TextStyle(
                 color: colors.textPrimary,

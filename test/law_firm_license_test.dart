@@ -34,6 +34,51 @@ void main() {
       expect(banca.teamLabel, 'Até 25 advogados');
     });
 
+    test('o anual mostra o equivalente mensal e o desconto calculado', () {
+      const plano = LicensePlan(
+        code: 'escritorio',
+        name: 'Escritório',
+        maxLawyers: 10,
+        monthlyPriceCents: 34900,
+        annualPriceCents: 334800,
+      );
+      // O número grande da tela é o POR MÊS do anual; o total fica ao lado.
+      expect(plano.annualMonthlyLabel, 'R\$ 279');
+      expect(plano.annualTotalLabel, 'R\$ 3.348');
+      // Calculado, não declarado: mudou o preço na tabela, o selo acompanha.
+      expect(plano.annualDiscountPercent, 20);
+    });
+
+    test('plano sem preço anual não inventa rótulo nem desconto', () {
+      const soMensal = LicensePlan(
+        code: 'x',
+        name: 'X',
+        maxLawyers: 5,
+        monthlyPriceCents: 10000,
+      );
+      expect(soMensal.annualMonthlyLabel, isNull);
+      expect(soMensal.annualTotalLabel, isNull);
+      expect(soMensal.annualDiscountPercent, isNull);
+    });
+
+    test('o ciclo anual aparece no rótulo do perfil', () {
+      final anual = LicenseSubscription(
+        id: 's1',
+        ownerProfileId: 'u1',
+        planCode: 'banca',
+        billingCycle: 'annual',
+        status: LicenseStatus.active,
+        plan: const LicensePlan(
+          code: 'banca',
+          name: 'Banca',
+          maxLawyers: 25,
+          monthlyPriceCents: 69900,
+          annualPriceCents: 670800,
+        ),
+      );
+      expect(anual.statusLabel(DateTime(2026, 8, 8)), 'Banca · anual · ativo');
+    });
+
     test('plano sem teto não divide por zero nem mente rótulo', () {
       const semTeto = LicensePlan(
         code: 'custom',

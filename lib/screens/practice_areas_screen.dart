@@ -159,7 +159,7 @@ class _PracticeAreasScreenState extends State<PracticeAreasScreen> {
                   const SizedBox(height: 6),
                   Text(
                     'É por aqui que o cliente encontra você na busca e nas '
-                    'categorias. Marque tudo que você realmente atende — não há '
+                    'categorias. Marque tudo que você realmente atende: não há '
                     'limite de quantidade.',
                     style: TextStyle(color: colors.textSecondary, height: 1.4),
                   ),

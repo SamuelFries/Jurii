@@ -42,7 +42,7 @@ class RuleBasedIntakeAIService implements IntakeAIService {
 
   static const _wrapUp =
       'Obrigada! Já tenho o suficiente para organizar seu relato. '
-      'Vou preparar um resumo para o profissional — você poderá revisar '
+      'Vou preparar um resumo para o profissional. Você poderá revisar '
       'tudo antes do envio.';
 
   static const _safetyNotice =
@@ -198,14 +198,14 @@ class RuleBasedIntakeAIService implements IntakeAIService {
       ..writeln('Categoria provável:')
       ..writeln(
         summary.suggestedCategories.isEmpty
-            ? 'Não identificada — triagem manual recomendada.'
+            ? 'Não identificada. Triagem manual recomendada.'
             : summary.suggestedCategories
                   .map((category) => category.practiceArea)
                   .join(', '),
       )
       ..writeln()
       ..writeln('Urgência:')
-      ..writeln('${summary.urgency.label} — ${summary.urgencyReason}');
+      ..writeln('${summary.urgency.label}: ${summary.urgencyReason}');
 
     if (summary.keyPoints.isNotEmpty) {
       buffer

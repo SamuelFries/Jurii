@@ -12,7 +12,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(16);
+select plan(20);
 
 insert into auth.users (id, aud, role, email, encrypted_password,
   email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
@@ -245,6 +245,45 @@ select throws_ok(
 reset role;
 
 -- ---------------------------------------------------------------------------
+-- Cobranca anual (20260822120000)
+-- ---------------------------------------------------------------------------
+
+-- 20% de desconto com equivalente mensal REDONDO: e ele que a tela mostra.
+select results_eq(
+  $$select code, annual_price_cents from public.law_firm_license_plans
+    where is_active order by sort_order$$,
+  $$values ('essencial', 142800), ('escritorio', 334800), ('banca', 670800)$$,
+  'preco anual seedado com 20% de desconto');
+
+select set_config('request.jwt.claim.sub', 'f3000000-0000-0000-0000-000000000009', true);
+set local role authenticated;
+
+select throws_ok(
+  $$select public.choose_law_firm_plan('essencial', 'quinzenal')$$,
+  'Unknown billing cycle: quinzenal',
+  'ciclo desconhecido e recusado nomeando o valor');
+
+reset role;
+
+-- O fundador troca para o anual: MESMA assinatura, ciclo novo, teste intacto.
+select set_config('request.jwt.claim.sub', 'f3000000-0000-0000-0000-000000000001', true);
+set local role authenticated;
+
+select is(
+  (select billing_cycle from public.choose_law_firm_plan('banca', 'annual')),
+  'annual',
+  'trocar para o anual grava o ciclo na mesma assinatura');
+
+select is(
+  (select count(*)::int from public.law_firm_license_subscriptions
+    where owner_profile_id = 'f3000000-0000-0000-0000-000000000001'
+      and status <> 'canceled'),
+  1,
+  'continua UMA assinatura viva, nao duas');
+
+reset role;
+
+-- ---------------------------------------------------------------------------
 -- Grants
 -- ---------------------------------------------------------------------------
 
@@ -257,9 +296,9 @@ select ok(
 
 select ok(
   has_function_privilege('authenticated',
-    'public.choose_law_firm_plan(text)', 'execute')
+    'public.choose_law_firm_plan(text, text)', 'execute')
   and not has_function_privilege('anon',
-    'public.choose_law_firm_plan(text)', 'execute'),
+    'public.choose_law_firm_plan(text, text)', 'execute'),
   'so authenticated escolhe plano');
 
 select * from finish();

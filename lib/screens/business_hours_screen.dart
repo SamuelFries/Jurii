@@ -223,8 +223,8 @@ class _BusinessHoursScreenState extends State<BusinessHoursScreen> {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'O cliente vê isto antes de mandar a primeira mensagem — '
-                    'é o que responde "adianta escrever agora?".',
+                    'O cliente vê isto antes de mandar a primeira mensagem. É '
+                    'o que responde "adianta escrever agora?".',
                     style: TextStyle(color: colors.textSecondary, height: 1.4),
                   ),
                   const SizedBox(height: 20),
@@ -269,7 +269,7 @@ class _BusinessHoursScreenState extends State<BusinessHoursScreen> {
                           Expanded(
                             child: Text(
                               'Sem nenhum dia aberto, o perfil não mostra '
-                              'horário — o cliente segue sem saber quando '
+                              'horário, e o cliente segue sem saber quando '
                               'você atende.',
                               style: TextStyle(
                                 color: colors.textSecondary,

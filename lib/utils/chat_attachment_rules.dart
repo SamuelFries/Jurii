@@ -77,7 +77,7 @@ String chatAttachmentSizeLimitMessage(ChatAttachmentKind kind) {
     ChatAttachmentKind.image => 'Fotos podem ter no máximo 5 MB.',
     ChatAttachmentKind.document => 'Documentos podem ter no máximo 10 MB.',
     ChatAttachmentKind.video =>
-      'Vídeos podem ter no máximo 25 MB — cerca de 30 segundos em alta '
+      'Vídeos podem ter no máximo 25 MB, cerca de 30 segundos em alta '
           'qualidade. Envie um trecho menor.',
   };
 }

@@ -126,7 +126,7 @@ class FirmProfileScreen extends StatelessWidget {
 
   void _showComingSoon(BuildContext context) {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Em preparação — disponível em breve.')),
+      const SnackBar(content: Text('Em preparação. Disponível em breve.')),
     );
   }
 

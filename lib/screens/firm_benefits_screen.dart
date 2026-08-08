@@ -58,6 +58,19 @@ class _FirmBenefitsScreenState extends State<FirmBenefitsScreen> {
 
   bool get _jaTemLicenca => _licenca?.ativa == true;
 
+  Future<void> _trocarPlano() async {
+    final licenca = _licenca;
+    if (licenca == null) return;
+    final nova = await Navigator.of(context).push<LicenseSubscription>(
+      MaterialPageRoute(
+        builder: (_) => FirmPlanScreen.upgrade(upgradeDe: licenca.planCode),
+      ),
+    );
+    if (nova != null && mounted) {
+      setState(() => _licenca = nova);
+    }
+  }
+
   void _avancar() {
     if (_jaTemLicenca) {
       Navigator.of(context).push(
@@ -90,7 +103,7 @@ class _FirmBenefitsScreenState extends State<FirmBenefitsScreen> {
         icon: Icons.search_outlined,
         titulo: 'Apareça para quem procura',
         texto:
-            'Clientes buscam por área do direito e por proximidade — o '
+            'Clientes buscam por área do direito e por proximidade. O '
             'escritório entra na descoberta com perfil completo, avaliações '
             'e distância.',
       ),
@@ -106,14 +119,14 @@ class _FirmBenefitsScreenState extends State<FirmBenefitsScreen> {
         titulo: 'Conversas e casos centralizados',
         texto:
             'Mensagens de clientes e da equipe, casos por advogado e '
-            'andamento — sem WhatsApp perdido no celular de cada um.',
+            'andamento, sem WhatsApp perdido no celular de cada um.',
       ),
       (
         icon: Icons.insights_outlined,
         titulo: 'Números de verdade',
         texto:
             'O painel de alcance mostra quantas pessoas viram o escritório, '
-            'abriram o perfil e começaram conversa — semana a semana.',
+            'abriram o perfil e começaram conversa, semana a semana.',
       ),
       (
         icon: Icons.schedule_outlined,
@@ -126,7 +139,7 @@ class _FirmBenefitsScreenState extends State<FirmBenefitsScreen> {
         icon: Icons.workspace_premium_outlined,
         titulo: 'Destaque quando você quiser',
         texto:
-            'Posições patrocinadas na descoberta, sempre identificadas — '
+            'Posições patrocinadas na descoberta, sempre identificadas e '
             'disponíveis para contratar quando fizer sentido.',
       ),
     ];
@@ -202,7 +215,7 @@ class _FirmBenefitsScreenState extends State<FirmBenefitsScreen> {
                         const SizedBox(height: 10),
                         Text(
                           'A Jurii conecta quem precisa de um advogado a quem '
-                          'atende a área — e dá ao escritório a gestão da '
+                          'atende a área, e dá ao escritório a gestão da '
                           'equipe, das conversas e dos casos.',
                           style: TextStyle(
                             color: colors.card.withValues(alpha: 0.85),
@@ -307,20 +320,36 @@ class _FirmBenefitsScreenState extends State<FirmBenefitsScreen> {
                 color: colors.background,
                 border: Border(top: BorderSide(color: colors.divider)),
               ),
-              child: SizedBox(
-                width: double.infinity,
-                height: 54,
-                child: ElevatedButton(
-                  key: const Key('firm_benefits_cta'),
-                  onPressed: _avancar,
-                  child: Text(
-                    _jaTemLicenca ? 'Continuar cadastro' : 'Conhecer os planos',
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    width: double.infinity,
+                    height: 54,
+                    child: ElevatedButton(
+                      key: const Key('firm_benefits_cta'),
+                      onPressed: _avancar,
+                      child: Text(
+                        _jaTemLicenca
+                            ? 'Continuar cadastro'
+                            : 'Conhecer os planos',
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
                     ),
                   ),
-                ),
+                  // Quem já escolheu plano e reentrou no funil também pode
+                  // mudar de ideia. Sem esta porta, a troca só existiria
+                  // depois da aprovação (Perfil do escritório).
+                  if (_jaTemLicenca)
+                    TextButton(
+                      key: const Key('firm_benefits_trocar_plano'),
+                      onPressed: _trocarPlano,
+                      child: const Text('Trocar de plano'),
+                    ),
+                ],
               ),
             ),
           ],

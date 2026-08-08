@@ -567,7 +567,7 @@ class _EditFirmProfileScreenState extends State<EditFirmProfileScreen> {
                     decoration: const InputDecoration(
                       labelText: 'Endereço',
                       prefixIcon: Icon(Icons.place_outlined),
-                      helperText: 'Rua, bairro e cidade — o CEP preenche',
+                      helperText: 'Rua, bairro e cidade (o CEP preenche)',
                     ),
                   ),
                   const SizedBox(height: 16),
