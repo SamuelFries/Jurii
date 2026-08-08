@@ -7,6 +7,8 @@ import '../repositories/favorites_repository.dart';
 import '../repositories/messaging_repository.dart';
 import '../repositories/review_repository.dart';
 import '../services/location_service.dart';
+import '../models/business_hours.dart';
+import '../repositories/business_hours_repository.dart';
 import '../theme/app_colors.dart';
 import '../utils/geo_distance.dart';
 import '../widgets/favorite_heart_button.dart';
@@ -20,10 +22,12 @@ class LawFirmProfileScreen extends StatefulWidget {
     super.key,
     required this.lawFirm,
     this.messagingRepository = const MessagingRepository(),
+    this.businessHoursRepository = const BusinessHoursRepository(),
   });
 
   final LawFirm lawFirm;
   final MessagingRepository messagingRepository;
+  final BusinessHoursRepository businessHoursRepository;
 
   @override
   State<LawFirmProfileScreen> createState() => _LawFirmProfileScreenState();
@@ -32,9 +36,15 @@ class LawFirmProfileScreen extends StatefulWidget {
 class _LawFirmProfileScreenState extends State<LawFirmProfileScreen> {
   bool _isOpeningChat = false;
 
+  /// Vazio até chegar, e vazio se falhar: horário é informação a MAIS. Um
+  /// estado de erro aqui competiria com o botão de conversar, que é o motivo
+  /// de a tela existir.
+  BusinessHours _horarios = BusinessHours.empty;
+
   @override
   void initState() {
     super.initState();
+    unawaited(_carregarHorarios());
     // Visita ao perfil: o passo entre "apareceu na lista" e "virou conversa".
     // É o número do meio do funil — sem ele não dá para saber se o patrocínio
     // trouxe gente ou só apareceu.
@@ -44,6 +54,18 @@ class _LawFirmProfileScreenState extends State<LawFirmProfileScreen> {
         targetId: widget.lawFirm.id,
       ),
     );
+  }
+
+  Future<void> _carregarHorarios() async {
+    try {
+      final horarios = await widget.businessHoursRepository.fetch(
+        widget.lawFirm.id,
+      );
+      if (!mounted) return;
+      setState(() => _horarios = horarios);
+    } catch (error) {
+      debugPrint('Business hours fetch failed: $error');
+    }
   }
 
   Color _avatarColor(AppColors colors) => switch (widget.lawFirm.avatarType) {
@@ -248,6 +270,14 @@ class _LawFirmProfileScreenState extends State<LawFirmProfileScreen> {
                     icon: Icons.location_city_outlined,
                     label: widget.lawFirm.fullAddress ?? 'Atendimento remoto',
                   ),
+                  // Responde a pergunta que o cliente faz antes de escrever:
+                  // "adianta mandar mensagem agora?". Sem isso ele escreve às
+                  // 22h de domingo, não recebe resposta até segunda, e conclui
+                  // que o escritório ignora cliente.
+                  if (!_horarios.isEmpty) ...[
+                    const SizedBox(height: 14),
+                    _BlocoDeHorarios(horarios: _horarios),
+                  ],
                 ],
               ),
             ),
@@ -411,6 +441,58 @@ class _ContactRow extends StatelessWidget {
             ),
           ),
         ),
+      ],
+    );
+  }
+}
+
+/// Horários no perfil que o cliente lê.
+///
+/// "Aberto agora" primeiro, porque é a resposta; a grade vem depois, porque é
+/// a justificativa.
+class _BlocoDeHorarios extends StatelessWidget {
+  const _BlocoDeHorarios({required this.horarios});
+
+  final BusinessHours horarios;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.jColors;
+    final aberto = horarios.isOpenAt(DateTime.now());
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.schedule_outlined, size: 18, color: colors.muted),
+            const SizedBox(width: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: aberto ? colors.successSurface : colors.dangerSurface,
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Text(
+                aberto ? 'Aberto agora' : 'Fechado agora',
+                style: TextStyle(
+                  color: aberto ? colors.success : colors.danger,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        for (final linha in horarios.summaryLines)
+          Padding(
+            padding: const EdgeInsets.only(left: 28, bottom: 2),
+            child: Text(
+              linha,
+              style: TextStyle(color: colors.textSecondary, fontSize: 13),
+            ),
+          ),
       ],
     );
   }
