@@ -37,19 +37,18 @@ class LicensePlan {
   /// plano se escreve no Brasil.
   String get priceLabel => formatPrice(monthlyPriceCents);
 
-  /// O equivalente MENSAL do plano anual ("R$ 279"): é o número que a tela
-  /// mostra grande, no padrão das assinaturas de software. O total do ano
-  /// aparece pequeno, em [annualTotalLabel].
+  /// O equivalente MENSAL do plano anual ("R\$ 290"), e a ÚNICA forma de
+  /// preço que a tela mostra no ciclo anual.
+  ///
+  /// O total do ano não aparece de propósito: dois números competindo no
+  /// mesmo cartão fazem a pessoa parar para comparar em vez de escolher. Que
+  /// a cobrança é anual está dito uma vez, abaixo da chave.
+  ///
+  /// Os preços do banco são escolhidos para esta divisão dar reais inteiros.
   String? get annualMonthlyLabel {
     final total = annualPriceCents;
     if (total == null) return null;
     return formatPrice((total / 12).round());
-  }
-
-  String? get annualTotalLabel {
-    final total = annualPriceCents;
-    if (total == null) return null;
-    return formatPrice(total);
   }
 
   /// Desconto do anual sobre 12 mensalidades, em % inteiro. Calculado, não

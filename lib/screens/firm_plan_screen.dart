@@ -196,11 +196,35 @@ class _FirmPlanScreenState extends State<FirmPlanScreen> {
                           desconto: planos
                               ?.map((p) => p.annualDiscountPercent)
                               .whereType<int>()
-                              .fold<int?>(null, (a, b) => a == null ? b : (a < b ? a : b)),
+                              .fold<int?>(
+                                null,
+                                (a, b) => a == null ? b : (a < b ? a : b),
+                              ),
                           onChanged: (valor) =>
                               setState(() => _ciclo = valor),
                         ),
-                        const SizedBox(height: 14),
+                        const SizedBox(height: 8),
+                        // Onde fica dito que o anual é cobrado de uma vez.
+                        // Aqui, e não dentro do cartão, para o bloco de preço
+                        // ter a MESMA altura nos dois ciclos: número que
+                        // pula de lugar ao virar a chave faz a pessoa
+                        // reconferir o que já tinha lido.
+                        SizedBox(
+                          height: 18,
+                          child: Center(
+                            child: Text(
+                              _ciclo == 'annual'
+                                  ? 'Valores por mês, cobrados anualmente'
+                                  : 'Valores por mês, cobrados mensalmente',
+                              key: const Key('aviso_de_cobranca'),
+                              style: TextStyle(
+                                color: colors.textSecondary,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
                         if (planos == null)
                           const JuriiSkeletonList(
                             itemCount: 3,
@@ -436,13 +460,13 @@ class _CartaoDePlano extends StatelessWidget {
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                // No anual o número grande continua sendo POR MÊS (o
-                // equivalente), no padrão das assinaturas de software; o
-                // total do ano vem pequeno logo abaixo, sem esconder nada.
+                // SEMPRE duas linhas, valor e "/mês", nos dois ciclos: no
+                // anual mostra-se o equivalente mensal, e nada mais. Foi
+                // assim que o bloco de preço parou de mudar de altura ao
+                // virar a chave, empurrando os cartões de baixo.
                 Text(
-                  _mostraAnual
-                      ? plano.annualMonthlyLabel!
-                      : plano.priceLabel,
+                  _mostraAnual ? plano.annualMonthlyLabel! : plano.priceLabel,
+                  key: Key('preco_${plano.code}'),
                   style: TextStyle(
                     color: colors.textPrimary,
                     fontSize: 22,
@@ -453,14 +477,6 @@ class _CartaoDePlano extends StatelessWidget {
                   '/mês',
                   style: TextStyle(color: colors.textSecondary, fontSize: 12),
                 ),
-                if (_mostraAnual)
-                  Text(
-                    '${plano.annualTotalLabel!}/ano',
-                    style: TextStyle(
-                      color: colors.muted,
-                      fontSize: 10.5,
-                    ),
-                  ),
               ],
             ),
             const SizedBox(width: 10),

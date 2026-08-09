@@ -168,27 +168,73 @@ void main() {
       expect(find.text('Escritório'), findsOneWidget);
       expect(find.text('Banca'), findsOneWidget);
 
-      // A chave nasce no ANUAL, com o desconto anunciado nela e o número
-      // grande sendo o equivalente POR MÊS (padrão de assinatura de
-      // software). O total do ano fica visível logo abaixo, sem esconder.
-      expect(find.text('economize 20%'), findsOneWidget);
-      expect(find.text('R\$ 119'), findsOneWidget);
-      expect(find.text('R\$ 279'), findsOneWidget);
-      expect(find.text('R\$ 559'), findsOneWidget);
-      expect(find.text('R\$ 3.348/ano'), findsOneWidget);
+      // A chave nasce no ANUAL, com o desconto anunciado nela, e o preço
+      // mostrado é SÓ o equivalente por mês.
+      expect(find.text('economize 17%'), findsOneWidget);
+      expect(find.text('R\$ 124'), findsOneWidget);
+      expect(find.text('R\$ 290'), findsOneWidget);
+      expect(find.text('R\$ 580'), findsOneWidget);
 
-      // Na mensal, os cheios.
+      // O total do ano NÃO aparece: dois números competindo no mesmo cartão
+      // fazem a pessoa parar para comparar em vez de escolher.
+      expect(find.textContaining('/ano'), findsNothing);
+      expect(find.textContaining('1.488'), findsNothing);
+      expect(find.textContaining('3.480'), findsNothing);
+
+      // Mas fica dito, uma vez, que a cobrança é anual.
+      expect(
+        find.text('Valores por mês, cobrados anualmente'),
+        findsOneWidget,
+      );
+
+      // Na mensal, os cheios, e o aviso troca junto.
       await tester.tap(find.text('Mensal'));
       await tester.pumpAndSettle();
       expect(find.text('R\$ 149'), findsOneWidget);
       expect(find.text('R\$ 349'), findsOneWidget);
       expect(find.text('R\$ 699'), findsOneWidget);
-      expect(find.textContaining('/ano'), findsNothing);
+      expect(
+        find.text('Valores por mês, cobrados mensalmente'),
+        findsOneWidget,
+      );
 
       expect(find.text('Até 10 advogados'), findsOneWidget);
       expect(find.text('Recomendado'), findsOneWidget);
       // Sem cartão e cobrança fora do app: o que o teste grátis significa.
       expect(find.textContaining('30 dias grátis'), findsOneWidget);
+    });
+
+    testWidgets('virar a chave NÃO move os números de lugar', (tester) async {
+      await abrir(
+        tester,
+        FirmPlanScreen(
+          user: mockCurrentUser,
+          repository: _FakeLicenseRepository(),
+        ),
+      );
+
+      // Mede a posição do PRÓPRIO número, não a do cartão: a coluna da
+      // direita tem folga, então uma linha a mais crescia sem mudar a altura
+      // do cartão e mesmo assim empurrava o número para cima, porque a Row
+      // centraliza verticalmente. Foi exatamente isso que apareceu na tela.
+      Rect posicaoDoPreco(String code) =>
+          tester.getRect(find.byKey(Key('preco_$code')));
+
+      const codigos = ['essencial', 'escritorio', 'banca'];
+      final anual = [for (final c in codigos) posicaoDoPreco(c)];
+
+      await tester.tap(find.text('Mensal'));
+      await tester.pumpAndSettle();
+
+      final mensal = [for (final c in codigos) posicaoDoPreco(c)];
+
+      for (var i = 0; i < codigos.length; i++) {
+        expect(
+          mensal[i].top,
+          anual[i].top,
+          reason: 'o preço de ${codigos[i]} mudou de altura ao virar a chave',
+        );
+      }
     });
 
     testWidgets('o ciclo escolhido na chave viaja com a confirmação', (
