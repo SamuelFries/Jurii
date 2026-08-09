@@ -9,11 +9,15 @@ import '../models/firm_workspace.dart';
 import '../repositories/case_repository.dart';
 import '../services/supabase_config.dart';
 import '../theme/app_colors.dart';
+import '../utils/inbox_filters.dart';
 import '../widgets/jurii_empty_state.dart';
 import '../widgets/jurii_error_state.dart';
+import '../widgets/jurii_filter_chip_row.dart';
 import '../widgets/jurii_form_motion.dart';
 import '../widgets/jurii_list_card.dart';
 import '../widgets/jurii_motion.dart';
+import '../widgets/jurii_no_results_state.dart';
+import '../widgets/jurii_search_field.dart';
 import '../widgets/profile_avatar.dart';
 import 'case_details_screen.dart';
 
@@ -33,11 +37,43 @@ class FirmCasesScreen extends StatefulWidget {
 
 class _FirmCasesScreenState extends State<FirmCasesScreen> {
   late Future<List<FirmCaseOverview>> _casesFuture;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+  bool _onlyOpen = false;
+  bool _onlyUnassigned = false;
+  bool _onlyUrgent = false;
 
   @override
   void initState() {
     super.initState();
     _casesFuture = _loadCases();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged(String value) {
+    setState(() => _searchQuery = value.trim());
+  }
+
+  void _clearFilters() {
+    _searchController.clear();
+    setState(() {
+      _searchQuery = '';
+      _onlyOpen = false;
+      _onlyUnassigned = false;
+      _onlyUrgent = false;
+    });
+  }
+
+  String _mensagemSemResultado(int total) {
+    final casos = total == 1 ? 'caso' : 'casos';
+    final continuam = total == 1 ? 'continua' : 'continuam';
+    return 'Nenhum caso combina com esse filtro. '
+        'Os $total $casos do escritório $continuam aqui.';
   }
 
   @override
@@ -49,18 +85,19 @@ class _FirmCasesScreenState extends State<FirmCasesScreen> {
   }
 
   Future<List<FirmCaseOverview>> _loadCases() async {
-    // Mock apenas no modo demo (Supabase não configurado).
-    if (!SupabaseConfig.isReady) return mockFirmCases;
-
     final lawFirmId = widget.workspace?.firm.id;
     // Workspace local usa ids sintéticos ('approved_firm') que não são uuid —
     // só chama o RPC quando o workspace veio do Supabase.
     if (lawFirmId == null || widget.workspace?.fromSupabase != true) {
-      return const [];
+      return SupabaseConfig.isReady ? const [] : mockFirmCases;
     }
 
     try {
-      return await widget.repository.fetchLawFirmCases(lawFirmId);
+      final cases = await widget.repository.fetchLawFirmCases(lawFirmId);
+      // Mock só no demo, e só depois de perguntar ao repositório: ver a nota
+      // em cases_screen.dart.
+      if (cases.isEmpty && !SupabaseConfig.isReady) return mockFirmCases;
+      return cases;
     } catch (error) {
       // Erro sobe para o FutureBuilder: falha de rede não pode virar
       // "Nenhum caso encontrado" para o gestor do escritório.
@@ -191,6 +228,15 @@ class _FirmCasesScreenState extends State<FirmCasesScreen> {
         future: _casesFuture,
         builder: (context, snapshot) {
           final cases = snapshot.data;
+          final visiveis = cases == null
+              ? const <FirmCaseOverview>[]
+              : filterFirmCases(
+                  cases,
+                  query: _searchQuery,
+                  onlyOpen: _onlyOpen,
+                  onlyUnassigned: _onlyUnassigned,
+                  onlyUrgent: _onlyUrgent,
+                );
 
           return ListView(
             padding: const EdgeInsets.all(24),
@@ -209,6 +255,45 @@ class _FirmCasesScreenState extends State<FirmCasesScreen> {
                 style: TextStyle(color: colors.textSecondary, fontSize: 16),
               ),
               const SizedBox(height: 20),
+              if (cases != null && cases.isNotEmpty) ...[
+                JuriiSearchField(
+                  controller: _searchController,
+                  hintText: 'Buscar por cliente, advogado ou processo',
+                  semanticLabel: 'Buscar nos casos do escritório',
+                  onChanged: _onSearchChanged,
+                ),
+                const SizedBox(height: 12),
+                JuriiFilterChipRow(
+                  total: cases.length,
+                  filters: [
+                    JuriiListFilter(
+                      // A pergunta que custa dinheiro ao escritório: caso que
+                      // entrou e ninguém assumiu.
+                      label: 'Sem responsável',
+                      matches: cases
+                          .where((c) => c.assignedLawyerId == null)
+                          .length,
+                      selected: _onlyUnassigned,
+                      onToggle: () =>
+                          setState(() => _onlyUnassigned = !_onlyUnassigned),
+                    ),
+                    JuriiListFilter(
+                      label: 'Urgentes',
+                      matches: cases.where((c) => c.urgent).length,
+                      selected: _onlyUrgent,
+                      onToggle: () =>
+                          setState(() => _onlyUrgent = !_onlyUrgent),
+                    ),
+                    JuriiListFilter(
+                      label: 'Em andamento',
+                      matches: cases.where((c) => !c.isClosed).length,
+                      selected: _onlyOpen,
+                      onToggle: () => setState(() => _onlyOpen = !_onlyOpen),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+              ],
               if (snapshot.connectionState == ConnectionState.waiting &&
                   cases == null)
                 const Padding(
@@ -225,20 +310,26 @@ class _FirmCasesScreenState extends State<FirmCasesScreen> {
                 )
               else if (cases == null || cases.isEmpty)
                 const _EmptyFirmCasesState()
+              else if (visiveis.isEmpty)
+                JuriiNoResultsState(
+                  icon: Icons.folder_off_outlined,
+                  message: _mensagemSemResultado(cases.length),
+                  onClear: _clearFilters,
+                )
               else
-                for (var index = 0; index < cases.length; index++) ...[
+                for (var index = 0; index < visiveis.length; index++) ...[
                   JuriiStaggeredItem(
-                    key: ValueKey('firm_case_${cases[index].id}'),
+                    key: ValueKey('firm_case_${visiveis[index].id}'),
                     index: index,
                     child: _FirmCaseCard(
-                      overview: cases[index],
-                      onTap: () => _openCaseDetails(cases[index]),
+                      overview: visiveis[index],
+                      onTap: () => _openCaseDetails(visiveis[index]),
                       onAssign: widget.workspace?.canAssignCases == true
-                          ? () => _openAssignCaseSheet(cases[index])
+                          ? () => _openAssignCaseSheet(visiveis[index])
                           : null,
                     ),
                   ),
-                  if (index < cases.length - 1) const SizedBox(height: 12),
+                  if (index < visiveis.length - 1) const SizedBox(height: 12),
                 ],
             ],
           );

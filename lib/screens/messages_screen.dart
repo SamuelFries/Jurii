@@ -8,10 +8,14 @@ import '../repositories/messaging_repository.dart';
 import '../services/realtime_refresh.dart';
 import '../services/supabase_config.dart';
 import '../theme/app_colors.dart';
+import '../utils/inbox_filters.dart';
 import '../widgets/conversation_card.dart';
 import '../widgets/jurii_empty_state.dart';
 import '../widgets/jurii_error_state.dart';
+import '../widgets/jurii_filter_chip_row.dart';
 import '../widgets/jurii_motion.dart';
+import '../widgets/jurii_no_results_state.dart';
+import '../widgets/jurii_search_field.dart';
 import 'chat_screen.dart';
 
 class MessagesScreen extends StatefulWidget {
@@ -27,6 +31,9 @@ class _MessagesScreenState extends State<MessagesScreen>
     with RealtimeRefresh<MessagesScreen> {
   final MessagingRepository _repository = const MessagingRepository();
   late Future<List<Conversation>> _conversationsFuture;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+  bool _onlyUnread = false;
 
   @override
   void initState() {
@@ -50,6 +57,33 @@ class _MessagesScreenState extends State<MessagesScreen>
         onChange: _refreshSilently,
       );
     }
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged(String value) {
+    setState(() => _searchQuery = value.trim());
+  }
+
+  void _clearFilters() {
+    _searchController.clear();
+    setState(() {
+      _searchQuery = '';
+      _onlyUnread = false;
+    });
+  }
+
+  /// A mensagem diz o que continua existindo. Sem isso, filtrar até zerar
+  /// parece ter apagado as conversas.
+  String _mensagemSemResultado(int total) {
+    final conversas = total == 1 ? 'conversa' : 'conversas';
+    return _onlyUnread && _searchQuery.isEmpty
+        ? 'Você não tem conversas não lidas. Suas $total $conversas continuam aqui.'
+        : 'Nenhuma conversa combina com esse filtro. Suas $total $conversas continuam aqui.';
   }
 
   /// Recarrega sem trocar o Future exibido: o realtime não pode piscar o
@@ -148,6 +182,12 @@ class _MessagesScreenState extends State<MessagesScreen>
             );
           }
 
+          final visiveis = filterConversations(
+            conversations,
+            query: _searchQuery,
+            onlyUnread: _onlyUnread,
+          );
+
           return RefreshIndicator(
             onRefresh: _refresh,
             child: ListView(
@@ -159,20 +199,49 @@ class _MessagesScreenState extends State<MessagesScreen>
                   subtitle: 'Acompanhe seus atendimentos jurídicos.',
                 ),
                 const SizedBox(height: 20),
-                for (var index = 0; index < conversations.length; index++) ...[
-                  JuriiStaggeredItem(
-                    key: ValueKey(
-                      'client_conversation_${conversations[index].id ?? conversations[index].officeName}',
+                JuriiSearchField(
+                  controller: _searchController,
+                  hintText: 'Buscar por escritório ou área',
+                  semanticLabel: 'Buscar nas suas conversas',
+                  onChanged: _onSearchChanged,
+                ),
+                const SizedBox(height: 12),
+                JuriiFilterChipRow(
+                  total: conversations.length,
+                  filters: [
+                    JuriiListFilter(
+                      label: 'Não lidas',
+                      matches: conversations
+                          .where((c) => c.unreadCount > 0)
+                          .length,
+                      selected: _onlyUnread,
+                      onToggle: () =>
+                          setState(() => _onlyUnread = !_onlyUnread),
                     ),
-                    index: index,
-                    child: ConversationCard(
-                      conversation: conversations[index],
-                      onTap: () => _openChat(conversations[index]),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                if (visiveis.isEmpty)
+                  JuriiNoResultsState(
+                    icon: Icons.search_off,
+                    message: _mensagemSemResultado(conversations.length),
+                    onClear: _clearFilters,
+                  )
+                else
+                  for (var index = 0; index < visiveis.length; index++) ...[
+                    JuriiStaggeredItem(
+                      key: ValueKey(
+                        'client_conversation_${visiveis[index].id ?? visiveis[index].officeName}',
+                      ),
+                      index: index,
+                      child: ConversationCard(
+                        conversation: visiveis[index],
+                        onTap: () => _openChat(visiveis[index]),
+                      ),
                     ),
-                  ),
-                  if (index < conversations.length - 1)
-                    const SizedBox(height: 12),
-                ],
+                    if (index < visiveis.length - 1)
+                      const SizedBox(height: 12),
+                  ],
               ],
             ),
           );

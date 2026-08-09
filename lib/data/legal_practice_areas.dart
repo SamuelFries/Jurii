@@ -1,3 +1,5 @@
+import '../utils/list_search.dart';
+
 const legalPracticeAreas = [
   'Direito Trabalhista',
   'Direito de Família',
@@ -1828,26 +1830,8 @@ bool _containsAtWordBoundary(String haystack, String needle) {
   return false;
 }
 
-String normalizePracticeAreaQuery(String value) {
-  final withoutAccents = value
-      .toLowerCase()
-      .trim()
-      .replaceAll('á', 'a')
-      .replaceAll('à', 'a')
-      .replaceAll('â', 'a')
-      .replaceAll('ã', 'a')
-      .replaceAll('é', 'e')
-      .replaceAll('ê', 'e')
-      .replaceAll('í', 'i')
-      .replaceAll('ó', 'o')
-      .replaceAll('ô', 'o')
-      .replaceAll('õ', 'o')
-      .replaceAll('ú', 'u')
-      .replaceAll('ü', 'u')
-      .replaceAll('ç', 'c');
-
-  return withoutAccents
-      .replaceAll(RegExp(r'[^a-z0-9]+'), ' ')
-      .replaceAll(RegExp(r'\s+'), ' ')
-      .trim();
-}
+/// Delega para [normalizeSearchText]: é a MESMA normalização, e ter duas
+/// cópias garantia divergência silenciosa entre a busca de áreas e a busca
+/// das listas. O espelho no servidor é `public.normalize_practice_area_search`
+/// (migration 20260816120000); mexer aqui exige mexer lá.
+String normalizePracticeAreaQuery(String value) => normalizeSearchText(value);
