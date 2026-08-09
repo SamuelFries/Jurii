@@ -12,7 +12,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(20);
+select plan(22);
 
 insert into auth.users (id, aud, role, email, encrypted_password,
   email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
@@ -252,8 +252,25 @@ reset role;
 select results_eq(
   $$select code, annual_price_cents from public.law_firm_license_plans
     where is_active order by sort_order$$,
-  $$values ('essencial', 142800), ('escritorio', 334800), ('banca', 670800)$$,
-  'preco anual seedado com 20% de desconto');
+  $$values ('essencial', 148800), ('escritorio', 348000), ('banca', 696000)$$,
+  'preco anual seedado com 17% de desconto');
+
+-- O equivalente mensal tem que dar reais inteiros: e o unico numero que a
+-- tela mostra no ciclo anual. Preco que divide quebrado viraria "R$ 123,67".
+select is(
+  (select count(*)::int from public.law_firm_license_plans
+    where is_active and annual_price_cents % 1200 <> 0),
+  0,
+  'todo preco anual divide em 12 parcelas de reais inteiros');
+
+-- Os tres no MESMO desconto: a tela mostra o MENOR deles, entao um plano
+-- fora da linha derruba o selo inteiro sem ninguem notar.
+select is(
+  (select count(distinct round(100 - annual_price_cents * 100.0
+     / (monthly_price_cents * 12)))::int
+   from public.law_firm_license_plans where is_active),
+  1,
+  'os tres planos fecham no mesmo desconto arredondado');
 
 select set_config('request.jwt.claim.sub', 'f3000000-0000-0000-0000-000000000009', true);
 set local role authenticated;

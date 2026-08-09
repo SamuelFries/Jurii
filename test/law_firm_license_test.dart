@@ -34,19 +34,56 @@ void main() {
       expect(banca.teamLabel, 'Até 25 advogados');
     });
 
-    test('o anual mostra o equivalente mensal e o desconto calculado', () {
+    test('o anual mostra só o equivalente mensal, com desconto calculado', () {
       const plano = LicensePlan(
         code: 'escritorio',
         name: 'Escritório',
         maxLawyers: 10,
         monthlyPriceCents: 34900,
-        annualPriceCents: 334800,
+        annualPriceCents: 348000,
       );
-      // O número grande da tela é o POR MÊS do anual; o total fica ao lado.
-      expect(plano.annualMonthlyLabel, 'R\$ 279');
-      expect(plano.annualTotalLabel, 'R\$ 3.348');
+      // Só o por mês: o total do ano não aparece na tela, para dois números
+      // não competirem no mesmo cartão.
+      expect(plano.annualMonthlyLabel, 'R\$ 290');
       // Calculado, não declarado: mudou o preço na tabela, o selo acompanha.
-      expect(plano.annualDiscountPercent, 20);
+      expect(plano.annualDiscountPercent, 17);
+    });
+
+    test('os três planos fecham no MESMO desconto', () {
+      // O selo mostra o MENOR desconto entre os planos. Se um deles cair para
+      // 16%, o selo inteiro cai junto e a promessa muda sem ninguém notar.
+      const planos = [
+        LicensePlan(
+          code: 'essencial',
+          name: 'Essencial',
+          maxLawyers: 3,
+          monthlyPriceCents: 14900,
+          annualPriceCents: 148800,
+        ),
+        LicensePlan(
+          code: 'escritorio',
+          name: 'Escritório',
+          maxLawyers: 10,
+          monthlyPriceCents: 34900,
+          annualPriceCents: 348000,
+        ),
+        LicensePlan(
+          code: 'banca',
+          name: 'Banca',
+          maxLawyers: 25,
+          monthlyPriceCents: 69900,
+          annualPriceCents: 696000,
+        ),
+      ];
+      for (final plano in planos) {
+        expect(
+          plano.annualDiscountPercent,
+          17,
+          reason: '${plano.code} não fecha em 17%',
+        );
+        // Equivalente mensal em reais inteiros: é o número que a tela mostra.
+        expect(plano.annualPriceCents! % 1200, 0);
+      }
     });
 
     test('plano sem preço anual não inventa rótulo nem desconto', () {
@@ -57,7 +94,6 @@ void main() {
         monthlyPriceCents: 10000,
       );
       expect(soMensal.annualMonthlyLabel, isNull);
-      expect(soMensal.annualTotalLabel, isNull);
       expect(soMensal.annualDiscountPercent, isNull);
     });
 
@@ -73,7 +109,7 @@ void main() {
           name: 'Banca',
           maxLawyers: 25,
           monthlyPriceCents: 69900,
-          annualPriceCents: 670800,
+          annualPriceCents: 696000,
         ),
       );
       expect(anual.statusLabel(DateTime(2026, 8, 8)), 'Banca · anual · ativo');
