@@ -409,10 +409,6 @@ class _NotificationSheetState extends State<_NotificationSheet> {
 
   @override
   Widget build(BuildContext context) {
-    // Teto explícito: dentro do JuriiModalSheetScaffold a Column não repassa
-    // altura limitada, então Flexible quebraria com lista longa.
-    final maxListHeight = MediaQuery.sizeOf(context).height * 0.55;
-
     final hasUnread = _notifications.any(
       (notification) => notification.isUnread,
     );
@@ -445,8 +441,11 @@ class _NotificationSheetState extends State<_NotificationSheet> {
           if (_notifications.isEmpty)
             _EmptyNotifications(scope: widget.scope)
           else
-            ConstrainedBox(
-              constraints: BoxConstraints(maxHeight: maxListHeight),
+            // Flexible: a lista fica com a altura que a folha REALMENTE tem.
+            // Antes era um teto de 55% da altura do aparelho, medida errada
+            // (a folha inteira tem 56%), e a lista cheia empurrava cabeçalho
+            // e alça para fora por 113px.
+            Flexible(
               child: ListView.separated(
                 shrinkWrap: true,
                 itemCount: _notifications.length,

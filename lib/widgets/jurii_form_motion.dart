@@ -322,7 +322,15 @@ class JuriiModalSheetScaffold extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 22),
-              child,
+              // Flexible, e não `child` solto: filho não-flex de uma Column
+              // recebe altura ILIMITADA, então quem está dentro não tem como
+              // saber quanto espaço sobrou e acaba adivinhando uma fração da
+              // tela. O painel de notificações adivinhava 55% da altura do
+              // aparelho enquanto a folha inteira só tem 56% (o teto de 9/16
+              // do showModalBottomSheet), e estourava por 113px com a lista
+              // cheia. Com Flexible o filho recebe o que de fato existe e
+              // pode usar Flexible/Expanded por dentro.
+              Flexible(child: child),
             ],
           ),
         ),
