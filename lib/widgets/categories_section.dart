@@ -16,6 +16,12 @@ class CategoriesSection extends StatefulWidget {
   });
 
   final String searchQuery;
+
+  /// Chamado com o TÍTULO do cartão, a palavra do cliente.
+  ///
+  /// É o título que vai para a caixa de busca. Antes ia a área canônica:
+  /// quem tocava "Acidente de Trânsito" via a caixa virar "Direito Cível",
+  /// e o filtro abria para a segunda maior área da taxonomia.
   final ValueChanged<String>? onCategorySelected;
   final CategoryRepository repository;
 
@@ -48,12 +54,15 @@ class _CategoriesSectionState extends State<CategoriesSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // "Comece por aqui", e não "Categorias populares": popularidade
+        // afirmaria uma medição que não existe (discovery_events não grava
+        // toque em categoria nem termo buscado). O conjunto é curadoria.
         Text(
-          'Categorias populares',
+          'Comece por aqui',
           style: Theme.of(context).textTheme.titleLarge,
         ),
         const SizedBox(height: 4),
-        // O toggle de filtro é invisível sem isto — o gesto precisa ser dito.
+        // O toggle de filtro é invisível sem isto: o gesto precisa ser dito.
         Text(
           'Toque para filtrar advogados e escritórios.',
           style: TextStyle(color: colors.textSecondary, fontSize: 13),
@@ -80,18 +89,14 @@ class _CategoriesSectionState extends State<CategoriesSection> {
                 ),
                 itemBuilder: (context, index) {
                   final category = categories[index];
-                  // A área canônica vem do banco (practice_area); a
-                  // heurística por id/título fica só para dados antigos.
-                  final practiceArea =
-                      category.practiceArea ??
-                      practiceAreaForCategory(
-                        id: category.id,
-                        title: category.title,
-                      );
-                  final selected = isPracticeAreaSelectedForQuery(
-                    area: practiceArea,
-                    query: widget.searchQuery,
-                  );
+                  // Aceso por IDENTIDADE de título, não por inferência de
+                  // área. Inferir reacendia cartões em par: "Inventário e
+                  // Herança" infere Cível junto de Sucessões e acendia
+                  // também "Acidente e Indenização". Cartão aceso significa
+                  // "foi isto que você tocou", nada além.
+                  final selected =
+                      normalizePracticeAreaQuery(widget.searchQuery) ==
+                      normalizePracticeAreaQuery(category.title);
                   return JuriiStaggeredItem(
                     key: ValueKey('category_${category.id}'),
                     index: index,
@@ -100,7 +105,7 @@ class _CategoriesSectionState extends State<CategoriesSection> {
                       selected: selected,
                       iconName: category.iconName,
                       onTap: () =>
-                          widget.onCategorySelected?.call(practiceArea),
+                          widget.onCategorySelected?.call(category.title),
                     ),
                   );
                 },
