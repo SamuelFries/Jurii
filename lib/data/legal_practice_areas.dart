@@ -121,6 +121,15 @@ const legalSearchIntentRules = [
       'fui assaltado',
       'fui assaltada',
       'me roubaram',
+      // Buscas reais que devolviam zero (medidas em 2026-08-09): o presente
+      // "me bate" existia só no passado "me bateu", e "fui roubado" só como
+      // "me roubaram". Quem está apanhando escreve no presente.
+      'marido me bate',
+      'me bate',
+      'estou sendo ameaçado',
+      'estou sendo ameaçada',
+      'fui roubado',
+      'fui roubada',
       'roubaram meu celular',
       'invadiram minha casa',
       'arrombamento',
@@ -254,6 +263,8 @@ const legalSearchIntentRules = [
       'demissão',
       'fui demitido',
       'fui demitida',
+      'fui despedido',
+      'fui despedida',
       'me mandaram embora',
       'mandaram embora',
       'demitido sem receber',
@@ -313,7 +324,12 @@ const legalSearchIntentRules = [
       'licença maternidade',
       'cipa',
       'sindicato',
-      'doméstica',
+      // "doméstica" solta fazia "violência doméstica" pescar Trabalhista, e
+      // os 55 perfis trabalhistas afogavam os 12 criminais numa das buscas
+      // mais sensíveis do app. Digitar só "doméstica" continua achando
+      // Trabalhista pela regra de prefixo sobre "empregada doméstica".
+      'sou doméstica',
+      'trabalho doméstico',
       'empregada doméstica',
       'diarista',
       'motorista de aplicativo',
@@ -343,6 +359,8 @@ const legalSearchIntentRules = [
       'loja não entregou',
       'atraso na entrega',
       'loja não troca',
+      'problema com loja',
+      'problema com a loja',
       'troca negada',
       'garantia',
       'garantia negada',
@@ -861,6 +879,10 @@ const legalSearchIntentRules = [
       'cheque especial',
       'rotativo do cartão',
       'superendividamento',
+      'endividado',
+      'endividada',
+      'estou endividado',
+      'estou endividada',
       'tarifa bancária',
       'tarifas indevidas',
       'venda casada do banco',
@@ -871,6 +893,12 @@ const legalSearchIntentRules = [
       'bloqueio judicial da conta',
       'banco negou empréstimo',
       'contrato bancário',
+      // "banco" e "dívida" soltos também são Bancário, não só Consumidor.
+      // Sem isto, "Dívidas e Banco" (título da categoria da home) só pescava
+      // Consumidor: o cartão prometia Bancário e o filtro não o incluía.
+      'banco',
+      'dívida',
+      'dívidas',
     ],
   ),
   LegalSearchIntentRule(
@@ -895,6 +923,18 @@ const legalSearchIntentRules = [
       'crm',
       'conselho de medicina',
       'processo no crm',
+      // Termos de plano de saúde ficam AQUI E no Consumidor, de propósito:
+      // negativa de plano é as duas áreas ao mesmo tempo, e quem só está numa
+      // delas some da busca. Foi o defeito da categoria "Plano de Saúde":
+      // o cartão apontava para cá, mas "plano de saúde" digitado só pescava
+      // Consumidor, então tocar mostrava 1 advogado e digitar mostrava 4.
+      'plano de saúde',
+      'convênio médico',
+      'plano negou cirurgia',
+      'plano negou tratamento',
+      'plano negou exame',
+      'cirurgia negada',
+      'tratamento negado',
       'plano de saúde negou',
       'negativa de cobertura',
       'medicamento negado',

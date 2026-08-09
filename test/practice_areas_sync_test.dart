@@ -67,7 +67,13 @@ void main() {
     // faz o mesmo no servidor, para todo mundo. Divergir aqui significa um
     // resultado no app e outro em produção para a MESMA busca — e o de
     // produção é o que o cliente vê.
-    final blocos = RegExp(
+    //
+    // Migrations posteriores podem RESSEMEAR uma área (desativar tudo dela e
+    // reinserir a lista completa, como a 20260825120000 faz com Trabalhista).
+    // Por isso a leitura é por área com o arquivo mais novo vencendo: o bloco
+    // mais recente de uma área é a verdade dela, não a união histórica —
+    // união impediria qualquer migration de REMOVER um termo.
+    final blocoDeSeed = RegExp(
       r"\n    \(\n"
       r"      array\['([^']+)'\]::text\[\],\n"
       r"      \d+,\n"
@@ -75,19 +81,46 @@ void main() {
       r"((?:.|\n)*?)\n"
       r"      \]::text\[\]\n"
       r"    \)",
-    ).allMatches(expansao);
+    );
 
-    expect(blocos, isNotEmpty, reason: 'seed de termos não foi encontrado');
+    // A 20260816 é o marco zero: ela canonicaliza tudo que veio antes (a área
+    // "Acidente de Trânsito" do baseline, por exemplo, virou apelido de
+    // Direito Cível). Seed anterior a ela descreve um mundo que a própria
+    // migration reescreveu, então não entra na comparação.
+    final arquivosComSeed =
+        Directory('supabase/migrations')
+            .listSync()
+            .whereType<File>()
+            .where((f) => f.path.endsWith('.sql'))
+            .where((f) => f.uri.pathSegments.last.compareTo('20260816') >= 0)
+            .toList()
+          ..sort((a, b) => a.path.compareTo(b.path));
 
     final doBanco = <String, Set<String>>{};
-    for (final bloco in blocos) {
-      final area = bloco.group(1)!;
-      final termos = RegExp(r"^        '((?:[^']|'')*)',?$", multiLine: true)
-          .allMatches(bloco.group(2)!)
-          .map((m) => m.group(1)!.replaceAll("''", "'"))
-          .toSet();
-      doBanco.putIfAbsent(area, () => <String>{}).addAll(termos);
+    var arquivosLidos = 0;
+    for (final arquivo in arquivosComSeed) {
+      final blocos = blocoDeSeed.allMatches(arquivo.readAsStringSync());
+      if (blocos.isEmpty) continue;
+      arquivosLidos++;
+      // Dentro do mesmo arquivo, blocos repetidos da área se somam; entre
+      // arquivos, o mais novo substitui.
+      final doArquivo = <String, Set<String>>{};
+      for (final bloco in blocos) {
+        final area = bloco.group(1)!;
+        final termos = RegExp(r"^        '((?:[^']|'')*)',?$", multiLine: true)
+            .allMatches(bloco.group(2)!)
+            .map((m) => m.group(1)!.replaceAll("''", "'"))
+            .toSet();
+        doArquivo.putIfAbsent(area, () => <String>{}).addAll(termos);
+      }
+      doArquivo.forEach((area, termos) => doBanco[area] = termos);
     }
+
+    expect(
+      arquivosLidos,
+      greaterThanOrEqualTo(1),
+      reason: 'seed de termos não foi encontrado em migration nenhuma',
+    );
 
     final doApp = <String, Set<String>>{};
     for (final regra in legalSearchIntentRules) {

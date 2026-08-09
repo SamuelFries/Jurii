@@ -19,6 +19,13 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final TextEditingController _searchController = TextEditingController();
+
+  /// Âncora da primeira seção de resultados. Depois de um TOQUE (chip ou
+  /// categoria) a tela rola até aqui, porque o primeiro advogado vive em
+  /// y=875 numa dobra útil de 760: sem rolar, a pessoa toca, vê a borda
+  /// acender e nenhum resultado muda na frente dela. Só toque rola; digitar
+  /// não, que ninguém merece a tela fugindo no meio da frase.
+  final GlobalKey _resultsAnchorKey = GlobalKey();
   String _searchQuery = '';
   Timer? _searchDebounce;
   int _refreshTick = 0;
@@ -59,6 +66,37 @@ class _HomeScreenState extends State<HomeScreen> {
     final nextQuery = selected ? '' : area;
     _searchController.text = nextQuery;
     _setSearchQuery(nextQuery);
+    if (!selected) _scrollToResults();
+  }
+
+  /// Toque numa categoria: quem entra na caixa é o TÍTULO, a palavra do
+  /// cliente, não "Direito Médico e da Saúde". O resultado é o mesmo porque
+  /// as regras de intenção traduzem o título para a área, e há teste
+  /// barrando categoria cujo título não pesca a própria área
+  /// (test/categorias_populares_test.dart). O toggle é por identidade de
+  /// título, espelhando o aceso do cartão.
+  void _selectCategory(String title) {
+    final selected =
+        normalizePracticeAreaQuery(_searchQuery) ==
+        normalizePracticeAreaQuery(title);
+    final nextQuery = selected ? '' : title;
+    _searchController.text = nextQuery;
+    _setSearchQuery(nextQuery);
+    if (!selected) _scrollToResults();
+  }
+
+  void _scrollToResults() {
+    // Pós-frame: a rolagem mede a posição DEPOIS que o filtro reconstruiu as
+    // seções, senão mira no layout velho.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final anchorContext = _resultsAnchorKey.currentContext;
+      if (anchorContext == null || !mounted) return;
+      Scrollable.ensureVisible(
+        anchorContext,
+        duration: const Duration(milliseconds: 450),
+        curve: Curves.easeInOutCubic,
+      );
+    });
   }
 
   @override
@@ -123,7 +161,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
                 const SizedBox(height: 12),
 
-                const Text('Ex.: "pensão"'),
+                // O exemplo ensina o GESTO de descrever o problema. "pensão"
+                // sozinha era o pior professor possível: infere 4 áreas e
+                // alcança 68 perfis. Esta frase pesca só Trabalhista, a maior
+                // prateleira do app.
+                const Text('Ex.: "meu chefe não me paga"'),
 
                 const SizedBox(height: 14),
 
@@ -169,14 +211,17 @@ class _HomeScreenState extends State<HomeScreen> {
                 CategoriesSection(
                   key: ValueKey('categories_$_refreshTick'),
                   searchQuery: _searchQuery,
-                  onCategorySelected: _toggleArea,
+                  onCategorySelected: _selectCategory,
                 ),
 
                 const SizedBox(height: 40),
 
-                RecommendedLawyersSection(
-                  key: ValueKey('lawyers_$_refreshTick'),
-                  searchQuery: _searchQuery,
+                KeyedSubtree(
+                  key: _resultsAnchorKey,
+                  child: RecommendedLawyersSection(
+                    key: ValueKey('lawyers_$_refreshTick'),
+                    searchQuery: _searchQuery,
+                  ),
                 ),
 
                 const SizedBox(height: 40),

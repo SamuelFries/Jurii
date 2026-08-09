@@ -17,45 +17,47 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(CategoryCard), findsNWidgets(9));
-    expect(find.text('Divórcio e Família'), findsOneWidget);
-    expect(find.text('Previdenciário'), findsOneWidget);
-    // Quem navega em vez de digitar precisa de porta de entrada para as áreas
-    // novas de maior demanda.
-    expect(find.text('Inventário e Herança'), findsOneWidget);
+    // Rótulo fala a língua de quem tem o problema, não a do jurista.
+    expect(find.text('Divórcio e Pensão'), findsOneWidget);
+    expect(find.text('INSS e Aposentadoria'), findsOneWidget);
+    // A urgência mais alta que o app recebe precisa de porta para quem
+    // navega em vez de digitar.
+    expect(find.text('Crime ou Agressão'), findsOneWidget);
     expect(
       find.text('Toque para filtrar advogados e escritórios.'),
       findsOneWidget,
     );
   });
 
-  testWidgets('tap usa a área canônica do banco, não a heurística', (
-    tester,
-  ) async {
-    String? selectedArea;
+  testWidgets('tap manda o TÍTULO, a palavra do cliente', (tester) async {
+    String? enviado;
     await tester.pumpWidget(
       _host(
         CategoriesSection(
-          onCategorySelected: (area) {
-            selectedArea = area;
+          onCategorySelected: (titulo) {
+            enviado = titulo;
           },
         ),
       ),
     );
     await tester.pumpAndSettle();
 
-    // "Previdenciário" não existe na heurística por título — se o filtro
-    // chegar como a área canônica, veio de LegalCategory.practiceArea.
-    await tester.tap(find.text('Previdenciário'));
-    expect(selectedArea, 'Direito Previdenciário');
+    // É o título que vai para a caixa de busca. Se chegar a área canônica
+    // ("Direito Previdenciário"), a regressão voltou: a caixa exibiria a
+    // palavra do jurista no lugar da que a pessoa tocou.
+    await tester.tap(find.text('INSS e Aposentadoria'));
+    expect(enviado, 'INSS e Aposentadoria');
 
-    await tester.tap(find.text('Divórcio e Família'));
-    expect(selectedArea, 'Direito de Família');
+    await tester.tap(find.text('Divórcio e Pensão'));
+    expect(enviado, 'Divórcio e Pensão');
   });
 
   testWidgets('selecionado é dourado; demais são uniformes', (tester) async {
     final semantics = tester.ensureSemantics();
+    // A query é o TÍTULO porque o aceso é por identidade: é o que a caixa
+    // contém depois do toque. Área canônica não acende cartão nenhum.
     await tester.pumpWidget(
-      _host(const CategoriesSection(searchQuery: 'Direito Trabalhista')),
+      _host(const CategoriesSection(searchQuery: 'Trabalhista')),
     );
     await tester.pumpAndSettle();
 
