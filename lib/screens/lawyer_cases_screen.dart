@@ -6,9 +6,13 @@ import '../models/lawyer_case.dart';
 import '../repositories/case_repository.dart';
 import '../services/supabase_config.dart';
 import '../theme/app_colors.dart';
+import '../utils/inbox_filters.dart';
 import '../widgets/jurii_empty_state.dart';
 import '../widgets/jurii_error_state.dart';
+import '../widgets/jurii_filter_chip_row.dart';
 import '../widgets/jurii_motion.dart';
+import '../widgets/jurii_no_results_state.dart';
+import '../widgets/jurii_search_field.dart';
 import '../widgets/lawyer_case_card.dart';
 import 'case_details_screen.dart';
 
@@ -26,6 +30,10 @@ class LawyerCasesScreen extends StatefulWidget {
 
 class _LawyerCasesScreenState extends State<LawyerCasesScreen> {
   late Future<List<LawyerCase>> _casesFuture;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+  bool _onlyOpen = false;
+  bool _onlyNewMessage = false;
 
   @override
   void initState() {
@@ -33,11 +41,32 @@ class _LawyerCasesScreenState extends State<LawyerCasesScreen> {
     _casesFuture = _loadCases();
   }
 
-  Future<List<LawyerCase>> _loadCases() async {
-    if (!SupabaseConfig.isReady) return mockLawyerCases;
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
+  void _onSearchChanged(String value) {
+    setState(() => _searchQuery = value.trim());
+  }
+
+  void _clearFilters() {
+    _searchController.clear();
+    setState(() {
+      _searchQuery = '';
+      _onlyOpen = false;
+      _onlyNewMessage = false;
+    });
+  }
+
+  Future<List<LawyerCase>> _loadCases() async {
     try {
-      return await widget.repository.fetchLawyerCases();
+      final cases = await widget.repository.fetchLawyerCases();
+      // Mock só no demo, e só depois de perguntar ao repositório: ver a nota
+      // em cases_screen.dart. Em produção o resultado é o mesmo.
+      if (cases.isEmpty && !SupabaseConfig.isReady) return mockLawyerCases;
+      return cases;
     } catch (error) {
       // Sobe para o FutureBuilder: falha de rede não pode virar
       // "Nenhum caso ativo".
@@ -96,7 +125,24 @@ class _LawyerCasesScreenState extends State<LawyerCasesScreen> {
             return const _EmptyCasesState();
           }
 
-          return _CasesListState(cases: cases, onOpenCase: _openCaseDetails);
+          return _CasesListState(
+            cases: cases,
+            visiveis: filterLawyerCases(
+              cases,
+              query: _searchQuery,
+              onlyOpen: _onlyOpen,
+              onlyNewMessage: _onlyNewMessage,
+            ),
+            searchController: _searchController,
+            onSearchChanged: _onSearchChanged,
+            onClearFilters: _clearFilters,
+            onlyOpen: _onlyOpen,
+            onlyNewMessage: _onlyNewMessage,
+            onToggleOpen: () => setState(() => _onlyOpen = !_onlyOpen),
+            onToggleNewMessage: () =>
+                setState(() => _onlyNewMessage = !_onlyNewMessage),
+            onOpenCase: _openCaseDetails,
+          );
         },
       ),
     );
@@ -148,10 +194,34 @@ class _EmptyCasesState extends StatelessWidget {
 }
 
 class _CasesListState extends StatelessWidget {
+  /// A lista COMPLETA: é ela que decide se um chip merece existir e quantos
+  /// casos a mensagem de "nenhum resultado" promete que continuam ali.
   final List<LawyerCase> cases;
+
+  /// O que sobrou depois da busca e dos chips.
+  final List<LawyerCase> visiveis;
+
+  final TextEditingController searchController;
+  final ValueChanged<String> onSearchChanged;
+  final VoidCallback onClearFilters;
+  final bool onlyOpen;
+  final bool onlyNewMessage;
+  final VoidCallback onToggleOpen;
+  final VoidCallback onToggleNewMessage;
   final ValueChanged<LawyerCase> onOpenCase;
 
-  const _CasesListState({required this.cases, required this.onOpenCase});
+  const _CasesListState({
+    required this.cases,
+    required this.visiveis,
+    required this.searchController,
+    required this.onSearchChanged,
+    required this.onClearFilters,
+    required this.onlyOpen,
+    required this.onlyNewMessage,
+    required this.onToggleOpen,
+    required this.onToggleNewMessage,
+    required this.onOpenCase,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -176,25 +246,69 @@ class _CasesListState extends StatelessWidget {
               ),
             ),
 
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
+
+            JuriiSearchField(
+              controller: searchController,
+              hintText: 'Buscar por cliente, título ou processo',
+              semanticLabel: 'Buscar nos seus casos',
+              onChanged: onSearchChanged,
+            ),
+
+            const SizedBox(height: 12),
+
+            JuriiFilterChipRow(
+              total: cases.length,
+              filters: [
+                JuriiListFilter(
+                  label: 'Nova mensagem',
+                  matches: cases
+                      .where((c) => c.status == LawyerCaseStatus.newMessage)
+                      .length,
+                  selected: onlyNewMessage,
+                  onToggle: onToggleNewMessage,
+                ),
+                JuriiListFilter(
+                  label: 'Em andamento',
+                  matches: cases
+                      .where((c) => c.status != LawyerCaseStatus.closed)
+                      .length,
+                  selected: onlyOpen,
+                  onToggle: onToggleOpen,
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 20),
 
             Expanded(
-              child: ListView.separated(
-                itemCount: cases.length,
-                separatorBuilder: (context, index) =>
-                    const SizedBox(height: 12),
-                itemBuilder: (context, index) {
-                  return JuriiStaggeredItem(
-                    key: ValueKey('lawyer_case_${cases[index].id}'),
-                    index: index,
-                    child: LawyerCaseCard(
-                      lawyerCase: cases[index],
-                      onTap: () => onOpenCase(cases[index]),
-                      onEdit: () => onOpenCase(cases[index]),
+              child: visiveis.isEmpty
+                  ? SingleChildScrollView(
+                      child: JuriiNoResultsState(
+                        icon: Icons.folder_off_outlined,
+                        message:
+                            'Nenhum caso combina com esse filtro. '
+                            'Seus ${cases.length} '
+                            '${cases.length == 1 ? 'caso continua' : 'casos continuam'} aqui.',
+                        onClear: onClearFilters,
+                      ),
+                    )
+                  : ListView.separated(
+                      itemCount: visiveis.length,
+                      separatorBuilder: (context, index) =>
+                          const SizedBox(height: 12),
+                      itemBuilder: (context, index) {
+                        return JuriiStaggeredItem(
+                          key: ValueKey('lawyer_case_${visiveis[index].id}'),
+                          index: index,
+                          child: LawyerCaseCard(
+                            lawyerCase: visiveis[index],
+                            onTap: () => onOpenCase(visiveis[index]),
+                            onEdit: () => onOpenCase(visiveis[index]),
+                          ),
+                        );
+                      },
                     ),
-                  );
-                },
-              ),
             ),
           ],
         ),

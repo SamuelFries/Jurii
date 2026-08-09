@@ -8,10 +8,14 @@ import '../models/cases.dart';
 import '../repositories/case_repository.dart';
 import '../services/supabase_config.dart';
 import '../theme/app_colors.dart';
+import '../utils/inbox_filters.dart';
 import '../widgets/jurii_empty_state.dart';
 import '../widgets/jurii_error_state.dart';
+import '../widgets/jurii_filter_chip_row.dart';
 import '../widgets/jurii_list_card.dart';
 import '../widgets/jurii_motion.dart';
+import '../widgets/jurii_no_results_state.dart';
+import '../widgets/jurii_search_field.dart';
 import 'case_details_screen.dart';
 
 class CasesScreen extends StatefulWidget {
@@ -31,6 +35,9 @@ class CasesScreen extends StatefulWidget {
 
 class _CasesScreenState extends State<CasesScreen> {
   late Future<_ClientCasesData> _casesFuture;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+  bool _onlyOpen = false;
 
   @override
   void initState() {
@@ -38,21 +45,51 @@ class _CasesScreenState extends State<CasesScreen> {
     _casesFuture = _loadCases();
   }
 
-  Future<_ClientCasesData> _loadCases() async {
-    if (!SupabaseConfig.isReady) {
-      return const _ClientCasesData(cases: mockClientCases, requests: []);
-    }
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
+  void _onSearchChanged(String value) {
+    setState(() => _searchQuery = value.trim());
+  }
+
+  void _clearFilters() {
+    _searchController.clear();
+    setState(() {
+      _searchQuery = '';
+      _onlyOpen = false;
+    });
+  }
+
+  String _mensagemSemResultado(int total) {
+    final casos = total == 1 ? 'caso' : 'casos';
+    return 'Nenhum caso combina com esse filtro. '
+        'Seus $total $casos continuam aqui.';
+  }
+
+  Future<_ClientCasesData> _loadCases() async {
     try {
       final results = await Future.wait([
         widget.repository.fetchClientCases(),
         widget.repository.fetchClientCaseRequests(),
       ]);
 
-      return _ClientCasesData(
-        cases: results[0] as List<LegalCase>,
-        requests: results[1] as List<CaseRequest>,
-      );
+      final cases = results[0] as List<LegalCase>;
+      final requests = results[1] as List<CaseRequest>;
+
+      // Mock só no modo demo, e só DEPOIS de perguntar ao repositório. O
+      // atalho antigo decidia pelo estado global antes de falar com o
+      // colaborador: em produção dava no mesmo (o repositório também devolve
+      // vazio sem Supabase), mas nenhum teste conseguia alimentar a tela, e
+      // filtro sem teste de fiação é filtro que ninguém garante que está
+      // ligado.
+      if (cases.isEmpty && requests.isEmpty && !SupabaseConfig.isReady) {
+        return const _ClientCasesData(cases: mockClientCases, requests: []);
+      }
+
+      return _ClientCasesData(cases: cases, requests: requests);
     } catch (error) {
       // Erro sobe para o FutureBuilder: falha de rede não pode virar
       // "Nenhum caso iniciado".
@@ -169,6 +206,22 @@ class _CasesScreenState extends State<CasesScreen> {
             );
           }
 
+          // As duas seções obedecem à MESMA busca: filtrar só os casos e
+          // deixar as solicitações intactas faria a seção de cima parecer
+          // ignorar o que foi digitado.
+          final casosVisiveis = filterClientCases(
+            cases ?? const [],
+            query: _searchQuery,
+            onlyOpen: _onlyOpen,
+          );
+          final pedidosVisiveis = filterCaseRequests(
+            requests,
+            query: _searchQuery,
+          );
+          final totalCarregado = (cases?.length ?? 0) + requests.length;
+          final nadaVisivel =
+              casosVisiveis.isEmpty && pedidosVisiveis.isEmpty;
+
           return RefreshIndicator(
             onRefresh: _refresh,
             child: ListView(
@@ -176,39 +229,77 @@ class _CasesScreenState extends State<CasesScreen> {
               padding: const EdgeInsets.all(24),
               children: [
                 const _CasesHeader(),
-                if (requests.isNotEmpty) ...[
-                  const SizedBox(height: 12),
+                JuriiSearchField(
+                  controller: _searchController,
+                  hintText: 'Buscar por título, área ou processo',
+                  semanticLabel: 'Buscar nos seus casos',
+                  onChanged: _onSearchChanged,
+                ),
+                const SizedBox(height: 12),
+                JuriiFilterChipRow(
+                  total: totalCarregado,
+                  filters: [
+                    JuriiListFilter(
+                      label: 'Em andamento',
+                      matches:
+                          (cases ?? const <LegalCase>[])
+                              .where((c) => !c.isClosed)
+                              .length +
+                          requests.length,
+                      selected: _onlyOpen,
+                      onToggle: () => setState(() => _onlyOpen = !_onlyOpen),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                if (nadaVisivel)
+                  JuriiNoResultsState(
+                    icon: Icons.folder_off_outlined,
+                    message: _mensagemSemResultado(totalCarregado),
+                    onClear: _clearFilters,
+                  ),
+                if (pedidosVisiveis.isNotEmpty) ...[
                   const _SectionTitle('Solicitações pendentes'),
                   const SizedBox(height: 12),
-                  for (var index = 0; index < requests.length; index++) ...[
+                  for (
+                    var index = 0;
+                    index < pedidosVisiveis.length;
+                    index++
+                  ) ...[
                     JuriiStaggeredItem(
-                      key: ValueKey('case_request_${requests[index].id}'),
+                      key: ValueKey('case_request_${pedidosVisiveis[index].id}'),
                       index: index,
                       child: _CaseRequestCard(
-                        request: requests[index],
-                        onAccept: () =>
-                            _respondToRequest(requests[index], accepted: true),
-                        onDecline: () =>
-                            _respondToRequest(requests[index], accepted: false),
+                        request: pedidosVisiveis[index],
+                        onAccept: () => _respondToRequest(
+                          pedidosVisiveis[index],
+                          accepted: true,
+                        ),
+                        onDecline: () => _respondToRequest(
+                          pedidosVisiveis[index],
+                          accepted: false,
+                        ),
                       ),
                     ),
-                    if (index < requests.length - 1) const SizedBox(height: 12),
+                    if (index < pedidosVisiveis.length - 1)
+                      const SizedBox(height: 12),
                   ],
                   const SizedBox(height: 24),
                 ],
-                if (cases != null && cases.isNotEmpty) ...[
+                if (casosVisiveis.isNotEmpty) ...[
                   const _SectionTitle('Casos em andamento'),
                   const SizedBox(height: 12),
-                  for (var index = 0; index < cases.length; index++) ...[
+                  for (var index = 0; index < casosVisiveis.length; index++) ...[
                     JuriiStaggeredItem(
-                      key: ValueKey('client_case_${cases[index].id}'),
-                      index: index + requests.length,
+                      key: ValueKey('client_case_${casosVisiveis[index].id}'),
+                      index: index + pedidosVisiveis.length,
                       child: _ClientCaseCard(
-                        legalCase: cases[index],
-                        onTap: () => _openCaseDetails(cases[index]),
+                        legalCase: casosVisiveis[index],
+                        onTap: () => _openCaseDetails(casosVisiveis[index]),
                       ),
                     ),
-                    if (index < cases.length - 1) const SizedBox(height: 12),
+                    if (index < casosVisiveis.length - 1)
+                      const SizedBox(height: 12),
                   ],
                 ],
               ],

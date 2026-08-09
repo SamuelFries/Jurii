@@ -9,10 +9,14 @@ import '../repositories/messaging_repository.dart';
 import '../services/realtime_refresh.dart';
 import '../services/supabase_config.dart';
 import '../theme/app_colors.dart';
+import '../utils/inbox_filters.dart';
 import '../widgets/conversation_card.dart';
 import '../widgets/jurii_empty_state.dart';
 import '../widgets/jurii_error_state.dart';
+import '../widgets/jurii_filter_chip_row.dart';
 import '../widgets/jurii_motion.dart';
+import '../widgets/jurii_no_results_state.dart';
+import '../widgets/jurii_search_field.dart';
 import 'chat_screen.dart';
 
 class FirmMessagesScreen extends StatefulWidget {
@@ -29,6 +33,9 @@ class _FirmMessagesScreenState extends State<FirmMessagesScreen>
   final MessagingRepository _repository = const MessagingRepository();
   int selectedSegment = 0;
   late Future<List<Conversation>> _conversationsFuture;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+  bool _onlyUnread = false;
 
   @override
   void initState() {
@@ -130,6 +137,9 @@ class _FirmMessagesScreenState extends State<FirmMessagesScreen>
         future: _conversationsFuture,
         builder: (context, snapshot) {
           final conversations = snapshot.data;
+          final visiveis = conversations == null
+              ? const <Conversation>[]
+              : _visiveis(conversations);
 
           return ListView(
             padding: const EdgeInsets.all(24),
@@ -175,6 +185,35 @@ class _FirmMessagesScreenState extends State<FirmMessagesScreen>
                 ),
               ),
               const SizedBox(height: 18),
+              if (conversations != null && conversations.isNotEmpty) ...[
+                JuriiSearchField(
+                  controller: _searchController,
+                  hintText: selectedSegment == 0
+                      ? 'Buscar por cliente ou advogado'
+                      : 'Buscar por pessoa da equipe',
+                  semanticLabel: 'Buscar nas conversas do escritório',
+                  onChanged: _onSearchChanged,
+                ),
+                const SizedBox(height: 12),
+                JuriiFilterChipRow(
+                  total: conversations.length,
+                  filters: [
+                    JuriiListFilter(
+                      // Numa caixa coletiva "não lida" quer dizer que NINGUÉM
+                      // do escritório abriu ainda: read_at é uma coluna só por
+                      // mensagem, e o primeiro que abrir marca para todos.
+                      label: 'Ninguém abriu',
+                      matches: conversations
+                          .where((c) => c.unreadCount > 0)
+                          .length,
+                      selected: _onlyUnread,
+                      onToggle: () =>
+                          setState(() => _onlyUnread = !_onlyUnread),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+              ],
               if (snapshot.connectionState == ConnectionState.waiting &&
                   conversations == null)
                 const Padding(
@@ -191,21 +230,32 @@ class _FirmMessagesScreenState extends State<FirmMessagesScreen>
                 )
               else if (conversations == null || conversations.isEmpty)
                 const _EmptyFirmMessagesState()
-              else
-                for (var index = 0; index < conversations.length; index++) ...[
+              else ...[
+                for (
+                  var index = 0;
+                  index < visiveis.length;
+                  index++
+                ) ...[
                   JuriiStaggeredItem(
                     key: ValueKey(
-                      'firm_conversation_${selectedSegment}_${conversations[index].id ?? conversations[index].officeName}',
+                      'firm_conversation_${selectedSegment}_${visiveis[index].id ?? visiveis[index].officeName}',
                     ),
                     index: index,
                     child: ConversationCard(
-                      conversation: conversations[index],
-                      onTap: () => _openChat(context, conversations[index]),
+                      conversation: visiveis[index],
+                      onTap: () =>
+                          _openChat(context, visiveis[index]),
                     ),
                   ),
-                  if (index < conversations.length - 1)
+                  if (index < visiveis.length - 1)
                     const SizedBox(height: 12),
                 ],
+                if (visiveis.isEmpty)
+                  JuriiNoResultsState(
+                    message: _mensagemSemResultado(conversations.length),
+                    onClear: _clearFilters,
+                  ),
+              ],
             ],
           );
         },
@@ -213,12 +263,47 @@ class _FirmMessagesScreenState extends State<FirmMessagesScreen>
     );
   }
 
+  /// A busca digitada SOBREVIVE à troca de segmento. Limpar seria mais
+  /// surpreendente que manter: quem procura "Ana" em Clientes e não acha
+  /// costuma trocar para Equipe procurando a mesma Ana.
   void _selectSegment(int index) {
     if (selectedSegment == index) return;
     setState(() {
       selectedSegment = index;
       _conversationsFuture = _loadConversations()..ignore();
     });
+  }
+
+  List<Conversation> _visiveis(List<Conversation> conversations) =>
+      filterConversations(
+        conversations,
+        query: _searchQuery,
+        onlyUnread: _onlyUnread,
+      );
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged(String value) {
+    setState(() => _searchQuery = value.trim());
+  }
+
+  void _clearFilters() {
+    _searchController.clear();
+    setState(() {
+      _searchQuery = '';
+      _onlyUnread = false;
+    });
+  }
+
+  String _mensagemSemResultado(int total) {
+    final onde = selectedSegment == 0 ? 'com clientes' : 'da equipe';
+    final conversas = total == 1 ? 'conversa' : 'conversas';
+    return 'Nenhuma conversa $onde combina com esse filtro. '
+        'As $total $conversas deste segmento continuam aqui.';
   }
 
   Future<void> _openChat(
