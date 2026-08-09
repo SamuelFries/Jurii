@@ -11,7 +11,6 @@ import 'services/push_notification_service.dart';
 
 import 'models/appointment.dart';
 import 'models/law_firm_verification.dart';
-import 'models/law_firm_verification_status.dart';
 import 'models/lawyer_status.dart';
 import 'models/lawyer_verification.dart';
 import 'models/profile_avatar_file.dart';
@@ -48,6 +47,7 @@ import 'theme/app_theme.dart';
 import 'theme/theme_controller.dart';
 import 'services/app_navigator.dart';
 import 'services/supabase_config.dart';
+import 'utils/firm_area_access.dart';
 import 'types/auth_callbacks.dart';
 import 'widgets/firm_bottom_nav.dart';
 import 'widgets/jurii_bottom_nav.dart';
@@ -609,15 +609,17 @@ class _JuriiAppState extends State<JuriiApp> {
     _refreshFirmWorkspace();
   }
 
-  void _switchToFirm() {
-    final hasSyncedWorkspace = _firmWorkspace?.fromSupabase == true;
-    final hasLocalDemoWorkspace =
-        !SupabaseConfig.isReady &&
-        _lawFirmVerification?.status == LawFirmVerificationStatus.approved;
+  /// A regra vive em lib/utils/firm_area_access.dart, testada lá: ela decide
+  /// tanto se a área APARECE no seletor quanto se a troca ACONTECE, e as duas
+  /// respostas precisam ser a mesma.
+  bool get _hasFirmArea => hasFirmArea(
+    workspace: _firmWorkspace,
+    verificationStatus: _lawFirmVerification?.status,
+    supabaseReady: SupabaseConfig.isReady,
+  );
 
-    if (!hasSyncedWorkspace && !hasLocalDemoWorkspace) {
-      return;
-    }
+  void _switchToFirm() {
+    if (!_hasFirmArea) return;
     setState(() {
       _isFirmMode = true;
       _isLawyerMode = false;
@@ -866,7 +868,9 @@ class _JuriiAppState extends State<JuriiApp> {
             user: _currentUser,
             workspace: _firmWorkspace,
             onRefreshFirmWorkspace: _refreshFirmWorkspace,
-            onSwitchToFirm: _switchToFirm,
+            // Só oferece o escritório para quem tem um: o seletor do fluxo
+            // do advogado usava este callback sem checar nada.
+            onSwitchToFirm: _hasFirmArea ? _switchToFirm : null,
             onSwitchToClient: _switchToClient,
             onLogout: _handleLogout,
             onDeleteAccount: _handleDeleteAccount,
@@ -877,9 +881,7 @@ class _JuriiAppState extends State<JuriiApp> {
             lawyerVerification: _lawyerVerification,
             lawFirmVerification: _lawFirmVerification,
             onSwitchToLawyer: _switchToLawyer,
-            onSwitchToFirm: _firmWorkspace?.fromSupabase == true
-                ? _switchToFirm
-                : null,
+            onSwitchToFirm: _hasFirmArea ? _switchToFirm : null,
             onVerificationSubmitted: _handleVerificationSubmitted,
             onRefreshLawyerVerification: _refreshLawyerVerification,
             onLawFirmVerificationSubmitted: _handleLawFirmVerificationSubmitted,
@@ -1122,7 +1124,9 @@ class LawyerNavigation extends StatefulWidget {
   final UserProfile user;
   final FirmWorkspace? workspace;
   final Future<void> Function() onRefreshFirmWorkspace;
-  final VoidCallback onSwitchToFirm;
+  /// Nulo quando a pessoa não tem escritório: o seletor então não oferece a
+  /// área, em vez de oferecer um caminho que não leva a lugar nenhum.
+  final VoidCallback? onSwitchToFirm;
   final VoidCallback onSwitchToClient;
   final VoidCallback onLogout;
   final Future<void> Function() onDeleteAccount;
@@ -1133,7 +1137,7 @@ class LawyerNavigation extends StatefulWidget {
     required this.user,
     required this.workspace,
     required this.onRefreshFirmWorkspace,
-    required this.onSwitchToFirm,
+    this.onSwitchToFirm,
     required this.onSwitchToClient,
     required this.onLogout,
     required this.onDeleteAccount,

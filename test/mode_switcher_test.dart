@@ -8,6 +8,8 @@ import 'package:jurii/models/law_firm_verification.dart';
 import 'package:jurii/models/lawyer_status.dart';
 import 'package:jurii/models/law_firm_verification_status.dart';
 import 'package:jurii/models/user_profile.dart';
+import 'package:jurii/main.dart';
+import 'package:jurii/models/profile_avatar_file.dart';
 import 'package:jurii/screens/profile_screen.dart';
 import 'package:jurii/widgets/mode_switcher_sheet.dart';
 
@@ -49,6 +51,119 @@ void main() {
         hasFirmMode: true,
       );
       expect(opcoes, hasLength(3));
+    });
+  });
+
+  group('o fluxo do advogado não oferece escritório que não existe', () {
+    // O DEFEITO QUE ISTO TRAVA: no fluxo do advogado, ProfileScreen decide
+    // hasFirmMode por `onOpenLawFirmArea != null`, e o main.dart passava esse
+    // callback SEM checar nada. Resultado: todo advogado aprovado via
+    // "Escritório" no seletor, mesmo sem escritório nenhum. Pior, o toque
+    // caía num `return` mudo dentro de _switchToFirm: a opção aparecia,
+    // aceitava o toque e não fazia nada.
+
+    const advogado = UserProfile(
+      id: 'u1',
+      name: 'Dra. Ana',
+      email: 'ana@x.com',
+      initials: 'A',
+      memberSince: '2026-01-01',
+      lawyerStatus: LawyerStatus.approved,
+    );
+
+    Future<void> abrirPerfilDoAdvogado(
+      WidgetTester tester, {
+      required VoidCallback? onOpenLawFirmArea,
+    }) async {
+      tester.view.physicalSize = const Size(1200, 4000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.lightTheme,
+          home: Scaffold(
+            body: ProfileScreen(
+              user: advogado,
+              // Estar no fluxo do advogado é o que onSwitchToClient sinaliza.
+              onSwitchToClient: () {},
+              onOpenLawFirmArea: onOpenLawFirmArea,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Trocar de área'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Trocar de área'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('advogado SEM escritório não vê a área do escritório', (
+      tester,
+    ) async {
+      await abrirPerfilDoAdvogado(tester, onOpenLawFirmArea: null);
+
+      expect(find.text(AppMode.client.label), findsOneWidget);
+      expect(find.text(AppMode.lawyer.label), findsOneWidget);
+      expect(find.text(AppMode.firm.label), findsNothing);
+    });
+
+    testWidgets('advogado COM escritório vê, e a opção leva a algum lugar', (
+      tester,
+    ) async {
+      var abriu = 0;
+      await abrirPerfilDoAdvogado(tester, onOpenLawFirmArea: () => abriu++);
+
+      expect(find.text(AppMode.firm.label), findsOneWidget);
+
+      await tester.tap(find.text(AppMode.firm.label));
+      await tester.pumpAndSettle();
+      expect(abriu, 1);
+    });
+
+    testWidgets('LawyerNavigation repassa o nulo até o seletor', (
+      tester,
+    ) async {
+      // O teste acima injeta ProfileScreen direto e prova só que ELA se
+      // comporta. Este cobre o trecho onde o defeito morava: a fiação entre
+      // a navegação do advogado e o perfil. Sem ele, alguém volta a passar
+      // um callback incondicional e nada fica vermelho.
+      tester.view.physicalSize = const Size(1200, 4000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.lightTheme,
+          home: LawyerNavigation(
+            user: advogado,
+            workspace: null,
+            onRefreshFirmWorkspace: () async {},
+            onSwitchToFirm: null,
+            onSwitchToClient: () {},
+            onLogout: () {},
+            onDeleteAccount: () async {},
+            onEditProfile:
+                ({
+                  required String fullName,
+                  required String phone,
+                  ProfileAvatarFile? avatar,
+                  required bool removeAvatar,
+                }) async {},
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Perfil'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Trocar de área'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Trocar de área'));
+      await tester.pumpAndSettle();
+
+      expect(find.text(AppMode.firm.label), findsNothing);
     });
   });
 
