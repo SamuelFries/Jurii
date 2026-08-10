@@ -32,6 +32,7 @@ class FirmProfileScreen extends StatelessWidget {
     required this.onLogout,
     this.onDeleteAccount,
     this.onRefreshWorkspace,
+    this.onOpenTeam,
     this.licenseRepository = const LicenseRepository(),
   });
 
@@ -47,6 +48,15 @@ class FirmProfileScreen extends StatelessWidget {
   /// segue com o nome e o logo antigos até a próxima abertura do app.
   final VoidCallback? onRefreshWorkspace;
   final Future<void> Function()? onDeleteAccount;
+
+  /// Abre a aba Equipe, onde os papéis de fato se editam.
+  ///
+  /// Este item de menu abria "em breve" enquanto a edição de permissões já
+  /// existia e funcionava na aba Equipe (toggles de papel ligados até a RPC
+  /// update_law_firm_member_roles). Não era feature por fazer, era link morto
+  /// para coisa pronta, e item que anuncia e não faz nada é o placeholder que
+  /// a revisão de loja reprova.
+  final VoidCallback? onOpenTeam;
 
   /// Apresentação é peça comercial do escritório: mesmo público que decide
   /// sobre a organização. Secretária não edita.
@@ -121,12 +131,6 @@ class FirmProfileScreen extends StatelessWidget {
           },
         );
       },
-    );
-  }
-
-  void _showComingSoon(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Em preparação. Disponível em breve.')),
     );
   }
 
@@ -294,13 +298,14 @@ class FirmProfileScreen extends StatelessWidget {
                     );
                   },
                 ),
-              ProfileMenuItem(
-                icon: Icons.group_outlined,
-                iconColor: colors.officePurple,
-                label: 'Permissões da equipe',
-                subtitle: 'Sócios, admins, secretárias e advogados',
-                onTap: () => _showComingSoon(context),
-              ),
+              if (onOpenTeam != null)
+                ProfileMenuItem(
+                  icon: Icons.group_outlined,
+                  iconColor: colors.officePurple,
+                  label: 'Permissões da equipe',
+                  subtitle: 'Sócios, admins, secretárias e advogados',
+                  onTap: onOpenTeam,
+                ),
               // Não é enfeite de cadastro: é o que responde a pergunta que o
               // cliente faz antes de escrever — "adianta mandar mensagem
               // agora?". Mesmo portão do resto da gestão.
