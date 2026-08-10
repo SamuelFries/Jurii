@@ -1102,6 +1102,7 @@ class _FirmNavigationState extends State<FirmNavigation> {
       FirmProfileScreen(
         user: widget.user,
         workspace: widget.workspace,
+        onOpenTeam: () => setState(() => currentIndex = 2),
         onSwitchToClient: widget.onSwitchToClient,
         onSwitchToLawyer: widget.onSwitchToLawyer,
         onLogout: widget.onLogout,
