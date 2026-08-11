@@ -66,15 +66,21 @@ select ok(
    limit 1),
   'approve_lawyer_verification grava approved_at ao criar o perfil');
 
--- Elo 4: nenhuma funcao anula approved_at.
+-- Elo 4: SO a revogacao anula approved_at.
+--
+-- Ate a 20260827120000 nenhuma funcao anulava, e este teste exigia zero.
+-- A revogacao passou a anular DE PROPOSITO (revogar tem que tirar o
+-- advogado do ar), entao approved_at nulo agora TEM significado: nunca
+-- aprovado ou revogado. O que continua proibido e qualquer OUTRA funcao
+-- mexer nisso.
 select is(
-  (select count(*)::int
+  (select coalesce(string_agg(p.proname, ', ' order by p.proname), '')
    from pg_proc p
    where p.pronamespace = 'public'::regnamespace
      and p.prokind = 'f'
      and pg_get_functiondef(p.oid) ~* 'approved_at\s*=\s*null'),
-  0,
-  'nenhuma funcao anula approved_at');
+  'reject_lawyer_verification',
+  'so reject_lawyer_verification anula approved_at');
 
 -- ---------------------------------------------------------------------------
 -- O PORTAO, exercitado contra fixture construida aqui: e ele que sobrevive

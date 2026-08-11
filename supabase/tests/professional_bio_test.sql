@@ -27,9 +27,14 @@ values
 update public.profiles set lawyer_status = 'approved'
 where id = 'e1000000-0000-0000-0000-000000000001';
 
-insert into public.lawyer_profiles (id, oab_number, oab_state, primary_area, practice_areas)
+-- approved_at explicito: desde a 20260826120000 o perfil publico exige
+-- aprovacao vigente, e perfil sem approved_at e justamente o estado
+-- "revogado ou nunca aprovado". Fixture sem ele criava um estado que
+-- producao nao tem (41 de 41 aprovados) e testava a funcao pelo caminho
+-- errado.
+insert into public.lawyer_profiles (id, oab_number, oab_state, primary_area, practice_areas, approved_at)
 values ('e1000000-0000-0000-0000-000000000001', '515151', 'RS',
-        'Direito Cível', array['Direito Cível']);
+        'Direito Cível', array['Direito Cível'], now());
 
 insert into public.law_firms (id, name, initials, specialty, is_active)
 values ('e2000000-0000-0000-0000-000000000001', 'Firma Bio', 'FB', 'Civil', true);
