@@ -10,7 +10,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(11);
+select plan(15);
 
 insert into auth.users (id, aud, role, email, encrypted_password,
   email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
@@ -144,6 +144,45 @@ select is(
       and type = 'verification_rejected'),
   'A foto da carteira da OAB esta ilegivel.',
   'a recusa leva o MOTIVO no corpo, para a pessoa saber o que corrigir');
+
+-- ---------------------------------------------------------------------------
+-- O historico: o que ja foi decidido, e por quem
+-- ---------------------------------------------------------------------------
+
+-- Intruso nao le historico: sao os mesmos documentos da fila.
+select set_config('request.jwt.claim.sub',
+  'e9000000-0000-0000-0000-000000000003', true);
+set local role authenticated;
+select throws_ok(
+  $$select * from public.fetch_reviewed_verifications()$$,
+  'Only Jurii staff can review verifications',
+  'intruso nao le o historico');
+select throws_ok(
+  $$select public.count_reviewed_verifications()$$,
+  'Only Jurii staff can review verifications',
+  'intruso nao conta o historico');
+reset role;
+
+select set_config('request.jwt.claim.sub',
+  'e9000000-0000-0000-0000-000000000001', true);
+set local role authenticated;
+
+-- As duas decididas acima (uma aprovada, uma recusada) aparecem, e a fila
+-- de pendentes ficou vazia: nada some, so muda de aba.
+select is(
+  (select count(*)::int from public.fetch_reviewed_verifications()),
+  2,
+  'o historico traz a aprovada E a recusada');
+
+-- A trilha completa: quem decidiu vem pelo NOME, e o motivo vem junto.
+select results_eq(
+  $$select reviewer_name, rejection_reason
+     from public.fetch_reviewed_verifications()
+     where status = 'rejected'$$,
+  $$values ('Equipe Jurii', 'A foto da carteira da OAB esta ilegivel.')$$,
+  'a recusa mostra quem decidiu e por que');
+
+reset role;
 
 select * from finish();
 rollback;
