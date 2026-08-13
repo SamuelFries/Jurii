@@ -10,7 +10,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(9);
+select plan(11);
 
 insert into auth.users (id, aud, role, email, encrypted_password,
   email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
@@ -111,6 +111,39 @@ select results_eq(
      where id = 'e8000000-0000-0000-0000-000000000001'$$,
   $$values ('approved', 'e9000000-0000-0000-0000-000000000001'::uuid)$$,
   'aprovada, e com o revisor gravado');
+
+-- ---------------------------------------------------------------------------
+-- O aviso: quem foi analisado fica sabendo
+-- ---------------------------------------------------------------------------
+select is(
+  (select count(*)::int from public.notifications
+    where recipient_profile_id = 'e9000000-0000-0000-0000-000000000002'
+      and type = 'verification_approved'),
+  1,
+  'aprovacao avisa a pessoa');
+
+-- Uma segunda verificacao, para provar que a recusa leva o MOTIVO no corpo
+insert into public.lawyer_verifications
+  (id, user_id, oab_number, oab_state, practice_area, practice_areas, status)
+values
+  ('e8000000-0000-0000-0000-000000000002',
+   'e9000000-0000-0000-0000-000000000003',
+   '770002', 'RS', 'Direito Cível', array['Direito Cível'], 'pending');
+
+select set_config('request.jwt.claim.sub',
+  'e9000000-0000-0000-0000-000000000001', true);
+set local role authenticated;
+select public.review_lawyer_verification(
+  'e8000000-0000-0000-0000-000000000002', false,
+  'A foto da carteira da OAB esta ilegivel.');
+reset role;
+
+select is(
+  (select body from public.notifications
+    where recipient_profile_id = 'e9000000-0000-0000-0000-000000000003'
+      and type = 'verification_rejected'),
+  'A foto da carteira da OAB esta ilegivel.',
+  'a recusa leva o MOTIVO no corpo, para a pessoa saber o que corrigir');
 
 select * from finish();
 rollback;
