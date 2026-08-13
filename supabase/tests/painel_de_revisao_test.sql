@@ -10,7 +10,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(15);
+select plan(20);
 
 insert into auth.users (id, aud, role, email, encrypted_password,
   email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
@@ -183,6 +183,85 @@ select results_eq(
   'a recusa mostra quem decidiu e por que');
 
 reset role;
+
+-- ---------------------------------------------------------------------------
+-- O logotipo do escritório chega à revisão
+--
+-- Aprovar PUBLICA essa imagem (approve_law_firm_verification copia
+-- avatar_storage_path para law_firms.avatar_url, que o cliente vê na busca).
+-- Enquanto ela não vinha na lista, a única peça que a decisão tornava pública
+-- era a única que ninguém olhava antes de decidir.
+-- ---------------------------------------------------------------------------
+insert into public.law_firm_verifications
+  (id, owner_profile_id, firm_name, cnpj, status, avatar_storage_path)
+values
+  ('e7000000-0000-0000-0000-000000000001',
+   'e9000000-0000-0000-0000-000000000002',
+   'Escritorio Com Logo', '11222333000181', 'pending',
+   'e9000000-0000-0000-0000-000000000002/e7000000-0000-0000-0000-000000000001/avatar-1-logo.png'),
+  ('e7000000-0000-0000-0000-000000000002',
+   'e9000000-0000-0000-0000-000000000002',
+   'Escritorio Sem Logo', '11222333000262', 'pending', null);
+
+insert into public.law_firm_verification_documents
+  (verification_id, owner_profile_id, document_type, title, storage_path, mime_type)
+values
+  ('e7000000-0000-0000-0000-000000000001',
+   'e9000000-0000-0000-0000-000000000002',
+   'cnpj_registration', 'Cartao CNPJ',
+   'e9000000-0000-0000-0000-000000000002/cnpj_registration-1-cartao.pdf',
+   'application/pdf');
+
+select set_config('request.jwt.claim.sub',
+  'e9000000-0000-0000-0000-000000000001', true);
+set local role authenticated;
+
+-- O logotipo vem PRIMEIRO, e do balde dele: quem revisa não deve precisar
+-- rolar até o fim para achar a peça que vai ao ar.
+select is(
+  (select documents->0->>'bucket'
+     from public.fetch_pending_verifications()
+     where id = 'e7000000-0000-0000-0000-000000000001'),
+  'law-firm-avatars',
+  'o logotipo abre a lista, e vem do balde publico dele');
+
+select is(
+  (select documents->0->>'tipo'
+     from public.fetch_pending_verifications()
+     where id = 'e7000000-0000-0000-0000-000000000001'),
+  'profile_photo',
+  'o logotipo chega como profile_photo');
+
+-- E os documentos de análise continuam lá, atrás dele.
+select is(
+  (select jsonb_array_length(documents)::int
+     from public.fetch_pending_verifications()
+     where id = 'e7000000-0000-0000-0000-000000000001'),
+  2,
+  'logotipo mais o documento de analise');
+
+-- Escritório sem logotipo não ganha uma entrada vazia: seria um quadro
+-- quebrado na tela, e pior, pareceria documento que não abre.
+select is(
+  (select jsonb_array_length(documents)::int
+     from public.fetch_pending_verifications()
+     where id = 'e7000000-0000-0000-0000-000000000002'),
+  0,
+  'sem logotipo, nenhuma entrada fantasma');
+
+reset role;
+
+-- A função que monta a lista é INTERNA: existe para a fila e o histórico
+-- contarem a mesma história, e não para ser chamada de fora. Sem grant,
+-- ninguém autenticado alcança os documentos de uma verificação alheia.
+select is(
+  (select count(*)::int
+     from information_schema.role_routine_grants
+    where routine_schema = 'public'
+      and routine_name = 'law_firm_review_documents'
+      and grantee in ('authenticated', 'anon', 'public')),
+  0,
+  'law_firm_review_documents nao e chamavel por cliente nenhum');
 
 select * from finish();
 rollback;
