@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart'
     show AuthChangeEvent, AuthState, User;
 
@@ -15,6 +16,7 @@ import 'models/lawyer_status.dart';
 import 'models/lawyer_verification.dart';
 import 'models/profile_avatar_file.dart';
 import 'models/firm_role.dart';
+import 'models/firm_membership.dart';
 import 'models/firm_workspace.dart';
 import 'models/social_auth_provider.dart';
 import 'models/user_profile.dart';
@@ -118,9 +120,25 @@ class _JuriiAppState extends State<JuriiApp> {
   LawFirmVerification? _lawFirmVerification;
   FirmWorkspace? _firmWorkspace;
 
+  /// TODOS os vínculos, para o seletor. O [_firmWorkspace] continua sendo um
+  /// só, o do escritório ABERTO: carregar equipe e métricas dos três de uma
+  /// vez custaria três consultas para desenhar duas linhas de menu.
+  List<FirmMembership> _firmMemberships = const [];
+
+  static const String _chaveDoEscritorioAtivo = 'jurii_escritorio_ativo';
+
+  /// O escritório ativo, lembrado entre sessões. NÃO é autoridade: quem
+  /// decide o que a pessoa alcança é o vínculo no banco, conferido a cada
+  /// chamada. Isto é preferência, e por isso um id que deixou de valer
+  /// simplesmente cai no primeiro vínculo em vez de travar a pessoa.
+  String? _activeFirmId;
+
   @override
   void initState() {
     super.initState();
+    // A preferência antes da sessão: assim a primeira busca de workspace já
+    // pede o escritório certo, em vez de abrir o mais antigo e trocar depois.
+    unawaited(_lerEscritorioAtivoLembrado());
     if (SupabaseConfig.isReady) {
       _authSubscription = SupabaseConfig.client.auth.onAuthStateChange.listen(
         _handleAuthStateChange,
@@ -723,9 +741,63 @@ class _JuriiAppState extends State<JuriiApp> {
   Future<void> _refreshFirmWorkspace() async {
     if (!SupabaseConfig.isReady) return;
 
-    final workspace = await _fetchCurrentFirmWorkspace(_lawFirmVerification);
+    // Os dois juntos: a lista alimenta o seletor e o workspace é o escritório
+    // aberto. Buscar em sequência mostraria o seletor com uma opção só por um
+    // instante, e ele piscaria ao completar.
+    final resultados = await Future.wait([
+      _firmWorkspaceRepository.fetchMemberships(),
+      _fetchCurrentFirmWorkspace(_lawFirmVerification),
+    ]);
     if (!mounted) return;
-    setState(() => _firmWorkspace = workspace);
+
+    final memberships = resultados[0] as List<FirmMembership>;
+    final workspace = resultados[1] as FirmWorkspace?;
+    setState(() {
+      _firmMemberships = memberships;
+      _firmWorkspace = workspace;
+      // O ativo passa a ser o que de fato abriu. Se o vínculo lembrado saiu
+      // (desativado, removido), o repositório já caiu no primeiro válido, e
+      // aqui a preferência acompanha em vez de continuar apontando para o que
+      // não existe mais.
+      _activeFirmId = workspace?.firm.id ?? _activeFirmId;
+    });
+    if (workspace != null) {
+      unawaited(_guardarEscritorioAtivo(workspace.firm.id));
+    }
+  }
+
+  /// Lembra o escritório ativo entre sessões, no mesmo lugar onde o tema já
+  /// mora (SharedPreferences).
+  Future<void> _guardarEscritorioAtivo(String firmId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_chaveDoEscritorioAtivo, firmId);
+    } catch (error) {
+      // Preferência é conforto, não requisito: falhar aqui não pode derrubar
+      // a troca de escritório que a pessoa acabou de fazer.
+      debugPrint('nao consegui lembrar o escritorio ativo: $error');
+    }
+  }
+
+  Future<void> _lerEscritorioAtivoLembrado() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final lembrado = prefs.getString(_chaveDoEscritorioAtivo);
+      if (lembrado != null && mounted) {
+        setState(() => _activeFirmId = lembrado);
+      }
+    } catch (error) {
+      debugPrint('nao consegui ler o escritorio lembrado: $error');
+    }
+  }
+
+  /// Trocar de escritório NÃO mexe em vínculo nenhum: quem é sócio numa banca
+  /// e advogado em outra continua sendo as duas coisas. Muda só o contexto.
+  Future<void> trocarDeEscritorio(String firmId) async {
+    if (firmId == _firmWorkspace?.firm.id) return;
+    setState(() => _activeFirmId = firmId);
+    await _guardarEscritorioAtivo(firmId);
+    await _refreshFirmWorkspace();
   }
 
   Future<FirmWorkspace?> _fetchCurrentFirmWorkspace([
@@ -734,6 +806,7 @@ class _JuriiAppState extends State<JuriiApp> {
     try {
       return await _firmWorkspaceRepository.fetchCurrentWorkspace(
         verification: verification ?? _lawFirmVerification,
+        targetFirmId: _activeFirmId,
       );
     } catch (error) {
       debugPrint('Supabase firm workspace fetch failed: $error');
@@ -853,6 +926,8 @@ class _JuriiAppState extends State<JuriiApp> {
         ? FirmNavigation(
             user: _currentUser,
             workspace: _firmWorkspace,
+            memberships: _firmMemberships,
+            onSelectFirm: trocarDeEscritorio,
             onInviteLawyer: _inviteLawyerToFirm,
             onUpdateMemberRoles: _updateFirmMemberRoles,
             onSwitchToClient: _switchToClient,
@@ -1048,6 +1123,8 @@ class FirmNavigation extends StatefulWidget {
     super.key,
     required this.user,
     required this.workspace,
+    this.memberships = const [],
+    this.onSelectFirm,
     required this.onInviteLawyer,
     required this.onUpdateMemberRoles,
     required this.onSwitchToClient,
@@ -1059,6 +1136,10 @@ class FirmNavigation extends StatefulWidget {
 
   final UserProfile user;
   final FirmWorkspace? workspace;
+  /// Todos os vínculos, para o seletor no cabeçalho do escritório.
+  final List<FirmMembership> memberships;
+  /// Trocar de escritório ativo. Nulo quando não há o que trocar.
+  final ValueChanged<String>? onSelectFirm;
   final VoidCallback? onRefreshWorkspace;
   final Future<void> Function({
     required String oabState,
@@ -1087,6 +1168,8 @@ class _FirmNavigationState extends State<FirmNavigation> {
     final pages = [
       FirmHomeScreen(
         workspace: widget.workspace,
+        memberships: widget.memberships,
+        onSelectFirm: widget.onSelectFirm,
         onOpenMessages: () => setState(() => currentIndex = 1),
         onOpenTeam: () => setState(() => currentIndex = 2),
         onOpenCases: () => setState(() => currentIndex = 3),

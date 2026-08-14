@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/firm_operation_metrics.dart';
+import '../models/firm_membership.dart';
 import '../models/firm_role.dart';
 import '../models/firm_team_member.dart';
 import '../models/firm_workspace.dart';
@@ -15,6 +16,7 @@ import '../theme/app_colors.dart';
 import '../widgets/jurii_error_state.dart';
 import '../widgets/jurii_list_card.dart';
 import '../widgets/jurii_motion.dart';
+import '../widgets/firm_switcher_sheet.dart';
 import '../widgets/notification_bell.dart';
 import '../widgets/profile_avatar.dart';
 import '../widgets/reach_chart.dart';
@@ -44,9 +46,15 @@ class FirmHomeScreen extends StatefulWidget {
     required this.onOpenMessages,
     required this.onOpenTeam,
     required this.onOpenCases,
+    this.memberships = const [],
+    this.onSelectFirm,
   });
 
   final FirmWorkspace? workspace;
+  /// Todos os vínculos, para o seletor no cabeçalho. Vazio ou com um só, o
+  /// cabeçalho não vira botão.
+  final List<FirmMembership> memberships;
+  final ValueChanged<String>? onSelectFirm;
   final FirmWorkspaceRepository repository;
   final ProfessionalReachRepository reachRepository;
   final VoidCallback onOpenMessages;
@@ -163,7 +171,12 @@ class _FirmHomeScreenState extends State<FirmHomeScreen> {
     final colors = context.jColors;
 
     final sections = <Widget>[
-      _HeaderCard(workspace: widget.workspace, onBellChanged: _reload),
+      _HeaderCard(
+        workspace: widget.workspace,
+        onBellChanged: _reload,
+        memberships: widget.memberships,
+        onSelectFirm: widget.onSelectFirm,
+      ),
       _OperationSection(
         metricsFuture: _metricsFuture,
         onRetry: _reload,
@@ -201,10 +214,17 @@ class _FirmHomeScreenState extends State<FirmHomeScreen> {
 /// Cabeçalho-identidade, espelho do cabeçalho do advogado: nome grande,
 /// credencial embaixo, sino à direita e chips de status dentro do cartão.
 class _HeaderCard extends StatelessWidget {
-  const _HeaderCard({required this.workspace, required this.onBellChanged});
+  const _HeaderCard({
+    required this.workspace,
+    required this.onBellChanged,
+    required this.memberships,
+    required this.onSelectFirm,
+  });
 
   final FirmWorkspace? workspace;
   final Future<void> Function() onBellChanged;
+  final List<FirmMembership> memberships;
+  final ValueChanged<String>? onSelectFirm;
 
   @override
   Widget build(BuildContext context) {
@@ -213,6 +233,8 @@ class _HeaderCard extends StatelessWidget {
     final roles = workspace?.effectiveCurrentUserRoles ?? const <FirmRole>[];
     final ready = workspace?.fromSupabase == true;
     final specialty = workspace?.firm.specialty.trim() ?? '';
+    final podeTrocar =
+        onSelectFirm != null && shouldShowFirmSwitcher(memberships);
 
     // O papel de quem olha muda o que a tela significa — sócio lê estes
     // números como dono; advogado, como parte da equipe. "Área do escritório"
@@ -254,17 +276,57 @@ class _HeaderCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: colors.card,
-                        fontSize: 22,
-                        fontWeight: FontWeight.w900,
-                        height: 1.1,
+                    // Com dois ou mais vínculos, o NOME é o seletor: quem
+                    // atua em duas bancas procura a troca onde o escritório
+                    // está escrito, e não num menu escondido. Com um só, ele
+                    // continua sendo texto, porque um botão que abre uma
+                    // lista de um item é um botão que mente.
+                    if (podeTrocar)
+                      InkWell(
+                        onTap: () => showFirmSwitcher(
+                          context,
+                          memberships: memberships,
+                          currentFirmId: workspace?.firm.id,
+                          onSelect: onSelectFirm!,
+                        ),
+                        borderRadius: BorderRadius.circular(8),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Flexible(
+                              child: Text(
+                                name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: colors.card,
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w900,
+                                  height: 1.1,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Icon(
+                              Icons.expand_more,
+                              color: colors.card,
+                              size: 22,
+                            ),
+                          ],
+                        ),
+                      )
+                    else
+                      Text(
+                        name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: colors.card,
+                          fontSize: 22,
+                          fontWeight: FontWeight.w900,
+                          height: 1.1,
+                        ),
                       ),
-                    ),
                     const SizedBox(height: 4),
                     Text(
                       subtitle,
