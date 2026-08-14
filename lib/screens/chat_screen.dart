@@ -2190,9 +2190,15 @@ class _ReportSheetState extends State<_ReportSheet> {
                 ),
               ),
               const SizedBox(height: 8),
+              // DITO ANTES DE DENUNCIAR, e não depois. A denúncia leva junto
+              // as 15 últimas mensagens desta conversa, congeladas como
+              // estão agora, e quem denuncia precisa saber disso para
+              // decidir se quer. Sem este aviso, a Jurii coletaria conteúdo
+              // que ninguém soube que estava compartilhando.
               Text(
-                'A denúncia é analisada pela equipe da Jurii. A outra pessoa '
-                'não é avisada.',
+                'A denúncia é analisada pela equipe da Jurii, e as 15 últimas '
+                'mensagens desta conversa vão junto. A outra pessoa não é '
+                'avisada.',
                 style: TextStyle(color: colors.textSecondary),
               ),
               const SizedBox(height: 12),
