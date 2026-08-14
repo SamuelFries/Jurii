@@ -237,10 +237,15 @@ where profile_id = 'f3000000-0000-0000-0000-000000000009'
    or pending_lawyer_id = 'f3000000-0000-0000-0000-000000000009';
 set local role authenticated;
 
-select throws_ok(
+-- A REGRA MUDOU, e este teste guarda a mudanca. Antes, quem trabalhava numa
+-- banca ja assinada nao podia contratar: "um escritorio, um plano, um
+-- pagante". Isso impedia a advogada da banca dos outros de comprar a licenca
+-- para fundar a DELA, que e um pedido legitimo e nao tem nada a ver com o
+-- plano do empregador. Desde que a cobranca virou por escritorio, cada banca
+-- tem a licenca dela e quem paga e quem abriu.
+select lives_ok(
   $$select public.choose_law_firm_plan('essencial')$$,
-  'Firm already has a subscription',
-  'membro de escritorio ja assinado nao abre segunda assinatura');
+  'membro de banca assinada PODE contratar a licenca da banca dele');
 
 reset role;
 
@@ -286,8 +291,17 @@ reset role;
 select set_config('request.jwt.claim.sub', 'f3000000-0000-0000-0000-000000000001', true);
 set local role authenticated;
 
+-- COM A BANCA NO ARGUMENTO. Sem ela, "sem escritorio" significa contratar
+-- licenca NOVA, e o fundador acabaria comprando a segunda em vez de trocar o
+-- plano da dele. Os chamadores reais passam o id (a tela do escritorio no
+-- webapp e o perfil no app); este teste guarda esse contrato.
 select is(
-  (select billing_cycle from public.choose_law_firm_plan('banca', 'annual')),
+  (select billing_cycle from public.choose_law_firm_plan(
+     'banca', 'annual',
+     (select s.law_firm_id from public.law_firm_license_subscriptions s
+       where s.owner_profile_id = 'f3000000-0000-0000-0000-000000000001'
+         and s.law_firm_id is not null
+       limit 1))),
   'annual',
   'trocar para o anual grava o ciclo na mesma assinatura');
 
@@ -313,9 +327,9 @@ select ok(
 
 select ok(
   has_function_privilege('authenticated',
-    'public.choose_law_firm_plan(text, text)', 'execute')
+    'public.choose_law_firm_plan(text, text, uuid)', 'execute')
   and not has_function_privilege('anon',
-    'public.choose_law_firm_plan(text, text)', 'execute'),
+    'public.choose_law_firm_plan(text, text, uuid)', 'execute'),
   'so authenticated escolhe plano');
 
 select * from finish();

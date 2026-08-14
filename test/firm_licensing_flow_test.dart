@@ -36,13 +36,19 @@ class _FakeLicenseRepository implements LicenseRepository {
   Future<LicenseSubscription?> fetchFirmLicense(String lawFirmId) async =>
       minha;
 
+  /// A banca informada na ultima chamada, para o teste conferir que a troca
+  /// diz DE QUAL escritorio se trata.
+  String? bancaEscolhida;
+
   @override
   Future<LicenseSubscription> choosePlan(
     String planCode, {
     String billingCycle = 'monthly',
+    String? lawFirmId,
   }) async {
     escolhido = planCode;
     cicloEscolhido = billingCycle;
+    bancaEscolhida = lawFirmId;
     if (erroAoEscolher != null) throw erroAoEscolher!;
     return LicenseSubscription(
       id: 's1',
@@ -360,6 +366,29 @@ void main() {
         find.text('Não foi possível carregar os planos.'),
         findsOneWidget,
       );
+    });
+
+    testWidgets('a troca diz DE QUAL banca é', (tester) async {
+      // Desde que a cobranca virou por escritorio, o servidor nao escolhe
+      // mais sozinho: sem o id, ele CONTRATA uma licenca nova em vez de
+      // trocar o plano da banca. Com duas bancas isso trocaria o plano da
+      // errada, ou cobraria de novo, e nenhum dos dois aparece na tela.
+      final repo = _FakeLicenseRepository();
+      await abrir(
+        tester,
+        FirmPlanScreen.upgrade(
+          upgradeDe: 'essencial',
+          lawFirmId: 'firma-1',
+          repository: repo,
+        ),
+      );
+
+      await tester.tap(find.text('Banca').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('confirmar_plano')));
+      await tester.pumpAndSettle();
+
+      expect(repo.bancaEscolhida, 'firma-1');
     });
 
     testWidgets('na troca, o plano atual não é confirmável', (tester) async {
