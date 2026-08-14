@@ -53,9 +53,19 @@ const List<_HelpSection> _sections = [
       ),
       _HelpItem(
         question: 'A Jurii tem acesso à minha localização?',
+        // Esta resposta dizia "a sua posição nunca é enviada aos nossos
+        // servidores". Era verdade quando a distância era calculada só no
+        // aparelho, e deixou de ser em 06/08/2026, quando a ordenação por
+        // distância passou para o servidor (migration 20260817120000). O
+        // código acompanhou a mudança com cuidado (discoverySortParams só
+        // manda a coordenada na ordenação que precisa dela); o texto não
+        // acompanhou, e ficou uma promessa de privacidade falsa na tela.
         answer:
-            'Não. A distância até o escritório é calculada no seu aparelho '
-            'e a sua posição nunca é enviada aos nossos servidores.',
+            'Só quando você pede. Ordenando por "Distância", a sua posição é '
+            'enviada para o servidor calcular quem está mais perto, e é '
+            'usada apenas naquela busca: ela não fica guardada em lugar '
+            'nenhum. Nas outras ordenações, "Relevância" e "Avaliação", nada '
+            'da sua localização sai do aparelho.',
       ),
     ],
   ),
@@ -86,11 +96,17 @@ const List<_HelpSection> _sections = [
             'assinar a agenda no Google, na Apple ou no Outlook.',
       ),
       _HelpItem(
-        question: 'O que significa o selo "Destaque"?',
+        // A pergunta dizia selo "Destaque", e esse selo não existe: o
+        // widget escreve "Patrocinado" DE PROPÓSITO (ver featured_badge.dart),
+        // porque "destaque" o cliente lê como mérito e patrocínio precisa ser
+        // identificável como publicidade. Perguntar pelo nome errado desfaz
+        // justamente a escolha que a palavra certa protege.
+        question: 'O que significa o selo "Patrocinado"?',
         answer:
-            'Perfis impulsionados aparecem no topo da busca sempre com o '
-            'selo visível. O destaque nunca altera as avaliações nem fura '
-            'a ordenação que o cliente escolher.',
+            'Que aquele perfil pagou para aparecer ali. Perfis patrocinados '
+            'vão para o topo da busca sempre com o selo visível, e o '
+            'patrocínio nunca altera as avaliações nem fura a ordenação que '
+            'você escolher.',
       ),
     ],
   ),
