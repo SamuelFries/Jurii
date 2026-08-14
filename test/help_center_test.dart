@@ -33,6 +33,11 @@ void main() {
     await tester.tap(find.text(pergunta));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('calculada no seu aparelho'), findsOneWidget);
+    // A resposta mudou junto com o produto: desde que a ordenacao por
+    // distancia passou para o servidor, a posicao SAI do aparelho quando a
+    // pessoa pede essa ordenacao. O teste ancora no que a resposta precisa
+    // dizer para ser verdadeira, e nao numa frase bonita.
+    expect(find.textContaining('Ordenando por "Distância"'), findsOneWidget);
+    expect(find.textContaining('não fica guardada'), findsOneWidget);
   });
 }
