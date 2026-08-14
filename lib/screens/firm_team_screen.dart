@@ -569,6 +569,14 @@ class _InviteLawyerSheetState extends State<_InviteLawyerSheet> {
       return 'Muitas tentativas em pouco tempo. Aguarde antes de tentar novamente.';
     }
 
+    if (message.contains('Subscription is not active')) {
+      // OUTRO problema, e por isso outra frase: aqui não adianta trocar de
+      // plano, porque nenhum plano está pago. Mandar a pessoa para a tela de
+      // planos seria mandá-la para o lugar errado.
+      return 'A assinatura do escritório está pendente. Regularize o '
+          'pagamento para voltar a convidar advogados.';
+    }
+
     if (message.contains('Lawyer seat limit reached')) {
       // O teto é do PLANO, não do alvo do convite: dizer qual é o problema
       // (e onde resolve) evita a pessoa reescrever a OAB três vezes.

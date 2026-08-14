@@ -146,11 +146,41 @@ void main() {
     );
 
     test('trialing e active dão passagem; past_due e canceled não', () {
-      // Mesma regra do portão no banco (has_law_firm_license).
-      expect(assinatura(status: LicenseStatus.trialing).ativa, isTrue);
-      expect(assinatura(status: LicenseStatus.active).ativa, isTrue);
-      expect(assinatura(status: LicenseStatus.pastDue).ativa, isFalse);
-      expect(assinatura(status: LicenseStatus.canceled).ativa, isFalse);
+      // Mesma regra de assinatura_esta_viva no banco.
+      final agora = DateTime(2026, 8, 8);
+      final futuro = DateTime(2026, 8, 31);
+      expect(
+        assinatura(
+          status: LicenseStatus.trialing,
+          fimDoTeste: futuro,
+        ).vivaEm(agora),
+        isTrue,
+      );
+      expect(assinatura(status: LicenseStatus.active).vivaEm(agora), isTrue);
+      expect(assinatura(status: LicenseStatus.pastDue).vivaEm(agora), isFalse);
+      expect(assinatura(status: LicenseStatus.canceled).vivaEm(agora), isFalse);
+    });
+
+    test('teste VENCIDO não dá passagem, por mais que o status diga trialing', () {
+      // O furo que a 20260906120000 fechou, do lado do app: 'trialing' nunca
+      // vencia, então trinta dias eram para sempre.
+      final agora = DateTime(2026, 8, 8);
+      final vencida = assinatura(fimDoTeste: DateTime(2026, 8, 1));
+      expect(vencida.status, LicenseStatus.trialing);
+      expect(vencida.testeVencido(agora), isTrue);
+      expect(vencida.vivaEm(agora), isFalse);
+
+      // E o dia exato do vencimento já conta como vencido: o teste é DE 30
+      // dias, e não de 30 dias mais um pedaço.
+      final noMinuto = assinatura(fimDoTeste: agora);
+      expect(noMinuto.vivaEm(agora), isFalse);
+    });
+
+    test('teste sem data de fim vale como vencido, e não como eterno', () {
+      // Entre errar para o lado de cobrar e errar para o lado de liberar para
+      // sempre, este é o lado seguro. Mesma escolha do banco.
+      final semData = assinatura(fimDoTeste: null);
+      expect(semData.vivaEm(DateTime(2026, 8, 8)), isFalse);
     });
 
     test('dias restantes nunca ficam negativos', () {
@@ -176,6 +206,17 @@ void main() {
       expect(
         assinatura(status: LicenseStatus.pastDue).statusLabel(agora),
         'Escritório · pagamento pendente',
+      );
+      // TESTE VENCIDO TEM NOME PRÓPRIO. Antes o rótulo dizia "teste grátis,
+      // 0 dias restantes" para sempre, no exato momento em que a pessoa
+      // precisa entender por que o escritório parou de convidar advogados.
+      expect(
+        assinatura(fimDoTeste: DateTime(2026, 8, 1)).statusLabel(agora),
+        'Escritório · teste encerrado',
+      );
+      expect(
+        assinatura(fimDoTeste: DateTime(2026, 8, 8, 20)).statusLabel(agora),
+        'Escritório · teste grátis, último dia',
       );
     });
 

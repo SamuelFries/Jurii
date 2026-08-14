@@ -150,13 +150,29 @@ class LicenseSubscription {
     );
   }
 
-  /// A licença dá passagem? (mesma regra do portão no banco)
-  bool get ativa =>
-      status == LicenseStatus.trialing || status == LicenseStatus.active;
+  /// A licença dá passagem? Espelho de `assinatura_esta_viva` no banco
+  /// (migration 20260906120000).
+  ///
+  /// A DATA É A METADE QUE FALTAVA. Antes esta regra olhava só o status, e
+  /// 'trialing' nunca vencia: trinta dias eram para sempre, aqui e no banco.
+  /// Recebe `agora` em vez de chamar DateTime.now() por dentro para que a
+  /// passagem do tempo seja testável, que é justamente o que não era.
+  bool vivaEm(DateTime agora) =>
+      status == LicenseStatus.active ||
+      (status == LicenseStatus.trialing && !testeVencido(agora));
 
   bool get emTeste => status == LicenseStatus.trialing;
 
-  /// Dias restantes do teste, nunca negativo — "faltam -3 dias" não é frase.
+  /// O teste acabou de verdade.
+  ///
+  /// Teste sem data de fim conta como vencido, e não como eterno: entre errar
+  /// para o lado de cobrar e errar para o lado de liberar para sempre, este é
+  /// o lado seguro. Mesma escolha da `assinatura_esta_viva`.
+  bool testeVencido(DateTime agora) =>
+      status == LicenseStatus.trialing &&
+      (trialEndsAt == null || !trialEndsAt!.isAfter(agora));
+
+  /// Dias restantes do teste, nunca negativo: "faltam -3 dias" não é frase.
   int diasRestantesDeTeste(DateTime agora) {
     final fim = trialEndsAt;
     if (fim == null || status != LicenseStatus.trialing) return 0;
@@ -166,10 +182,18 @@ class LicenseSubscription {
 
   /// "Escritório · anual · teste grátis, 23 dias restantes": o subtítulo do
   /// perfil. O ciclo só aparece quando é anual, porque mensal é o comum.
+  ///
+  /// TESTE VENCIDO TEM NOME PRÓPRIO. Enquanto vencer não tinha consequência,
+  /// o rótulo podia seguir dizendo "teste grátis"; agora que o escritório
+  /// para de convidar advogados, repetir "teste grátis" seria o rótulo
+  /// mentindo no exato momento em que a pessoa precisa entender por que o
+  /// convite parou de funcionar.
   String statusLabel(DateTime agora) {
     final base = plan?.name ?? planCode;
     final nome = billingCycle == 'annual' ? '$base · anual' : base;
     return switch (status) {
+      LicenseStatus.trialing when testeVencido(agora) =>
+        '$nome · teste encerrado',
       LicenseStatus.trialing =>
         '$nome · teste grátis, ${_dias(diasRestantesDeTeste(agora))}',
       LicenseStatus.active => '$nome · ativo',
@@ -178,6 +202,9 @@ class LicenseSubscription {
     };
   }
 
-  static String _dias(int dias) =>
-      dias == 1 ? '1 dia restante' : '$dias dias restantes';
+  static String _dias(int dias) => switch (dias) {
+    0 => 'último dia',
+    1 => '1 dia restante',
+    _ => '$dias dias restantes',
+  };
 }
