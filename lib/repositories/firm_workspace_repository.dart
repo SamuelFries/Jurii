@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../data/legal_practice_areas.dart';
+import '../models/firm_membership.dart';
 import '../models/firm_operation_metrics.dart';
 import '../models/firm_role.dart';
 import '../models/firm_team_member.dart';
@@ -53,13 +54,50 @@ class FirmWorkspaceRepository {
     );
   }
 
+  /// TODOS os vínculos ativos da pessoa, cada um com o cargo DELE.
+  ///
+  /// Vem da RPC `fetch_law_firm_memberships`, e não de um select direto, por
+  /// um motivo de correção: a policy `law_firm_members_read_related` entrega
+  /// também as linhas dos COLEGAS (ela existe para montar a equipe), então um
+  /// select solto pode devolver o cargo de outra pessoa. A RPC responde só
+  /// sobre quem chama.
+  Future<List<FirmMembership>> fetchMemberships() async {
+    final user = SupabaseConfig.client.auth.currentUser;
+    if (user == null) return const [];
+
+    try {
+      final rows = await SupabaseConfig.client.rpc(
+        'fetch_law_firm_memberships',
+      );
+      return (rows as List<dynamic>)
+          .cast<Map<String, dynamic>>()
+          .map(FirmMembership.fromRow)
+          .toList(growable: false);
+    } catch (error) {
+      // Ambiente sem a migration aplicada continua funcionando com um
+      // escritório só, que é o comportamento anterior.
+      debugPrint('fetchMemberships falhou: $error');
+      return const [];
+    }
+  }
+
   Future<FirmWorkspace?> fetchCurrentWorkspace({
     LawFirmVerification? verification,
+    /// QUAL escritório abrir. Nulo mantém o comportamento antigo (o vínculo
+    /// mais antigo), que é o certo para quem tem um só.
+    ///
+    /// Chama-se `targetFirmId` e não `lawFirmId` porque este método já tem uma
+    /// local com esse nome (a da verificação aprovada), e o Dart não deixa as
+    /// duas conviverem.
+    String? targetFirmId,
   }) async {
     final user = SupabaseConfig.client.auth.currentUser;
     if (user == null) return null;
 
-    final membershipWorkspace = await _fetchWorkspaceFromMembership(user.id);
+    final membershipWorkspace = await _fetchWorkspaceFromMembership(
+      user.id,
+      lawFirmId: targetFirmId,
+    );
     if (membershipWorkspace != null) return membershipWorkspace;
 
     // Em ambiente real, uma verificacao aprovada prova apenas que o escritorio
@@ -88,12 +126,24 @@ class FirmWorkspaceRepository {
     return _workspaceFromApprovedVerification(user.id, verification!);
   }
 
-  Future<FirmWorkspace?> _fetchWorkspaceFromMembership(String profileId) async {
+  Future<FirmWorkspace?> _fetchWorkspaceFromMembership(
+    String profileId, {
+    String? lawFirmId,
+  }) async {
     final rows = await _fetchActiveMembershipRows(profileId);
 
     if (rows.isEmpty) return null;
 
-    final membership = rows.first;
+    // O escritório PEDIDO, se a pessoa tiver vínculo com ele. Pedir um
+    // escritório onde não há vínculo cai no primeiro, e não em erro: acontece
+    // quando o vínculo é desativado enquanto ele estava aberto, e nesse caso
+    // o certo é abrir outro em vez de travar a pessoa numa tela morta.
+    final membership = lawFirmId == null
+        ? rows.first
+        : rows.firstWhere(
+            (row) => row['law_firm_id']?.toString() == lawFirmId,
+            orElse: () => rows.first,
+          );
     final firmRow = membership['law_firms'];
     if (firmRow is! Map<String, dynamic>) return null;
 
@@ -124,10 +174,11 @@ class FirmWorkspaceRepository {
           )
           .eq('profile_id', profileId)
           .eq('status', 'active')
-          // Ordenação estável: membro de 2+ escritórios sempre entra no mais
-          // antigo (até existir um seletor de escritório).
-          .order('joined_at', ascending: true)
-          .limit(1);
+          // Ordenação estável: o mais antigo primeiro, que é o padrão de
+          // quem tem um vínculo só. Quem tem vários escolhe pelo seletor, e
+          // por isso o `limit(1)` saiu daqui: com ele, o segundo escritório
+          // não existia para o app.
+          .order('joined_at', ascending: true);
 
       return rows.cast<Map<String, dynamic>>();
     } catch (_) {
@@ -138,8 +189,7 @@ class FirmWorkspaceRepository {
           )
           .eq('profile_id', profileId)
           .eq('status', 'active')
-          .order('joined_at', ascending: true)
-          .limit(1);
+          .order('joined_at', ascending: true);
 
       return rows.cast<Map<String, dynamic>>();
     }
