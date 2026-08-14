@@ -24,12 +24,20 @@ class FirmPlanScreen extends StatefulWidget {
     required this.user,
     this.onVerificationSubmitted,
     this.repository = const LicenseRepository(),
-  }) : upgradeDe = null;
+  }) : upgradeDe = null,
+       lawFirmId = null;
 
   /// Troca de plano de quem já assina (aberta pelo perfil do escritório).
+  ///
+  /// [lawFirmId] diz DE QUAL banca é a troca, e é obrigatório sempre que ela
+  /// existe: desde que a cobrança virou por escritório, o servidor não
+  /// escolhe mais sozinho, e sem o id ele contrataria uma licença nova em
+  /// vez de trocar o plano. Fica nulo no único caso em que não há banca: a
+  /// licença comprada e ainda não usada.
   const FirmPlanScreen.upgrade({
     super.key,
     required String this.upgradeDe,
+    this.lawFirmId,
     this.repository = const LicenseRepository(),
   }) : user = null,
        onVerificationSubmitted = null;
@@ -40,6 +48,9 @@ class FirmPlanScreen extends StatefulWidget {
 
   /// Código do plano atual quando a tela abre para troca.
   final String? upgradeDe;
+
+  /// A banca cujo plano está sendo trocado, quando existe.
+  final String? lawFirmId;
 
   bool get _isUpgrade => upgradeDe != null;
 
@@ -104,6 +115,7 @@ class _FirmPlanScreenState extends State<FirmPlanScreen> {
       final assinatura = await widget.repository.choosePlan(
         escolhido,
         billingCycle: _ciclo,
+        lawFirmId: widget.lawFirmId,
       );
       if (!mounted) return;
 

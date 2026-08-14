@@ -35,8 +35,14 @@ class LicenseRepository {
         .toList(growable: false);
   }
 
-  /// A assinatura de QUEM CHAMA (a que a paywall consulta). Nula quando nunca
-  /// escolheu plano — é o que manda a paywall aparecer.
+  /// A licença NÃO GASTA de quem chama, isto é, a que ainda não virou banca.
+  /// Nula quando nunca escolheu plano, e é o que manda a paywall aparecer.
+  ///
+  /// O filtro por `law_firm_id` nulo não é detalhe: desde que a cobrança
+  /// passou a ser por ESCRITÓRIO, uma pessoa pode ter várias assinaturas (uma
+  /// por banca) mais, no máximo, uma ainda não gasta. Sem o filtro, o
+  /// `maybeSingle` estouraria para quem tem duas bancas, justo na consulta
+  /// que decide se a paywall aparece.
   Future<LicenseSubscription?> fetchMyLicense() async {
     if (_demo) return null;
 
@@ -47,6 +53,7 @@ class LicenseRepository {
           'owner_profile_id',
           SupabaseConfig.client.auth.currentUser!.id,
         )
+        .isFilter('law_firm_id', null)
         .neq('status', 'canceled')
         .maybeSingle();
 
@@ -71,9 +78,16 @@ class LicenseRepository {
 
   /// Escolhe (ou troca) o plano. No primeiro uso cria o teste grátis de 30
   /// dias; nas trocas o fim do teste NÃO renova — o servidor garante.
+  /// Escolhe ou troca o plano.
+  ///
+  /// Com [lawFirmId], troca o plano DAQUELA banca, e o servidor exige ser
+  /// gestor dela. Sem ele, contrata uma licença nova, que é o caminho de
+  /// quem vai abrir um escritório. Antes o servidor escolhia sozinho, e com
+  /// duas bancas ele trocava o plano da errada.
   Future<LicenseSubscription> choosePlan(
     String planCode, {
     String billingCycle = 'monthly',
+    String? lawFirmId,
   }) async {
     if (_demo) {
       // Demo: a paywall é atravessável para o fluxo inteiro ser demonstrável.
@@ -92,6 +106,7 @@ class LicenseRepository {
       params: {
         'plan_code_value': planCode,
         'billing_cycle_value': billingCycle,
+        'law_firm_id_value': lawFirmId,
       },
     );
 

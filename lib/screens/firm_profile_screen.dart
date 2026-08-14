@@ -524,7 +524,12 @@ class _GestaoComPlanoState extends State<_GestaoComPlano> {
 
     final nova = await Navigator.of(context).push<LicenseSubscription>(
       MaterialPageRoute(
-        builder: (_) => FirmPlanScreen.upgrade(upgradeDe: assinatura.planCode),
+        builder: (_) => FirmPlanScreen.upgrade(
+          upgradeDe: assinatura.planCode,
+          // A troca e DESTA banca: sem o id, o servidor contrataria uma
+          // licenca nova em vez de trocar o plano dela.
+          lawFirmId: widget.lawFirmId,
+        ),
       ),
     );
     // Rebusca em vez de usar o retorno: a RPC devolve a assinatura SEM o join
