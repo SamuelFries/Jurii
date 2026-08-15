@@ -1,4 +1,4 @@
--- ANTES DE RODAR A 20260906120000 EM PRODUÇÃO.
+-- ANTES DE RODAR A 20260906120000 E A 20260907120000 EM PRODUÇÃO.
 --
 -- A migration dá consequência a status de assinatura. Consequência é o que
 -- não existia, então há linhas em produção que hoje passam por vivas e no
@@ -64,4 +64,33 @@ where f.is_active
   and not exists (
     select 1 from public.law_firm_license_subscriptions s
     where s.law_firm_id = f.id
-  );
+  )
+
+-- A pergunta que a 20260907120000 acrescenta, e a unica aqui que ja custa
+-- dinheiro HOJE. O teto de advogados so existia no caminho do convite, entao
+-- promover um secretario a advogado nunca passou por trava nenhuma. Toda banca
+-- que aparecer abaixo esta com equipe maior do que o plano que paga, e chegou
+-- la por promocao. Depois do deploy elas nao crescem mais, mas tambem nao sao
+-- reduzidas: ninguem perde acesso retroativamente.
+union all
+select
+  'banca ACIMA do teto do plano (chegou la promovendo, e paga menos do que usa)',
+  count(*)
+from (
+  select
+    f.id,
+    (select p.max_lawyers
+       from public.law_firm_license_subscriptions s
+       join public.law_firm_license_plans p on p.code = s.plan_code
+      where s.law_firm_id = f.id and s.status <> 'canceled'
+      limit 1) as teto,
+    (select count(*)
+       from public.law_firm_members m
+      where m.law_firm_id = f.id
+        and m.status in ('active', 'invited')
+        and 'lawyer' = any(coalesce(m.roles::text[], array[m.member_role::text]))
+    ) as advogados
+  from public.law_firms f
+  where f.is_active
+) contagem
+where teto is not null and advogados > teto;
