@@ -8,7 +8,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(20);
+select plan(23);
 
 insert into auth.users (id, aud, role, email, encrypted_password, email_confirmed_at,
   raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
@@ -267,6 +267,55 @@ select is(
    where id = 'ea000000-0000-0000-0000-000000000002'),
   null,
   'e a coluna da assinatura alheia continua vazia');
+
+-- ---------------------------------------------------------------------------
+-- 6. A pergunta do teto, a mesma para a trava e para a tela
+-- ---------------------------------------------------------------------------
+--
+-- banca_pode_crescer existe para as telas avisarem ANTES em vez de o servidor
+-- recusar DEPOIS. O que ela NÃO pode é responder diferente de
+-- exige_vaga_de_advogado: tela dizendo "pode" com o banco recusando é pior do
+-- que tela sem aviso nenhum.
+select set_config('request.jwt.claim.sub','e1000000-0000-0000-0000-00000000000a', true);
+set local role authenticated;
+
+-- A banca está com a assinatura cancelada desde a seção 3, e foi recontratada
+-- como 'past_due' logo depois: continua congelada até o pagamento entrar.
+select is(
+  public.banca_pode_crescer('ef000000-0000-0000-0000-000000000001'),
+  false,
+  'com a assinatura parada, a tela ouve o mesmo NAO que a trava dá');
+
+reset role;
+
+select public.aplicar_efeito_de_pagamento(
+  (select id from public.law_firm_license_subscriptions
+   where law_firm_id = 'ef000000-0000-0000-0000-000000000001'
+     and status <> 'canceled'),
+  'ativar');
+
+select set_config('request.jwt.claim.sub','e1000000-0000-0000-0000-00000000000a', true);
+set local role authenticated;
+
+-- Plano 'escritorio' (teto 10) com 3 advogados: ainda cabe.
+select is(
+  public.banca_pode_crescer('ef000000-0000-0000-0000-000000000001'),
+  true,
+  'paga e com vaga sobrando, a tela ouve SIM');
+
+-- E QUEM NAO E DA CASA NAO PERGUNTA: a resposta conta se a banca esta
+-- inadimplente, e varrer escritorios atras disso seria um mapa de quem esta
+-- em dificuldade servido pela nossa API.
+reset role;
+select set_config('request.jwt.claim.sub','e1000000-0000-0000-0000-00000000000f', true);
+set local role authenticated;
+
+select throws_ok(
+  $$select public.banca_pode_crescer('ef000000-0000-0000-0000-000000000001')$$,
+  'Not a member of this law firm',
+  'quem nao e da banca nao descobre a situacao de cobranca dela');
+
+reset role;
 
 select * from finish();
 rollback;

@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../models/firm_role.dart';
 import '../models/firm_team_member.dart';
 import '../models/firm_workspace.dart';
+import '../repositories/license_repository.dart';
 import '../theme/app_colors.dart';
 import '../widgets/jurii_form_motion.dart';
 import '../widgets/jurii_list_card.dart';
@@ -17,10 +18,12 @@ class FirmTeamScreen extends StatelessWidget {
     this.teamMembers,
     this.onInviteLawyer,
     this.onUpdateMemberRoles,
+    this.licenseRepository = const LicenseRepository(),
   });
 
   final FirmWorkspace? workspace;
   final List<FirmTeamMember>? teamMembers;
+  final LicenseRepository licenseRepository;
   final Future<void> Function({
     required String oabState,
     required String oabNumber,
@@ -81,6 +84,14 @@ class FirmTeamScreen extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 20),
+          // O AVISO VEM ANTES DA LISTA porque ele explica por que o convite
+          // vai ser recusado. Sem ele a pessoa só descobria depois de abrir a
+          // folha, digitar a OAB e clicar.
+          if (canManageMembers && workspace != null)
+            _AvisoDeCobranca(
+              lawFirmId: workspace!.firm.id,
+              repository: licenseRepository,
+            ),
           if (members.isEmpty)
             Container(
               width: double.infinity,
@@ -817,6 +828,108 @@ class _MiniBadge extends StatelessWidget {
           fontSize: 11,
           fontWeight: FontWeight.w700,
         ),
+      ),
+    );
+  }
+}
+
+/// O aviso de que a banca não cresce enquanto a assinatura não anda.
+///
+/// EXISTE PARA DIZER ANTES. O servidor recusa convite e promoção quando a
+/// assinatura está parada (20260907120000), e sem este cartão a pessoa só
+/// descobria isso depois de abrir a folha de convite, digitar a OAB e clicar.
+/// Oferecer um caminho que vai certamente falhar é o link morto de sempre.
+///
+/// Widget PRÓPRIO com fetch próprio, no mesmo padrão do plano no perfil: a
+/// tela de equipe recebe dados prontos, e a resposta do teto precisa de uma
+/// chamada que só ela faz.
+///
+/// A pergunta vai para o BANCO, e não é deduzida daqui: a regra tem três
+/// respostas que dependem de enxergar as assinaturas canceladas, e as
+/// consultas que o app já fazia filtram cancelada. Ver a 20260909120000.
+class _AvisoDeCobranca extends StatefulWidget {
+  const _AvisoDeCobranca({required this.lawFirmId, required this.repository});
+
+  final String lawFirmId;
+  final LicenseRepository repository;
+
+  @override
+  State<_AvisoDeCobranca> createState() => _AvisoDeCobrancaState();
+}
+
+class _AvisoDeCobrancaState extends State<_AvisoDeCobranca> {
+  /// Começa TRUE: enquanto não sabe, não acusa. Um cartão de inadimplência
+  /// piscando na tela de quem está em dia seria pior do que aviso nenhum.
+  bool _podeCrescer = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _carregar();
+  }
+
+  Future<void> _carregar() async {
+    try {
+      final pode = await widget.repository.bancaPodeCrescer(widget.lawFirmId);
+      if (!mounted) return;
+      setState(() => _podeCrescer = pode);
+    } catch (_) {
+      // Falha de rede não vira acusação: quem recusa de verdade é o servidor,
+      // e o erro do convite já explica o motivo quando chega a hora.
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_podeCrescer) return const SizedBox.shrink();
+    final colors = context.jColors;
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: colors.card,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colors.officePurple.withValues(alpha: 0.35)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.schedule, size: 18, color: colors.officePurple),
+              const SizedBox(width: 8),
+              Text(
+                'Assinatura pendente',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: colors.textPrimary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          // FALA DE CRESCER, E SÓ. Ninguém pode ler "assinatura pendente" como
+          // "perdi o escritório": quem já está na equipe segue trabalhando, e
+          // a frase diz isso com todas as letras.
+          Text(
+            'Enquanto o pagamento não entra, o escritório não inclui '
+            'advogados novos, nem por convite nem promovendo quem já está '
+            'aqui. Quem já faz parte da equipe continua trabalhando '
+            'normalmente.',
+            style: TextStyle(color: colors.textSecondary, height: 1.4),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'O pagamento é feito no site, em Assinatura.',
+            style: TextStyle(
+              color: colors.textSecondary,
+              fontSize: 13,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+        ],
       ),
     );
   }
