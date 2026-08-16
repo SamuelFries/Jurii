@@ -74,6 +74,22 @@ values
     '{}'::jsonb
   );
 
+-- Desde a 20260910120000 o bucket case-documents deixa o autor apagar objeto
+-- SOLTO da propria pasta (rollback de upload). Para este teste seguir
+-- provando que a policy do avatar nao vaza de bucket, o objeto vizinho
+-- precisa sobreviver pelo motivo que passou a existir: estar LIGADO a uma
+-- linha de case_documents.
+insert into public.legal_cases (id, client_id, title, area, status)
+values ('91caca00-0000-4000-8000-000000000001',
+        '91000000-0000-0000-0000-000000000001',
+        'Caso do avatar','Direito Cível','open');
+
+insert into public.case_documents (case_id, uploaded_by, title, storage_path)
+values ('91caca00-0000-4000-8000-000000000001',
+        '91000000-0000-0000-0000-000000000001',
+        'Nao e avatar',
+        '91000000-0000-0000-0000-000000000001/not-an-avatar.png');
+
 select ok(
   has_function_privilege(
     'authenticated',
@@ -342,7 +358,7 @@ select ok(
     where bucket_id = 'case-documents'
       and name = '91000000-0000-0000-0000-000000000001/not-an-avatar.png'
   ),
-  'titular apaga apenas avatar na propria pasta e bucket'
+  'titular apaga apenas avatar: pasta alheia e documento de caso LIGADO ficam'
 );
 
 select ok(

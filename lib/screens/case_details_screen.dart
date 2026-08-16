@@ -5,8 +5,10 @@ import 'package:flutter/material.dart';
 import '../models/case_details.dart';
 import '../models/case_movement.dart';
 import '../models/case_update.dart';
+import '../repositories/case_document_repository.dart';
 import '../repositories/case_repository.dart';
 import '../services/realtime_refresh.dart';
+import '../widgets/case_documents_section.dart';
 import '../repositories/law_firm_repository.dart';
 import '../repositories/lawyer_profile_repository.dart';
 import '../theme/app_colors.dart';
@@ -27,6 +29,7 @@ class CaseDetailsScreen extends StatefulWidget {
     required this.canAddUpdates,
     this.cnjNumber,
     this.repository = const CaseRepository(),
+    this.documentRepository = const CaseDocumentRepository(),
   });
 
   final String caseId;
@@ -38,6 +41,7 @@ class CaseDetailsScreen extends StatefulWidget {
   final String? cnjNumber;
 
   final CaseRepository repository;
+  final CaseDocumentRepository documentRepository;
 
   @override
   State<CaseDetailsScreen> createState() => _CaseDetailsScreenState();
@@ -444,6 +448,15 @@ class _CaseDetailsScreenState extends State<CaseDetailsScreen>
                     ),
                   ),
                 ],
+                const SizedBox(height: 24),
+                // Documentos entre o processo e as atualizações: quem abre o
+                // caso procura primeiro o andamento, depois o papel. A seção
+                // cuida do próprio fetch (mesmo padrão do plano no perfil),
+                // porque nenhuma lista passa documentos por parâmetro.
+                CaseDocumentsSection(
+                  caseId: widget.caseId,
+                  repository: widget.documentRepository,
+                ),
                 const SizedBox(height: 24),
                 Text(
                   'Atualizações',
