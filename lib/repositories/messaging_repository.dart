@@ -5,9 +5,11 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/chat_attachment.dart';
 import '../models/chat_message.dart';
+import '../models/discovery_page.dart';
 import '../models/conversation.dart';
 import '../models/law_firm.dart';
 import '../models/lawyer_profile_summary.dart';
+import '../utils/discovery_pagination.dart';
 import '../models/report_reason.dart';
 import '../services/supabase_config.dart';
 
@@ -215,32 +217,65 @@ class MessagingRepository {
     );
   }
 
+  /// Tamanho da página do chat. Cinquenta cobre dias de conversa real numa
+  /// tela só; quem precisa de mais rola para cima e a próxima página vem.
+  static const int messagesPageSize = 50;
+
   Future<List<ChatMessage>> fetchMessages(String conversationId) async {
+    final page = await fetchMessagesPage(conversationId);
+    return page.items;
+  }
+
+  /// Uma página de mensagens, da mais recente para trás.
+  ///
+  /// Era um teto fixo de 100 com um TODO: conversa jurídica passa disso numa
+  /// semana, e a mensagem 101 SUMIA em silêncio — o histórico parecia começar
+  /// no meio. Agora é keyset por (created_at, id): estável sob mensagem nova
+  /// chegando no meio da rolagem, que é onde offset duplicaria itens.
+  ///
+  /// O par no cursor não é excesso de zelo: duas mensagens no MESMO
+  /// timestamp (lote de teste, importação) fariam o cursor só de created_at
+  /// pular uma delas para sempre. O id (uuid) não ordena por tempo, e não
+  /// precisa: só precisa desempatar IGUAL no order e no filtro.
+  Future<DiscoveryPage<ChatMessage>> fetchMessagesPage(
+    String conversationId, {
+    ChatMessage? before,
+  }) async {
     if (!SupabaseConfig.isReady ||
         SupabaseConfig.client.auth.currentUser == null) {
-      return const [];
+      return DiscoveryPage(items: const [], hasMore: false);
     }
 
-    // Teto de 100 mensagens mais recentes para não carregar conversas longas
-    // inteiras em memória. TODO: paginação incremental ao rolar para cima.
-    final rows = await SupabaseConfig.client
-        .from('messages')
-        .select(
-          'id, conversation_id, sender_id, sender_type, body, metadata, read_at, delivered_at, deleted_for_all_at, created_at',
-        )
-        .eq('conversation_id', conversationId)
-        .order('created_at', ascending: false)
-        .limit(100);
+    // RPC parametrizada em vez de filtro de string: o cursor composto só se
+    // escreveria no PostgREST via `or=`, que é a família que a barreira
+    // anti-injeção do app proíbe (query_safety_test). Na função, a
+    // comparação (created_at, id) < (X, Y) é nativa e nada vira sintaxe.
+    final beforeAt = before?.createdAt;
+    final rows = List<Map<String, dynamic>>.from(
+      await SupabaseConfig.client.rpc(
+        'fetch_conversation_messages_page',
+        params: {
+          'conversation_id_value': conversationId,
+          'before_created_at': beforeAt?.toUtc().toIso8601String(),
+          'before_id': beforeAt == null ? null : before?.id,
+          'page_size': messagesPageSize + 1,
+        },
+      ) as List<dynamic>,
+    );
 
     final currentUserId = SupabaseConfig.client.auth.currentUser?.id;
+    final page = pageFromSentinel(rows, messagesPageSize);
 
-    final messages = rows.reversed
+    final messages = page.items.reversed
         .map<ChatMessage>(
           (row) => messageFromRow(row, currentUserId: currentUserId),
         )
         .toList();
 
-    return _messagesWithAttachments(messages);
+    return DiscoveryPage(
+      items: await _messagesWithAttachments(messages),
+      hasMore: page.hasMore,
+    );
   }
 
   Future<ChatMessage> sendMessage({
