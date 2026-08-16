@@ -146,16 +146,30 @@ class _FirmPlanScreenState extends State<FirmPlanScreen> {
       if (!mounted) return;
       setState(() => _confirmando = false);
       messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            error.toString().contains('Firm already has a subscription')
-                ? 'Este escritório já tem um plano contratado por outra '
-                      'pessoa.'
-                : 'Não foi possível confirmar o plano. Tente novamente.',
-          ),
-        ),
+        SnackBar(content: Text(_erroLegivel(error))),
       );
     }
+  }
+
+  /// O erro do banco na língua de quem lê.
+  String _erroLegivel(Object error) {
+    final mensagem = error.toString();
+
+    if (mensagem.contains('Plan change requires billing update')) {
+      // Trocar de plano depois que a cobrança começou mudaria o nosso
+      // `plan_code` sem mudar o valor no provedor: o escritório usaria o
+      // plano caro pagando o barato, ou pagaria o caro tendo pedido o
+      // barato. Enquanto a troca não souber conversar com o provedor, ela
+      // não acontece, e a frase diz o caminho que existe hoje.
+      return 'Sua assinatura já está em cobrança. Fale com a gente para '
+          'trocar de plano sem cobrar errado.';
+    }
+
+    if (mensagem.contains('Firm already has a subscription')) {
+      return 'Este escritório já tem um plano contratado por outra pessoa.';
+    }
+
+    return 'Não foi possível confirmar o plano. Tente novamente.';
   }
 
   @override

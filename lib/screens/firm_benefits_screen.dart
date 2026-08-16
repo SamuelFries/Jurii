@@ -56,7 +56,7 @@ class _FirmBenefitsScreenState extends State<FirmBenefitsScreen> {
     }
   }
 
-  bool get _jaTemLicenca => _licenca?.ativa == true;
+  bool get _jaTemLicenca => _licenca?.vivaEm(DateTime.now()) == true;
 
   Future<void> _trocarPlano() async {
     final licenca = _licenca;

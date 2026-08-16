@@ -293,10 +293,15 @@ select set_config(
 -- A paywall do licenciamento (20260821120000) exige assinatura para INSERIR
 -- verificacao; o fixture abaixo e o pedagio deste teste, que testa OUTRA
 -- coisa.
+-- Uma por dono: desde a 20260906120000 a APROVACAO tambem exige licenca nao
+-- gasta, e nao so o pedido. Sem a linha do segundo dono, a aprovacao dele
+-- falharia por falta de licenca num teste que fala de foto.
 insert into public.law_firm_license_subscriptions
   (owner_profile_id, plan_code, status, trial_ends_at)
 values
   ('93000000-0000-0000-0000-000000000001', 'escritorio', 'trialing',
+   now() + interval '30 days'),
+  ('93000000-0000-0000-0000-000000000002', 'escritorio', 'trialing',
    now() + interval '30 days');
 
 select set_config('request.jwt.claim.role', 'authenticated', true);

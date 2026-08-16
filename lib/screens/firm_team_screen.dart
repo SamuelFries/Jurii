@@ -293,6 +293,18 @@ class _MemberRolesSheetState extends State<_MemberRolesSheet> {
     if (message.contains('Invalid firm roles')) {
       return 'A lista de cargos tem um valor inválido.';
     }
+    // O teto de advogados vale AQUI também desde a 20260907120000: promover
+    // alguém a advogado ocupa vaga igual a convidar de fora. Sem estas duas
+    // frases a pessoa recebia "não foi possível atualizar os cargos", que não
+    // diz o que houve nem para onde ir.
+    if (message.contains('Subscription is not active')) {
+      return 'A assinatura do escritório está pendente. Regularize o '
+          'pagamento para promover advogados.';
+    }
+    if (message.contains('Lawyer seat limit reached')) {
+      return 'Seu plano atual não comporta mais advogados. Troque de plano '
+          'em Perfil > Plano para promover.';
+    }
     if (message.contains('update_law_firm_member_roles') ||
         message.contains('function') ||
         message.contains('patch')) {
@@ -567,6 +579,14 @@ class _InviteLawyerSheetState extends State<_InviteLawyerSheet> {
 
     if (message.contains('Too many invite attempts')) {
       return 'Muitas tentativas em pouco tempo. Aguarde antes de tentar novamente.';
+    }
+
+    if (message.contains('Subscription is not active')) {
+      // OUTRO problema, e por isso outra frase: aqui não adianta trocar de
+      // plano, porque nenhum plano está pago. Mandar a pessoa para a tela de
+      // planos seria mandá-la para o lugar errado.
+      return 'A assinatura do escritório está pendente. Regularize o '
+          'pagamento para voltar a convidar advogados.';
     }
 
     if (message.contains('Lawyer seat limit reached')) {
