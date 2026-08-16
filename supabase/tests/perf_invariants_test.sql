@@ -8,7 +8,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(4);
+select plan(5);
 
 -- ---------------------------------------------------------------------------
 -- 1. Nenhuma policy reavalia auth.uid() por linha
@@ -78,6 +78,12 @@ select is(
 --    pela metade)
 -- ---------------------------------------------------------------------------
 
+-- `messages_sender_recentes_idx` no lugar de `messages_sender_id_idx`: desde a
+-- 20260908120000 o teto de envio conta as mensagens recentes de quem envia, e
+-- um indice de (sender_id) sozinho leria a vida inteira da pessoa para
+-- descartar quase tudo. O composto responde as duas perguntas, porque
+-- sender_id e o prefixo dele, e por isso o antigo saiu: dois indices para a
+-- mesma resposta e duas escritas por mensagem enviada.
 select ok(
   (select count(*) from pg_indexes
    where schemaname = 'public'
@@ -85,9 +91,17 @@ select ok(
        'legal_cases_law_firm_id_idx',
        'case_participants_profile_id_idx',
        'notifications_law_firm_id_idx',
-       'messages_sender_id_idx'
+       'messages_sender_recentes_idx'
      )) = 4,
   'os indices dos caminhos quentes estao no lugar');
+
+-- E o antigo NAO voltou: reintroduzi-lo seria pagar a escrita duas vezes na
+-- tabela mais quente do produto sem responder nada de novo.
+select is(
+  (select count(*)::int from pg_indexes
+   where schemaname = 'public' and indexname = 'messages_sender_id_idx'),
+  0,
+  'e o indice que o composto tornou redundante nao voltou');
 
 select * from finish();
 rollback;

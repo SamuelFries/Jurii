@@ -506,6 +506,27 @@ class _ChatScreenState extends State<ChatScreen>
         }
         return false;
       }
+      // O teto de envio (20260908120000). Dizer "não foi possível" aqui seria
+      // esconder que a mensagem NÃO vai sair tentando de novo agora, e a
+      // pessoa ficaria batendo no botão. O texto volta para o campo logo
+      // abaixo, então nada do que ela escreveu se perde.
+      if (error.toString().contains('Too many messages')) {
+        if (showErrorSnackBar) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Você enviou muitas mensagens em pouco tempo. '
+                'Aguarde um minuto para continuar.',
+              ),
+            ),
+          );
+        }
+        if (restoreToComposerOnFailure &&
+            _messageController.text.trim().isEmpty) {
+          _messageController.text = text;
+        }
+        return false;
+      }
       if (showErrorSnackBar) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Não foi possível enviar a mensagem.')),
