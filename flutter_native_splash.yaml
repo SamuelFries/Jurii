@@ -1,0 +1,19 @@
+# Splash nativa gerada da marca (assets/brand). Regerar após qualquer mudança:
+#   dart run flutter_native_splash:create
+#
+# As cores são as MESMAS do scaffold (app_colors.dart: claro 0xFFF7F8FC,
+# escuro 0xFF0A1120) de propósito: a splash emenda na primeira tela sem salto
+# de cor. O símbolo segue a regra da casa para tema (claro = hastes navy,
+# escuro = hastes claras), pelos PNGs — os SVGs do kit dependem de fonte via
+# @import e não renderizam fora do navegador.
+#
+# Android 12+ ignora a imagem daqui por desenho do sistema: ele mostra o
+# ÍCONE do launcher (já da marca, via flutter_launcher_icons) sobre a cor.
+flutter_native_splash:
+  color: "#F7F8FC"
+  color_dark: "#0A1120"
+  image: assets/brand/png/jurii-simbolo-claro.png
+  image_dark: assets/brand/png/jurii-simbolo-escuro.png
+  android_12:
+    color: "#F7F8FC"
+    color_dark: "#0A1120"
