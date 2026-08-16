@@ -31,6 +31,7 @@ import 'screens/complete_profile_screen.dart';
 import 'screens/edit_profile_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/messages_screen.dart';
+import 'screens/onboarding_screen.dart';
 import 'screens/password_reset_screen.dart';
 import 'screens/cases_screen.dart';
 import 'screens/firm_cases_screen.dart';
@@ -108,6 +109,12 @@ class _JuriiAppState extends State<JuriiApp> {
 
   bool _isLoggedIn = false;
   bool _isLawyerMode = false;
+
+  /// A apresentação de primeira abertura já foi vista NESTE aparelho?
+  /// Começa true (fail-open): se as prefs falharem, o app abre no login em
+  /// vez de prender todo mundo numa intro que não consegue se marcar vista.
+  bool _onboardingSeen = true;
+  static const String _chaveOnboardingVisto = 'jurii.onboarding_visto';
   bool _isFirmMode = false;
   bool _isBootstrapping = true;
   bool _bootstrapFailed = false;
@@ -183,6 +190,29 @@ class _JuriiAppState extends State<JuriiApp> {
     }
   }
 
+  Future<void> _loadOnboardingSeen() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final seen = prefs.getBool(_chaveOnboardingVisto) ?? false;
+      if (mounted) setState(() => _onboardingSeen = seen);
+    } catch (error) {
+      // Fail-open: sem prefs, sem intro. Apresentação é cortesia.
+      debugPrint('Onboarding flag load failed: $error');
+    }
+  }
+
+  void _finishOnboarding() {
+    setState(() => _onboardingSeen = true);
+    unawaited(() async {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool(_chaveOnboardingVisto, true);
+      } catch (error) {
+        debugPrint('Onboarding flag save failed: $error');
+      }
+    }());
+  }
+
   void _openPasswordRecoveryFlow() {
     if (!mounted) return;
     setState(() {
@@ -196,7 +226,11 @@ class _JuriiAppState extends State<JuriiApp> {
   }
 
   Future<void> _bootstrapSession() async {
-    // isReady, não isConfigured: as chaves têm fallback hardcoded, então
+    // A flag da apresentação carrega ANTES de o boot terminar: decidir a
+    // primeira tela e depois trocá-la seria um flash de login virando intro.
+    await _loadOnboardingSeen();
+
+    // isReady, não isConfigurado: as chaves têm fallback hardcoded, então
     // isConfigured é sempre true — mas sem Supabase.initialize concluído,
     // tocar o client abaixo estoura StateError (modo demonstração).
     if (!SupabaseConfig.isReady) {
@@ -907,6 +941,8 @@ class _JuriiAppState extends State<JuriiApp> {
             onUpdatePassword: _handlePasswordUpdate,
             onCancel: _handleLogout,
           )
+        : !_isLoggedIn && !_onboardingSeen
+        ? OnboardingScreen(onFinish: _finishOnboarding)
         : !_isLoggedIn
         ? LoginScreen(
             onLogin: _handleLogin,
