@@ -36,6 +36,13 @@ class _FakeLicenseRepository implements LicenseRepository {
   Future<LicenseSubscription?> fetchFirmLicense(String lawFirmId) async =>
       minha;
 
+  /// O teto vem do banco na vida real (banca_pode_crescer, 20260909120000).
+  /// Aqui ele é o que o cenário disser.
+  bool podeCrescer = true;
+
+  @override
+  Future<bool> bancaPodeCrescer(String lawFirmId) async => podeCrescer;
+
   /// A banca informada na ultima chamada, para o teste conferir que a troca
   /// diz DE QUAL escritorio se trata.
   String? bancaEscolhida;

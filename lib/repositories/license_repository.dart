@@ -76,6 +76,32 @@ class LicenseRepository {
     return LicenseSubscription.fromRow(row);
   }
 
+  /// A banca cabe mais um advogado?
+  ///
+  /// PERGUNTA AO BANCO em vez de deduzir daqui, e a diferença não é estilo. A
+  /// regra tem três respostas (sem licença nenhuma cresce, licença viva cresce
+  /// até o teto, licença parada não cresce), e `fetchFirmLicense` acima filtra
+  /// canceladas: por ele, "nunca teve licença" e "teve e o cancelamento
+  /// passou" chegam idênticos, que é justamente a confusão que fazia cancelar
+  /// virar equipe ilimitada no banco.
+  ///
+  /// Reimplementar aqui seria a terceira cópia da mesma decisão, e a que
+  /// ninguém obriga a mudar junto quando a regra mudar. Ver a migration
+  /// 20260909120000.
+  ///
+  /// Otimista quando não sabe: o servidor é quem recusa de verdade, e sumir
+  /// com o convite por causa de uma falha de rede seria a tela mentindo sobre
+  /// a assinatura de quem está em dia.
+  Future<bool> bancaPodeCrescer(String lawFirmId) async {
+    if (_demo) return true;
+
+    final resposta = await SupabaseConfig.client.rpc(
+      'banca_pode_crescer',
+      params: {'law_firm_id_value': lawFirmId},
+    );
+    return resposta != false;
+  }
+
   /// Escolhe (ou troca) o plano. No primeiro uso cria o teste grátis de 30
   /// dias; nas trocas o fim do teste NÃO renova — o servidor garante.
   /// Escolhe ou troca o plano.
