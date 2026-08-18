@@ -35,6 +35,30 @@
                 <category android:name="android.intent.category.BROWSABLE"/>
                 <data android:scheme="jurii" android:host="login-callback"/>
             </intent-filter>
+            <!-- Convite de equipe por link. O link canônico é
+                 https://app.jurii.com.br/convite/<token>. Com autoVerify o
+                 Android confere https://app.jurii.com.br/.well-known/assetlinks.json
+                 (servido pelo jurii-webapp) contra o SHA-256 do certificado de
+                 assinatura; batendo, o link abre o app direto, sem perguntar.
+                 Enquanto o assetlinks não tiver o SHA-256 certo, o link abre no
+                 navegador e o webapp resolve o convite: nada quebra. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="https"
+                      android:host="app.jurii.com.br"
+                      android:pathPrefix="/convite/"/>
+            </intent-filter>
+            <!-- O mesmo convite pelo esquema próprio (jurii://convite/<token>),
+                 para o caso de o App Link ainda não estar verificado no
+                 aparelho: o webapp pode oferecer "abrir no app" por aqui. -->
+            <intent-filter android:autoVerify="false">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="jurii" android:host="convite"/>
+            </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->

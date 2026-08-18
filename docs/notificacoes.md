@@ -19,6 +19,9 @@ Realtime) e o push (trigger `notifications_push_dispatch` → Edge Function
 | `appointment_reminder` | lawyer | advogado | `dispatch_appointment_reminders` (pg_cron, 1x por compromisso) |
 | `case_update` | client | cliente | `ingest_case_movements` (andamento processual, já coalescido) e `reopen_legal_case` |
 | `case_closed` | client | cliente | `close_legal_case` (convite de avaliação; toque abre o caso) |
+| `firm_join_requested` | firm | donos/admins ativos da banca | `solicitar_entrada_por_link` (metadata `join_request_id`; `law_firm_id` preenchido) |
+| `firm_join_decided` | client | quem pediu entrada por link | `decidir_entrada_no_escritorio` (sem metadata; título distingue aprovação de recusa) |
+| `firm_join_decided_admin` | firm | os outros gestores da banca | `avisa_gestores_da_decisao` (informativa) |
 
 **Armadilha permanente:** o sino filtra por escopo e o escopo é derivado do
 TIPO (`infer_notification_scope`). Tipo novo precisa ser declarado lá, numa
@@ -81,6 +84,9 @@ Sino e push abrem o mesmo destino, resolvido num lugar só:
 | `lawyer_recommendation`, `case_request`, `case_request_response` | a conversa |
 | `case_update`, `firm_case_started` | o caso |
 | `appointment_reminder`, `lawyer_recommended`, `team_invite` | nenhum (só marca como lida; `team_invite` resolve pelos botões do próprio item) |
+| `firm_join_requested` | os pedidos de entrada da banca (`JoinRequestsScreen`, precisa de `law_firm_id` na linha) |
+| `firm_join_decided` aprovado (título "Você entrou na equipe") | a área da banca: o roteador chama `NotificationRouter.enterFirmWorkspace`, que a raiz (main.dart) registra para recarregar os vínculos e trocar de área |
+| `firm_join_decided` recusado, `firm_join_decided_admin` | nenhum |
 
 **Conversa tem precedência sobre caso**: tipos como `case_request_response`
 carregam os dois, e a conversa é onde a pessoa continua o assunto.

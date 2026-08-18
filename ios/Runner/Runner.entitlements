@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Universal Link do convite de equipe (https://app.jurii.com.br/convite/<token>).
+	     Só passa a valer quando: (1) a conta Apple Developer paga existir,
+	     (2) o App ID br.com.jurii.app tiver a capability Associated Domains,
+	     (3) o jurii-webapp servir /.well-known/apple-app-site-association com o
+	     Team ID real. Até lá o link abre no Safari e o webapp resolve o convite. -->
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>applinks:app.jurii.com.br</string>
+	</array>
+</dict>
+</plist>

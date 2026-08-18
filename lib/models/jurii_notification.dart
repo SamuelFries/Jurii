@@ -26,6 +26,11 @@ class JuriiNotification {
   final DateTime? readAt;
   final Map<String, dynamic> metadata;
 
+  /// A coluna `law_firm_id` da notificação: de qual banca ela é. Nulo nas
+  /// que não pertencem a nenhuma. É o que o roteador precisa para levar um
+  /// pedido de entrada à Equipe CERTA e para entrar na banca que aprovou.
+  final String? lawFirmId;
+
   const JuriiNotification({
     required this.id,
     required this.title,
@@ -35,6 +40,7 @@ class JuriiNotification {
     required this.createdAt,
     this.readAt,
     this.metadata = const {},
+    this.lawFirmId,
   });
 
   bool get isUnread => readAt == null;
@@ -48,6 +54,7 @@ class JuriiNotification {
     DateTime? createdAt,
     DateTime? readAt,
     Map<String, dynamic>? metadata,
+    String? lawFirmId,
   }) {
     return JuriiNotification(
       id: id ?? this.id,
@@ -58,6 +65,7 @@ class JuriiNotification {
       createdAt: createdAt ?? this.createdAt,
       readAt: readAt ?? this.readAt,
       metadata: metadata ?? this.metadata,
+      lawFirmId: lawFirmId ?? this.lawFirmId,
     );
   }
 
@@ -78,6 +86,9 @@ class JuriiNotification {
   /// escritório e no andamento processual); aqui vale o primeiro que existir.
   String? get caseId =>
       (metadata['case_id'] ?? metadata['legal_case_id']) as String?;
+
+  /// O pedido de entrada por link (`firm_join_requested`).
+  String? get joinRequestId => metadata['join_request_id'] as String?;
 
   bool get isPendingTeamInvite {
     return type == 'team_invite' &&

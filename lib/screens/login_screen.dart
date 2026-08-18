@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'register_screen.dart';
@@ -8,6 +9,7 @@ import '../utils/validators.dart';
 import '../widgets/jurii_form_motion.dart';
 import '../widgets/jurii_motion.dart';
 import '../widgets/legal_agreement_notice.dart';
+import '../widgets/convite_aguardando_aviso.dart';
 import '../widgets/login_logo.dart';
 import '../widgets/social_provider_logo.dart';
 
@@ -17,12 +19,18 @@ class LoginScreen extends StatefulWidget {
   final PasswordResetRequest onPasswordResetRequested;
   final RegisterSubmit onRegister;
 
+  /// O token de um convite de equipe que chegou antes do login. Quando há
+  /// um, a tela avisa que o convite reabre sozinho depois de entrar, para a
+  /// pessoa não achar que perdeu o link ao ver a tela de login.
+  final ValueListenable<String?>? conviteAguardando;
+
   const LoginScreen({
     super.key,
     required this.onLogin,
     required this.onSocialLogin,
     required this.onPasswordResetRequested,
     required this.onRegister,
+    this.conviteAguardando,
   });
 
   @override
@@ -59,6 +67,17 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 24),
 
               const JuriiStaggeredItem(index: 0, child: LoginLogo()),
+
+              if (widget.conviteAguardando != null)
+                ValueListenableBuilder<String?>(
+                  valueListenable: widget.conviteAguardando!,
+                  builder: (context, token, _) => token == null
+                      ? const SizedBox.shrink()
+                      : Padding(
+                          padding: const EdgeInsets.only(top: 20),
+                          child: ConviteAguardandoAviso(token: token),
+                        ),
+                ),
 
               const SizedBox(height: 32),
 
