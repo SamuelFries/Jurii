@@ -988,7 +988,12 @@ class _LawFirmVerificationFormScreenState
     }
     if (message.contains('row-level security') || message.contains('rls')) {
       debugPrint('Law firm verification RLS denied: $message');
-      return 'Não foi possível enviar o cadastro. Tente novamente mais tarde.';
+      // A tela anterior já bifurca por licença, então chegar aqui quase
+      // sempre quer dizer que o teste venceu ENQUANTO a pessoa preenchia os
+      // onze passos. "Tente mais tarde" apontava para o lado errado: mais
+      // tarde é pior, e o que destrava é regularizar.
+      return 'Não foi possível enviar o cadastro. Se o seu teste grátis '
+          'venceu, regularize o pagamento antes de abrir o escritório.';
     }
     if (message.contains('authenticated') || message.contains('auth')) {
       return 'Faça login novamente para enviar o cadastro do escritório.';

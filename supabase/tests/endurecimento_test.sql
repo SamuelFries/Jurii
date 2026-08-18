@@ -113,9 +113,15 @@ reset role;
 -- 3. has_law_firm_license só responde sobre quem pergunta
 -- ---------------------------------------------------------------------------
 insert into public.law_firm_license_subscriptions
-  (owner_profile_id, plan_code, billing_cycle, status)
+  (owner_profile_id, plan_code, billing_cycle, status, trial_ends_at)
 values
-  ('d1000000-0000-0000-0000-000000000001', 'essencial', 'annual', 'trialing');
+  -- COM data de fim, que e como choose_law_firm_plan cria de verdade. Desde
+  -- a 20260913120000 o portao deriva a expiracao em vez de olhar so o
+  -- status, e teste sem data vale como vencido: sem esta coluna a fixture
+  -- estaria testando visibilidade com uma licenca MORTA, e o teste passaria
+  -- ou falharia pelo motivo errado.
+  ('d1000000-0000-0000-0000-000000000001', 'essencial', 'annual', 'trialing',
+   now() + interval '20 days');
 
 select set_config('request.jwt.claim.sub',
   'd1000000-0000-0000-0000-000000000002', true);
