@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
@@ -21,6 +23,7 @@ import '../utils/safe_file_picker.dart';
 import '../widgets/jurii_form_motion.dart';
 import '../widgets/jurii_motion.dart';
 import '../widgets/practice_area_selector.dart';
+import '../services/form_draft_store.dart';
 import 'law_firm_verification_success_screen.dart';
 
 class LawFirmVerificationFormScreen extends StatefulWidget {
@@ -30,7 +33,10 @@ class LawFirmVerificationFormScreen extends StatefulWidget {
     this.onVerificationSubmitted,
     this.repository = const LawFirmVerificationRepository(),
     this.cepService = const CepService(),
+    this.draftStore = const FormDraftStore(),
   });
+
+  final FormDraftStore draftStore;
 
   final UserProfile user;
   final ValueChanged<LawFirmVerification>? onVerificationSubmitted;
@@ -123,6 +129,54 @@ class _LawFirmVerificationFormScreenState
     for (final controller in _textControllers) {
       controller.addListener(_handleTextChanged);
     }
+    unawaited(_restaurarRascunho());
+  }
+
+  /// Devolve o que a pessoa digitou antes de sair. Fotos e documentos não
+  /// voltam (bytes só na memória): re-escolher custa toques, redigitar nove
+  /// campos custava o formulário.
+  Future<void> _restaurarRascunho() async {
+    final draft = await widget.draftStore.load(
+      FormDraftStore.firmVerificationKey,
+    );
+    if (draft == null || !mounted) return;
+    setState(() {
+      void devolve(TextEditingController controller, String chave) {
+        final valor = draft[chave];
+        if (valor is String && controller.text.trim().isEmpty) {
+          controller.text = valor;
+        }
+      }
+
+      devolve(firmNameController, 'nome');
+      devolve(cnpjController, 'cnpj');
+      devolve(phoneController, 'telefone');
+      devolve(emailController, 'email');
+      devolve(addressController, 'endereco');
+      devolve(addressNumberController, 'numero');
+      devolve(addressComplementController, 'complemento');
+      devolve(cepController, 'cep');
+      final areas = draft['areas'];
+      if (areas is List && selectedAreas.isEmpty) {
+        selectedAreas = areas.whereType<String>().toList();
+      }
+    });
+  }
+
+  void _salvarRascunho() {
+    unawaited(
+      widget.draftStore.save(FormDraftStore.firmVerificationKey, {
+        'nome': firmNameController.text.trim(),
+        'cnpj': cnpjController.text.trim(),
+        'telefone': phoneController.text.trim(),
+        'email': emailController.text.trim(),
+        'endereco': addressController.text.trim(),
+        'numero': addressNumberController.text.trim(),
+        'complemento': addressComplementController.text.trim(),
+        'cep': cepController.text.trim(),
+        'areas': selectedAreas,
+      }),
+    );
   }
 
   @override
@@ -152,7 +206,10 @@ class _LawFirmVerificationFormScreenState
     cepController,
   ];
 
-  void _handleTextChanged() => setState(() {});
+  void _handleTextChanged() {
+    setState(() {});
+    _salvarRascunho();
+  }
 
   /// Busca o endereço do CEP e preenche os campos que o CEP determina.
   ///
@@ -430,7 +487,10 @@ class _LawFirmVerificationFormScreenState
                 showError: showErrors,
                 selectedColor: colors.officePurple,
                 label: 'Selecione as áreas',
-                onChanged: (areas) => setState(() => selectedAreas = areas),
+                onChanged: (areas) {
+                  setState(() => selectedAreas = areas);
+                  _salvarRascunho();
+                },
               ),
               const SizedBox(height: 32),
               JuriiFormSectionHeader(
@@ -750,6 +810,10 @@ class _LawFirmVerificationFormScreenState
               status: LawFirmVerificationStatus.pending,
             );
 
+      // Enviado é enviado: o rascunho morre junto, senão o próximo cadastro
+      // abriria pré-preenchido com o escritório anterior.
+      unawaited(widget.draftStore.clear(FormDraftStore.firmVerificationKey));
+
       widget.onVerificationSubmitted?.call(verification);
       if (!mounted) return;
       Navigator.push(
@@ -924,7 +988,12 @@ class _LawFirmVerificationFormScreenState
     }
     if (message.contains('row-level security') || message.contains('rls')) {
       debugPrint('Law firm verification RLS denied: $message');
-      return 'Não foi possível enviar o cadastro. Tente novamente mais tarde.';
+      // A tela anterior já bifurca por licença, então chegar aqui quase
+      // sempre quer dizer que o teste venceu ENQUANTO a pessoa preenchia os
+      // onze passos. "Tente mais tarde" apontava para o lado errado: mais
+      // tarde é pior, e o que destrava é regularizar.
+      return 'Não foi possível enviar o cadastro. Se o seu teste grátis '
+          'venceu, regularize o pagamento antes de abrir o escritório.';
     }
     if (message.contains('authenticated') || message.contains('auth')) {
       return 'Faça login novamente para enviar o cadastro do escritório.';

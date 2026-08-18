@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
@@ -15,6 +17,7 @@ import '../theme/app_colors.dart';
 import '../utils/document_file_validation.dart';
 import '../utils/safe_file_picker.dart';
 import '../widgets/jurii_form_motion.dart';
+import '../services/form_draft_store.dart';
 import '../widgets/jurii_motion.dart';
 import '../widgets/practice_area_selector.dart';
 import 'lawyer_verification_success_screen.dart';
@@ -29,7 +32,10 @@ class LawyerVerificationFormScreen extends StatefulWidget {
     required this.user,
     this.onVerificationSubmitted,
     this.repository = const LawyerVerificationRepository(),
+    this.draftStore = const FormDraftStore(),
   });
+
+  final FormDraftStore draftStore;
 
   @override
   State<LawyerVerificationFormScreen> createState() =>
@@ -74,7 +80,41 @@ class _LawyerVerificationFormScreenState
 
     oabController.addListener(() {
       setState(() {});
+      _salvarRascunho();
     });
+    unawaited(_restaurarRascunho());
+  }
+
+  /// Devolve o que a pessoa digitou antes de sair. Os ARQUIVOS não voltam
+  /// (os bytes vivem só na memória, de propósito): re-escolher dois arquivos
+  /// custa dois toques; redigitar o resto custava o formulário inteiro.
+  Future<void> _restaurarRascunho() async {
+    final draft = await widget.draftStore.load(
+      FormDraftStore.lawyerVerificationKey,
+    );
+    if (draft == null || !mounted) return;
+    setState(() {
+      final oab = draft['oab'];
+      if (oab is String && oabController.text.trim().isEmpty) {
+        oabController.text = oab;
+      }
+      final uf = draft['uf'];
+      if (uf is String && selectedState == null) selectedState = uf;
+      final areas = draft['areas'];
+      if (areas is List && selectedAreas.isEmpty) {
+        selectedAreas = areas.whereType<String>().toList();
+      }
+    });
+  }
+
+  void _salvarRascunho() {
+    unawaited(
+      widget.draftStore.save(FormDraftStore.lawyerVerificationKey, {
+        'oab': oabController.text.trim(),
+        'uf': selectedState,
+        'areas': selectedAreas,
+      }),
+    );
   }
 
   @override
@@ -182,6 +222,7 @@ class _LawyerVerificationFormScreenState
                   setState(() {
                     selectedState = value;
                   });
+                  _salvarRascunho();
                 },
               ),
 
@@ -199,7 +240,10 @@ class _LawyerVerificationFormScreenState
                 selectedAreas: selectedAreas,
                 showError: mostrarErros,
                 label: 'Selecione as áreas',
-                onChanged: (areas) => setState(() => selectedAreas = areas),
+                onChanged: (areas) {
+                  setState(() => selectedAreas = areas);
+                  _salvarRascunho();
+                },
               ),
 
               const SizedBox(height: 32),
@@ -467,6 +511,13 @@ class _LawyerVerificationFormScreenState
               documents: documents,
               status: LawyerStatus.pending,
             );
+
+      // Enviado é enviado: o rascunho morre junto, senão a PRÓXIMA
+      // verificação (reenvio pós-recusa) abriria pré-preenchida com dados
+      // de meses atrás como se fossem novos.
+      unawaited(
+        widget.draftStore.clear(FormDraftStore.lawyerVerificationKey),
+      );
 
       widget.onVerificationSubmitted?.call(verification);
       if (!mounted) return;

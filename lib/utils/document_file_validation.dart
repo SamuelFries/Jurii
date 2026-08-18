@@ -122,3 +122,52 @@ DocumentValidation validateVerificationDocument({
   }
   return DocumentValidation._(mimeType: mimeType);
 }
+
+/// Teto por documento de caso (25 MB), espelho do limite do bucket
+/// `case-documents` e do CHECK da tabela (migration 20260910120000).
+const int maxCaseDocumentFileBytes = 25 * 1024 * 1024;
+
+/// Extensões aceitas em documentos de caso. Mais largas que as da
+/// verificação porque o bucket aceita DOC/DOCX: petição e contrato circulam
+/// em Word no foro, e recusá-los obrigaria o advogado a converter tudo.
+const List<String> caseDocumentAllowedExtensions = [
+  'pdf',
+  'jpg',
+  'jpeg',
+  'png',
+  'webp',
+  'doc',
+  'docx',
+];
+
+/// Valida um documento de caso: extensão da lista, bytes legíveis, assinatura
+/// coerente (magic bytes) e tamanho dentro do teto do bucket.
+DocumentValidation validateCaseDocument({
+  required String fileName,
+  required Uint8List? bytes,
+  required int sizeBytes,
+}) {
+  final mimeType = mimeTypeForFileName(fileName);
+  if (mimeType == null ||
+      !caseDocumentAllowedExtensions.contains(
+        fileName.split('.').last.toLowerCase(),
+      )) {
+    return const DocumentValidation._(
+      error: 'Envie PDF, imagem (JPG, PNG, WEBP) ou Word (DOC, DOCX).',
+    );
+  }
+  if (bytes == null || bytes.isEmpty) {
+    return const DocumentValidation._(
+      error: 'Não foi possível ler o arquivo selecionado.',
+    );
+  }
+  if (!bytesMatchMimeType(bytes, mimeType)) {
+    return const DocumentValidation._(error: 'Arquivo inválido ou corrompido.');
+  }
+  if (sizeBytes > maxCaseDocumentFileBytes) {
+    return const DocumentValidation._(
+      error: 'Cada documento pode ter no máximo 25 MB.',
+    );
+  }
+  return DocumentValidation._(mimeType: mimeType);
+}

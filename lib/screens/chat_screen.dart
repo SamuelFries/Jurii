@@ -140,6 +140,13 @@ class _ChatScreenState extends State<ChatScreen>
   List<ChatMessage> _messages = const [];
   bool _isLoading = true;
   bool _loadFailed = false;
+
+  /// Paginação para trás. A conversa abre na página mais recente; rolar até
+  /// perto do topo busca a anterior. `_hasOlder` vem da sentinela do
+  /// repositório e `_isLoadingOlder` é a trava de reentrância — o listener de
+  /// scroll dispara dezenas de vezes por gesto.
+  bool _hasOlder = false;
+  bool _isLoadingOlder = false;
   bool _hasSubscribedOnce = false;
   bool _isSending = false;
   bool _isUploadingAttachment = false;
@@ -202,6 +209,7 @@ class _ChatScreenState extends State<ChatScreen>
     // isso toda mensagem que chegasse enquanto ele não está olhando sairia
     // marcada como visualizada.
     WidgetsBinding.instance.addObserver(this);
+    _scrollController.addListener(_maybeLoadOlder);
     _loadMessages();
     _subscribeToMessages();
     // 10 minutos contra uma validade de 1 hora: qualquer tique cai dentro da
@@ -257,12 +265,16 @@ class _ChatScreenState extends State<ChatScreen>
     unawaited(_refreshBlockState());
 
     try {
+      final page = await _repository.fetchMessagesPage(
+        widget.conversation.id!,
+      );
       final messages = await _messagesWithPendingCaseRequestFallback(
-        await _repository.fetchMessages(widget.conversation.id!),
+        page.items,
       );
       if (!mounted) return;
       setState(() {
         _messages = messages;
+        _hasOlder = page.hasMore;
         _isLoading = false;
         _loadFailed = false;
       });
@@ -1304,14 +1316,36 @@ class _ChatScreenState extends State<ChatScreen>
     // de conversation_blocks não chegam por realtime (tabela trancada).
     unawaited(_refreshBlockState());
 
-    final messages = await _messagesWithPendingCaseRequestFallback(
-      await _repository.fetchMessages(conversationId),
+    final page = await _repository.fetchMessagesPage(conversationId);
+    final fresh = await _messagesWithPendingCaseRequestFallback(page.items);
+    if (!mounted || fresh.isEmpty) return;
+
+    // EMENDA, não substituição: o refetch cobre só a página mais recente, e
+    // trocar a lista inteira jogaria fora as páginas antigas que a pessoa
+    // rolou para ler. Corta a lista atual na primeira mensagem da página
+    // nova e cola. Sem ponto de corte (ficou offline por mais de uma página)
+    // há um BURACO real entre o que estava na tela e o presente — aí a
+    // página nova substitui mesmo, e o hasMore dela reabre a rolagem.
+    final primeiroNovoId = fresh.first.id;
+    final corte = _messages.indexWhere(
+      (message) => message.id == primeiroNovoId,
     );
-    if (!mounted) return;
-    setState(() => _messages = messages);
+    setState(() {
+      if (corte == -1) {
+        _messages = fresh;
+        _hasOlder = page.hasMore;
+      } else {
+        _messages = [..._messages.sublist(0, corte), ...fresh];
+      }
+    });
     unawaited(_ensureMediaUrls());
     unawaited(_markConversationRead());
-    _scrollToBottom();
+
+    // Só acompanha para o rodapé quem JÁ estava nele: puxar a tela de quem
+    // rolou até uma mensagem antiga é perder a mensagem do dedo dela.
+    final pertoDoRodape =
+        !_scrollController.hasClients || _scrollController.position.pixels < 300;
+    if (pertoDoRodape) _scrollToBottom();
   }
 
   Future<List<ChatMessage>> _messagesWithPendingCaseRequestFallback(
@@ -1364,11 +1398,55 @@ class _ChatScreenState extends State<ChatScreen>
     );
   }
 
+  /// Perto do topo, busca a página anterior. Na lista invertida o topo é o
+  /// maxScrollExtent, e 600px de antecedência fazem a página chegar antes de
+  /// a pessoa bater na borda.
+  void _maybeLoadOlder() {
+    if (!_scrollController.hasClients) return;
+    final position = _scrollController.position;
+    if (position.pixels < position.maxScrollExtent - 600) return;
+    unawaited(_loadOlderMessages());
+  }
+
+  Future<void> _loadOlderMessages() async {
+    if (!_usesSupabase || _isLoadingOlder || !_hasOlder || _messages.isEmpty) {
+      return;
+    }
+    setState(() => _isLoadingOlder = true);
+    try {
+      final page = await _repository.fetchMessagesPage(
+        widget.conversation.id!,
+        before: _messages.first,
+      );
+      if (!mounted) return;
+      // Dedupe por id antes de prepender: se um refetch de reconexão correu
+      // em paralelo, a mesma mensagem não pode entrar duas vezes (a ListView
+      // é keyada por id e estouraria em key duplicada).
+      final existentes = _messages.map((message) => message.id).toSet();
+      final antigas = page.items
+          .where((message) => !existentes.contains(message.id))
+          .toList();
+      setState(() {
+        _messages = [...antigas, ..._messages];
+        _hasOlder = page.hasMore;
+      });
+      unawaited(_ensureMediaUrls());
+    } catch (error) {
+      // Falha ao buscar página antiga não derruba a conversa na tela: a
+      // pessoa rola de novo e o listener tenta de novo.
+      debugPrint('Older messages fetch failed: $error');
+    } finally {
+      if (mounted) setState(() => _isLoadingOlder = false);
+    }
+  }
+
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_scrollController.hasClients) return;
+      // Lista invertida: o rodapé (mensagem mais nova) é o offset ZERO, e
+      // não o maxScrollExtent.
       _scrollController.animateTo(
-        _scrollController.position.maxScrollExtent,
+        _scrollController.position.minScrollExtent,
         duration: const Duration(milliseconds: 220),
         curve: Curves.easeOutCubic,
       );
@@ -1926,10 +2004,38 @@ class _ChatScreenState extends State<ChatScreen>
                         ? const _EmptyChatState()
                         : ListView.builder(
                             controller: _scrollController,
+                            // INVERTIDA por causa da paginação: numa lista
+                            // reverse, offset 0 é o RODAPÉ, e prepender
+                            // página antiga só cresce o teto — os itens
+                            // visíveis não mudam de posição na tela. Na
+                            // lista normal, prepender empurraria tudo para
+                            // baixo no meio da rolagem.
+                            reverse: true,
                             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                            itemCount: _messages.length,
+                            itemCount:
+                                _messages.length + (_isLoadingOlder ? 1 : 0),
                             itemBuilder: (context, index) {
-                              final message = _messages[index];
+                              // O item extra é o spinner de página antiga, e
+                              // na lista invertida o último índice renderiza
+                              // NO TOPO, que é onde a página vai entrar.
+                              if (index >= _messages.length) {
+                                return const Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 12),
+                                  child: Center(
+                                    child: SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              }
+                              // reverse inverte a ordem de pintura; a lista
+                              // em memória segue cronológica.
+                              final message =
+                                  _messages[_messages.length - 1 - index];
                               final fromRight =
                                   message.author == MessageAuthor.me;
                               final mediaPath =
