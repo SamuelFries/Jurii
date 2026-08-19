@@ -48,3 +48,12 @@ app.*.map.json
 
 # Xcode/SwiftPM gerado localmente
 ios/Runner.xcworkspace/xcshareddata/swiftpm/
+
+# Assinatura Android: keystore e credenciais nunca entram no Git, em pasta
+# nenhuma (android/.gitignore só cobre abaixo de android/). Ver
+# docs/assinatura-android.md.
+*.jks
+*.keystore
+*.p12
+key.properties
+!android/key.properties.example

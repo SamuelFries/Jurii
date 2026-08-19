@@ -1,0 +1,20 @@
+# Credenciais da assinatura de RELEASE do app Android.
+#
+# Copie para android/key.properties (que está no .gitignore e NUNCA deve ser
+# commitado) e preencha. Alternativa para CI: as variáveis de ambiente
+# JURII_KEYSTORE_PATH, JURII_KEYSTORE_PASSWORD, JURII_KEY_ALIAS e
+# JURII_KEY_PASSWORD, que têm precedência sobre este arquivo.
+#
+# storeFile: caminho da keystore (.jks). Absoluto (sem ~, que não expande),
+# ou relativo à pasta android/. A keystore em si também fica fora do Git
+# (*.jks, *.keystore e *.p12 estão ignorados na raiz e em android/).
+#
+# O keytool atual gera keystore PKCS12, que tem UMA senha só: keyPassword
+# deve ser igual a storePassword (senha de chave diferente é ignorada com
+# aviso na criação e falha na hora de assinar).
+# Como gerar a keystore e obter o SHA-256: docs/assinatura-android.md.
+
+storeFile=/caminho/absoluto/para/upload-keystore.jks
+storePassword=SENHA_DA_KEYSTORE
+keyAlias=upload
+keyPassword=SENHA_DA_KEYSTORE
