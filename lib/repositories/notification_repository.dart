@@ -24,7 +24,10 @@ class NotificationRepository {
     try {
       var query = SupabaseConfig.client
           .from('notifications')
-          .select('id, title, body, type, scope, metadata, read_at, created_at')
+          .select(
+            'id, title, body, type, scope, metadata, read_at, created_at, '
+            'law_firm_id',
+          )
           .eq('scope', scope.databaseValue);
 
       if (scope == NotificationScope.firm && lawFirmId != null) {
@@ -166,7 +169,10 @@ class NotificationRepository {
     try {
       final row = await SupabaseConfig.client
           .from('notifications')
-          .select('id, title, body, type, scope, metadata, read_at, created_at')
+          .select(
+            'id, title, body, type, scope, metadata, read_at, created_at, '
+            'law_firm_id',
+          )
           .eq('id', notificationId)
           .maybeSingle();
 
@@ -267,6 +273,7 @@ class NotificationRepository {
           DateTime.now(),
       readAt: DateTime.tryParse(row['read_at'] as String? ?? ''),
       metadata: _metadataFromRow(row['metadata']),
+      lawFirmId: row['law_firm_id'] as String?,
     );
   }
 

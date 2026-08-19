@@ -4,26 +4,34 @@ import 'package:flutter/services.dart';
 import '../models/firm_role.dart';
 import '../models/firm_team_member.dart';
 import '../models/firm_workspace.dart';
+import '../repositories/invite_link_repository.dart';
 import '../repositories/license_repository.dart';
 import '../theme/app_colors.dart';
 import '../widgets/jurii_form_motion.dart';
 import '../widgets/jurii_list_card.dart';
 import '../widgets/jurii_motion.dart';
 import '../widgets/profile_avatar.dart';
+import 'firm_join_requests.dart';
 
-class FirmTeamScreen extends StatelessWidget {
+class FirmTeamScreen extends StatefulWidget {
   const FirmTeamScreen({
     super.key,
     this.workspace,
     this.teamMembers,
     this.onInviteLawyer,
     this.onUpdateMemberRoles,
+    this.onRefreshWorkspace,
     this.licenseRepository = const LicenseRepository(),
+    this.inviteLinkRepository = const InviteLinkRepository(),
   });
 
   final FirmWorkspace? workspace;
   final List<FirmTeamMember>? teamMembers;
   final LicenseRepository licenseRepository;
+  final InviteLinkRepository inviteLinkRepository;
+
+  /// Aprovar um pedido de entrada muda a equipe: quem hospeda recarrega.
+  final VoidCallback? onRefreshWorkspace;
   final Future<void> Function({
     required String oabState,
     required String oabNumber,
@@ -34,6 +42,26 @@ class FirmTeamScreen extends StatelessWidget {
     required List<FirmRole> roles,
   })?
   onUpdateMemberRoles;
+
+  @override
+  State<FirmTeamScreen> createState() => _FirmTeamScreenState();
+}
+
+class _FirmTeamScreenState extends State<FirmTeamScreen> {
+  FirmWorkspace? get workspace => widget.workspace;
+  List<FirmTeamMember>? get teamMembers => widget.teamMembers;
+  LicenseRepository get licenseRepository => widget.licenseRepository;
+  Future<void> Function({required String oabState, required String oabNumber})?
+  get onInviteLawyer => widget.onInviteLawyer;
+  Future<void> Function({
+    required String memberProfileId,
+    required List<FirmRole> roles,
+  })?
+  get onUpdateMemberRoles => widget.onUpdateMemberRoles;
+
+  /// Sobe quando algo aqui muda a lista de links/pedidos (gerou link): a
+  /// seção recarrega por `didUpdateWidget`.
+  int _versaoDosPedidos = 0;
 
   @override
   Widget build(BuildContext context) {
@@ -73,7 +101,7 @@ class FirmTeamScreen extends StatelessWidget {
                 ),
               ),
               IconButton.filled(
-                onPressed: () => _openInviteSheet(context, canInvite),
+                onPressed: () => _escolherComoConvidar(context, canInvite),
                 style: IconButton.styleFrom(
                   backgroundColor: colors.officePurple,
                   foregroundColor: colors.card,
@@ -91,6 +119,16 @@ class FirmTeamScreen extends StatelessWidget {
             _AvisoDeCobranca(
               lawFirmId: workspace!.firm.id,
               repository: licenseRepository,
+            ),
+          // QUEM ESTÁ PEDINDO PARA ENTRAR (por link) e os links abertos, antes
+          // da lista: é o que espera uma decisão do gestor. Some quando não há
+          // nada, para não roubar espaço da equipe.
+          if (canManageMembers && workspace != null)
+            FirmJoinRequestsSection(
+              lawFirmId: workspace!.firm.id,
+              repository: widget.inviteLinkRepository,
+              versao: _versaoDosPedidos,
+              onMembroEntrou: widget.onRefreshWorkspace,
             ),
           if (members.isEmpty)
             Container(
@@ -114,8 +152,8 @@ class FirmTeamScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'Convide advogados verificados pelo botão acima para '
-                    'montar o time do escritório.',
+                    'Convide advogados pela OAB, ou secretária e estagiário '
+                    'por link, pelo botão acima.',
                     style: TextStyle(color: colors.textSecondary, height: 1.4),
                   ),
                 ],
@@ -138,6 +176,97 @@ class FirmTeamScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  /// DUAS PORTAS, de propósito: advogado entra pela OAB (verificado, com
+  /// vaga do plano); secretária e estagiário entram por link (sem OAB, e o
+  /// gestor aprova o pedido). Não há convite por link para advogado.
+  Future<void> _escolherComoConvidar(
+    BuildContext context,
+    bool canInvite,
+  ) async {
+    if (workspace?.fromSupabase != true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('O escritório precisa estar aprovado para convidar.'),
+        ),
+      );
+      return;
+    }
+    if (!canInvite) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Apenas sócios e admins podem convidar.')),
+      );
+      return;
+    }
+    final colors = context.jColors;
+    final escolha = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      useSafeArea: true,
+      builder: (sheetContext) => JuriiModalSheetScaffold(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Convidar para a equipe',
+              style: TextStyle(
+                color: colors.textPrimary,
+                fontSize: 22,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 12),
+            _PortaDeConvite(
+              chave: const Key('convidar-advogado'),
+              icone: Icons.gavel,
+              titulo: 'Advogado',
+              descricao: 'Pela OAB. Precisa estar verificado.',
+              onTap: () => Navigator.of(sheetContext).pop('oab'),
+            ),
+            const SizedBox(height: 8),
+            _PortaDeConvite(
+              chave: const Key('convidar-por-link'),
+              icone: Icons.link,
+              titulo: 'Secretária ou estagiário',
+              descricao: 'Por link de uso único. A pessoa pede e você aprova.',
+              onTap: () => Navigator.of(sheetContext).pop('link'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (!context.mounted || escolha == null) return;
+    if (escolha == 'oab') {
+      await _openInviteSheet(context, canInvite);
+    } else {
+      await _openInviteByLinkSheet(context);
+    }
+  }
+
+  Future<void> _openInviteByLinkSheet(BuildContext context) async {
+    final gerou = await showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => InviteByLinkSheet(
+        lawFirmId: workspace!.firm.id,
+        repository: widget.inviteLinkRepository,
+        firmName: workspace!.firm.name,
+      ),
+    );
+    // Fechou depois de gerar (ou fechou no meio, com link já criado): a lista
+    // de links abertos recarrega para mostrá-lo.
+    if (mounted) setState(() => _versaoDosPedidos++);
+    if (gerou == true && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Quando a pessoa pedir para entrar, aparece aqui.'),
+        ),
+      );
+    }
   }
 
   Future<void> _openInviteSheet(BuildContext context, bool canInvite) async {
@@ -228,6 +357,76 @@ class FirmTeamScreen extends StatelessWidget {
         context,
       ).showSnackBar(const SnackBar(content: Text('Cargos atualizados.')));
     }
+  }
+}
+
+/// Uma das duas portas da folha "Convidar para a equipe". Material próprio
+/// porque a folha tem fundo pintado, e o splash de um ListTile ali some.
+class _PortaDeConvite extends StatelessWidget {
+  const _PortaDeConvite({
+    required this.chave,
+    required this.icone,
+    required this.titulo,
+    required this.descricao,
+    required this.onTap,
+  });
+
+  final Key chave;
+  final IconData icone;
+  final String titulo;
+  final String descricao;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.jColors;
+    return Material(
+      key: chave,
+      color: colors.card,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: colors.officePurpleBorder),
+          ),
+          child: Row(
+            children: [
+              Icon(icone, color: colors.officePurple),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      titulo,
+                      style: TextStyle(
+                        color: colors.textPrimary,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      descricao,
+                      style: TextStyle(
+                        color: colors.textSecondary,
+                        fontSize: 13,
+                        height: 1.3,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right, color: colors.muted),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 

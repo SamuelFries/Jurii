@@ -9,6 +9,8 @@ import 'package:supabase_flutter/supabase_flutter.dart'
 
 import 'firebase_options.dart';
 import 'services/push_notification_service.dart';
+import 'services/invite_link_service.dart';
+import 'services/notification_router.dart';
 
 import 'models/appointment.dart';
 import 'models/law_firm_verification.dart';
@@ -94,6 +96,9 @@ class _JuriiAppState extends State<JuriiApp> {
   final FirmWorkspaceRepository _firmWorkspaceRepository =
       const FirmWorkspaceRepository();
   final PushNotificationService _pushService = PushNotificationService();
+  late final InviteLinkService _inviteLinkService = InviteLinkService(
+    onEntrouNaBanca: () => unawaited(_entrarNaBanca(null)),
+  );
   final FirmInvitationRepository _firmInvitationRepository =
       const FirmInvitationRepository();
   StreamSubscription<AuthState>? _authSubscription;
@@ -151,13 +156,51 @@ class _JuriiAppState extends State<JuriiApp> {
         _handleAuthStateChange,
       );
     }
+    // O link de convite (https://app.jurii.com.br/convite/<token>) chega por
+    // aqui, tanto o que abriu o app quanto o que chegou com ele vivo. O
+    // serviço guarda o token e só navega quando o app está utilizável.
+    unawaited(_inviteLinkService.start());
+    // "Você entrou na equipe" leva para DENTRO da banca: trocar de área é
+    // estado da raiz, então a raiz ensina o roteador a fazer isso.
+    NotificationRouter.enterFirmWorkspace = _entrarNaBanca;
     _bootstrapSession();
   }
 
   @override
   void dispose() {
     _authSubscription?.cancel();
+    _inviteLinkService.dispose();
+    if (NotificationRouter.enterFirmWorkspace == _entrarNaBanca) {
+      NotificationRouter.enterFirmWorkspace = null;
+    }
     super.dispose();
+  }
+
+  /// Entrar na área de uma banca da qual a pessoa acabou de virar membro
+  /// (aprovação de pedido por link). Recarrega os vínculos (o novo ainda não
+  /// está em memória), confere que a banca está entre eles e troca de área.
+  /// Sem [lawFirmId], entra na banca ativa que houver (a tela do convite
+  /// não recebe o id da banca do servidor, só o nome).
+  Future<bool> _entrarNaBanca(String? lawFirmId) async {
+    if (!SupabaseConfig.isReady || !mounted) return false;
+    if (lawFirmId != null) {
+      final vinculos = await _firmWorkspaceRepository.fetchMemberships();
+      if (!mounted) return false;
+      final ehMembro = vinculos.any((v) => v.firmId == lawFirmId);
+      if (!ehMembro) return false;
+      if (lawFirmId != _firmWorkspace?.firm.id) {
+        setState(() => _activeFirmId = lawFirmId);
+        await _guardarEscritorioAtivo(lawFirmId);
+      }
+    }
+    await _refreshFirmWorkspace();
+    if (!mounted) return false;
+    if (!_hasFirmArea) return false;
+    setState(() {
+      _isFirmMode = true;
+      _isLawyerMode = false;
+    });
+    return true;
   }
 
   void _handleAuthStateChange(AuthState authState) {
@@ -949,6 +992,10 @@ class _JuriiAppState extends State<JuriiApp> {
             onSocialLogin: _handleSocialLogin,
             onPasswordResetRequested: _handlePasswordResetRequested,
             onRegister: _handleRegister,
+            // Quem chegou por um link de convite precisa saber que ele NÃO se
+            // perdeu no login: o token está guardado e o convite reabre
+            // sozinho depois de entrar ou criar a conta.
+            conviteAguardando: _inviteLinkService.tokenPendente,
           )
         // Google/Apple autenticam sem CPF (e a Apple, muitas vezes, sem nome).
         // Nada do app abre antes desses dados existirem.
@@ -1172,8 +1219,10 @@ class FirmNavigation extends StatefulWidget {
 
   final UserProfile user;
   final FirmWorkspace? workspace;
+
   /// Todos os vínculos, para o seletor no cabeçalho do escritório.
   final List<FirmMembership> memberships;
+
   /// Trocar de escritório ativo. Nulo quando não há o que trocar.
   final ValueChanged<String>? onSelectFirm;
   final VoidCallback? onRefreshWorkspace;
@@ -1216,6 +1265,7 @@ class _FirmNavigationState extends State<FirmNavigation> {
         teamMembers: widget.workspace?.teamMembers,
         onInviteLawyer: widget.onInviteLawyer,
         onUpdateMemberRoles: widget.onUpdateMemberRoles,
+        onRefreshWorkspace: widget.onRefreshWorkspace,
       ),
       FirmCasesScreen(workspace: widget.workspace),
       FirmProfileScreen(
@@ -1244,6 +1294,7 @@ class LawyerNavigation extends StatefulWidget {
   final UserProfile user;
   final FirmWorkspace? workspace;
   final Future<void> Function() onRefreshFirmWorkspace;
+
   /// Nulo quando a pessoa não tem escritório: o seletor então não oferece a
   /// área, em vez de oferecer um caminho que não leva a lugar nenhum.
   final VoidCallback? onSwitchToFirm;

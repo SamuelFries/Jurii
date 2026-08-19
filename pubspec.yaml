@@ -38,6 +38,13 @@ dependencies:
   file_picker: ^11.0.3
   image_picker: ^1.2.1
   url_launcher: ^6.3.2
+  # Já vem transitivo pelo supabase_flutter (login-callback); direto aqui
+  # porque o convite de equipe também escuta o link. Zero bytes a mais.
+  app_links: ^7.1.2
+  # A folha nativa de compartilhar (o link de convite vai por WhatsApp,
+  # e-mail, o que a pessoa usar). Sem plugin não há como abrir a folha do
+  # sistema; este é o da comunidade Flutter.
+  share_plus: ^12.0.2
   shared_preferences: ^2.5.3
   firebase_core: ^4.12.1
   firebase_messaging: ^16.4.3
