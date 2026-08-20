@@ -572,3 +572,57 @@ redirect (é o próprio destino da pessoa, e o link já é de uso único);
 comparação do token do webhook com `!==` (o segredo tem entropia alta e o
 canal é HTTPS: timing remoto não é caminho viável aqui); chave de service_role
 nos scripts de prova (é a default do CLI local, não a de produção).
+
+### Segunda rodada: storage e funções definer (20/08/2026)
+
+Duas superfícies ficaram de fora da primeira passagem porque os agentes
+morreram no meio; foram auditadas depois. Três achados confirmados, dois
+corrigidos aqui e um registrado como pendência de decisão.
+
+**A métrica é de quem é da casa (migration 20260920120000).**
+`fetch_law_firm_operation_metrics` é definer, recebe o id do escritório e não
+perguntava quem está chamando. Qualquer conta autenticada passava o id de
+qualquer banca e recebia o retrato da operação: volume de conversas com
+cliente (leads), conversas internas, casos ativos e tamanho da equipe. Os ids
+aparecem na busca, então era inteligência competitiva servida por RPC, com
+série temporal de brinde. Reproduzido pela API HTTP com a chave publicável.
+
+A recusa é VAZIA, não exceção: é assim que os dois clientes já tratam a
+resposta (`FirmOperationMetrics.empty()` no app), e levantar erro derrubaria a
+Visão Geral inteira por causa de um painel. Zero linhas, e não uma linha de
+zeros, que seria uma resposta falsa ("essa banca não tem movimento"). A régua
+é membro ATIVO, não gestor: a Visão Geral é a tela de quem trabalha ali.
+
+A varredura das outras definer que recebem `law_firm_id` não achou irmã:
+`fetch_law_firm_cnpj` já exige `is_active_law_firm_manager`, e
+`fetch_law_firm_lawyers` e `safe_law_firm_logo_url` servem dado que é público
+por desenho.
+
+**A fila da revisão tem teto (migration 20260921120000).**
+Depois que a escrita direta em `lawyer_verifications` foi revogada,
+`submit_lawyer_verification` virou a ÚNICA porta da fila que a equipe revisa à
+mão, e ela não tinha teto nenhum. Reproduzido: 300 POSTs paralelos criaram 300
+linhas `pending` em um segundo. Não é invasão, é negar o serviço a quem está
+esperando aprovação para trabalhar. Teto de cinco por hora, no mesmo desenho
+de `criar_link_de_convite` (trava por usuário antes da contagem, para chamadas
+simultâneas não passarem todas pela conferência). Cinco é folgado para quem
+digita a OAB errada e refaz, e curto para quem automatiza.
+
+**Pendência: cota de armazenamento por conta.**
+As policies de INSERT de `case-documents` e `chat-attachments` exigem só que a
+primeira pasta do caminho seja o `auth.uid()`. Não há vínculo obrigatório com
+caso ou conversa, nem cota total por conta. Reproduzido: uma conta recém
+criada subiu 100 MB (quatro arquivos de 25 MB) sem ter caso nem conversa.
+Cada bucket tem teto POR ARQUIVO (26 MB nos privados, 10 MB nos de avatar), e
+é isso que existe hoje; o que falta é teto por conta.
+
+Não corrigido aqui de propósito. A correção natural é um gatilho em
+`storage.objects` somando os bytes do dono antes de aceitar, e isso fica no
+caminho de TODO upload do produto (anexo de chat, documento de caso, foto de
+verificação). Errar ali quebra funcionalidade central, e a validação honesta
+pede upload real de arquivo real pelos dois clientes, não só pgTAP. Fica como
+frente própria, com o teto a definir (500 MB por conta é o ponto de partida
+razoável) e a decisão de o que fazer com quem já passou.
+
+Enquanto isso, o custo é de armazenamento, não de vazamento: os buckets
+continuam privados e ninguém lê a pasta de ninguém.

@@ -10,7 +10,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(11);
+select plan(17);
 
 insert into auth.users (id, aud, role, email, encrypted_password, email_confirmed_at,
   raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
@@ -141,6 +141,63 @@ select is(
      and privilege_type in ('INSERT', 'UPDATE')),
   '',
   'e nenhuma coluna da verificacao fica gravavel direto (tudo por RPC)'
+);
+
+reset role;
+
+-- ---------------------------------------------------------------------------
+-- 5. A fila tem teto (20260921)
+--
+-- Com a escrita direta fechada, a RPC virou a única porta: sem teto, uma
+-- conta enfileira milhares de envios e a fila que a equipe revisa à mão
+-- deixa de ser trabalhável.
+-- ---------------------------------------------------------------------------
+select set_config('request.jwt.claim.sub','ca100000-0000-4000-8000-00000000000a', true);
+set local role authenticated;
+
+-- Já existe uma verificação desta pessoa (a da seção 4). Mais quatro cabem.
+select lives_ok(
+  $$select public.submit_lawyer_verification('111111','RS','Direito Civel',
+      array['Direito Civel'])$$,
+  'segundo envio na mesma hora passa (quem erra a OAB refaz)'
+);
+select lives_ok(
+  $$select public.submit_lawyer_verification('222222','RS','Direito Civel',
+      array['Direito Civel'])$$,
+  'terceiro passa'
+);
+select lives_ok(
+  $$select public.submit_lawyer_verification('333333','RS','Direito Civel',
+      array['Direito Civel'])$$,
+  'quarto passa'
+);
+select lives_ok(
+  $$select public.submit_lawyer_verification('444444','RS','Direito Civel',
+      array['Direito Civel'])$$,
+  'quinto passa'
+);
+
+select throws_ok(
+  $$select public.submit_lawyer_verification('555555','RS','Direito Civel',
+      array['Direito Civel'])$$,
+  'Too many verification attempts. Try again later',
+  'o sexto na mesma hora e recusado'
+);
+
+reset role;
+
+-- A janela é de uma hora: envio antigo não conta para sempre.
+update public.lawyer_verifications
+set submitted_at = now() - interval '2 hours'
+where user_id = 'ca100000-0000-4000-8000-00000000000a';
+
+select set_config('request.jwt.claim.sub','ca100000-0000-4000-8000-00000000000a', true);
+set local role authenticated;
+
+select lives_ok(
+  $$select public.submit_lawyer_verification('666666','RS','Direito Civel',
+      array['Direito Civel'])$$,
+  'passada a janela, a pessoa envia de novo (o teto nao e banimento)'
 );
 
 reset role;
