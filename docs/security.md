@@ -438,3 +438,137 @@ explorável aqui (as três barreiras acima são independentes e a qualificação
 com `public.` sozinha já basta), mas é o que um scanner aponta. Migrar para
 `''` exigiria qualificar chamadas do catálogo; ganho marginal dado o estado
 atual.
+
+## Cadastro com e-mail de verdade (19/08/2026, migration 20260915120000)
+
+O cadastro aceitava qualquer endereço, inclusive descartável (dez minutos de
+caixa de entrada e some). Numa plataforma onde a conta carrega CPF, casos e
+correspondência com advogado, isso é a porta do abuso: cria, usa, joga fora,
+repete. E torna inútil a confirmação de e-mail, que é o único canal para
+recuperar senha e avisar de movimentação processual.
+
+A barreira vive no BANCO, não na tela: a chave anon é pública (está no app e
+no bundle do navegador), e um `POST /auth/v1/signup` por curl contornaria
+qualquer validação de formulário. O gatilho `recusa_email_descartavel` roda
+`before insert or update of email, email_change on auth.users`, que é por onde
+todo cadastro passa, venha do app, do webapp, do painel ou de fora.
+
+- `public.disposable_email_domains`: 8326 domínios (a lista pública de
+  github.com/disposable-email-domains, mais alguns conferidos à mão, menos os
+  provedores legítimos). RLS habilitado e nenhuma policy, com os grants
+  revogados: nem `anon` nem `authenticated` leem a tabela. Manutenção pelo
+  painel, como `jurii_staff`.
+- `public.email_e_descartavel(text)`: `security definer`, `search_path` fixo.
+  Compara o domínio E os sufixos dele (`algo.mailinator.com` cai junto com
+  `mailinator.com`, que é o contorno mais barato), buscando pela chave
+  primária em vez de varrer 8 mil linhas com LIKE. Nunca compara o TLD
+  sozinho, o que bloquearia um país inteiro.
+- A função é executável por `anon` de propósito: a tela pergunta ANTES de
+  enviar para dizer o motivo, em vez de mostrar erro de servidor. A lista não
+  é segredo (é pública), e quem decide continua sendo o gatilho.
+- `privaterelay.appleid.com` fica fora da lista de propósito: é o "Ocultar meu
+  e-mail" da Apple, que o login com Apple usa. Bloquear quebraria o cadastro
+  de quem entra por lá. Há teste travando isso.
+
+Falha de rede na checagem prévia deixa o cadastro seguir (o banco decide):
+errar para o lado de deixar passar só adianta a recusa para quem tem a palavra
+final; errar para o lado de bloquear travaria cadastro legítimo por causa de
+uma consulta.
+
+Provado em `supabase/tests/email_descartavel_test.sql` (22 asserções): recusa
+por caixa alta, espaço, ponto final de FQDN e subdomínio de vários níveis;
+recusa na troca de endereço e já no pedido de troca (`email_change`); passagem
+de provedor comum, domínio próprio de escritório e do e-mail privado da Apple;
+tabela ilegível para quem está logado; função respondendo a `anon`. E medido
+pela API real: `POST /auth/v1/signup` com `@mailinator.com` responde
+`{"code":"23514","message":"Disposable email domains are not allowed"}`,
+enquanto o cadastro legítimo responde 200 com sessão.
+
+## Rodada de hardening (19-20/08/2026)
+
+Auditoria adversarial em seis superfícies (RLS, funções definer, webapp,
+segredos, app, storage), com cada achado reproduzido antes de virar correção.
+Dos achados brutos, 5 sobreviveram à verificação; 14 foram refutados (barreira
+que o auditor não viu, decisão deliberada do produto, ou teoria sem exploração).
+
+### O convite por link tinha porta dos fundos (crítico, migration 20260916120000)
+
+A 20260914 trocou o desenho do convite (o link passou a PEDIR entrada, com
+aprovação de um gestor) mas deixou a função antiga, `aceitar_link_de_convite`,
+viva e com `execute` concedido a `authenticated`. Quem tivesse o token e um
+login qualquer chamava a RPC direto na API e entrava na banca como membro
+ATIVO, sem pedido e sem ninguém aprovar. Reproduzido no banco local e pela API
+com a chave publicável: a linha nasce em `law_firm_members` com status
+`active`, e `law_firm_join_requests` fica vazia. Como `can_access_conversation`
+libera qualquer membro ativo da banca, o estranho passava a ler a
+correspondência do escritório com os clientes, que é exatamente o que o
+redesenho queria impedir.
+
+A função saiu. Ninguém a chamava (nem app, nem webapp, nem outra função).
+`supabase/tests/convite_por_link_test.sql` ainda exercitava a porta como se
+fosse o comportamento certo, e foi convertido para o caminho de pedir e
+decidir; `porta_dos_fundos_do_convite_test.sql` trava que ela não volta, com
+uma asserção larga que pega qualquer função futura de "aceitar convite"
+executável por quem está logado.
+
+### O caso só muda por RPC (alta, migration 20260918120000)
+
+`legal_cases` tinha `title, area, status, description, last_update_label,
+deadline_at` com update direto para `authenticated`, e a policy
+(`can_manage_case`) considera o CLIENTE como quem gerencia o caso dele.
+Reproduzido: o cliente fecha o próprio caso, reabre e reescreve o título
+direto pela API, sem passar por `close_legal_case` nem `reopen_legal_case`.
+Sem aviso ao advogado, sem registro de quem fechou, sem convite de avaliação,
+e com o advogado vendo um título que não escreveu. O insert direto tinha o
+mesmo problema de origem.
+
+O grant de escrita saiu inteiro. As sete funções que escrevem na tabela são
+todas SECURITY DEFINER e não dependem do grant de quem chama; app e webapp só
+leem. As policies ficam como segunda camada, para o caso de alguém reconceder
+o grant sem pensar. `caso_so_muda_por_rpc_test.sql` trava o invariante
+(nenhuma coluna gravável), e a asserção de `case_process_timeline_test.sql`
+que dizia "colunas de conteudo continuam com update direto (comportamento
+preservado)" foi corrigida: ela travava justamente o furo.
+
+### A fila da revisão não se fura (baixa, migration 20260919120000)
+
+`lawyer_verifications` aceitava escrita direta. As policies seguravam o
+essencial (ninguém se aprova: o WITH CHECK prende `status` em draft/pending e
+exige `reviewer_id`/`reviewed_at` nulos), mas as colunas de tempo passavam, e
+com elas o candidato reescrevia o próprio `submitted_at` para passar na frente
+na fila que a equipe revisa por ordem de envio. O envio legítimo sempre foi
+por `submit_lawyer_verification` (definer), no app e no webapp. Grant de
+escrita revogado, mesmo desenho de `legal_cases`.
+
+### O selo diz o que é (migration 20260917120000)
+
+A fila de pedidos de entrada mostrava "CPF confirmado" para quem decide
+aprovar alguém na equipe. Nada confirma esse CPF: ele é digitado no cadastro e
+só passa por dígito verificador. O gestor lia "confirmado" e aprovava achando
+que a plataforma checou a identidade, que é justamente a decisão que ele está
+tomando. A coluna virou `cpf_informado`, e a tela diz "CPF informado", em tom
+neutro. Um teste trava que nenhuma coluna volte a prometer "confirmado".
+
+Este item foi refutado como vulnerabilidade (não dá acesso a nada), e corrigido
+mesmo assim: interface que promete verificação inexistente é defeito de
+honestidade, que numa decisão de acesso vale tanto quanto permissão.
+
+### No webapp (PR próprio)
+
+- `sharp` fixado em 0.35.x por `overrides`, fechando quatro CVEs herdadas do
+  libvips sem subir o Next de major. `npm audit` em zero.
+- `buscaEndereco` passou a exigir sessão: server action é endpoint POST como
+  outro qualquer, e sem isso qualquer pessoa usava o servidor da Jurii como
+  proxy para as três APIs externas da cascata de CEP. O Nominatim bane por IP.
+
+### Refutados que valem registro
+
+Não são defeitos, e ficam aqui para a próxima auditoria não gastar fôlego:
+escrita em `messages` por estagiário (a policy olha participação, e o papel na
+banca não dá passe); `assinaDocumentos` sem checar `jurii_staff` (a RLS do
+storage decide, não a action); cookie de sessão sem `Secure` (o Supabase marca
+em produção, e o HSTS já força HTTPS); token de convite na query string do
+redirect (é o próprio destino da pessoa, e o link já é de uso único);
+comparação do token do webhook com `!==` (o segredo tem entropia alta e o
+canal é HTTPS: timing remoto não é caminho viável aqui); chave de service_role
+nos scripts de prova (é a default do CLI local, não a de produção).

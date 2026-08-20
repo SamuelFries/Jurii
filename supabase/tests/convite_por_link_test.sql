@@ -1,7 +1,8 @@
 -- Convite por link de uso único.
 --
--- A porta de entrada de quem não tem OAB: o gestor gera, a pessoa aceita com
--- a própria conta. O que este arquivo trava: uso único de verdade, token
+-- A porta de entrada de quem não tem OAB: o gestor gera, a pessoa PEDE com a
+-- própria conta, e um gestor decide (20260914; a função que concedia na hora
+-- saiu na 20260916). O que este arquivo trava: uso único de verdade, token
 -- guardado como hash, papéis restritos, e as regras da casa valendo na porta
 -- nova (gestor cria, congelado não inclui, orçamento de tentativas único).
 begin;
@@ -9,7 +10,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(28);
+select plan(31);
 
 insert into auth.users (id, aud, role, email, encrypted_password, email_confirmed_at,
   raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
@@ -109,15 +110,57 @@ select results_eq(
 reset role;
 
 -- ---------------------------------------------------------------------------
--- 3. Aceitar: entra com o papel do link, e o link morre
+-- 3. Pedir consome o link, mas quem coloca na equipe é a decisão do gestor
+--
+-- O link PEDE desde a 20260914. A função que concedia na hora
+-- (aceitar_link_de_convite) saiu na 20260916: continuava concedida a
+-- authenticated e entregava a equipe a quem tivesse o token, contornando a
+-- aprovação inteira.
 -- ---------------------------------------------------------------------------
 select set_config('request.jwt.claim.sub','c2000000-0000-4000-8000-00000000000b', true);
 set local role authenticated;
 
+select isnt(
+  (select public.solicitar_entrada_por_link((select token from link_criado)))::text,
+  null,
+  'a secretaria PEDE entrada e recebe o id do pedido');
+
+reset role;
+
 select is(
-  (select public.aceitar_link_de_convite((select token from link_criado))),
-  'cf200000-0000-4000-8000-000000000001'::uuid,
-  'a secretaria aceita e recebe o id da banca para navegar');
+  (select count(*)::int from public.law_firm_members
+   where law_firm_id='cf200000-0000-4000-8000-000000000001'
+     and profile_id='c2000000-0000-4000-8000-00000000000b'),
+  0,
+  'e pedir NAO coloca ninguem na equipe');
+
+-- USO ÚNICO: o link morre no pedido, então a segunda pessoa fica de fora.
+select set_config('request.jwt.claim.sub','c2000000-0000-4000-8000-00000000000c', true);
+set local role authenticated;
+
+select throws_ok(
+  format($$select public.solicitar_entrada_por_link(%L)$$,
+         (select token from link_criado)),
+  'Invite link already used',
+  'o mesmo link NAO serve para uma segunda pessoa');
+
+reset role;
+
+-- O id do pedido é lido fora do papel de cliente de propósito: quem decide
+-- enxerga a fila pela RPC listar_pedidos_de_entrada, não por leitura direta.
+create temp table pedido_da_secretaria as
+select r.id from public.law_firm_join_requests r
+where r.law_firm_id='cf200000-0000-4000-8000-000000000001'
+  and r.requester_id='c2000000-0000-4000-8000-00000000000b';
+grant select on pedido_da_secretaria to public;
+
+select set_config('request.jwt.claim.sub','c2000000-0000-4000-8000-00000000000a', true);
+set local role authenticated;
+
+select is(
+  public.decidir_entrada_no_escritorio((select id from pedido_da_secretaria), true),
+  'approved',
+  'a gestora aprova o pedido');
 
 reset role;
 
@@ -126,19 +169,7 @@ select results_eq(
     where m.law_firm_id='cf200000-0000-4000-8000-000000000001'
       and m.profile_id='c2000000-0000-4000-8000-00000000000b'$$,
   $$values (array['secretary']::text[], 'active'::public.law_firm_member_status)$$,
-  'e vira membro ATIVO com o papel do link');
-
--- USO ÚNICO: a segunda pessoa com o mesmo link fica de fora.
-select set_config('request.jwt.claim.sub','c2000000-0000-4000-8000-00000000000c', true);
-set local role authenticated;
-
-select throws_ok(
-  format($$select public.aceitar_link_de_convite(%L)$$,
-         (select token from link_criado)),
-  'Invite link already used',
-  'o mesmo link NAO entra duas vezes');
-
-reset role;
+  'e SO ENTAO vira membro ATIVO, com o papel do link');
 
 select is(
   (select count(*)::int from public.law_firm_members
@@ -146,13 +177,13 @@ select is(
   2,
   'a banca tem exatamente a socia e a secretaria');
 
--- E o aviso chegou para quem administra, no escopo do escritório.
+-- E quem pediu foi avisado da decisão, no sino de quem ainda não é da banca.
 select results_eq(
   $$select n.type, n.scope::text from public.notifications n
-    where n.recipient_profile_id='c2000000-0000-4000-8000-00000000000a'
-      and n.type='firm_member_joined'$$,
-  $$values ('firm_member_joined'::text,'firm'::text)$$,
-  'a gestora e avisada, e no sino do ESCRITORIO (a armadilha do escopo)');
+    where n.recipient_profile_id='c2000000-0000-4000-8000-00000000000b'
+      and n.type='firm_join_decided'$$,
+  $$values ('firm_join_decided'::text,'client'::text)$$,
+  'quem pediu e avisado, e no sino do CLIENTE (ainda nao e da banca)');
 
 -- ---------------------------------------------------------------------------
 -- 4. Membro ativo não entra de novo; desativado reentra com o papel do link
@@ -171,7 +202,7 @@ select set_config('request.jwt.claim.sub','c2000000-0000-4000-8000-00000000000b'
 set local role authenticated;
 
 select throws_ok(
-  format($$select public.aceitar_link_de_convite(%L)$$,
+  format($$select public.solicitar_entrada_por_link(%L)$$,
          (select token from segundo_link)),
   'Already a member of this firm',
   'quem ja esta na equipe nao consome link');
@@ -187,9 +218,24 @@ select set_config('request.jwt.claim.sub','c2000000-0000-4000-8000-00000000000b'
 set local role authenticated;
 
 select lives_ok(
-  format($$select public.aceitar_link_de_convite(%L)$$,
+  format($$select public.solicitar_entrada_por_link(%L)$$,
          (select token from segundo_link)),
-  'ex-membro desativado reentra por link novo');
+  'ex-membro desativado pede de novo por link novo');
+
+reset role;
+
+create temp table pedido_da_volta as
+select r.id from public.law_firm_join_requests r
+where r.requester_id='c2000000-0000-4000-8000-00000000000b' and r.status='pending';
+grant select on pedido_da_volta to public;
+
+select set_config('request.jwt.claim.sub','c2000000-0000-4000-8000-00000000000a', true);
+set local role authenticated;
+
+select is(
+  public.decidir_entrada_no_escritorio((select id from pedido_da_volta), true),
+  'approved',
+  'a gestora aprova a volta');
 
 reset role;
 
@@ -232,10 +278,10 @@ select set_config('request.jwt.claim.sub','c2000000-0000-4000-8000-00000000000c'
 set local role authenticated;
 
 select throws_ok(
-  format($$select public.aceitar_link_de_convite(%L)$$,
+  format($$select public.solicitar_entrada_por_link(%L)$$,
          (select token from link_velho)),
   'Invite link expired',
-  'e o aceite recusa o vencido');
+  'e o pedido recusa o vencido');
 
 reset role;
 
@@ -265,10 +311,10 @@ select set_config('request.jwt.claim.sub','c2000000-0000-4000-8000-00000000000c'
 set local role authenticated;
 
 select throws_ok(
-  format($$select public.aceitar_link_de_convite(%L)$$,
+  format($$select public.solicitar_entrada_por_link(%L)$$,
          (select token from link_revogado)),
   'Invite link was revoked',
-  'e o revogado nao entra mais');
+  'e o revogado nao serve mais nem para pedir');
 
 reset role;
 
@@ -312,23 +358,23 @@ select throws_ok(
   'assinatura parada: nao se CRIA link');
 
 select throws_ok(
-  format($$select public.aceitar_link_de_convite(%L)$$,
+  format($$select public.solicitar_entrada_por_link(%L)$$,
          (select token from link_aberto)),
   'Already a member of this firm',
   'controle: a propria gestora esbarra primeiro em ja-ser-membro');
 
 reset role;
 
--- O link criado ANTES do congelamento também não entra: a janela entre criar
--- e aceitar não contorna a regra.
+-- O link criado ANTES do congelamento também não serve: a janela entre criar
+-- e pedir não contorna a regra.
 select set_config('request.jwt.claim.sub','c2000000-0000-4000-8000-00000000000c', true);
 set local role authenticated;
 
 select throws_ok(
-  format($$select public.aceitar_link_de_convite(%L)$$,
+  format($$select public.solicitar_entrada_por_link(%L)$$,
          (select token from link_aberto)),
   'Subscription is not active',
-  'assinatura parada: link antigo tambem nao ACEITA');
+  'assinatura parada: link antigo tambem nao serve para PEDIR');
 
 reset role;
 

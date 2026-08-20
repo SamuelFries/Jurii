@@ -96,7 +96,7 @@ class InviteLinkRepository {
             id: (r['id']).toString(),
             requesterName: (r['requester_name'] ?? 'Sem nome').toString(),
             requesterEmail: (r['requester_email'] ?? '').toString(),
-            cpfConfirmado: r['cpf_confirmado'] == true,
+            cpfInformado: r['cpf_informado'] == true,
             memberRole: (r['member_role']).toString(),
             createdAt: DateTime.parse((r['created_at']).toString()),
             expiresAt: DateTime.parse((r['expires_at']).toString()),

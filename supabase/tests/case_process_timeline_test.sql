@@ -99,7 +99,13 @@ select is(
   'numero armazenado normalizado (so digitos)');
 
 -- ---------------------------------------------------------------------------
--- 10-11. Grants por coluna em legal_cases
+-- 10-11. Escrita em legal_cases: nenhuma, direto
+--
+-- Até a 20260918, title, area, status, description, last_update_label e
+-- deadline_at tinham update direto, e a policy considerava o CLIENTE como
+-- quem gerencia o caso: ele fechava, reabria e renomeava o caso da advogada
+-- por fora das RPCs. Agora o portão vale para todas as colunas, e o ciclo de
+-- vida do caso é o que close_legal_case e reopen_legal_case contam.
 -- ---------------------------------------------------------------------------
 
 select ok(
@@ -107,9 +113,9 @@ select ok(
     'cnj_number', 'UPDATE'),
   'cnj_number sem update direto: escrita so via RPC');
 select ok(
-  has_column_privilege('authenticated', 'public.legal_cases',
+  not has_column_privilege('authenticated', 'public.legal_cases',
     'title', 'UPDATE'),
-  'colunas de conteudo continuam com update direto (comportamento preservado)');
+  'e as colunas de conteudo tambem nao: title so muda por RPC');
 
 -- ---------------------------------------------------------------------------
 -- 12-14. Primeira passada = backfill: grava tudo, NAO notifica, NAO mexe no label

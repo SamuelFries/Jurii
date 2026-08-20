@@ -1,0 +1,23 @@
+-- A porta dos fundos do convite por link.
+--
+-- A migration 20260914120000 trocou o desenho do convite: o link deixou de
+-- CONCEDER entrada e passou a PEDIR, com um dono ou admin aprovando em
+-- Equipe. Ela criou o caminho novo (solicitar_entrada_por_link,
+-- decidir_entrada_no_escritorio) e parou aí: a função antiga,
+-- aceitar_link_de_convite, continuou existindo e continuou com execute
+-- concedido a authenticated.
+--
+-- O resultado é que a regra nova valia só para quem usa a tela. Quem tivesse
+-- o token e um login qualquer chamava a RPC velha direto na API (a chave anon
+-- é pública, está no app e no bundle do navegador) e entrava na banca como
+-- membro ATIVO, sem pedido nenhum e sem ninguém aprovar. Reproduzido no banco
+-- local: a chamada devolve o id do escritório e a linha nasce em
+-- law_firm_members com status 'active' e member_role 'secretary', enquanto
+-- law_firm_join_requests fica vazia.
+--
+-- Ninguém chama mais essa função: nem o app, nem o webapp, nem outra função
+-- do banco. Ela sai. O teste em supabase/tests/porta_dos_fundos_do_convite_test.sql
+-- trava que não volta, porque o mesmo esquecimento pode acontecer de novo:
+-- trocar o caminho novo sem fechar o antigo é o erro barato de cometer.
+
+drop function if exists public.aceitar_link_de_convite(text);
