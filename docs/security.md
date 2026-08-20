@@ -608,21 +608,41 @@ de `criar_link_de_convite` (trava por usuário antes da contagem, para chamadas
 simultâneas não passarem todas pela conferência). Cinco é folgado para quem
 digita a OAB errada e refaz, e curto para quem automatiza.
 
-**Pendência: cota de armazenamento por conta.**
-As policies de INSERT de `case-documents` e `chat-attachments` exigem só que a
-primeira pasta do caminho seja o `auth.uid()`. Não há vínculo obrigatório com
-caso ou conversa, nem cota total por conta. Reproduzido: uma conta recém
-criada subiu 100 MB (quatro arquivos de 25 MB) sem ter caso nem conversa.
-Cada bucket tem teto POR ARQUIVO (26 MB nos privados, 10 MB nos de avatar), e
-é isso que existe hoje; o que falta é teto por conta.
+**O acervo não é catálogo, e a pasta tem teto (migration 20260922120000).**
 
-Não corrigido aqui de propósito. A correção natural é um gatilho em
-`storage.objects` somando os bytes do dono antes de aceitar, e isso fica no
-caminho de TODO upload do produto (anexo de chat, documento de caso, foto de
-verificação). Errar ali quebra funcionalidade central, e a validação honesta
-pede upload real de arquivo real pelos dois clientes, não só pgTAP. Fica como
-frente própria, com o teto a definir (500 MB por conta é o ponto de partida
-razoável) e a decisão de o que fazer com quem já passou.
+Duas pontas do mesmo balde.
 
-Enquanto isso, o custo é de armazenamento, não de vazamento: os buckets
-continuam privados e ninguém lê a pasta de ninguém.
+A primeira: `profile_avatars_public_read` e `law_firm_avatars_public_read`
+davam SELECT ao papel `public` no balde INTEIRO, sem olhar caminho. Isso
+libera o download, que é o objetivo, mas libera junto o endpoint de listagem.
+Reproduzido sem login, só com a chave publicável: listar `profile-avatars` com
+prefixo vazio devolve a pasta de cada usuário, ou seja o uuid de todo perfil
+que já subiu foto; em `law-firm-avatars` o caminho é
+`{dono}/{verificacao}/arquivo`, então a listagem entrega quem tem verificação
+de escritório em andamento e quando começou. Não vaza conteúdo que já não
+fosse público, mas entrega um censo, que é o primeiro passo de qualquer ataque
+dirigido. A leitura autenticada passou a ser só da própria pasta (o app
+precisa dela para apagar o próprio arquivo); o download continua igual, porque
+balde com `public=true` serve `/object/public/...` sem passar por RLS, e é
+assim que as duas telas mostram avatar.
+
+A segunda: as policies de INSERT de `case-documents` e `chat-attachments`
+exigiam só que a primeira pasta fosse o `auth.uid()`, sem vínculo com caso ou
+conversa e sem teto total. Reproduzido: conta recém criada, sem nenhum caso e
+sem nenhuma conversa, subiu 100 MB em quatro arquivos, que ficam órfãos e não
+aparecem em tela nenhuma. Teto de 500 MB por conta por balde, via
+`storage_cota_disponivel`. É teto mole (o último arquivo pode passar em até um
+arquivo), o que evita ter de saber o tamanho antes de aceitar.
+
+**A armadilha, e por isso existe teste:** `storage.objects` tem RLS e pertence
+a `supabase_storage_admin`, que NÃO tem `bypassrls`. Se a função de soma
+perder o dono com bypass, o `sum` volta vazio, o `coalesce` vira zero e a cota
+passa a liberar tudo **em silêncio**, sem erro nenhum. O teste grava acima do
+teto e exige a recusa, justamente para pegar essa regressão.
+
+Fica de fora, como frente própria: varredura de órfãos por `pg_cron` (objeto
+sem linha em `case_documents`/`message_attachments` depois de 24h, pendência
+que as migrations 20260806120000 e 20260910120000 já anotavam) e acrescentar
+`case-documents` e `chat-attachments` aos `sensitiveBuckets` da edge function
+`delete-account`, que hoje deixa documento de caso para trás quando alguém
+apaga a conta.
