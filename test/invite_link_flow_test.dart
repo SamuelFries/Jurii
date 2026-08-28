@@ -124,7 +124,7 @@ JoinRequest _pedido({String id = 'r1', bool cpf = true}) => JoinRequest(
   id: id,
   requesterName: 'Ana Souza',
   requesterEmail: 'ana@exemplo.com',
-  cpfConfirmado: cpf,
+  cpfInformado: cpf,
   memberRole: 'secretary',
   createdAt: DateTime(2026, 8, 18),
   expiresAt: DateTime(2026, 8, 25),
@@ -339,7 +339,7 @@ void main() {
 
       expect(find.text('Ana Souza'), findsOneWidget);
       expect(find.textContaining('Secretária'), findsOneWidget);
-      expect(find.text('CPF confirmado'), findsOneWidget);
+      expect(find.text('CPF informado'), findsOneWidget);
 
       await tester.tap(find.text('Aprovar'));
       await tester.pumpAndSettle();

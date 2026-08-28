@@ -294,21 +294,27 @@ class _PedidoTile extends StatelessWidget {
           style: TextStyle(color: colors.textSecondary, fontSize: 13),
         ),
         const SizedBox(height: 4),
-        // O CPF confirmado é o que separa uma conta real de um cadastro
-        // vazio; o gestor precisa ver isso ANTES de aprovar. O número em si
-        // não vem (nem precisa): só o fato.
+        // INFORMADO, não confirmado: o CPF é digitado no cadastro e passa só
+        // por dígito verificador, sem Receita nem documento. Dizer
+        // "confirmado" faria o gestor aprovar achando que a plataforma checou
+        // a identidade, que é justamente a decisão que ele está tomando. O
+        // número em si não vem (nem precisa): só o fato.
         Row(
           children: [
             Icon(
-              pedido.cpfConfirmado ? Icons.verified_user : Icons.help_outline,
+              pedido.cpfInformado ? Icons.badge_outlined : Icons.help_outline,
               size: 14,
-              color: pedido.cpfConfirmado ? colors.success : colors.warning,
+              color: pedido.cpfInformado
+                  ? colors.textSecondary
+                  : colors.warning,
             ),
             const SizedBox(width: 4),
             Text(
-              pedido.cpfConfirmado ? 'CPF confirmado' : 'CPF não informado',
+              pedido.cpfInformado ? 'CPF informado' : 'CPF não informado',
               style: TextStyle(
-                color: pedido.cpfConfirmado ? colors.success : colors.warning,
+                color: pedido.cpfInformado
+                    ? colors.textSecondary
+                    : colors.warning,
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
               ),

@@ -176,8 +176,13 @@ select is(
     from pg_policies
     where schemaname = 'storage'
       and tablename = 'objects'
+      -- A de leitura virou own_folder na 20260922120000: dava select ao
+      -- papel `public` no balde inteiro, e com isso a listagem anônima
+      -- entregava quem tem verificação de escritório em andamento. O
+      -- download do logo não depende dela (o balde é public=true e
+      -- /object/public/ não passa por RLS).
       and policyname in (
-        'law_firm_avatars_public_read',
+        'law_firm_avatars_own_folder_read',
         'law_firm_avatars_pending_owner_insert',
         'law_firm_avatars_unapproved_owner_delete'
       )

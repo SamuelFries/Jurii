@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../repositories/email_policy_repository.dart';
 import '../theme/app_colors.dart';
 import '../types/auth_callbacks.dart';
 import '../utils/cpf_input_formatter.dart';
@@ -8,10 +9,22 @@ import '../utils/validators.dart';
 import 'jurii_form_motion.dart';
 import 'jurii_motion.dart';
 
+/// O que a tela diz quando o e-mail é descartável. Uma frase só, usada tanto
+/// na checagem prévia quanto na tradução do erro do servidor, para a pessoa
+/// nunca ler duas explicações diferentes do mesmo "não".
+const String _recadoDeEmailDescartavel =
+    'Use um e-mail permanente. Endereços descartáveis não são aceitos: é por '
+    'ele que você recupera a senha e recebe aviso de movimentação do caso.';
+
 class RegisterForm extends StatefulWidget {
   final RegisterSubmit onRegister;
+  final EmailPolicyRepository emailPolicyRepository;
 
-  const RegisterForm({super.key, required this.onRegister});
+  const RegisterForm({
+    super.key,
+    required this.onRegister,
+    this.emailPolicyRepository = const EmailPolicyRepository(),
+  });
 
   @override
   State<RegisterForm> createState() => _RegisterFormState();
@@ -209,6 +222,22 @@ class _RegisterFormState extends State<RegisterForm> {
     });
 
     try {
+      // Pergunta ANTES de enviar, para a pessoa ler o motivo em vez de um
+      // erro de servidor. A barreira de verdade é o gatilho em auth.users: a
+      // chave anon é pública, e um cadastro por fora do app contornaria
+      // qualquer validação de tela.
+      final descartavel = await widget.emailPolicyRepository.ehDescartavel(
+        _emailController.text.trim(),
+      );
+      if (descartavel) {
+        if (!mounted) return;
+        setState(() {
+          _errorMessage = _recadoDeEmailDescartavel;
+          _isLoading = false;
+        });
+        return;
+      }
+
       final result = await widget.onRegister(
         fullName: _nameController.text.trim(),
         email: _emailController.text.trim(),
@@ -243,6 +272,9 @@ class _RegisterFormState extends State<RegisterForm> {
 
   String _friendlyError(Object error) {
     final message = error.toString().toLowerCase();
+    if (message.contains('disposable email domains are not allowed')) {
+      return _recadoDeEmailDescartavel;
+    }
     if (message.contains('already registered') ||
         message.contains('already exists')) {
       return 'Já existe uma conta com este e-mail.';

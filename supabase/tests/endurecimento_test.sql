@@ -9,7 +9,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(11);
+select plan(12);
 
 insert into auth.users (id, aud, role, email, encrypted_password,
   email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
@@ -74,7 +74,15 @@ select is(
 reset role;
 
 -- ---------------------------------------------------------------------------
--- 2. Não se insere verificação já decidida
+-- 2. A verificação não se escreve à mão
+--
+-- Antes da 20260919 a tabela aceitava escrita direta e as policies é que
+-- seguravam o essencial (ninguém se aprova). Continuavam passando as colunas
+-- de tempo, e com elas o candidato reescrevia o próprio submitted_at para
+-- passar na frente na fila que a equipe revisa por ordem de envio. Agora o
+-- grant de escrita não existe, e as policies ficam como segunda camada: as
+-- duas primeiras asserções aqui embaixo eram barradas pela RLS e passaram a
+-- ser barradas antes dela, o que é a mesma recusa mais cedo.
 -- ---------------------------------------------------------------------------
 select set_config('request.jwt.claim.sub',
   'd1000000-0000-0000-0000-000000000002', true);
@@ -86,7 +94,7 @@ select throws_ok(
     values ('d1000000-0000-0000-0000-000000000002', '000001', 'RS',
             'Direito Civel', 'approved', now())$$,
   '42501',
-  'new row violates row-level security policy for table "lawyer_verifications"',
+  'permission denied for table lawyer_verifications',
   'ninguem insere verificacao ja APROVADA');
 
 select throws_ok(
@@ -95,17 +103,21 @@ select throws_ok(
     values ('d1000000-0000-0000-0000-000000000002', '000002', 'RS',
             'Direito Civel', 'pending', 'motivo inventado')$$,
   '42501',
-  'new row violates row-level security policy for table "lawyer_verifications"',
+  'permission denied for table lawyer_verifications',
   'nem com motivo de recusa forjado');
 
--- Pendente de verdade continua entrando: a trava não pode fechar a porta da
--- frente.
+-- A porta da frente não pode fechar junto: o envio legítimo passa pela RPC,
+-- que é por onde o app e o webapp sempre enviaram.
 select lives_ok(
-  $$insert into public.lawyer_verifications
-      (user_id, oab_number, oab_state, practice_area, status)
-    values ('d1000000-0000-0000-0000-000000000002', '000003', 'RS',
-            'Direito Civel', 'pending')$$,
-  'envio legitimo, pendente, continua passando');
+  $$select public.submit_lawyer_verification('000003', 'RS', 'Direito Civel',
+      array['Direito Civel'])$$,
+  'envio legitimo, pela RPC, continua passando');
+
+select is(
+  (select status::text from public.lawyer_verifications
+   where user_id = 'd1000000-0000-0000-0000-000000000002' and oab_number = '000003'),
+  'pending',
+  'e nasce pendente, para a equipe revisar');
 
 reset role;
 

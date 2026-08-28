@@ -11,7 +11,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(29);
+select plan(30);
 
 insert into auth.users (id, aud, role, email, encrypted_password, email_confirmed_at,
   raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
@@ -96,10 +96,19 @@ select set_config('request.jwt.claim.sub','e5000000-0000-4000-8000-00000000000a'
 set local role authenticated;
 
 select results_eq(
-  $$select requester_name, requester_email, cpf_confirmado, member_role
+  $$select requester_name, requester_email, cpf_informado, member_role
     from public.listar_pedidos_de_entrada('ef500000-0000-4000-8000-000000000001')$$,
   $$values ('Secretaria Certa'::text,'sec@pedido.test'::text,true,'secretary'::text)$$,
-  'quem decide ve nome, e-mail e se o CPF esta confirmado');
+  'quem decide ve nome, e-mail e se o CPF foi informado');
+
+-- INFORMADO, e não confirmado: nada checa esse CPF contra a Receita nem
+-- contra documento; ele é digitado no cadastro e passa por dígito
+-- verificador. O nome da coluna é a promessa que a tela faz a quem aprova.
+select is(
+  (select count(*)::int from information_schema.columns
+   where table_schema = 'public' and column_name = 'cpf_confirmado'),
+  0,
+  'nenhuma coluna promete CPF "confirmado" (a plataforma não confirma CPF)');
 
 reset role;
 

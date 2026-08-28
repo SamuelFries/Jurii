@@ -1,0 +1,28 @@
+-- O caso só muda por RPC.
+--
+-- A 20260729150000 trocou o grant de tabela inteira por grants de coluna em
+-- legal_cases, com o raciocínio certo escrito no próprio arquivo: "o app nao
+-- usa escrita direta em legal_cases (tudo por RPC)". Só que ela manteve
+-- title, area, status, description, last_update_label e deadline_at abertos
+-- para authenticated, e a policy de UPDATE (can_manage_case) considera o
+-- CLIENTE como quem gerencia o caso dele.
+--
+-- O resultado, reproduzido no banco local: o cliente fecha o próprio caso
+-- (status='closed'), reabre (status='open') e reescreve o título direto pela
+-- API, sem passar por close_legal_case nem reopen_legal_case. Ou seja, sem o
+-- aviso ao advogado, sem registro de quem fechou, sem o convite de avaliação,
+-- e com o advogado vendo um título que ele não escreveu. O ciclo de vida do
+-- caso deixava de ser o que as RPCs contam.
+--
+-- Hoje ninguém escreve direto: nem o app, nem o webapp (só leitura). E as
+-- sete funções que escrevem em legal_cases (add_case_update,
+-- assign_law_firm_case, close_legal_case, ingest_case_movements,
+-- reopen_legal_case, respond_to_case_request, set_case_cnj_number) são todas
+-- SECURITY DEFINER, então não dependem do grant de quem chama. O grant sai
+-- inteiro.
+--
+-- As policies ficam onde estão de propósito: se um dia alguém reconceder o
+-- grant sem pensar, elas continuam limitando o alcance. Barreira em duas
+-- camadas custa nada quando a de cima é um revoke.
+
+revoke insert, update on public.legal_cases from authenticated;

@@ -117,7 +117,7 @@ class JoinRequest {
     required this.id,
     required this.requesterName,
     required this.requesterEmail,
-    required this.cpfConfirmado,
+    required this.cpfInformado,
     required this.memberRole,
     required this.createdAt,
     required this.expiresAt,
@@ -128,7 +128,7 @@ class JoinRequest {
   final String requesterEmail;
 
   /// O dado que faz o gestor RECONHECER a pessoa antes de aprovar.
-  final bool cpfConfirmado;
+  final bool cpfInformado;
   final String memberRole;
   final DateTime createdAt;
   final DateTime expiresAt;
