@@ -10,6 +10,26 @@ import '../models/intake_summary.dart';
 /// forma 100% local, usando a taxonomia de busca jurídica já existente.
 ///
 /// Ver docs/ai-intake.md para a arquitetura completa.
+/// Textos fixos da assistente, compartilhados entre a implementação local e
+/// a remota. O aviso de risco e o encerramento são SEMPRE estes, nunca texto
+/// gerado por IA: a Edge Function só sinaliza booleanos (docs/ai-intake.md).
+const String intakeGreeting =
+    'Olá! Sou a assistente da Jurii. Antes de conectar você a um '
+    'profissional, vou fazer algumas perguntas rápidas para que o advogado '
+    'já receba seu caso organizado.\n\n'
+    'Para começar: me conte, com suas palavras, o que aconteceu.';
+
+const String intakeWrapUp =
+    'Obrigada! Já tenho o suficiente para organizar seu relato. '
+    'Vou preparar um resumo para o profissional. Você poderá revisar '
+    'tudo antes do envio.';
+
+const String intakeSafetyNotice =
+    'Percebi que sua situação pode envolver risco à sua segurança. '
+    'Se você estiver em perigo agora, ligue 190 (Polícia Militar) ou '
+    '180 (Central de Atendimento à Mulher). Seguimos com o atendimento '
+    'aqui também.';
+
 abstract class IntakeAIService {
   Future<ClientIntakeSession> startSession({required String clientId});
 
@@ -34,22 +54,9 @@ class RuleBasedIntakeAIService implements IntakeAIService {
   final int maxFollowUpQuestions;
   int _idCounter = 0;
 
-  static const _greeting =
-      'Olá! Sou a assistente da Jurii. Antes de conectar você a um '
-      'profissional, vou fazer algumas perguntas rápidas para que o advogado '
-      'já receba seu caso organizado.\n\n'
-      'Para começar: me conte, com suas palavras, o que aconteceu.';
-
-  static const _wrapUp =
-      'Obrigada! Já tenho o suficiente para organizar seu relato. '
-      'Vou preparar um resumo para o profissional. Você poderá revisar '
-      'tudo antes do envio.';
-
-  static const _safetyNotice =
-      'Percebi que sua situação pode envolver risco à sua segurança. '
-      'Se você estiver em perigo agora, ligue 190 (Polícia Militar) ou '
-      '180 (Central de Atendimento à Mulher). Seguimos com o atendimento '
-      'aqui também.';
+  static const _greeting = intakeGreeting;
+  static const _wrapUp = intakeWrapUp;
+  static const _safetyNotice = intakeSafetyNotice;
 
   @override
   Future<ClientIntakeSession> startSession({required String clientId}) async {
