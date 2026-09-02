@@ -95,10 +95,55 @@ Flutter ──JWT──▶ Supabase Edge Function `intake-chat` ──▶ API de
 - o advogado lê **apenas o resumo**, e só após `consented_at` + entrega;
 - `retention_expires_at` (90 dias) para expurgo de sessões abandonadas.
 
+## Integração real (implementada em 02/09/2026, branch feat/ia-de-triagem)
+
+Decisão de modelo: **Claude Sonnet 5 com prompt caching** (`claude-sonnet-5`).
+Custo medido em estimativa: ~US$0,012 por sessão completa (5 chamadas, ~8K
+tokens de entrada, cache read a 0,1× do preço); o pior caso adversarial fica
+em ~US$0,45/dia por conta, preso pelo taxímetro. Haiku 4.5 custaria o mesmo
+na prática (o mínimo cacheável dele, 4.096 tokens, não se atinge aqui) com
+perguntas piores; Opus 5 custa 5× e fica como upgrade se a qualidade pedir.
+
+| Peça | Arquivo |
+| --- | --- |
+| Edge Function (chave, taxímetro, prompt, schema, validação) | `supabase/functions/intake-chat/index.ts` |
+| Taxímetro: 12 chamadas/hora e 30/dia por usuário | `supabase/migrations/20260923120000_a_triagem_tem_medidor.sql` |
+| Serviço remoto com fallback POR TURNO no rule-based | `lib/services/remote_intake_ai_service.dart` |
+| Composição (Supabase pronto → remoto; demo → local) | `lib/services/intake_ai_service_factory.dart` |
+| Testes | `supabase/tests/triagem_tem_medidor_test.sql`, `test/remote_intake_ai_service_test.dart` |
+
+O desenho anti-abuso, na ordem em que uma requisição o atravessa, está no
+cabeçalho da própria função. O resumo em uma linha: a IA não tem ferramenta
+nem vê nada além do texto da própria sessão; a área do direito sai de um
+ENUM montado da allowlist do banco; os textos de emergência e encerramento
+são fixos do app (a IA só sinaliza booleanos); e qualquer falha cai no
+rule-based sem travar a triagem.
+
+A conversa continua EFÊMERA (o proposal de persistência segue não aplicado):
+a única tabela nova é o taxímetro, que guarda quem chamou e quando, nunca
+conteúdo.
+
+### Para ligar em produção (passos do Samuel)
+
+1. `supabase secrets set ANTHROPIC_API_KEY=sk-ant-...` (chave criada no
+   console da Anthropic; recomendo um workspace próprio "jurii-triagem" para
+   o limite de gasto ser isolado).
+2. `supabase db push` (aplica a migration do taxímetro).
+3. `supabase functions deploy intake-chat`.
+4. Validar com a chave real: abrir a triagem no app e conferir uma sessão
+   inteira. IMPORTANTE: a prova local rodou com chave falsa, que a Anthropic
+   recusa ANTES de validar o corpo; o formato das mensagens está fundado na
+   regra documentada da API (primeira mensagem é sempre user), mas a
+   primeira sessão com chave real é a prova final.
+5. Conferir no dashboard da Anthropic que `cache_read_input_tokens` cresce a
+   partir da segunda chamada de uma sessão (senão, algum byte do prefixo
+   está variando).
+
 ## Pendências de decisão humana
 
 - Copy final da assistente e limite de perguntas (revisão advogado/jurídico).
 - Checklists de documentos por área devem ser validados por advogado antes de
   produção (hoje são operacionais, não aconselhamento).
 - Persistir sessões desde já (rodar o proposal) ou manter efêmero até o MVP+1.
-- Qual modelo/fornecedor de LLM e orçamento por sessão.
+- Marcação verificável do resumo na conversa (inserção server-side), o
+  fast-follow já anotado acima.
